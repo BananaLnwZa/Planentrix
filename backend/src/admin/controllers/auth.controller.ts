@@ -90,12 +90,21 @@ export const loginAdmin = async (req: Request, res: Response) => {
   try {
     const { admin_name, admin_password } = req.body;
 
+    if (!admin_name || !admin_password) {
+      return res.status(400).json({
+        message: "admin_name and admin_password are required",
+      });
+    }
+
+    console.log("loginAdmin body:", req.body);
+
     if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET not set");
 
     const [adminRows]: any = await db.query(
       "SELECT * FROM admin WHERE BINARY admin_name = ?",
       [admin_name]
     );
+    console.log("loginAdmin query rows:", adminRows.length, adminRows[0]);
     if (adminRows.length === 0) {
       return res.status(400).json({ message: "Invalid username or password" });
     }
@@ -106,6 +115,7 @@ export const loginAdmin = async (req: Request, res: Response) => {
       admin_password,
       admin.admin_password
     );
+    console.log("loginAdmin password valid:", isPasswordValid);
     if (!isPasswordValid) {
       return res.status(400).json({ message: "Invalid username or password" });
     }
@@ -114,11 +124,6 @@ export const loginAdmin = async (req: Request, res: Response) => {
       { id: admin.admin_id, role: "admin" },
       process.env.JWT_SECRET!,
       { expiresIn: "24h" }
-    );
-
-    await db.query(
-      "UPDATE admin SET last_login = NOW() WHERE admin_id = ?",
-      [admin.admin_id]
     );
 
     res.json({

@@ -1,8 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import userAuthRouter from "./routes/user/authen.route";
-import { errorHandler } from "./middlewares/errorHandler";
+import userAuthRouter from "./routes/authen.route";
+import { errorHandler } from "../middlewares/errorHandler";
 
 dotenv.config();
 
@@ -20,6 +20,7 @@ app.get("/", (req, res) => {
 app.use(errorHandler);
 
 const port = Number(process.env.USER_SERVER_PORT || 4000);
+console.log("Starting user server...");
 app.listen(port, () => {
   console.log(`User server listening on http://localhost:${port}`);
 });

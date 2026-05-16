@@ -1,8 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import adminAuthRouter from "./routes/admin/authen.route";
-import { errorHandler } from "./middlewares/errorHandler";
+import adminAuthRouter from "./routes/authen.route";
+import { errorHandler } from "../middlewares/errorHandler";
 
 dotenv.config();
 
@@ -20,6 +20,7 @@ app.get("/", (req, res) => {
 app.use(errorHandler);
 
 const port = Number(process.env.ADMIN_SERVER_PORT || 4100);
+console.log("Starting admin server...");
 app.listen(port, () => {
   console.log(`Admin server listening on http://localhost:${port}`);
 });

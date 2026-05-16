@@ -94,7 +94,7 @@ export const register = async (req: Request, res: Response) => {
     }
 
     const [existing]: any = await db.query(
-      "SELECT user_id FROM users WHERE BINARY user_name = ?",
+      "SELECT user_id FROM user WHERE BINARY user_name = ?",
       [user_name]
     );
     if (existing.length > 0) {
@@ -104,21 +104,22 @@ export const register = async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(user_password, 10);
 
     const [userResult]: any = await db.query(
-      `INSERT INTO users
-        (user_name, user_password, user_birthdate, user_gender)
-       VALUES (?, ?, ?, ?)`,
+      `INSERT INTO user
+        (user_name, user_password, user_birthdate, user_gender, last_login)
+       VALUES (?, ?, ?, ?, ?)`,
       [
         user_name,
         hashedPassword,
         user_birthdate || null,
         user_gender || null,
+        null,
       ]
     );
 
     const userId = userResult.insertId;
 
     await db.query(
-      `INSERT INTO \`constraints\`
+      `INSERT INTO \`constraint\`
         (user_id, day_off, continuous_working_duration, \`break\`, start_time, end_time, time_preference,
          recurring_busy_time_start, recurring_busy_time_end, recurring_busy_day)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -153,7 +154,7 @@ export const login = async (req: Request, res: Response) => {
     if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET not set");
 
     const [userRows]: any = await db.query(
-      "SELECT * FROM users WHERE BINARY user_name = ?",
+      "SELECT * FROM user WHERE BINARY user_name = ?",
       [user_name]
     );
     if (userRows.length === 0) {
@@ -191,13 +192,13 @@ export const login = async (req: Request, res: Response) => {
       refreshExpires.setDate(refreshExpires.getDate() + 30);
 
       await db.query(
-        "UPDATE users SET refresh_token = ?, refresh_token_expires_at = ?, last_login = NOW() WHERE user_id = ?",
+        "UPDATE user SET refresh_token = ?, refresh_token_expires_at = ?, last_login = NOW() WHERE user_id = ?",
         [refreshToken, refreshExpires, user.user_id]
       );
 
       response.refreshToken = refreshToken;
     } else {
-      await db.query("UPDATE users SET last_login = NOW() WHERE user_id = ?", [user.user_id]);
+      await db.query("UPDATE user SET last_login = NOW() WHERE user_id = ?", [user.user_id]);
     }
 
     res.json(response);
@@ -218,7 +219,7 @@ export const refreshToken = async (req: Request, res: Response) => {
     }
 
     const [rows]: any = await db.query(
-      "SELECT * FROM users WHERE refresh_token = ? AND refresh_token_expires_at > NOW()",
+      "SELECT * FROM user WHERE refresh_token = ? AND refresh_token_expires_at > NOW()",
       [refreshToken]
     );
     if (rows.length === 0) {
@@ -231,7 +232,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       jwt.verify(refreshToken, process.env.JWT_SECRET!);
     } catch {
       await db.query(
-        "UPDATE users SET refresh_token = NULL, refresh_token_expires_at = NULL WHERE user_id = ?",
+        "UPDATE user SET refresh_token = NULL, refresh_token_expires_at = NULL WHERE user_id = ?",
         [user.user_id]
       );
       return res.status(403).json({ message: "Invalid refresh token" });
@@ -261,7 +262,7 @@ export const logout = async (req: Request, res: Response) => {
     }
 
     await db.query(
-      "UPDATE users SET refresh_token = NULL, refresh_token_expires_at = NULL WHERE user_id = ?",
+      "UPDATE user SET refresh_token = NULL, refresh_token_expires_at = NULL WHERE user_id = ?",
       [userId]
     );
 
@@ -296,15 +297,15 @@ export const deleteOwnAccount = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Unauthorized: Missing user ID" });
     }
 
-    const [users]: any = await db.query(
-      "SELECT user_pic FROM users WHERE user_id = ?",
+    const [user]: any = await db.query(
+      "SELECT user_pic FROM user WHERE user_id = ?",
       [userId]
     );
-    if (users.length === 0) {
+    if (user.length === 0) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const userPic = users[0].user_pic;
+    const userPic = user[0].user_pic;
     if (userPic) deleteProfileImage(userPic);
 
     await db.query(
@@ -319,7 +320,7 @@ export const deleteOwnAccount = async (req: Request, res: Response) => {
     await db.query("DELETE FROM Activity WHERE user_id = ?", [userId]);
     await db.query("DELETE FROM DailyCalories WHERE user_id = ?", [userId]);
     await db.query("DELETE FROM AIAnalysis WHERE user_id = ?", [userId]);
-    await db.query("DELETE FROM users WHERE user_id = ?", [userId]);
+    await db.query("DELETE FROM user WHERE user_id = ?", [userId]);
 
     res.json({ message: "Account deleted successfully" });
   } catch (err) {

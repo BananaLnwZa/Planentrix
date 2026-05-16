@@ -2,10 +2,11 @@
   "name": "backend",
   "version": "0.1.0",
   "private": true,
+  "type": "commonjs",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev:admin": "nodemon --watch src --ext ts --exec \"ts-node src/admin/admin.server.ts\"",
+    "dev:user": "nodemon --watch src --ext ts --exec \"ts-node src/user/user.server.ts\"",
+    "dev": "npm run dev:admin",
     "lint": "eslint"
   },
   "dependencies": {
