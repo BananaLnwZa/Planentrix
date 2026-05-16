@@ -1,5 +1,6 @@
 import LogoSection from "./LogoSection";
 import LoginForm from "./LoginForm";
+import NotebookRing from "./NotebookRing";
 
 export default function NotebookLayout() {
   return (
@@ -18,20 +19,24 @@ export default function NotebookLayout() {
       {/* สมุดสีชมพู */}
       <div
         className="
+          relative
           w-[900px]
           min-h-[700px]
           rounded-[30px]
           bg-[#F8DCE4]
           shadow-xl
-          border border-[#e8c7d1]
+          border
+          border-[#e8c7d1]
           p-12
           flex
           flex-col
           items-center
           justify-center
-          relative
         "
       >
+        {/* ห่วงสมุด */}
+        <NotebookRing />
+
         {/* เส้นสันสมุดด้านซ้าย */}
         <div
           className="
