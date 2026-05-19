@@ -1,4 +1,9 @@
-export default function RegisterPage() {
+import Notebook from "@/components/common/Notebook";
+import LogoSection from "@/components/common/LogoSection";
+import CreateAccForm from "@/components/SingIn/CreateAccForm";
+import Constraint from "@/components/SingIn/constraintForm";
+
+export default function LoginPage() {
   return (
     <div
       className="
@@ -9,13 +14,14 @@ export default function RegisterPage() {
         flex
         items-center
         justify-center
+        p-8
       "
     >
-      <div className="w-[500px] rounded-3xl bg-white/80 p-10 shadow-xl">
-        <h1 className="text-center text-3xl font-bold text-black">
-          Sing In Page
-        </h1>
-      </div>
+      <Notebook>
+        <LogoSection />
+        <CreateAccForm />
+        <Constraint />
+      </Notebook>
     </div>
   );
 }

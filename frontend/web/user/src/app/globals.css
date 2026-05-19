@@ -24,3 +24,11 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.custom-date::-webkit-calendar-picker-indicator {
+  filter: invert(84%) sepia(21%) saturate(544%) hue-rotate(287deg);
+
+  transform: scale(1.5);
+
+  cursor: pointer;
+}

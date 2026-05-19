@@ -9,6 +9,13 @@ export default function LogoSection() {
         width={300}
         height={300}
         priority
+        className="
+          w-[180px]
+          sm:w-[220px]
+          md:w-[260px]
+          lg:w-[300px]
+          h-auto
+        "
       />
     </div>
   );
