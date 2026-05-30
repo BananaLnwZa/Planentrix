@@ -2,6 +2,7 @@ import Notebook from "@/components/common/Notebook";
 import LogoSection from "@/components/common/LogoSection";
 import CreateAccForm from "@/components/SingIn/CreateAccForm";
 import Constraint from "@/components/SingIn/constraintForm";
+import SignInBtn from "@/components/SingIn/SignInBtn";
 
 export default function LoginPage() {
   return (
@@ -21,6 +22,7 @@ export default function LoginPage() {
         <LogoSection />
         <CreateAccForm />
         <Constraint />
+        <SignInBtn />
       </Notebook>
     </div>
   );
