@@ -1,42 +1,48 @@
-import Link from "next/link";
+interface LoginBtnProps {
+  isLoading?: boolean;
+}
 
-export default function LoginBtn() {
+export default function LoginBtn({ isLoading = false }: LoginBtnProps) {
   return (
-    <Link href="/Main">
-      <button
-        className="
-          rounded-full
-          border
-          border-gray-300
+    <button
+      type="submit"
+      disabled={isLoading}
+      className="
+        rounded-full
+        border
+        border-gray-300
 
-          bg-white
+        bg-white
 
-          px-6
-          py-2
+        px-6
+        py-2
 
-          sm:px-8
-          md:px-10
+        sm:px-8
+        md:px-10
 
-          text-sm
-          sm:text-base
+        text-sm
+        sm:text-base
 
-          text-black
+        text-black
 
-          shadow-sm
+        shadow-sm
 
-          transition-all
-          duration-300
+        transition-all
+        duration-300
 
-          hover:bg-[#9CC5F9]
-          hover:text-white
-          hover:shadow-lg
-          hover:scale-105
+        hover:bg-[#9CC5F9]
+        hover:text-white
+        hover:shadow-lg
+        hover:scale-105
 
-          active:scale-95
-        "
-      >
-        Login
-      </button>
-    </Link>
+        active:scale-95
+
+        disabled:opacity-50
+        disabled:cursor-not-allowed
+        disabled:hover:scale-100
+      "
+    >
+      {isLoading ? "Logging in..." : "Login"}
+    </button>
   );
 }
