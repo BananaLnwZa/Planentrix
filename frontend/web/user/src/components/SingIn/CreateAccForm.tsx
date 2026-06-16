@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import SelectGender from "./SelectGender";
 
 export default function LoginForm() {
   return (
@@ -214,69 +215,10 @@ export default function LoginForm() {
           />
         </div>
 
-        {/* Select Gender */}
-        <div>
-          <label
-            className="
-              mb-2
-              block
-
-              text-xs
-              sm:text-sm
-
-              text-gray-700
-            "
-          >
-            Select Gender
-          </label>
-
-          {/* custom dropdown */}
-        <div className="relative w-1/2">
-        <select
-            className="
-            w-full
-            appearance-none
-            rounded-full
-            border
-            border-gray-300
-
-            px-4
-            pr-10
-            py-2.5
-
-            sm:px-5
-            sm:py-3
-
-            text-gray-400
-            text-[12px]
-            sm:text-[14px]
-
-            outline-none
-            "
-        >
-            <option>Select Gender</option>
-            <option>Male</option>
-            <option>Female</option>
-            <option>Other</option>
-        </select>
-
-        <Image
-            src="/icons/dropdown.svg"
-            alt="dropdown icon"
-            width={20}
-            height={20}
-            className="
-            pointer-events-none
-            absolute
-            right-4
-            top-1/2
-            -translate-y-1/2
-            "
-        />
-        </div>
-        </div>
-      </div>
+      {/* Select Gender */}
+      <SelectGender />
 
     </div>
+  </div>
   );
 }

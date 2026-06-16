@@ -247,7 +247,7 @@ export default function LoginForm() {
           text-gray-600
         "
       >
-        Don&apos;t have an account?{" "}
+        Don&apos;t have an account? | {" "}
 
         <Link
           href="/SingIn"
