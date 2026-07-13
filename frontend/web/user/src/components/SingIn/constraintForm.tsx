@@ -1,96 +1,97 @@
-import Link from "next/link";
+"use client";
+
 import Image from "next/image";
+import { useState } from "react";
+
 import Worktime from "./Worktime";
 import BusyDay from "./BusyDay";
+import CustomDayDropdown from "./CustomDayDropdown";
 
 export default function LoginForm() {
+  const [selectedDay, setSelectedDay] = useState("");
+
   return (
     <div
       className="
         w-full
-        max-w-[450px]
+        max-w-[500px]
         min-h-[420px]
-        md:min-h-[450px]
         rounded-2xl
         bg-white/70
-        p-6
-        sm:p-8
-        md:p-10
+        p-4
         shadow-md
         backdrop-blur-sm
+
+        sm:p-6
+        md:min-h-[450px]
+        md:p-8
+        lg:p-10
       "
     >
-      <h2 className="mb-8 text-center text-3xl sm:text-4xl font-medium text-black">
+      <h2
+        className="
+          mb-6
+          text-center
+          text-2xl
+          font-medium
+          text-black
+
+          sm:mb-8
+          sm:text-3xl
+          md:text-4xl
+        "
+      >
         Constraint
       </h2>
 
-      <div className="flex flex-col gap-4">
-
-        {/* วันหยุด*/}
+      <div className="flex flex-col gap-5 sm:gap-6">
+        {/* วันหยุด */}
         <div className="space-y-2">
-          <label className="text-sm text-gray-700">วันหยุด</label>
+          <label className="block text-xs text-gray-700 sm:text-sm">
+            วันหยุด
+          </label>
 
-          <div className="relative w-2/3">
-            <select
-              className="
-                w-full
-                appearance-none
-                rounded-full
-                border
-                border-gray-300
-                px-4
-                pr-10
-                py-2.5
-                text-gray-400
-                outline-none
-              "
-            >
-              <option>เลือกวันที่ต้องการหยุด</option>
-              <option>Monday</option>
-              <option>Tuesday</option>
-              <option>Wednesday</option>
-              <option>Thursday</option>
-              <option>Friday</option>
-              <option>Saturday</option>
-              <option>Sunday</option>
-            </select>
-
-            <Image
-              src="/icons/dropdown.svg"
-              alt="dropdown icon"
-              width={25}
-              height={25}
-              className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2"
-            />
-          </div>
+          <CustomDayDropdown
+            value={selectedDay}
+            onChange={setSelectedDay}
+          />
         </div>
 
-        {/* ระยะเวลา */}
+        {/* ระยะเวลาทำงานต่อเนื่อง */}
         <div className="space-y-2">
-          <label className="text-sm text-gray-700">
+          <label className="block text-xs text-gray-700 sm:text-sm">
             ระยะเวลาทำงานต่อเนื่อง
           </label>
 
-          <div className="flex gap-4 w-2/3">
+          <div className="flex flex-wrap gap-3 sm:gap-4">
             <div className="flex items-center gap-2">
               <input
                 type="number"
                 min={0}
                 placeholder="0"
                 className="
-                  w-20
+                  h-[40px]
+                  w-[72px]
                   rounded-full
                   border
                   border-gray-300
-                 text-gray-400
+                  bg-white
                   px-3
-                  py-2.5
                   text-center
-                  text-sm
+                  text-xs
+                  text-gray-500
                   outline-none
+                  focus:border-pink-300
+
+                  sm:h-[44px]
+                  sm:w-20
+                  sm:text-sm
                 "
               />
-              <span className="text-sm text-gray-600">ชั่วโมง</span>
+
+              <span className="text-xs text-gray-600 sm:text-sm">
+                ชั่วโมง
+              </span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -100,49 +101,67 @@ export default function LoginForm() {
                 max={59}
                 placeholder="0"
                 className="
-                  w-20
+                  h-[40px]
+                  w-[72px]
                   rounded-full
                   border
-                  text-gray-400
                   border-gray-300
+                  bg-white
                   px-3
-                  py-2.5
                   text-center
-                  text-sm
+                  text-xs
+                  text-gray-500
                   outline-none
+                  focus:border-pink-300
+
+                  sm:h-[44px]
+                  sm:w-20
+                  sm:text-sm
                 "
               />
-              <span className="text-sm text-gray-600">นาที</span>
+
+              <span className="text-xs text-gray-600 sm:text-sm">
+                นาที
+              </span>
             </div>
           </div>
         </div>
 
-        {/* ระยะเวลา */}
+        {/* ระยะเวลาพัก */}
         <div className="space-y-2">
-          <label className="text-sm text-gray-700">
+          <label className="block text-xs text-gray-700 sm:text-sm">
             ระยะเวลาพัก
           </label>
 
-          <div className="flex gap-4 w-2/3">
+          <div className="flex flex-wrap gap-3 sm:gap-4">
             <div className="flex items-center gap-2">
               <input
                 type="number"
                 min={0}
                 placeholder="0"
                 className="
-                  w-20
+                  h-[40px]
+                  w-[72px]
                   rounded-full
                   border
                   border-gray-300
-                 text-gray-400
+                  bg-white
                   px-3
-                  py-2.5
                   text-center
-                  text-sm
+                  text-xs
+                  text-gray-500
                   outline-none
+                  focus:border-pink-300
+
+                  sm:h-[44px]
+                  sm:w-20
+                  sm:text-sm
                 "
               />
-              <span className="text-sm text-gray-600">ชั่วโมง</span>
+
+              <span className="text-xs text-gray-600 sm:text-sm">
+                ชั่วโมง
+              </span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -152,104 +171,175 @@ export default function LoginForm() {
                 max={59}
                 placeholder="0"
                 className="
-                  w-20
+                  h-[40px]
+                  w-[72px]
                   rounded-full
                   border
-                  text-gray-400
                   border-gray-300
+                  bg-white
                   px-3
-                  py-2.5
                   text-center
-                  text-sm
+                  text-xs
+                  text-gray-500
                   outline-none
+                  focus:border-pink-300
+
+                  sm:h-[44px]
+                  sm:w-20
+                  sm:text-sm
                 "
               />
-              <span className="text-sm text-gray-600">นาที</span>
+
+              <span className="text-xs text-gray-600 sm:text-sm">
+                นาที
+              </span>
             </div>
           </div>
         </div>
 
-    <div className="space-y-2 w-1/2">
-    <label className="text-sm text-gray-700">
-        เวลาเริ่มทำงาน
-    </label>
+        {/* เวลาเริ่มทำงาน */}
+        <div className="w-full space-y-2">
+          <label className="block text-xs text-gray-700 sm:text-sm">
+            เวลาเริ่มทำงาน
+          </label>
 
-    {/* ✅ ต้องมี relative */}
-    <div className="relative">
-    <input
-        type="time"
-        className="
-        w-full
-        rounded-full
-        border
-        border-gray-300
-        px-10
-        py-2.5
-        text-gray-700
-        outline-none
-        "
-    />
+          <div className="relative w-full max-w-[200px]">
+            <input
+              type="time"
+              className="
+                h-[48px]
+                w-full
+                rounded-full
+                border
+                border-gray-300
+                bg-white
+                pl-4
+                pr-14
+                text-sm
+                text-gray-500
+                outline-none
+                [color-scheme:light]
+                focus:border-pink-300
 
-    {/* <Image
-        src="/icons/clock.svg"
-        alt="clock"
-        width={18}
-        height={18}
-        className="
-        absolute
-        left-4
-        top-1/2
-        -translate-y-1/2
-        pointer-events-none
-        "
-    /> */}
-    </div>
-    </div>
+                sm:h-[52px]
+                sm:pl-5
+                sm:pr-16
+                md:h-[56px]
+                md:pl-6
+                md:text-base
+              "
+            />
 
-        <div className="space-y-2 w-1/2">
-    <label className="text-sm text-gray-700">
-        เวลาสิ้นสุดการทำงาน
-    </label>
+            <div
+              className="
+                pointer-events-none
+                absolute
+                right-2
+                top-1/2
+                flex
+                h-9
+                w-9
+                -translate-y-1/2
+                items-center
+                justify-center
 
-    {/* ✅ ต้องมี relative */}
-    <div className="relative">
-    <input
-        type="time"
-        className="
-        w-full
-        rounded-full
-        border
-        border-gray-300
-        px-10
-        py-2.5
-        text-gray-700
-        outline-none
-        "
-    />
+                sm:right-3
+                sm:h-10
+                sm:w-10
+              "
+            >
+              <Image
+                src="/icons/clock.svg"
+                alt="clock"
+                width={22}
+                height={22}
+                className="
+                  h-[18px]
+                  w-[18px]
 
-    {/* <Image
-        src="/icons/clock.svg"
-        alt="clock"
-        width={18}
-        height={18}
-        className="
-        absolute
-        left-4
-        top-1/2
-        -translate-y-1/2
-        pointer-events-none
-        "
-    /> */}
-    </div>
-    </div>
-
-    <Worktime />
-
-        {/* วันไม่ว่างประจำ */}
-        <div>
-            <BusyDay />
+                  sm:h-[20px]
+                  sm:w-[20px]
+                  md:h-[22px]
+                  md:w-[22px]
+                "
+              />
+            </div>
+          </div>
         </div>
 
+        {/* เวลาสิ้นสุดการทำงาน */}
+        <div className="w-full space-y-2">
+          <label className="block text-xs text-gray-700 sm:text-sm">
+            เวลาสิ้นสุดการทำงาน
+          </label>
+
+          <div className="relative w-full max-w-[200px]">
+            <input
+              type="time"
+              className="
+                h-[48px]
+                w-full
+                rounded-full
+                border
+                border-gray-300
+                bg-white
+                pl-4
+                pr-14
+                text-sm
+                text-gray-500
+                outline-none
+                [color-scheme:light]
+                focus:border-pink-300
+
+                sm:h-[52px]
+                sm:pl-5
+                sm:pr-16
+                md:h-[56px]
+                md:pl-6
+                md:text-base
+              "
+            />
+
+            <div
+              className="
+                pointer-events-none
+                absolute
+                right-2
+                top-1/2
+                flex
+                h-9
+                w-9
+                -translate-y-1/2
+                items-center
+                justify-center
+
+                sm:right-3
+                sm:h-10
+                sm:w-10
+              "
+            >
+              <Image
+                src="/icons/clock.svg"
+                alt="clock"
+                width={22}
+                height={22}
+                className="
+                  h-[18px]
+                  w-[18px]
+
+                  sm:h-[20px]
+                  sm:w-[20px]
+                  md:h-[22px]
+                  md:w-[22px]
+                "
+              />
+            </div>
+          </div>
+        </div>
+
+        <Worktime />
+
+        <BusyDay />
       </div>
     </div>
   );

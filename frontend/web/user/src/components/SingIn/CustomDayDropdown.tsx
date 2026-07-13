@@ -1,40 +1,76 @@
 "use client";
 
-import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
-const genders = [
+type Props = {
+  value: string;
+  onChange: (day: string) => void;
+};
+
+const days = [
   {
-    id: "Male",
-    label: "Male",
-    base: "bg-white text-black",
+    id: "Monday",
+    label: "Monday",
     hover:
-      "hover:border-[#BBDEF4] hover:text-[#BBDEF4]",
+      "hover:border-[#F7E380] hover:text-[#D4B900]",
     active:
-      "bg-white border-[#BBDEF4] text-[#BBDEF4]",
+      "bg-[#FFFFF] border-[#F7E380] text-[#D4B900]",
   },
   {
-    id: "Female",
-    label: "Female",
-    base: "bg-white text-black",
+    id: "Tuesday",
+    label: "Tuesday",
     hover:
-      "hover:border-[#F8DCE4] hover:text-[#F8DCE4]",
+      "hover:border-[#F5B5CB] hover:text-[#E88BAD]",
     active:
-      "bg-white border-[#F8DCE4] text-[#F8DCE4]",
+      "bg-[#FFFFF] border-[#F5B5CB] text-[#E88BAD]",
   },
   {
-    id: "Other",
-    label: "Other",
-    base: "bg-white text-black",
+    id: "Wednesday",
+    label: "Wednesday",
     hover:
-      "hover:border-[#E7CFF2] hover:text-[#E7CFF2]",
+      "hover:border-[#B5E48C] hover:text-[#7EBD52]",
     active:
-      "bg-white border-[#E7CFF2] text-[#E7CFF2]",
+      "bg-[#FFFFF] border-[#B5E48C] text-[#7EBD52]",
+  },
+  {
+    id: "Thursday",
+    label: "Thursday",
+    hover:
+      "hover:border-[#FBC49C] hover:text-[#EB9558]",
+    active:
+      "bg-[#FFFFF] border-[#FBC49C] text-[#EB9558]",
+  },
+  {
+    id: "Friday",
+    label: "Friday",
+    hover:
+      "hover:border-[#D8B8E8] hover:text-[#D8B8E8]",
+    active:
+      "bg-[#FFFFF] border-[#D8B8E8] text-[#D8B8E8]",
+  },
+  {
+    id: "Saturday",
+    label: "Saturday",
+    hover:
+      "hover:border-[#71B7E4] hover:text-[#71B7E4]",
+    active:
+      "bg-[#FFFFF] border-[#71B7E4] text-[#71B7E4]",
+  },
+  {
+    id: "Sunday",
+    label: "Sunday",
+    hover:
+      "hover:border-[#FB9A92] hover:text-[#EC6E65]",
+    active:
+      "bg-[#FFFFF] border-[#FB9A92] text-[#EC6E65]",
   },
 ];
 
-export default function SelectGender() {
-  const [selectedGender, setSelectedGender] = useState("");
+export default function CustomDayDropdown({
+  value,
+  onChange,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
 
@@ -72,49 +108,20 @@ export default function SelectGender() {
     };
   }, [open]);
 
-  const handleToggle = () => {
-    setOpen((previous) => !previous);
-  };
-
-  const handleSelect = (gender: string) => {
-    setSelectedGender(gender);
-    setOpen(false);
-  };
-
   return (
-    <div
-      className="
-        w-full
-        max-w-[180px]
-        space-y-2
-
-        sm:max-w-[210px]
-        md:max-w-[240px]
-      "
-    >
-      {/* Label */}
-      <label
-        className="
-          block
-          text-xs
-          text-gray-700
-
-          sm:text-sm
-        "
-      >
-        gender
-      </label>
-
-      {/* Select */}
+    <div className="w-full max-w-[240px]">
+      {/* ช่อง Dropdown */}
       <button
         ref={buttonRef}
         type="button"
-        onClick={handleToggle}
+        onClick={() =>
+          setOpen((previous) => !previous)
+        }
         aria-haspopup="listbox"
         aria-expanded={open}
         className={`
           flex
-          h-[42px]
+          h-[48px]
           w-full
           items-center
           justify-between
@@ -122,43 +129,28 @@ export default function SelectGender() {
           border
           border-gray-300
           bg-white
-
-          px-3
+          px-4
           text-left
           outline-none
 
           transition-all
           duration-200
 
-          sm:h-[45px]
-          sm:px-4
-
-          md:h-[48px]
-          md:px-5
-
           ${
             open
-              ? "rounded-t-[20px] border-b-transparent sm:rounded-t-[22px] md:rounded-t-[24px]"
+              ? "rounded-t-[24px] border-b-transparent"
               : "rounded-full"
           }
         `}
       >
         <span
-          className={`
-            min-w-0
-            truncate
-            text-xs
-
-            sm:text-sm
-
-            ${
-              selectedGender
-                ? "text-gray-400"
-                : "text-gray-400"
-            }
-          `}
+          className={
+            value
+              ? "text-sm text-gray-400"
+              : "text-sm text-gray-400"
+          }
         >
-          {selectedGender || "select gender"}
+          {value || "เลือกวันที่ต้องการหยุด"}
         </span>
 
         <svg
@@ -167,13 +159,9 @@ export default function SelectGender() {
           viewBox="0 0 24 24"
           fill="#E7CFF2"
           className={`
-            ml-2
             shrink-0
             transition-transform
             duration-200
-
-            sm:h-7
-            sm:w-7
 
             ${open ? "rotate-180" : ""}
           `}
@@ -187,9 +175,10 @@ export default function SelectGender() {
         rect &&
         createPortal(
           <>
+            {/* กดพื้นที่ด้านนอกเพื่อปิด */}
             <button
               type="button"
-              aria-label="Close gender dropdown"
+              aria-label="ปิด dropdown"
               className="
                 fixed
                 inset-0
@@ -206,40 +195,37 @@ export default function SelectGender() {
                 z-[9999]
                 overflow-hidden
 
-                rounded-b-[20px]
+                rounded-b-[24px]
+
                 border
                 border-t-0
                 border-gray-300
 
                 bg-white
                 shadow-xl
-
-                sm:rounded-b-[22px]
-                md:rounded-b-[24px]
               "
               style={{
                 top: rect.bottom,
                 left: rect.left,
                 width: rect.width,
-                maxWidth: `calc(100vw - 24px)`,
               }}
             >
-              {genders.map((gender, index) => {
-                const selected =
-                  selectedGender === gender.id;
+              {days.map((day, index) => {
+                const selected = value === day.id;
 
                 return (
                   <button
-                    key={gender.id}
+                    key={day.id}
                     type="button"
                     role="option"
                     aria-selected={selected}
-                    onClick={() =>
-                      handleSelect(gender.id)
-                    }
+                    onClick={() => {
+                      onChange(day.id);
+                      setOpen(false);
+                    }}
                     className={`
                       flex
-                      h-[40px]
+                      h-[44px]
                       w-full
                       cursor-pointer
                       items-center
@@ -248,33 +234,29 @@ export default function SelectGender() {
                       border
                       border-transparent
 
-                      text-xs
+                      bg-white
+                      text-sm
+                      text-gray-700
+
                       transition-all
                       duration-200
 
-                      sm:h-[44px]
-                      sm:text-sm
-
-                      md:h-[48px]
-                      md:text-base
-
-                      ${gender.base}
-                      ${gender.hover}
+                      ${day.hover}
 
                       ${
                         selected
-                          ? gender.active
+                          ? day.active
                           : ""
                       }
 
                       ${
-                        index !== genders.length - 1
+                        index !== days.length - 1
                           ? "border-b-gray-200"
                           : ""
                       }
                     `}
                   >
-                    {gender.label}
+                    {day.label}
                   </button>
                 );
               })}

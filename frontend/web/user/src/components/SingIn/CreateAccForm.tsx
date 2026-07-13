@@ -1,5 +1,5 @@
-import Link from "next/link";
-import Image from "next/image";
+"use client";
+
 import SelectGender from "./SelectGender";
 
 export default function LoginForm() {
@@ -7,13 +7,12 @@ export default function LoginForm() {
     <div
       className="
         w-full
-        max-w-[450px]
+        max-w-[500px]
 
         min-h-[420px]
         md:min-h-[450px]
 
         rounded-2xl
-
         bg-white/70
 
         p-6
@@ -27,15 +26,13 @@ export default function LoginForm() {
       <h2
         className="
           mb-6
-          md:mb-8
-
           text-center
-
           text-3xl
-          sm:text-4xl
-
           font-medium
           text-black
+
+          sm:text-4xl
+          md:mb-8
         "
       >
         Create Account
@@ -48,11 +45,10 @@ export default function LoginForm() {
             className="
               mb-2
               block
-
               text-xs
-              sm:text-sm
-
               text-gray-700
+
+              sm:text-sm
             "
           >
             username
@@ -67,20 +63,20 @@ export default function LoginForm() {
               rounded-full
               border
               border-gray-300
+              bg-white
 
               px-4
               py-2.5
 
-              sm:px-5
-              sm:py-3
-
+              text-[11px]
+              text-gray-500
               outline-none
 
-              text-[11px]
+              sm:px-5
+              sm:py-3
               sm:text-[12px]
-              md:text-[14px]
 
-              text-gray-500
+              md:text-[14px]
             "
           />
         </div>
@@ -91,11 +87,10 @@ export default function LoginForm() {
             className="
               mb-2
               block
-
               text-xs
-              sm:text-sm
-
               text-gray-700
+
+              sm:text-sm
             "
           >
             password
@@ -110,20 +105,20 @@ export default function LoginForm() {
               rounded-full
               border
               border-gray-300
+              bg-white
 
               px-4
               py-2.5
 
-              sm:px-5
-              sm:py-3
-
+              text-[11px]
+              text-gray-500
               outline-none
 
-              text-[11px]
+              sm:px-5
+              sm:py-3
               sm:text-[12px]
-              md:text-[14px]
 
-              text-gray-500
+              md:text-[14px]
             "
           />
         </div>
@@ -134,11 +129,10 @@ export default function LoginForm() {
             className="
               mb-2
               block
-
               text-xs
-              sm:text-sm
-
               text-gray-700
+
+              sm:text-sm
             "
           >
             Confirm Password
@@ -153,20 +147,20 @@ export default function LoginForm() {
               rounded-full
               border
               border-gray-300
+              bg-white
 
               px-4
               py-2.5
 
-              sm:px-5
-              sm:py-3
-
+              text-[11px]
+              text-gray-500
               outline-none
 
-              text-[11px]
+              sm:px-5
+              sm:py-3
               sm:text-[12px]
-              md:text-[14px]
 
-              text-gray-500
+              md:text-[14px]
             "
           />
         </div>
@@ -177,48 +171,43 @@ export default function LoginForm() {
             className="
               mb-2
               block
-
               text-xs
-              sm:text-sm
-
               text-gray-700
+              sm:text-sm
             "
           >
             Birth Date
           </label>
 
-          <input
-            type="date"
-            className="
-              custom-date
+          <div className="w-1/2 min-w-[180px]">
+            <input
+              type="date"
+              className="
+                custom-date
+                h-[44px]
+                w-full
+                rounded-full
+                border
+                border-gray-300
+                bg-white
+                px-4
+                text-[12px]
+                text-gray-400
+                outline-none
 
-              w-1/2
-              md:w-1/2
-
-              rounded-full
-              border
-              border-gray-300
-
-              px-4
-              py-2.5
-
-              sm:px-5
-              sm:py-3
-
-              text-gray-400
-
-              text-[12px]
-              sm:text-[14px]
-
-              outline-none
-            "
-          />
+                sm:h-[48px]
+                sm:px-5
+                sm:text-[14px]
+              "
+            />
+          </div>
         </div>
 
-      {/* Select Gender */}
-      <SelectGender />
-
+        {/* Select Gender */}
+        <div className="w-full sm:w-1/2">
+          <SelectGender />
+        </div>
+      </div>
     </div>
-  </div>
   );
 }

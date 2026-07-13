@@ -2,8 +2,39 @@ import 'package:flutter/material.dart';
 import 'WorkTime.dart';
 import 'BusyDay.dart';
 
-class Constraint extends StatelessWidget {
+class Constraint extends StatefulWidget {
   const Constraint({super.key});
+
+  @override
+  State<Constraint> createState() => _ConstraintState();
+}
+
+class _ConstraintState extends State<Constraint> {
+  final TextEditingController startTimeController =
+      TextEditingController();
+
+  final TextEditingController endTimeController =
+      TextEditingController();
+
+  Future<void> selectTime(
+    TextEditingController controller,
+  ) async {
+    final TimeOfDay? selectedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+
+    if (selectedTime != null && mounted) {
+      controller.text = selectedTime.format(context);
+    }
+  }
+
+  @override
+  void dispose() {
+    startTimeController.dispose();
+    endTimeController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +62,6 @@ class Constraint extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           /// TITLE
           const Center(
             child: Text(
@@ -56,15 +86,20 @@ class Constraint extends StatelessWidget {
           SizedBox(
             width: 200,
             child: DropdownButtonFormField<String>(
+              isExpanded: true,
               decoration: InputDecoration(
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 8,
                 ),
+                border: inputBorder,
                 enabledBorder: inputBorder,
                 focusedBorder: inputBorder,
               ),
-              hint: const Text("เลือกวันที่ต้องการหยุด"),
+              hint: const Text(
+                "เลือกวันที่ต้องการหยุด",
+                overflow: TextOverflow.ellipsis,
+              ),
               items: const [
                 DropdownMenuItem(
                   value: "Mon",
@@ -177,7 +212,7 @@ class Constraint extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          /// เวลาเริ่มทำงาน
+          /// เวลาเริ่มการทำงาน
           const Text(
             "เวลาเริ่มการทำงาน",
             style: TextStyle(fontSize: 16),
@@ -186,20 +221,36 @@ class Constraint extends StatelessWidget {
           const SizedBox(height: 8),
 
           SizedBox(
-            width: 140,
+            width: 180,
             child: TextField(
+              controller: startTimeController,
               readOnly: true,
+              onTap: () => selectTime(startTimeController),
               decoration: InputDecoration(
                 hintText: "select time",
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+                border: inputBorder,
                 enabledBorder: inputBorder,
                 focusedBorder: inputBorder,
+                suffixIcon: IconButton(
+                  onPressed: () =>
+                      selectTime(startTimeController),
+                  icon: const Icon(
+                    Icons.access_time,
+                    size: 22,
+                    color: Colors.black54,
+                  ),
+                ),
               ),
             ),
           ),
 
           const SizedBox(height: 24),
 
-          /// เวลาสิ้นสุด
+          /// เวลาสิ้นสุดการทำงาน
           const Text(
             "เวลาสิ้นสุดการทำงาน",
             style: TextStyle(fontSize: 16),
@@ -208,13 +259,29 @@ class Constraint extends StatelessWidget {
           const SizedBox(height: 8),
 
           SizedBox(
-            width: 140,
+            width: 180,
             child: TextField(
+              controller: endTimeController,
               readOnly: true,
+              onTap: () => selectTime(endTimeController),
               decoration: InputDecoration(
                 hintText: "select time",
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+                border: inputBorder,
                 enabledBorder: inputBorder,
                 focusedBorder: inputBorder,
+                suffixIcon: IconButton(
+                  onPressed: () =>
+                      selectTime(endTimeController),
+                  icon: const Icon(
+                    Icons.access_time,
+                    size: 22,
+                    color: Colors.black54,
+                  ),
+                ),
               ),
             ),
           ),

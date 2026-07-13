@@ -29,3 +29,10 @@ body {
 
   cursor: pointer;
 }
+
+/* ซ่อนไอคอนนาฬิกาเดิม แต่ยังกดเปิดเลือกเวลาได้ */
+input[type="time"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  width: 24px;
+  cursor: pointer;
+}
