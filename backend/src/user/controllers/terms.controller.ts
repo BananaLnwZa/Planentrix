@@ -1,6 +1,13 @@
 import { Request, Response } from "express";
 import db from "../../config/db";
 
+const isValidDateString = (value: any) => {
+  if (typeof value !== "string") return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime());
+};
+
 // ==============================
 // ADD NEW TERM
 // (รับ user_id จาก URL param)
@@ -15,10 +22,10 @@ export const addTerm = async (req: Request, res: Response) => {
       return res.status(403).json({ message: "Forbidden: user role required" });
     }
 
-    const { user_id } = req.params;
+    const { id } = req.params;
 
-    if (!user_id) {
-      return res.status(400).json({ message: "user_id is required in URL" });
+    if (!id) {
+      return res.status(400).json({ message: "id is required in URL" });
     }
 
     const {
@@ -37,6 +44,15 @@ export const addTerm = async (req: Request, res: Response) => {
       });
     }
 
+    const dateFields = { start_midterm, end_midterm, start_final, end_final };
+    for (const [key, value] of Object.entries(dateFields)) {
+      if (value !== undefined && value !== null && !isValidDateString(value)) {
+        return res.status(400).json({
+          message: `${key} must be a valid date in YYYY-MM-DD format`,
+        });
+      }
+    }
+
     const [result]: any = await db.query(
       `INSERT INTO terms (term, semester, academic_year, start_midterm, end_midterm, start_final, end_final, term_status)
        VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
@@ -46,7 +62,7 @@ export const addTerm = async (req: Request, res: Response) => {
     res.status(201).json({
       message: "Term added successfully",
       term_id: result.insertId,
-      user_id, // จาก URL param
+      id, // จาก URL param
     });
   } catch (err) {
     console.error("addTerm error:", err);
@@ -56,7 +72,7 @@ export const addTerm = async (req: Request, res: Response) => {
 
 // ==============================
 // GET CURRENT TERM (status = 1)
-// (รับ user_id จาก URL param)
+// (รับ id จาก URL param)
 // ==============================
 export const getCurrentTerm = async (req: Request, res: Response) => {
   try {
@@ -68,10 +84,10 @@ export const getCurrentTerm = async (req: Request, res: Response) => {
       return res.status(403).json({ message: "Forbidden: user role required" });
     }
 
-    const { user_id } = req.params;
+    const { id } = req.params;
 
-    if (!user_id) {
-      return res.status(400).json({ message: "user_id is required in URL" });
+    if (!id) {
+      return res.status(400).json({ message: "id is required in URL" });
     }
 
     const [rows]: any = await db.query(
@@ -84,7 +100,7 @@ export const getCurrentTerm = async (req: Request, res: Response) => {
 
     res.json({
       message: "Current term retrieved successfully",
-      user_id, // จาก URL param
+      id,
       data: rows[0],
     });
   } catch (err) {
@@ -94,66 +110,8 @@ export const getCurrentTerm = async (req: Request, res: Response) => {
 };
 
 // ==============================
-// GET ALL CURRENT TERMS (status = 1)
-// ==============================
-export const getAllCurrentTerms = async (req: Request, res: Response) => {
-  try {
-    const authUser = (req as any).user;
-    if (!authUser?.id) {
-      return res.status(401).json({ message: "Unauthorized: Missing user ID" });
-    }
-    if (authUser.role && authUser.role !== "user") {
-      return res.status(403).json({ message: "Forbidden: user role required" });
-    }
-    const userId = authUser.id;
-
-    const [rows]: any = await db.query(
-      `SELECT * FROM terms WHERE term_status = 1 ORDER BY term_id DESC`
-    );
-
-    res.json({
-      message: "Current terms retrieved successfully",
-      user_id: userId,
-      data: rows,
-    });
-  } catch (err) {
-    console.error("getAllCurrentTerms error:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// ==============================
-// GET ALL ENDED TERMS (status = 0)
-// ==============================
-export const getEndedTerms = async (req: Request, res: Response) => {
-  try {
-    const authUser = (req as any).user;
-    if (!authUser?.id) {
-      return res.status(401).json({ message: "Unauthorized: Missing user ID" });
-    }
-    if (authUser.role && authUser.role !== "user") {
-      return res.status(403).json({ message: "Forbidden: user role required" });
-    }
-    const userId = authUser.id;
-
-    const [rows]: any = await db.query(
-      `SELECT * FROM terms WHERE term_status = 0 ORDER BY term_id DESC`
-    );
-
-    res.json({
-      message: "Ended terms retrieved successfully",
-      user_id: userId,
-      data: rows,
-    });
-  } catch (err) {
-    console.error("getEndedTerms error:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// ==============================
 // END CURRENT TERM
-// (รับ user_id จาก URL param, หาเทอมปัจจุบัน status = 1 เองแล้วจบให้)
+// (รับ id จาก URL param, หาเทอมปัจจุบัน status = 1 เองแล้วจบให้)
 // ==============================
 export const endCurrentTerm = async (req: Request, res: Response) => {
   try {
@@ -165,10 +123,10 @@ export const endCurrentTerm = async (req: Request, res: Response) => {
       return res.status(403).json({ message: "Forbidden: user role required" });
     }
 
-    const { user_id } = req.params;
+    const { id } = req.params;
 
-    if (!user_id) {
-      return res.status(400).json({ message: "user_id is required in URL" });
+    if (!id) {
+      return res.status(400).json({ message: "id is required in URL" });
     }
 
     const [currentTermRows]: any = await db.query(
@@ -188,43 +146,11 @@ export const endCurrentTerm = async (req: Request, res: Response) => {
 
     res.json({
       message: "Term ended successfully",
-      user_id, // จาก URL param
+      id, // จาก URL param
       ended_term: currentTerm,
     });
   } catch (err) {
     console.error("endCurrentTerm error:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// ==============================
-// GET TERMS BY STATUS (0 or 1)
-// ==============================
-export const getTermsByStatus = async (req: Request, res: Response) => {
-  try {
-    const userId = (req as any).user?.id;
-    if (!userId) {
-      return res.status(401).json({ message: "Unauthorized: Missing user ID" });
-    }
-
-    const { status } = req.params;
-
-    if (status !== "0" && status !== "1") {
-      return res.status(400).json({ message: "Status must be 0 or 1" });
-    }
-
-    const [rows]: any = await db.query(
-      `SELECT * FROM terms WHERE term_status = ? ORDER BY term_id DESC`,
-      [parseInt(status)]
-    );
-
-    res.json({
-      message: `Terms with status ${status} retrieved successfully`,
-      user_id: userId,
-      data: rows,
-    });
-  } catch (err) {
-    console.error("getTermsByStatus error:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 };
