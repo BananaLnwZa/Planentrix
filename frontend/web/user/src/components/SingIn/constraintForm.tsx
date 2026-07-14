@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { type RefObject, useRef, useState } from "react";
 
 import Worktime from "./Worktime";
 import BusyDay from "./BusyDay";
@@ -9,6 +9,19 @@ import CustomDayDropdown from "./CustomDayDropdown";
 
 export default function LoginForm() {
   const [selectedDay, setSelectedDay] = useState("");
+  const startTimeRef = useRef<HTMLInputElement>(null);
+  const endTimeRef = useRef<HTMLInputElement>(null);
+
+  const openTimePicker = (ref: RefObject<HTMLInputElement | null>) => {
+    const input = ref.current;
+    if (!input) return;
+
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+    } else {
+      input.focus();
+    }
+  };
 
   return (
     <div
@@ -197,7 +210,7 @@ export default function LoginForm() {
           </div>
         </div>
 
-        {/* เวลาเริ่มทำงาน */}
+{/* เวลาเริ่มทำงาน */}
         <div className="w-full space-y-2">
           <label className="block text-xs text-gray-700 sm:text-sm">
             เวลาเริ่มทำงาน
@@ -205,8 +218,11 @@ export default function LoginForm() {
 
           <div className="relative w-full max-w-[200px]">
             <input
+              ref={startTimeRef}
+              id="start-work-time"
               type="time"
               className="
+                appearance-none
                 h-[48px]
                 w-full
                 rounded-full
@@ -214,7 +230,7 @@ export default function LoginForm() {
                 border-gray-300
                 bg-white
                 pl-4
-                pr-14
+                pr-8
                 text-sm
                 text-gray-500
                 outline-none
@@ -223,29 +239,30 @@ export default function LoginForm() {
 
                 sm:h-[52px]
                 sm:pl-5
-                sm:pr-16
+                sm:pr-9
                 md:h-[56px]
                 md:pl-6
+                md:pr-10
                 md:text-base
               "
             />
-
-            <div
+            <button
+              type="button"
+              onClick={() => openTimePicker(startTimeRef)}
               className="
-                pointer-events-none
                 absolute
-                right-2
-                top-1/2
+                right-5
+                inset-y-0
                 flex
-                h-9
-                w-9
-                -translate-y-1/2
+                h-full
+                w-5
+                cursor-pointer
                 items-center
                 justify-center
+                text-gray-500
 
-                sm:right-3
-                sm:h-10
-                sm:w-10
+                sm:right-5
+                md:right-5
               "
             >
               <Image
@@ -263,7 +280,7 @@ export default function LoginForm() {
                   md:w-[22px]
                 "
               />
-            </div>
+            </button>
           </div>
         </div>
 
@@ -275,8 +292,11 @@ export default function LoginForm() {
 
           <div className="relative w-full max-w-[200px]">
             <input
+              ref={endTimeRef}
+              id="end-work-time"
               type="time"
               className="
+                appearance-none
                 h-[48px]
                 w-full
                 rounded-full
@@ -284,7 +304,7 @@ export default function LoginForm() {
                 border-gray-300
                 bg-white
                 pl-4
-                pr-14
+                pr-8
                 text-sm
                 text-gray-500
                 outline-none
@@ -293,29 +313,30 @@ export default function LoginForm() {
 
                 sm:h-[52px]
                 sm:pl-5
-                sm:pr-16
+                sm:pr-9
                 md:h-[56px]
                 md:pl-6
+                md:pr-11
                 md:text-base
               "
             />
-
-            <div
+            <button
+              type="button"
+              onClick={() => openTimePicker(endTimeRef)}
               className="
-                pointer-events-none
                 absolute
-                right-2
-                top-1/2
+                right-5
+                inset-y-0
                 flex
-                h-9
-                w-9
-                -translate-y-1/2
+                h-full
+                w-5
+                cursor-pointer
                 items-center
                 justify-center
+                text-gray-500
 
-                sm:right-3
-                sm:h-10
-                sm:w-10
+                sm:right-5
+                md:right-5
               "
             >
               <Image
@@ -333,7 +354,7 @@ export default function LoginForm() {
                   md:w-[22px]
                 "
               />
-            </div>
+            </button>
           </div>
         </div>
 

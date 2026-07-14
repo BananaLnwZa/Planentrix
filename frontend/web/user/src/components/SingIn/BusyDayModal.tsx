@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, type RefObject } from "react";
 import Image from "next/image";
 
 type EditItem = {
@@ -25,31 +25,52 @@ type Props = {
 const days = [
   {
     id: "Sun",
-    color: "bg-pink-500",
+    color: "bg-rose-200",
+    border: "border-rose-400",
+    hover: "hover:border-rose-400",
+    selected: "border-rose-400 text-white",
   },
   {
     id: "Mon",
-    color: "bg-yellow-400",
+    color: "bg-amber-200",
+    border: "border-amber-400",
+    hover: "hover:border-amber-400",
+    selected: "border-amber-400 text-white",
   },
   {
     id: "Tue",
-    color: "bg-pink-300",
+    color: "bg-fuchsia-200",
+    border: "border-fuchsia-400",
+    hover: "hover:border-fuchsia-400",
+    selected: "border-fuchsia-400 text-white",
   },
   {
     id: "Wed",
-    color: "bg-green-400",
+    color: "bg-emerald-200",
+    border: "border-emerald-400",
+    hover: "hover:border-emerald-400",
+    selected: "border-emerald-400 text-white",
   },
   {
     id: "Thu",
-    color: "bg-orange-400",
+    color: "bg-orange-200",
+    border: "border-orange-400",
+    hover: "hover:border-orange-400",
+    selected: "border-orange-400 text-white",
   },
   {
     id: "Fri",
-    color: "bg-sky-400",
+    color: "bg-sky-200",
+    border: "border-sky-400",
+    hover: "hover:border-sky-400",
+    selected: "border-sky-400 text-white",
   },
   {
     id: "Sat",
-    color: "bg-purple-300",
+    color: "bg-violet-200",
+    border: "border-violet-400",
+    hover: "hover:border-violet-400",
+    selected: "border-violet-400 text-white",
   },
 ];
 
@@ -67,6 +88,20 @@ export default function BusyDayModal({
 
   const [endTime, setEndTime] =
     useState("");
+
+  const startRef = useRef<HTMLInputElement | null>(null);
+  const endRef = useRef<HTMLInputElement | null>(null);
+
+  const openTimePicker = (ref: RefObject<HTMLInputElement | null>) => {
+    const input = ref.current;
+    if (!input) return;
+
+    if (typeof (input as any).showPicker === "function") {
+      (input as any).showPicker();
+    } else {
+      input.focus();
+    }
+  };
 
   // โหลดข้อมูลเดิมตอนกดแก้ไข
   useEffect(() => {
@@ -145,25 +180,34 @@ export default function BusyDayModal({
             <button
               key={day.id}
               type="button"
-              onClick={() =>
-                setSelectedDay(day.id)
-              }
+              onClick={() => setSelectedDay(day.id)}
               className={`
                 px-4
                 py-2
                 rounded-full
-                text-white
+                text-gray-800
                 font-semibold
                 shadow
                 transition-all
+                transition-colors
+                border-2
+                border-transparent
+                hover:opacity-80
+                active:opacity-70
+                active:scale-105
+                focus:outline-none
 
                 ${day.color}
+                ${day.hover}
 
                 ${
                   selectedDay === day.id
-                    ? "ring-4 ring-white scale-110"
+                    ? `${day.selected} ring-4 ring-white scale-110`
                     : "hover:scale-105"
                 }
+
+                active:!border-transparent
+                active:!ring-0
               `}
             >
               {day.id}
@@ -183,74 +227,102 @@ export default function BusyDayModal({
         >
         {/* Start Time */}
         <div className="relative">
-        <input
+          <input
+            ref={startRef}
             type="time"
             value={startTime}
             onChange={(e) => setStartTime(e.target.value)}
             className="
-            w-[140px]
-            border
-            border-gray-300
-            rounded-full
-            pl-4
-            pr-10
-            py-2
-            text-gray-500
-            outline-none
+              w-[145px]
+              border
+              border-gray-300
+              rounded-full
+              pl-4
+              pr-6
+              py-2
+              text-sm
+              leading-none
+              text-gray-500
+              outline-none
             "
-        />
+          />
 
-        <Image
-            src="/icons/clock.svg"
-            alt="clock"
-            width={18}
-            height={18}
+          <button
+            type="button"
+            onClick={() => openTimePicker(startRef)}
             className="
-            absolute
-            right-4
-            top-1/2
-            -translate-y-1/2
-            pointer-events-none
+              absolute
+              right-3
+              top-1/2
+              -translate-y-1/2
+              flex
+              items-center
+              justify-center
+              h-6
+              w-6
+              rounded-full
             "
-        />
+            aria-label="Open start time picker"
+          >
+            <Image
+              src="/icons/clock.svg"
+              alt="clock"
+              width={18}
+              height={18}
+              className="h-[18px] w-[18px]"
+            />
+          </button>
         </div>
 
         <span className="text-gray-500">-</span>
 
         {/* End Time */}
         <div className="relative">
-            <input
+          <input
+            ref={endRef}
             type="time"
             value={endTime}
-            onChange={(e) =>
-                setEndTime(e.target.value)
-            }
+            onChange={(e) => setEndTime(e.target.value)}
             className="
-                w-[140px]
-                border
-                border-gray-300
-                rounded-full
-                pl-4
-                pr-10
-                py-2
-                text-gray-500
-                outline-none
+              w-[145px]
+              border
+              border-gray-300
+              rounded-full
+              pl-4
+              pr-6
+              py-2
+              text-sm
+              leading-none
+              text-gray-500
+              outline-none
             "
-            />
+          />
 
-            <Image
-            src="/icons/clock.svg"
-            alt="clock"
-            width={18}
-            height={18}
+          <button
+            type="button"
+            onClick={() => openTimePicker(endRef)}
             className="
-                absolute
-                right-4
-                top-1/2
-                -translate-y-1/2
-                pointer-events-none
+              absolute
+              right-3
+              top-1/2
+              -translate-y-1/2
+              flex
+              items-center
+              justify-center
+              h-6
+              w-6
+              rounded-full
             "
+            aria-label="Open end time picker"
+          >
+            <Image
+              src="/icons/clock.svg"
+              alt="clock"
+              width={18}
+              height={18}
+              className="h-[18px] w-[18px]"
             />
+          </button>
         </div>
         </div>
 

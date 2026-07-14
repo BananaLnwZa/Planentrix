@@ -6,7 +6,7 @@ const timeSlots = [
   {
     id: "morning",
     label: "เช้า",
-    base: "border-gray-300 text-gray-400 bg-white",
+    base: "border-gray-300 text-gray-500 bg-white",
     hover:
       "hover:bg-[#BBDEF4] hover:border-[#BBDEF4] hover:text-white",
     active:
@@ -15,7 +15,7 @@ const timeSlots = [
   {
     id: "noon",
     label: "กลางวัน",
-    base: "border-gray-300 text-gray-400 bg-white",
+    base: "border-gray-300 text-gray-500 bg-white",
     hover:
       "hover:bg-[#F7E380] hover:border-[#F7E380] hover:text-white",
     active:
@@ -24,7 +24,7 @@ const timeSlots = [
   {
     id: "evening",
     label: "เย็น",
-    base: "border-gray-300 text-gray-400 bg-white",
+    base: "border-gray-300 text-gray-500 bg-white",
     hover:
       "hover:bg-[#FB9A92] hover:border-[#FB9A92] hover:text-white",
     active:
