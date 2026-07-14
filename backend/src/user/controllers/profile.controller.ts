@@ -53,6 +53,13 @@ export const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 });
 
+const getCurrentAcademicYear = async () => {
+  const [terms] = (await db.query(
+    "SELECT academic_year FROM terms WHERE term_status = 1 ORDER BY term_id DESC LIMIT 1"
+  )) as any;
+  return terms && terms.length > 0 ? terms[0].academic_year : null;
+};
+
 // ==============================
 // ดึงข้อมูลโปรไฟล์ผู้ใช้
 // ==============================
@@ -87,6 +94,48 @@ export const getUserProfile = async (req: Request, res: Response) => {
     res.json(user);
   } catch (error) {
     console.error("getUserProfile error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ==============================
+// หน้าโปรไฟล์แบบเฉพาะ (สำหรับแสดงชื่อ เพศ วันเกิด ภาพ และปีการศึกษา)
+// ==============================
+export const getUserProfilePage = async (req: Request, res: Response) => {
+  try {
+    const userId = Number(req.params.id);
+    if (!userId) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    const [users] = (await db.query(
+      "SELECT user_id, user_name, user_pic, user_birthdate, user_gender FROM user WHERE user_id = ?",
+      [userId]
+    )) as any;
+
+    if (!users || users.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const user = users[0];
+    const academicYear = await getCurrentAcademicYear();
+
+    if (user.user_birthdate) {
+      user.user_birthdate = formatDateToString(user.user_birthdate);
+    }
+
+    const profilePageData = {
+      user_id: user.user_id,
+      user_name: user.user_name,
+      user_gender: user.user_gender,
+      user_birthdate: user.user_birthdate || null,
+      user_pic_url: user.user_pic ? `${req.protocol}://${req.get("host")}/uploads/${user.user_pic}` : null,
+      academic_year: academicYear,
+    };
+
+    res.json(profilePageData);
+  } catch (error) {
+    console.error("getUserProfilePage error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
