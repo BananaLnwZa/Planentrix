@@ -1,76 +1,144 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
 import '../../common/LogoSection.dart';
 import './Component/LoginForm.dart';
 
 class LoginPage extends StatelessWidget {
-  const LoginPage({super.key});
+  const LoginPage({
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
+    final MediaQueryData mediaQuery =
+        MediaQuery.of(context);
 
-    final bool mobile = screenWidth < 600;
+    final bool keyboardIsOpen =
+        mediaQuery.viewInsets.bottom > 0;
 
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/bg.png'),
+      resizeToAvoidBottomInset: true,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          /// พื้นหลัง
+          Image.asset(
+            'assets/images/bg.png',
             fit: BoxFit.cover,
           ),
-        ),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight,
+
+          /// Gradient ทับพื้นหลัง
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x66E4EFF5),
+                  Color(0x66BCDFF2),
+                ],
+              ),
+            ),
+          ),
+
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (
+                BuildContext context,
+                BoxConstraints constraints,
+              ) {
+                final double cardWidth = math.min(
+                  400,
+                  math.max(
+                    0,
+                    constraints.maxWidth - 40,
                   ),
-                  child: IntrinsicHeight(
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 40),
+                );
 
-                        /// LOGO
-                        const LogoSection(),
+                final double topSpacing = keyboardIsOpen
+                    ? 16
+                    : math.max(
+                        16,
+                        63 - mediaQuery.padding.top,
+                      );
 
-                        const SizedBox(height: 32),
+                return SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.only(
+                    bottom: keyboardIsOpen
+                        ? mediaQuery.viewInsets.bottom + 16
+                        : 0,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                      ),
+                      child: Column(
+                        mainAxisAlignment:
+                            MainAxisAlignment.spaceBetween,
+                        children: [
+                          /// เนื้อหาด้านบน
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                height: topSpacing,
+                              ),
 
-                        /// LOGIN CARD
-                        Center(
-                          child: Container(
-                            width: mobile ? double.infinity : 420,
-                            margin: EdgeInsets.symmetric(
-                              horizontal: mobile ? 20 : 0,
-                            ),
-                            child: const LoginForm(),
+                              const LogoSection(
+                                width: 146,
+                                height: 151,
+                                padding: EdgeInsets.zero,
+                                fit: BoxFit.contain,
+                              ),
+
+                              const SizedBox(height: 32),
+
+                              Center(
+                                child: SizedBox(
+                                  width: cardWidth,
+                                  child: const LoginForm(),
+                                ),
+                              ),
+
+                              const SizedBox(height: 32),
+                            ],
                           ),
-                        ),
 
-                        const Spacer(),
-
-                        /// FOOTER
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: Text(
-                            'Bananya.Inc ©',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontSize: 12,
+                          /// Footer
+                          if (!keyboardIsOpen)
+                            const Padding(
+                              padding: EdgeInsets.only(
+                                bottom: 16,
+                              ),
+                              child: Text(
+                                'Bananya.Inc ©',
+                                key: Key('login-footer'),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontFamily: 'Sansation',
+                                  fontWeight: FontWeight.w400,
+                                  fontSize: 9,
+                                  height: 1.1,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

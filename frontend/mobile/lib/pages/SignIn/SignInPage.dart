@@ -11,26 +11,33 @@ class SigninPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final bool mobile = screenWidth < 600;
+    final baseTheme = Theme.of(context);
 
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/bg.png'),
-            fit: BoxFit.cover,
-          ),
+    return Theme(
+      data: baseTheme.copyWith(
+        textTheme: baseTheme.textTheme.apply(fontFamily: 'Sansation'),
+        primaryTextTheme: baseTheme.primaryTextTheme.apply(
+          fontFamily: 'Sansation',
         ),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight,
-                  ),
-                  child: IntrinsicHeight(
+      ),
+      child: Scaffold(
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage('assets/images/bg.png'),
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
                     child: Column(
                       children: [
                         const SizedBox(height: 40),
@@ -42,40 +49,32 @@ class SigninPage extends StatelessWidget {
 
                         /// CREATE ACCOUNT
                         Container(
-                          width: mobile ? double.infinity : 450,
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                          ),
-                          padding: const EdgeInsets.all(24),
-                          child: const CreateAccForm(),
+                          width: mobile ? double.infinity : 400,
+                          margin: const EdgeInsets.symmetric(horizontal: 20),
+                          child: const CreateAccountForm(),
                         ),
 
                         const SizedBox(height: 24),
 
                         /// CONSTRAINT
                         Container(
-                          width: mobile ? double.infinity : 450,
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                          ),
-                          padding: const EdgeInsets.all(24),
+                          width: mobile ? double.infinity : 400,
+                          margin: const EdgeInsets.symmetric(horizontal: 20),
                           child: const Constraint(),
                         ),
 
                         const SizedBox(height: 24),
 
                         /// SIGN IN BUTTON
-                        SignInButton(
-                          onPressed: () {},
-                        ),
+                        SignInButton(onPressed: () {}),
 
                         const SizedBox(height: 40),
                       ],
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),

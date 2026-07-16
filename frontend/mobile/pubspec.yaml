@@ -67,6 +67,14 @@ flutter:
     - assets/images/bg.png
     - assets/icons/clock.svg
 
+  fonts:
+    - family: Sansation
+      fonts:
+        - asset: assets/fonts/Sansation-Light.ttf
+          weight: 300
+        - asset: assets/fonts/Sansation-Regular.ttf
+          weight: 400
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:

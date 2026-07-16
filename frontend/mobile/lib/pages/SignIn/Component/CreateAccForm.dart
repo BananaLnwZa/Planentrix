@@ -1,43 +1,162 @@
 import 'package:flutter/material.dart';
+import 'Selectgender.dart';
 
-class CreateAccForm extends StatelessWidget {
-  const CreateAccForm({super.key});
+class CreateAccountForm extends StatefulWidget {
+  const CreateAccountForm({super.key});
+
+  @override
+  State<CreateAccountForm> createState() => _CreateAccountFormState();
+}
+
+class _CreateAccountFormState extends State<CreateAccountForm> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  final TextEditingController usernameController = TextEditingController();
+
+  final TextEditingController passwordController = TextEditingController();
+
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
+
+  final TextEditingController birthDateController = TextEditingController();
+
+  String? selectedGender;
+
+  static const String _fontFamily = 'Sansation';
+
+  static const Color _accentColor = Color(0xFF9CC5F9);
+
+  @override
+  void dispose() {
+    usernameController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+    birthDateController.dispose();
+    super.dispose();
+  }
+
+  Future<void> selectBirthDate() async {
+    final DateTime now = DateTime.now();
+
+    final DateTime? selectedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime(now.year - 18, now.month, now.day),
+      firstDate: DateTime(1900),
+      lastDate: now,
+    );
+
+    if (selectedDate == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      birthDateController.text =
+          '${selectedDate.day.toString().padLeft(2, '0')}/'
+          '${selectedDate.month.toString().padLeft(2, '0')}/'
+          '${selectedDate.year}';
+    });
+  }
+
+  /// ขอบของช่อง Input
+  OutlineInputBorder _inputBorder({Color color = const Color(0x4D000000)}) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(25),
+      borderSide: BorderSide(color: color, width: 1),
+    );
+  }
+
+  /// ดีไซน์ช่อง Input แบบเดียวกับหน้า Login
+  InputDecoration _inputDecoration({
+    required String hintText,
+    Widget? suffixIcon,
+    EdgeInsetsGeometry? contentPadding,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+
+      hintStyle: const TextStyle(
+        color: Color(0x80000000),
+        fontFamily: _fontFamily,
+        fontWeight: FontWeight.w300,
+        fontSize: 13,
+      ),
+
+      filled: true,
+      fillColor: Colors.white,
+
+      isDense: true,
+
+      contentPadding:
+          contentPadding ??
+          const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+
+      suffixIcon: suffixIcon,
+
+      border: _inputBorder(),
+
+      enabledBorder: _inputBorder(),
+
+      focusedBorder: _inputBorder(color: _accentColor),
+
+      errorBorder: _inputBorder(color: const Color(0xFFB3261E)),
+
+      focusedErrorBorder: _inputBorder(color: const Color(0xFFB3261E)),
+
+      errorStyle: const TextStyle(
+        color: Color(0xFFB3261E),
+        fontFamily: _fontFamily,
+        fontWeight: FontWeight.w300,
+        fontSize: 11,
+      ),
+
+      errorMaxLines: 2,
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.black87,
+          fontFamily: _fontFamily,
+          fontWeight: FontWeight.w400,
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final inputBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(25),
-      borderSide: const BorderSide(
-        color: Color(0xFFBDBDBD),
-        width: 1,
-      ),
+    final double screenWidth = MediaQuery.sizeOf(context).width;
+
+    final bool mobile = screenWidth < 600;
+
+    final double horizontalPadding = mobile ? 24 : 40;
+
+    const TextStyle inputTextStyle = TextStyle(
+      color: Colors.black,
+      fontFamily: _fontFamily,
+      fontWeight: FontWeight.w300,
+      fontSize: 14,
     );
 
-    Widget buildLabel(String text) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            text,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
-              color: Color(0xFF333333),
-            ),
-          ),
-        ),
-      );
-    }
-
     return Container(
+      key: const Key('create-account-card'),
+
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 36,
-        vertical: 40,
+
+      constraints: const BoxConstraints(maxWidth: 500, minHeight: 420),
+
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: mobile ? 24 : 40,
       ),
+
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.92),
+        color: Colors.white.withOpacity(0.92),
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
@@ -47,149 +166,132 @@ class CreateAccForm extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Center(
-            child: Text(
-              "Create Account",
+
+      child: Form(
+        key: _formKey,
+
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Create Account',
+              textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 34,
-                fontWeight: FontWeight.w500,
                 color: Colors.black,
+                fontFamily: _fontFamily,
+                fontWeight: FontWeight.w400,
+                fontSize: mobile ? 24 : 32,
               ),
             ),
-          ),
 
-          const SizedBox(height: 40),
+            SizedBox(height: mobile ? 24 : 32),
 
-          /// username
-          buildLabel("username"),
+            /// Username
+            _buildLabel('username'),
 
-          TextField(
-            decoration: InputDecoration(
-              hintText: "enter username",
-              hintStyle: TextStyle(
-                color: Colors.grey.shade400,
-                fontSize: 15,
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 16,
-              ),
-              enabledBorder: inputBorder,
-              focusedBorder: inputBorder,
+            const SizedBox(height: 8),
+
+            TextFormField(
+              controller: usernameController,
+              style: inputTextStyle,
+              textInputAction: TextInputAction.next,
+              decoration: _inputDecoration(hintText: 'Enter username'),
             ),
-          ),
 
-          const SizedBox(height: 26),
+            const SizedBox(height: 18),
 
-          /// password
-          buildLabel("password"),
+            /// Password
+            _buildLabel('password'),
 
-          TextField(
-            obscureText: true,
-            decoration: InputDecoration(
-              hintText: "enter password",
-              hintStyle: TextStyle(
-                color: Colors.grey.shade400,
-                fontSize: 15,
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 16,
-              ),
-              enabledBorder: inputBorder,
-              focusedBorder: inputBorder,
+            const SizedBox(height: 8),
+
+            TextFormField(
+              controller: passwordController,
+              obscureText: true,
+              style: inputTextStyle,
+              textInputAction: TextInputAction.next,
+              decoration: _inputDecoration(hintText: 'Enter password'),
             ),
-          ),
 
-          const SizedBox(height: 26),
+            const SizedBox(height: 18),
 
-          /// confirm password
-          buildLabel("confirm password"),
+            /// Confirm Password
+            _buildLabel('Confirm Password'),
 
-          TextField(
-            obscureText: true,
-            decoration: InputDecoration(
-              hintText: "enter to confirm password",
-              hintStyle: TextStyle(
-                color: Colors.grey.shade400,
-                fontSize: 15,
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 16,
-              ),
-              enabledBorder: inputBorder,
-              focusedBorder: inputBorder,
+            const SizedBox(height: 8),
+
+            TextFormField(
+              controller: confirmPasswordController,
+              obscureText: true,
+              style: inputTextStyle,
+              textInputAction: TextInputAction.done,
+              decoration: _inputDecoration(hintText: 'Confirm password'),
             ),
-          ),
 
-          const SizedBox(height: 26),
+            const SizedBox(height: 18),
 
-          /// birth date
-          buildLabel("birth date"),
+            /// Birth Date
+            _buildLabel('Birth Date'),
 
-          SizedBox(
-            width: 230,
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: "dd/mm/yyyy",
-                hintStyle: TextStyle(
-                  color: Colors.grey.shade400,
-                  fontSize: 15,
+            const SizedBox(height: 8),
+
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: mobile ? screenWidth * 0.50 : 210,
+
+                child: TextFormField(
+                  controller: birthDateController,
+
+                  readOnly: true,
+
+                  onTap: selectBirthDate,
+
+                  style: inputTextStyle.copyWith(color: Colors.grey.shade600),
+
+                  decoration: _inputDecoration(
+                    hintText: 'dd/mm/yyyy',
+
+                    contentPadding: const EdgeInsets.only(
+                      left: 18,
+                      right: 4,
+                      top: 14,
+                      bottom: 14,
+                    ),
+
+                    suffixIcon: IconButton(
+                      onPressed: selectBirthDate,
+                      icon: const Icon(
+                        Icons.calendar_month,
+                        size: 21,
+                        color: Color(0xFFFFB9DF),
+                      ),
+                    ),
+                  ),
                 ),
-
-                /// ใส่ icon ของนายตรงนี้
-                suffixIcon: const SizedBox(),
-
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                enabledBorder: inputBorder,
-                focusedBorder: inputBorder,
               ),
             ),
-          ),
 
-          const SizedBox(height: 26),
+            const SizedBox(height: 18),
 
-          /// gender
-          buildLabel("gender"),
+            /// Select Gender
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: mobile ? screenWidth * 0.50 : 210,
 
-          SizedBox(
-            width: 230,
-            child: DropdownButtonFormField<String>(
-              decoration: InputDecoration(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 8,
-                ),
-                enabledBorder: inputBorder,
-                focusedBorder: inputBorder,
-              ),
-              hint: Text(
-                "select gender",
-                style: TextStyle(
-                  color: Colors.grey.shade400,
+                child: SelectGender(
+                  value: selectedGender,
+                  onChanged: (gender) {
+                    setState(() {
+                      selectedGender = gender;
+                    });
+                  },
                 ),
               ),
-              items: const [
-                DropdownMenuItem(
-                  value: "Male",
-                  child: Text("Male"),
-                ),
-                DropdownMenuItem(
-                  value: "Female",
-                  child: Text("Female"),
-                ),
-              ],
-              onChanged: (value) {},
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
