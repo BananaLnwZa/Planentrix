@@ -6,7 +6,8 @@ declare global {
     interface Request {
       user?: {
         id: number;
-        username: string;
+        username?: string;
+        role?: string;
       };
     }
   }
@@ -18,10 +19,16 @@ export const verifyToken = (
   next: NextFunction
 ) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
-
-    if (!token) {
+    const authHeader = req.headers.authorization || (req.headers as any).Authorization;
+    if (!authHeader) {
       return res.status(401).json({ message: "No token provided" });
+    }
+
+    let token = String(authHeader);
+    // Accept either "Bearer <token>" or raw token value
+    if (token.includes(" ")) {
+      const parts = token.split(" ");
+      token = parts[parts.length - 1];
     }
 
     if (!process.env.JWT_SECRET) {
@@ -33,7 +40,8 @@ export const verifyToken = (
 
     req.user = {
       id: decoded.id,
-      username: decoded.username,
+      username: decoded.username || decoded.user_name,
+      role: decoded.role,
     };
 
     next();

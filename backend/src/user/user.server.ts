@@ -5,6 +5,8 @@ import path from "path";
 import userAuthRouter from "./routes/authen.route";
 import userProfileRouter from "./routes/profile.route";
 import userTermsRouter from "./routes/terms.route";
+import userTableRouter from "./routes/table.router";
+import userDeleteRouter from "./routes/delete.routes";
 import { errorHandler } from "../middlewares/errorHandler";
 
 dotenv.config();
@@ -20,6 +22,8 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use("/user/auth", userAuthRouter);
 app.use("/user/profile", userProfileRouter);
 app.use("/user/terms", userTermsRouter);
+app.use("/user/schedule", userTableRouter);
+app.use("/user/delete-time", userDeleteRouter);
 
 app.get("/", (req, res) => {
   res.json({ message: "User backend is running" });
