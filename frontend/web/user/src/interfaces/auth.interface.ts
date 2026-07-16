@@ -16,9 +16,11 @@ export interface RegisterRequest {
   start_time?: string | null;
   end_time?: string | null;
   time_preference?: number | null;
-  recurring_busy_time_start?: string | null;
-  recurring_busy_time_end?: string | null;
-  recurring_busy_day?: number | null;
+  busy_days?: {
+    day: number;
+    start: string;
+    end: string;
+  }[] | null;
 }
 
 // ==============================
@@ -107,4 +109,30 @@ export interface AuthUser {
   userId: number;
   role: string;
   username?: string;
+}
+
+// ==============================
+// CONSTRAINT DATA INTERFACES
+// ==============================
+export interface ConstraintData {
+  day_off?: number | null; // 1-7 (Monday-Sunday)
+  continuous_working_duration?: number | null; // in minutes
+  break?: number | null; // in minutes
+  start_time?: string | null; // HH:MM AM/PM format
+  end_time?: string | null; // HH:MM AM/PM format
+}
+
+export interface RecurringBusyTime {
+  busy_days?: {
+    day: number;
+    start: string;
+    end: string;
+  }[] | null;
+}
+
+export interface UpdateConstraintRequest extends ConstraintData, RecurringBusyTime {}
+
+export interface UpdateConstraintResponse {
+  message: string;
+  data?: any;
 }

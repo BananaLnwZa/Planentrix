@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 const genders = [
   {
-    id: "Male",
+    id: "male",
     label: "Male",
     base: "bg-white text-black",
     hover:
@@ -14,7 +14,7 @@ const genders = [
       "bg-white border-[#BBDEF4] text-[#BBDEF4]",
   },
   {
-    id: "Female",
+    id: "female",
     label: "Female",
     base: "bg-white text-black",
     hover:
@@ -23,7 +23,7 @@ const genders = [
       "bg-white border-[#F8DCE4] text-[#F8DCE4]",
   },
   {
-    id: "Other",
+    id: "other",
     label: "Other",
     base: "bg-white text-black",
     hover:
@@ -33,12 +33,25 @@ const genders = [
   },
 ];
 
-export default function SelectGender() {
-  const [selectedGender, setSelectedGender] = useState("");
+interface SelectGenderProps {
+  value?: "male" | "female" | "other" | null;
+  onChange?: (gender: "male" | "female" | "other") => void;
+  disabled?: boolean;
+}
+
+export default function SelectGender({ value, onChange, disabled = false }: SelectGenderProps) {
+  const [selectedGender, setSelectedGender] = useState<string>(value || "");
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
 
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    // Update local state when value prop changes
+    if (value !== undefined && value !== null) {
+      setSelectedGender(value);
+    }
+  }, [value]);
 
   useEffect(() => {
     if (!open || !buttonRef.current) return;
@@ -73,11 +86,16 @@ export default function SelectGender() {
   }, [open]);
 
   const handleToggle = () => {
-    setOpen((previous) => !previous);
+    if (!disabled) {
+      setOpen((previous) => !previous);
+    }
   };
 
   const handleSelect = (gender: string) => {
     setSelectedGender(gender);
+    if (onChange) {
+      onChange(gender as "male" | "female" | "other");
+    }
     setOpen(false);
   };
 
@@ -110,6 +128,7 @@ export default function SelectGender() {
         ref={buttonRef}
         type="button"
         onClick={handleToggle}
+        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
         className={`
@@ -126,6 +145,8 @@ export default function SelectGender() {
           px-3
           text-left
           outline-none
+          disabled:bg-gray-100
+          disabled:cursor-not-allowed
 
           transition-all
           duration-200
@@ -153,12 +174,14 @@ export default function SelectGender() {
 
             ${
               selectedGender
-                ? "text-gray-400"
+                ? "text-gray-700"
                 : "text-gray-400"
             }
           `}
         >
-          {selectedGender || "select gender"}
+          {selectedGender 
+            ? genders.find(g => g.id === selectedGender)?.label || "select gender"
+            : "select gender"}
         </span>
 
         <svg

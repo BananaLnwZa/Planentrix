@@ -1,17 +1,20 @@
 type SignInButtonProps = {
   text?: string;
   onClick?: () => void;
+  isLoading?: boolean;
   className?: string;
 };
 
 export default function SignInButton({
   text = "Sign In",
   onClick,
+  isLoading = false,
   className = "",
 }: SignInButtonProps) {
   return (
     <button
       onClick={onClick}
+      disabled={isLoading}
       className={`
         rounded-full
           border
@@ -45,6 +48,10 @@ export default function SignInButton({
           hover:scale-105
 
           active:scale-95
+          
+          disabled:bg-gray-300
+          disabled:cursor-not-allowed
+          disabled:scale-100
 
         ${className}
       `}

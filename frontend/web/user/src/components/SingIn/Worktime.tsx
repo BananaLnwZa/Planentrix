@@ -32,7 +32,7 @@ const timeSlots = [
   },
 ];
 
-export default function TimeSlotSelector() {
+export default function TimeSlotSelector({ onChange }: { onChange?: (val: number | null) => void }) {
   const [selected, setSelected] = useState<string | null>(
     null
   );
@@ -69,7 +69,16 @@ export default function TimeSlotSelector() {
             <button
               key={slot.id}
               type="button"
-              onClick={() => setSelected(slot.id)}
+              onClick={() => {
+                setSelected(slot.id);
+                if (onChange) {
+                  let val = null;
+                  if (slot.id === "morning") val = 1;
+                  else if (slot.id === "noon") val = 2;
+                  else if (slot.id === "evening") val = 3;
+                  onChange(val);
+                }
+              }}
               className={`
                 min-w-0
                 rounded-full

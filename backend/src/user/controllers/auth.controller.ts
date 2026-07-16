@@ -46,9 +46,7 @@ export const register = async (req: Request, res: Response) => {
       start_time,
       end_time,
       time_preference,
-      recurring_busy_time_start,
-      recurring_busy_time_end,
-      recurring_busy_day,
+      busy_days,
     } = req.body;
 
     const integerFields: Array<[string, any]> = [
@@ -56,7 +54,6 @@ export const register = async (req: Request, res: Response) => {
       ["continuous_working_duration", continuous_working_duration],
       ["break", breakTime],
       ["time_preference", time_preference],
-      ["recurring_busy_day", recurring_busy_day],
     ];
 
     for (const [field, value] of integerFields) {
@@ -68,8 +65,6 @@ export const register = async (req: Request, res: Response) => {
     const timeFields: Array<[string, any]> = [
       ["start_time", start_time],
       ["end_time", end_time],
-      ["recurring_busy_time_start", recurring_busy_time_start],
-      ["recurring_busy_time_end", recurring_busy_time_end],
     ];
 
     for (const [field, value] of timeFields) {
@@ -90,6 +85,21 @@ export const register = async (req: Request, res: Response) => {
         return res.status(400).json({
           message: "start_time must be before end_time",
         });
+      }
+    }
+
+    if (busy_days && Array.isArray(busy_days)) {
+      for (let i = 0; i < busy_days.length; i++) {
+        const bd = busy_days[i];
+        if (bd.day < 1 || bd.day > 7) {
+          return res.status(400).json({ message: `busy_days[${i}].day must be between 1 and 7` });
+        }
+        if (!timeRegex.test(bd.start) || !timeRegex.test(bd.end)) {
+          return res.status(400).json({ message: `busy_days[${i}] start and end times must be in HH:mm or HH:mm:ss format` });
+        }
+        if (parseTimeToSeconds(bd.start) >= parseTimeToSeconds(bd.end)) {
+          return res.status(400).json({ message: `busy_days[${i}] start time must be before end time` });
+        }
       }
     }
 
@@ -118,11 +128,10 @@ export const register = async (req: Request, res: Response) => {
 
     const userId = userResult.insertId;
 
-    await db.query(
+    const [constraintResult]: any = await db.query(
       `INSERT INTO \`constraint\`
-        (user_id, day_off, continuous_working_duration, \`break\`, start_time, end_time, time_preference,
-         recurring_busy_time_start, recurring_busy_time_end, recurring_busy_day)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (user_id, day_off, continuous_working_duration, \`break\`, start_time, end_time, time_preference)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
         day_off ?? null,
@@ -131,11 +140,26 @@ export const register = async (req: Request, res: Response) => {
         start_time || null,
         end_time || null,
         time_preference ?? null,
-        recurring_busy_time_start || null,
-        recurring_busy_time_end || null,
-        recurring_busy_day ?? null,
       ]
     );
+
+    const constraintId = constraintResult.insertId;
+
+    if (busy_days && Array.isArray(busy_days) && busy_days.length > 0) {
+      for (const bd of busy_days) {
+        await db.query(
+          `INSERT INTO recurring_busy
+            (constraint_id, recurring_busy_day, recurring_busy_time_start, recurring_busy_time_end)
+           VALUES (?, ?, ?, ?)`,
+          [
+            constraintId,
+            bd.day,
+            bd.start,
+            bd.end
+          ]
+        );
+      }
+    }
 
     res.status(201).json({ message: "User registered successfully" });
   } catch (err) {

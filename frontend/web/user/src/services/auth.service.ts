@@ -10,6 +10,8 @@ import {
   DeleteAccountResponse,
   ApiResponse,
   ApiErrorResponse,
+  UpdateConstraintRequest,
+  UpdateConstraintResponse,
 } from "@/interfaces/auth.interface";
 
 /**
@@ -207,6 +209,21 @@ class AuthService {
    */
   isAuthenticated(): boolean {
     return !!this.getAccessToken();
+  }
+
+  /**
+   * Update user constraints (working hours, breaks, busy times)
+   */
+  async updateConstraints(data: UpdateConstraintRequest): Promise<UpdateConstraintResponse> {
+    try {
+      const response = await this.apiClient.patch<UpdateConstraintResponse>(
+        `${this.authEndpoint}/constraints`,
+        data
+      );
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
   }
 
   /**

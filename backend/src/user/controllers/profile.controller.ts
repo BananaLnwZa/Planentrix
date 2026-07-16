@@ -330,8 +330,7 @@ export const getConstraints = async (req: Request, res: Response) => {
     // ดึงข้อมูล constraints
     const [constraints] = (await db.query(
       `SELECT constraint_id, user_id, day_off, continuous_working_duration, \`break\`, 
-              start_time, end_time, time_preference, recurring_busy_time_start, 
-              recurring_busy_time_end, recurring_busy_day 
+              start_time, end_time, time_preference
        FROM \`constraint\` WHERE user_id = ?`,
       [userId]
     )) as any;
@@ -340,7 +339,18 @@ export const getConstraints = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "No constraints found for this user" });
     }
 
-    res.json(constraints[0]);
+    const constraintData = constraints[0];
+
+    // Fetch multiple recurring busy times
+    const [recurringBusyItems] = (await db.query(
+      `SELECT recurring_busy_day as day, recurring_busy_time_start as start, recurring_busy_time_end as end
+       FROM recurring_busy WHERE constraint_id = ?`,
+      [constraintData.constraint_id]
+    )) as any;
+
+    constraintData.busy_days = recurringBusyItems || [];
+
+    res.json(constraintData);
   } catch (error) {
     console.error("getConstraints error:", error);
     res.status(500).json({ message: "Server error" });
@@ -376,14 +386,17 @@ export const updateConstraints = async (req: Request, res: Response) => {
       start_time,
       end_time,
       time_preference,
-      recurring_busy_time_start,
-      recurring_busy_time_end,
-      recurring_busy_day,
+      busy_days,
     } = req.body;
 
     // ตรวจสอบรูปแบบเวลา (HH:mm:ss)
     const timeRegex = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
     const errors: string[] = [];
+
+    const parseTimeToSeconds = (time: string) => {
+      const parts = time.split(":").map(Number);
+      return parts[0] * 3600 + parts[1] * 60 + (parts[2] || 0);
+    };
 
     if (start_time && !timeRegex.test(start_time)) {
       errors.push("start_time must be in format HH:mm:ss");
@@ -391,11 +404,24 @@ export const updateConstraints = async (req: Request, res: Response) => {
     if (end_time && !timeRegex.test(end_time)) {
       errors.push("end_time must be in format HH:mm:ss");
     }
-    if (recurring_busy_time_start && !timeRegex.test(recurring_busy_time_start)) {
-      errors.push("recurring_busy_time_start must be in format HH:mm:ss");
+    if (start_time && end_time && timeRegex.test(start_time) && timeRegex.test(end_time)) {
+      if (parseTimeToSeconds(start_time) >= parseTimeToSeconds(end_time)) {
+        errors.push("start_time must be before end_time");
+      }
     }
-    if (recurring_busy_time_end && !timeRegex.test(recurring_busy_time_end)) {
-      errors.push("recurring_busy_time_end must be in format HH:mm:ss");
+
+    if (busy_days && Array.isArray(busy_days)) {
+      for (let i = 0; i < busy_days.length; i++) {
+        const bd = busy_days[i];
+        if (bd.day < 1 || bd.day > 7) {
+          errors.push(`busy_days[${i}].day must be between 1 and 7`);
+        }
+        if (!timeRegex.test(bd.start) || !timeRegex.test(bd.end)) {
+          errors.push(`busy_days[${i}] start and end times must be in HH:mm or HH:mm:ss format`);
+        } else if (parseTimeToSeconds(bd.start) >= parseTimeToSeconds(bd.end)) {
+          errors.push(`busy_days[${i}] start time must be before end time`);
+        }
+      }
     }
 
     // ตรวจสอบค่าตัวเลข
@@ -410,9 +436,6 @@ export const updateConstraints = async (req: Request, res: Response) => {
     }
     if (time_preference !== undefined && time_preference !== null && isNaN(time_preference)) {
       errors.push("time_preference must be a number");
-    }
-    if (recurring_busy_day !== undefined && recurring_busy_day !== null && (isNaN(recurring_busy_day) || recurring_busy_day < 0 || recurring_busy_day > 7)) {
-      errors.push("recurring_busy_day must be a number between 0-7");
     }
 
     if (errors.length > 0) {
@@ -455,30 +478,21 @@ export const updateConstraints = async (req: Request, res: Response) => {
       updateFields.push("time_preference = ?");
       updateValues.push(time_preference);
     }
-    if (recurring_busy_time_start !== undefined) {
-      updateFields.push("recurring_busy_time_start = ?");
-      updateValues.push(recurring_busy_time_start);
-    }
-    if (recurring_busy_time_end !== undefined) {
-      updateFields.push("recurring_busy_time_end = ?");
-      updateValues.push(recurring_busy_time_end);
-    }
-    if (recurring_busy_day !== undefined) {
-      updateFields.push("recurring_busy_day = ?");
-      updateValues.push(recurring_busy_day);
-    }
 
-    if (updateFields.length === 0) {
+    if (updateFields.length === 0 && (!busy_days || !Array.isArray(busy_days))) {
       return res.status(400).json({ message: "No fields to update" });
     }
 
+    let constraintIdForItems = null;
+
     if (existingConstraints && existingConstraints.length > 0) {
-      // อัปเดทข้อมูล constraint ที่มีอยู่
-      updateValues.push(userId);
-      const query = `UPDATE \`constraint\` SET ${updateFields.join(", ")} WHERE user_id = ?`;
-      await db.query(query, updateValues);
+      constraintIdForItems = existingConstraints[0].constraint_id;
+      if (updateFields.length > 0) {
+        updateValues.push(userId);
+        const query = `UPDATE \`constraint\` SET ${updateFields.join(", ")} WHERE user_id = ?`;
+        await db.query(query, updateValues);
+      }
     } else {
-      // สร้าง constraint ใหม่ถ้ายังไม่มี
       const insertFields = ["user_id"];
       const insertValues = [userId];
 
@@ -488,27 +502,50 @@ export const updateConstraints = async (req: Request, res: Response) => {
       start_time !== undefined && (insertFields.push("start_time"), insertValues.push(start_time));
       end_time !== undefined && (insertFields.push("end_time"), insertValues.push(end_time));
       time_preference !== undefined && (insertFields.push("time_preference"), insertValues.push(time_preference));
-      recurring_busy_time_start !== undefined && (insertFields.push("recurring_busy_time_start"), insertValues.push(recurring_busy_time_start));
-      recurring_busy_time_end !== undefined && (insertFields.push("recurring_busy_time_end"), insertValues.push(recurring_busy_time_end));
-      recurring_busy_day !== undefined && (insertFields.push("recurring_busy_day"), insertValues.push(recurring_busy_day));
 
-      const placeholders = insertFields.map(() => "?").join(", ");
-      const query = `INSERT INTO constraint (${insertFields.join(", ")}) VALUES (${placeholders})`;
-      await db.query(query, insertValues);
+      if (insertFields.length > 1) { // More than just user_id
+        const placeholders = insertFields.map(() => "?").join(", ");
+        const query = `INSERT INTO \`constraint\` (${insertFields.join(", ")}) VALUES (${placeholders})`;
+        const [insertResult]: any = await db.query(query, insertValues);
+        constraintIdForItems = insertResult.insertId;
+      }
+    }
+
+    if (constraintIdForItems !== null && busy_days && Array.isArray(busy_days)) {
+      // Clear out existing recurring_busy objects and replace
+      await db.query("DELETE FROM recurring_busy WHERE constraint_id = ?", [constraintIdForItems]);
+      
+      for (const bd of busy_days) {
+        await db.query(
+          `INSERT INTO recurring_busy
+            (constraint_id, recurring_busy_day, recurring_busy_time_start, recurring_busy_time_end)
+           VALUES (?, ?, ?, ?)`,
+          [constraintIdForItems, bd.day, bd.start, bd.end]
+        );
+      }
     }
 
     // ดึงข้อมูล constraint ที่อัปเดทแล้ว
     const [updatedConstraints] = (await db.query(
       `SELECT constraint_id, user_id, day_off, continuous_working_duration, \`break\`, 
-              start_time, end_time, time_preference, recurring_busy_time_start, 
-              recurring_busy_time_end, recurring_busy_day 
+              start_time, end_time, time_preference
        FROM \`constraint\` WHERE user_id = ?`,
       [userId]
     )) as any;
 
+    const constraintData = updatedConstraints[0];
+
+    const [updatedRecurringBusyItems] = (await db.query(
+      `SELECT recurring_busy_day as day, recurring_busy_time_start as start, recurring_busy_time_end as end
+       FROM recurring_busy WHERE constraint_id = ?`,
+      [constraintData.constraint_id]
+    )) as any;
+
+    constraintData.busy_days = updatedRecurringBusyItems || [];
+
     res.json({
       message: "Constraints updated successfully",
-      constraint: updatedConstraints[0],
+      constraint: constraintData,
     });
   } catch (error) {
     console.error("updateConstraints error:", error);
