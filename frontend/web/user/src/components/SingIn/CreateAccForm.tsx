@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useRef, forwardRef, useImperativeHandle } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import SelectGender from "./SelectGender";
+
+const passwordRegex = /^(?=.*[A-Za-z])(?=.*[\W_]).{8,}$/;
 
 export interface CreateAccFormHandle {
   getFormData: () => Promise<{
@@ -45,8 +48,10 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
         return null;
       }
 
-      if (password.length < 6) {
-        setError("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+      if (!passwordRegex.test(password)) {
+        setError(
+          "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร และต้องมีตัวอักษรภาษาอังกฤษกับอักขระพิเศษอย่างน้อยอย่างละ 1 ตัว"
+        );
         return null;
       }
 
@@ -173,6 +178,8 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
               ref={passwordRef}
               type={showPassword ? "text" : "password"}
               placeholder="Enter password"
+              minLength={8}
+              autoComplete="new-password"
               className="
                 w-full
 
@@ -200,12 +207,32 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
             />
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"
+              onClick={() => setShowPassword((previous) => !previous)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              title={showPassword ? "Hide password" : "Show password"}
+              className="
+                absolute
+                right-4
+                top-1/2
+                -translate-y-1/2
+                text-gray-400
+                transition-colors
+                hover:text-gray-600
+                focus-visible:outline-2
+                focus-visible:outline-offset-2
+                focus-visible:outline-[#9CC5F9]
+              "
             >
-              {showPassword ? "隐" : "显"}
+              {showPassword ? (
+                <EyeOff aria-hidden="true" size={19} strokeWidth={1.8} />
+              ) : (
+                <Eye aria-hidden="true" size={19} strokeWidth={1.8} />
+              )}
             </button>
           </div>
+          <p className="mt-1.5 text-[11px] text-gray-400 sm:text-xs">
+            อย่างน้อย 8 ตัวอักษร และต้องมีตัวอักษรภาษาอังกฤษกับอักขระพิเศษ
+          </p>
         </div>
 
         {/* Confirm Password */}
@@ -228,6 +255,8 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
               ref={confirmPasswordRef}
               type={showConfirmPassword ? "text" : "password"}
               placeholder="Confirm password"
+              minLength={8}
+              autoComplete="new-password"
               className="
                 w-full
 
@@ -255,10 +284,35 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
             />
             <button
               type="button"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"
+              onClick={() => setShowConfirmPassword((previous) => !previous)}
+              aria-label={
+                showConfirmPassword
+                  ? "Hide confirm password"
+                  : "Show confirm password"
+              }
+              title={
+                showConfirmPassword
+                  ? "Hide confirm password"
+                  : "Show confirm password"
+              }
+              className="
+                absolute
+                right-4
+                top-1/2
+                -translate-y-1/2
+                text-gray-400
+                transition-colors
+                hover:text-gray-600
+                focus-visible:outline-2
+                focus-visible:outline-offset-2
+                focus-visible:outline-[#9CC5F9]
+              "
             >
-              {showConfirmPassword ? "隐" : "显"}
+              {showConfirmPassword ? (
+                <EyeOff aria-hidden="true" size={19} strokeWidth={1.8} />
+              ) : (
+                <Eye aria-hidden="true" size={19} strokeWidth={1.8} />
+              )}
             </button>
           </div>
         </div>

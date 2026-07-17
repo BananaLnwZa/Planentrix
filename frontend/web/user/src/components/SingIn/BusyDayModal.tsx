@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, type RefObject } from "react";
+import { useState, useRef, type RefObject } from "react";
 import Image from "next/image";
 
 type EditItem = {
@@ -70,7 +70,7 @@ const days = [
     color: "bg-violet-200",
     border: "border-violet-400",
     hover: "hover:border-violet-400",
-    selected: "border-violet-400 text-white",
+    selected: "border-violet-200 text-white",
   },
 ];
 
@@ -81,13 +81,16 @@ export default function BusyDayModal({
   editItem,
 }: Props) {
   const [selectedDay, setSelectedDay] =
-    useState("Mon");
+    useState(editItem?.day || "Mon");
 
   const [startTime, setStartTime] =
-    useState("");
+    useState(editItem?.start || "");
 
   const [endTime, setEndTime] =
-    useState("");
+    useState(editItem?.end || "");
+
+  const [timeError, setTimeError] =
+    useState<string | null>(null);
 
   const startRef = useRef<HTMLInputElement | null>(null);
   const endRef = useRef<HTMLInputElement | null>(null);
@@ -96,25 +99,50 @@ export default function BusyDayModal({
     const input = ref.current;
     if (!input) return;
 
-    if (typeof (input as any).showPicker === "function") {
-      (input as any).showPicker();
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
     } else {
       input.focus();
     }
   };
 
-  // โหลดข้อมูลเดิมตอนกดแก้ไข
-  useEffect(() => {
-    if (editItem) {
-      setSelectedDay(editItem.day);
-      setStartTime(editItem.start);
-      setEndTime(editItem.end);
-    } else {
-      setSelectedDay("Mon");
-      setStartTime("");
-      setEndTime("");
+  const getTimeError = (start: string, end: string): string | null => {
+    if (!start || !end) {
+      return "กรุณาเลือกเวลาเริ่มต้นและเวลาสิ้นสุดให้ครบ";
     }
-  }, [editItem, open]);
+
+    if (start >= end) {
+      return "เวลาเริ่มต้นต้องน้อยกว่าเวลาสิ้นสุด";
+    }
+
+    return null;
+  };
+
+  const handleStartTimeChange = (value: string) => {
+    setStartTime(value);
+    setTimeError(value && endTime ? getTimeError(value, endTime) : null);
+  };
+
+  const handleEndTimeChange = (value: string) => {
+    setEndTime(value);
+    setTimeError(startTime && value ? getTimeError(startTime, value) : null);
+  };
+
+  const handleConfirm = () => {
+    const currentTimeError = getTimeError(startTime, endTime);
+    setTimeError(currentTimeError);
+
+    if (currentTimeError) {
+      if (!startTime) {
+        startRef.current?.focus();
+      } else {
+        endRef.current?.focus();
+      }
+      return;
+    }
+
+    onConfirm(selectedDay, startTime, endTime);
+  };
 
   if (!open) return null;
 
@@ -231,11 +259,14 @@ export default function BusyDayModal({
             ref={startRef}
             type="time"
             value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            className="
+            onChange={(event) => handleStartTimeChange(event.target.value)}
+            max={endTime || undefined}
+            aria-invalid={Boolean(timeError)}
+            aria-describedby={timeError ? "busy-time-error" : undefined}
+            className={`
               w-[145px]
               border
-              border-gray-300
+              ${timeError ? "border-red-500" : "border-gray-300"}
               rounded-full
               pl-4
               pr-6
@@ -244,7 +275,7 @@ export default function BusyDayModal({
               leading-none
               text-gray-500
               outline-none
-            "
+            `}
           />
 
           <button
@@ -282,11 +313,14 @@ export default function BusyDayModal({
             ref={endRef}
             type="time"
             value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-            className="
+            onChange={(event) => handleEndTimeChange(event.target.value)}
+            min={startTime || undefined}
+            aria-invalid={Boolean(timeError)}
+            aria-describedby={timeError ? "busy-time-error" : undefined}
+            className={`
               w-[145px]
               border
-              border-gray-300
+              ${timeError ? "border-red-500" : "border-gray-300"}
               rounded-full
               pl-4
               pr-6
@@ -295,7 +329,7 @@ export default function BusyDayModal({
               leading-none
               text-gray-500
               outline-none
-            "
+            `}
           />
 
           <button
@@ -325,18 +359,21 @@ export default function BusyDayModal({
           </button>
         </div>
         </div>
+        {timeError && (
+          <p
+            id="busy-time-error"
+            className="mb-4 text-center text-xs text-red-500"
+            role="alert"
+          >
+            {timeError}
+          </p>
+        )}
 
         {/* Confirm */}
         <div className="text-center">
           <button
             type="button"
-            onClick={() =>
-              onConfirm(
-                selectedDay,
-                startTime,
-                endTime
-              )
-            }
+            onClick={handleConfirm}
             className="
               px-8
               py-2

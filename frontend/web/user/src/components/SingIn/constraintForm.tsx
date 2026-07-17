@@ -4,7 +4,7 @@ import Image from "next/image";
 import { type RefObject, useRef, useState, forwardRef, useImperativeHandle } from "react";
 
 import Worktime from "./Worktime";
-import BusyDay from "./BusyDay";
+import BusyDay, { type BusyDayHandle } from "./BusyDay";
 import CustomDayDropdown from "./CustomDayDropdown";
 
 interface ConstraintFormData {
@@ -26,13 +26,13 @@ export interface ConstraintFormHandle {
   getFormData: () => Promise<{
     constraints: ConstraintFormData;
     busyDays: BusyDayData[];
-  }>;
+  } | null>;
 }
 
 const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(_, ref) {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [timePreference, setTimePreference] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [timeError, setTimeError] = useState<string | null>(null);
   
   // Working duration (hours, minutes)
   const continuousWorkingHoursRef = useRef<HTMLInputElement>(null);
@@ -44,7 +44,7 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
   
   const startTimeRef = useRef<HTMLInputElement>(null);
   const endTimeRef = useRef<HTMLInputElement>(null);
-  const busyDayRef = useRef<any>(null);
+  const busyDayRef = useRef<BusyDayHandle>(null);
 
   const openTimePicker = (ref: RefObject<HTMLInputElement | null>) => {
     const input = ref.current;
@@ -55,20 +55,6 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
     } else {
       input.focus();
     }
-  };
-
-  // Convert day name to number (1-7)
-  const dayNameToNumber = (dayName: string): number => {
-    const dayMap: { [key: string]: number } = {
-      "Monday": 1,
-      "Tuesday": 2,
-      "Wednesday": 3,
-      "Thursday": 4,
-      "Friday": 5,
-      "Saturday": 6,
-      "Sunday": 7,
-    };
-    return dayMap[dayName] || 1;
   };
 
   // Convert 24hr format to 12hr AM/PM format
@@ -106,6 +92,28 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
     return h * 60 + m;
   };
 
+  const getWorkTimeError = (
+    startTime: string,
+    endTime: string,
+    requireCompletePair = false
+  ): string | null => {
+    if (requireCompletePair && Boolean(startTime) !== Boolean(endTime)) {
+      return "กรุณาเลือกเวลาเริ่มต้นและเวลาสิ้นสุดให้ครบ";
+    }
+
+    if (startTime && endTime && startTime >= endTime) {
+      return "เวลาเริ่มต้นต้องน้อยกว่าเวลาสิ้นสุด";
+    }
+
+    return null;
+  };
+
+  const handleWorkTimeChange = () => {
+    const startTime = startTimeRef.current?.value || "";
+    const endTime = endTimeRef.current?.value || "";
+    setTimeError(getWorkTimeError(startTime, endTime));
+  };
+
   // Handle save constraints
   useImperativeHandle(ref, () => ({
     getFormData: async () => {
@@ -115,6 +123,22 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
       const breakMinutes = breakMinutesRef.current?.value || "0";
       const startTime = startTimeRef.current?.value;
       const endTime = endTimeRef.current?.value;
+      const currentTimeError = getWorkTimeError(
+        startTime || "",
+        endTime || "",
+        true
+      );
+
+      setTimeError(currentTimeError);
+
+      if (currentTimeError) {
+        if (!startTime) {
+          startTimeRef.current?.focus();
+        } else {
+          endTimeRef.current?.focus();
+        }
+        return null;
+      }
 
       // Convert time to AM/PM first, then to 24hr for database
       const startTimeAmPm = startTime ? convertTimeToAmPm(startTime) : null;
@@ -178,21 +202,15 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
       </h2>
 
       <div className="flex flex-col gap-5 sm:gap-6">
-        {error && (
-          <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg">
-            {error}
-          </div>
-        )}
-
         {/* วันหยุด */}
         <div className="space-y-2">
           <label className="block text-xs text-gray-700 sm:text-sm">
             วันหยุด
           </label>
 
-      <CustomDayDropdown
-            value={selectedDay?.toString() || ""}
-            onChange={(val) => setSelectedDay(val ? dayNameToNumber(val) : null)}
+          <CustomDayDropdown
+            value={selectedDay}
+            onChange={setSelectedDay}
           />
         </div>
 
@@ -351,6 +369,9 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
               ref={startTimeRef}
               id="start-work-time"
               type="time"
+              onChange={handleWorkTimeChange}
+              aria-invalid={Boolean(timeError)}
+              aria-describedby={timeError ? "work-time-error" : undefined}
               className="
                 appearance-none
                 h-[48px]
@@ -425,6 +446,9 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
               ref={endTimeRef}
               id="end-work-time"
               type="time"
+              onChange={handleWorkTimeChange}
+              aria-invalid={Boolean(timeError)}
+              aria-describedby={timeError ? "work-time-error" : undefined}
               className="
                 appearance-none
                 h-[48px]
@@ -486,6 +510,11 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
               />
             </button>
           </div>
+          {timeError && (
+            <p id="work-time-error" className="text-xs text-red-500" role="alert">
+              {timeError}
+            </p>
+          )}
         </div>
 
         <Worktime onChange={setTimePreference} />

@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { CheckCircle2 } from "lucide-react";
 import { authService } from "@/services/auth.service";
+import type { RegisterRequest } from "@/interfaces/auth.interface";
 import Notebook from "@/components/common/Notebook";
 import LogoSection from "@/components/common/LogoSection";
 import CreateAccForm from "@/components/SingIn/CreateAccForm";
@@ -26,8 +29,10 @@ interface BusyDayData {
 }
 
 export default function LoginPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   // Refs to access child component data
   const createAccFormRef = useRef<{
@@ -43,7 +48,7 @@ export default function LoginPage() {
     getFormData: () => Promise<{
       constraints: ConstraintFormData;
       busyDays: BusyDayData[];
-    }>;
+    } | null>;
   }>(null);
 
   const handleSignIn = async () => {
@@ -66,7 +71,7 @@ export default function LoginPage() {
       }
 
       // Register user with all data
-      const payload: any = {
+      const payload: RegisterRequest = {
         user_name: accData.user_name,
         user_password: accData.user_password,
         user_birthdate: accData.user_birthdate,
@@ -85,18 +90,16 @@ export default function LoginPage() {
       }
 
       // Register
-      const registerResponse = await authService.register(payload);
+      await authService.register(payload);
 
-      setMessage({ type: "success", text: "สร้างบัญชีและบันทึกข้อมูลสำเร็จ!" });
-
-      // Redirect to login after 2 seconds
-      setTimeout(() => {
-        window.location.href = "/login";
-      }, 2000);
-    } catch (err: any) {
+      setShowSuccessPopup(true);
+    } catch (err: unknown) {
       setMessage({
         type: "error",
-        text: err.message || "เกิดข้อผิดพลาดในการสร้างบัญชี",
+        text:
+          err instanceof Error
+            ? err.message
+            : "เกิดข้อผิดพลาดในการสร้างบัญชี",
       });
     } finally {
       setIsLoading(false);
@@ -116,6 +119,80 @@ export default function LoginPage() {
         p-8
       "
     >
+      {showSuccessPopup && (
+        <div
+          className="
+            fixed
+            inset-0
+            z-[10000]
+            flex
+            items-center
+            justify-center
+            bg-black/40
+            p-4
+            backdrop-blur-[2px]
+          "
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="signup-success-title"
+            aria-describedby="signup-success-description"
+            className="
+              w-full
+              max-w-sm
+              rounded-3xl
+              bg-white
+              p-7
+              text-center
+              shadow-2xl
+              sm:p-8
+            "
+          >
+            <CheckCircle2
+              aria-hidden="true"
+              className="mx-auto mb-4 text-green-500"
+              size={56}
+              strokeWidth={1.8}
+            />
+            <h2
+              id="signup-success-title"
+              className="text-2xl font-medium text-gray-900"
+            >
+              สร้างบัญชีสำเร็จ
+            </h2>
+            <p
+              id="signup-success-description"
+              className="mt-2 text-sm text-gray-500"
+            >
+              บัญชีของคุณพร้อมใช้งานแล้ว
+            </p>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => router.replace("/LogIn")}
+              className="
+                mt-6
+                min-w-32
+                rounded-full
+                bg-[#9CC5F9]
+                px-7
+                py-2.5
+                text-sm
+                text-white
+                transition-colors
+                hover:bg-[#82B4F2]
+                focus-visible:outline-2
+                focus-visible:outline-offset-2
+                focus-visible:outline-[#9CC5F9]
+              "
+            >
+              ตกลง
+            </button>
+          </div>
+        </div>
+      )}
+
       <Notebook>
         <LogoSection />
 

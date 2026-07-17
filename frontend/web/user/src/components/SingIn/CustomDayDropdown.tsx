@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 type Props = {
-  value: string;
-  onChange: (day: string) => void;
+  value: number | null;
+  onChange: (day: number | null) => void;
 };
 
 const days = [
   {
-    id: "Monday",
+    id: 1,
     label: "Monday",
     hover:
       "hover:border-[#F7E380] hover:text-[#D4B900]",
@@ -18,7 +18,7 @@ const days = [
       "bg-[#FFFFF] border-[#F7E380] text-[#D4B900]",
   },
   {
-    id: "Tuesday",
+    id: 2,
     label: "Tuesday",
     hover:
       "hover:border-[#F5B5CB] hover:text-[#E88BAD]",
@@ -26,7 +26,7 @@ const days = [
       "bg-[#FFFFF] border-[#F5B5CB] text-[#E88BAD]",
   },
   {
-    id: "Wednesday",
+    id: 3,
     label: "Wednesday",
     hover:
       "hover:border-[#B5E48C] hover:text-[#7EBD52]",
@@ -34,7 +34,7 @@ const days = [
       "bg-[#FFFFF] border-[#B5E48C] text-[#7EBD52]",
   },
   {
-    id: "Thursday",
+    id: 4,
     label: "Thursday",
     hover:
       "hover:border-[#FBC49C] hover:text-[#EB9558]",
@@ -42,7 +42,7 @@ const days = [
       "bg-[#FFFFF] border-[#FBC49C] text-[#EB9558]",
   },
   {
-    id: "Friday",
+    id: 5,
     label: "Friday",
     hover:
       "hover:border-[#D8B8E8] hover:text-[#D8B8E8]",
@@ -50,7 +50,7 @@ const days = [
       "bg-[#FFFFF] border-[#D8B8E8] text-[#D8B8E8]",
   },
   {
-    id: "Saturday",
+    id: 6,
     label: "Saturday",
     hover:
       "hover:border-[#71B7E4] hover:text-[#71B7E4]",
@@ -58,7 +58,7 @@ const days = [
       "bg-[#FFFFF] border-[#71B7E4] text-[#71B7E4]",
   },
   {
-    id: "Sunday",
+    id: 7,
     label: "Sunday",
     hover:
       "hover:border-[#FB9A92] hover:text-[#EC6E65]",
@@ -73,6 +73,7 @@ export default function CustomDayDropdown({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const selectedDay = days.find((day) => day.id === value);
 
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -150,7 +151,7 @@ export default function CustomDayDropdown({
               : "text-sm text-gray-400"
           }
         >
-          {value || "เลือกวันที่ต้องการหยุด"}
+          {selectedDay?.label || "เลือกวันที่ต้องการหยุด"}
         </span>
 
         <svg

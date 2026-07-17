@@ -4,42 +4,38 @@ import { useState, forwardRef, useImperativeHandle } from "react";
 import BusyDayModal from "./BusyDayModal";
 import { Pencil, Trash2 } from "lucide-react";
 
-type Item = {
-  id: string;
+export type BusyDayFormData = {
   day: number; // 1-7 (Monday-Sunday)
   start: string; // HH:MM AM/PM
   end: string; // HH:MM AM/PM
 };
 
-interface BusyDayHandle {
-  getFormData: () => Promise<Item[]>;
+type Item = BusyDayFormData & {
+  id: string;
+};
+
+export interface BusyDayHandle {
+  getFormData: () => Promise<BusyDayFormData[]>;
 }
 
 export interface BusyDayProps {
   onBusyDaysSaved?: () => void;
 }
 
-const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedule({ onBusyDaysSaved }, ref) {
+const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedule(_, ref) {
   const [items, setItems] = useState<Item[]>([]);
   const [open, setOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
 
   useImperativeHandle(ref, () => ({
     getFormData: async () => {
       return items.map((item) => ({
-        ...item,
+        day: item.day,
         start: convertAmPmTo24hr(item.start),
         end: convertAmPmTo24hr(item.end),
       }));
     },
   }));
-
-  const [form, setForm] = useState({
-    day: 1,
-    start: "",
-    end: "",
-  });
 
   // Convert abbreviated day name to full name
   const abbreviatedToFullDayName = (abbr: string): string => {
@@ -111,6 +107,19 @@ const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedu
     return dayMap[dayNum] || "Monday";
   };
 
+  const dayNumberToAbbreviation = (dayNum: number): string => {
+    const dayMap: { [key: number]: string } = {
+      1: "Mon",
+      2: "Tue",
+      3: "Wed",
+      4: "Thu",
+      5: "Fri",
+      6: "Sat",
+      7: "Sun",
+    };
+    return dayMap[dayNum] || "Mon";
+  };
+
   // Note: Busy days are saved through the constraint form ref
   // No need to save separately here
 
@@ -162,11 +171,6 @@ const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedu
                 type="button"
                 onClick={() => {
                   setEditingItem(t);
-                  setForm({
-                    day: t.day,
-                    start: t.start,
-                    end: t.end,
-                  });
                   setOpen(true);
                 }}
                 className="
@@ -242,10 +246,11 @@ const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedu
       </div>
 
       <BusyDayModal
+        key={open ? editingItem?.id || "new" : "closed"}
         open={open}
         editItem={editingItem ? {
           id: editingItem.id,
-          day: dayNumberToName(editingItem.day),
+          day: dayNumberToAbbreviation(editingItem.day),
           start: convertAmPmTo24hr(editingItem.start),
           end: convertAmPmTo24hr(editingItem.end),
         } : null}
