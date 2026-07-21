@@ -10,7 +10,6 @@ const isValidDateString = (value: any) => {
 
 // ==============================
 // ADD NEW TERM
-// (รับ user_id จาก URL param)
 // ==============================
 export const addTerm = async (req: Request, res: Response) => {
   try {
@@ -20,12 +19,6 @@ export const addTerm = async (req: Request, res: Response) => {
     }
     if (authUser.role && authUser.role !== "user") {
       return res.status(403).json({ message: "Forbidden: user role required" });
-    }
-
-    const { id } = req.params;
-
-    if (!id) {
-      return res.status(400).json({ message: "id is required in URL" });
     }
 
     const {
@@ -62,7 +55,6 @@ export const addTerm = async (req: Request, res: Response) => {
     res.status(201).json({
       message: "Term added successfully",
       term_id: result.insertId,
-      id, // จาก URL param
     });
   } catch (err) {
     console.error("addTerm error:", err);
@@ -72,7 +64,6 @@ export const addTerm = async (req: Request, res: Response) => {
 
 // ==============================
 // GET CURRENT TERM (status = 1)
-// (รับ id จาก URL param)
 // ==============================
 export const getCurrentTerm = async (req: Request, res: Response) => {
   try {
@@ -82,12 +73,6 @@ export const getCurrentTerm = async (req: Request, res: Response) => {
     }
     if (authUser.role && authUser.role !== "user") {
       return res.status(403).json({ message: "Forbidden: user role required" });
-    }
-
-    const { id } = req.params;
-
-    if (!id) {
-      return res.status(400).json({ message: "id is required in URL" });
     }
 
     const [rows]: any = await db.query(
@@ -100,7 +85,6 @@ export const getCurrentTerm = async (req: Request, res: Response) => {
 
     res.json({
       message: "Current term retrieved successfully",
-      id,
       data: rows[0],
     });
   } catch (err) {
@@ -111,7 +95,7 @@ export const getCurrentTerm = async (req: Request, res: Response) => {
 
 // ==============================
 // END CURRENT TERM
-// (รับ id จาก URL param, หาเทอมปัจจุบัน status = 1 เองแล้วจบให้)
+// (หาเทอมปัจจุบัน status = 1 เองแล้วจบให้)
 // ==============================
 export const endCurrentTerm = async (req: Request, res: Response) => {
   try {
@@ -121,12 +105,6 @@ export const endCurrentTerm = async (req: Request, res: Response) => {
     }
     if (authUser.role && authUser.role !== "user") {
       return res.status(403).json({ message: "Forbidden: user role required" });
-    }
-
-    const { id } = req.params;
-
-    if (!id) {
-      return res.status(400).json({ message: "id is required in URL" });
     }
 
     const [currentTermRows]: any = await db.query(
@@ -146,7 +124,6 @@ export const endCurrentTerm = async (req: Request, res: Response) => {
 
     res.json({
       message: "Term ended successfully",
-      id, // จาก URL param
       ended_term: currentTerm,
     });
   } catch (err) {

@@ -8,13 +8,13 @@ import {
 
 const router = Router();
 
-// POST - Start a new term by user_id via URL (require authentication)
-router.post("/add/:id", verifyToken, addTerm);
+// POST - Start a new term (require authentication)
+router.post("/add", verifyToken, addTerm);
 
-// GET - Current term by user_id via URL (require authentication)
-router.get("/current/:id", verifyToken, getCurrentTerm);
+// GET - Current term (require authentication)
+router.get("/current", verifyToken, getCurrentTerm);
 
-// PUT - End current term by user_id via URL (require authentication)
-router.put("/end/:id", verifyToken, endCurrentTerm);
+// PUT - End current term (require authentication)
+router.put("/end", verifyToken, endCurrentTerm);
 
 export default router;

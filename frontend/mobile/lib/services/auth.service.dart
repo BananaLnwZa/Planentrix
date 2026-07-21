@@ -173,7 +173,7 @@ class AuthService {
 
     // Try a lightweight authenticated call to verify the token is still valid
     try {
-      await _apiService.get('/user/profile/${session.userId}');
+      await _apiService.get('/user/profile');
       return session;
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
