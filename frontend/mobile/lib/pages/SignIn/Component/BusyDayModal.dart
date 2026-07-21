@@ -36,6 +36,14 @@ String formatBusyDayTime(TimeOfDay time) {
   return '${hour.toString().padLeft(2, '0')}:$minute $period';
 }
 
+String? convertDisplayTimeTo24Hour(String value) {
+  final time = parseBusyDayTime(value);
+  if (time == null) return null;
+
+  return '${time.hour.toString().padLeft(2, '0')}:'
+      '${time.minute.toString().padLeft(2, '0')}';
+}
+
 String _normalizeBusyDayTime(String value) {
   final time = parseBusyDayTime(value);
   return time == null ? value : formatBusyDayTime(time);
@@ -78,15 +86,16 @@ class _BusyDayModalState extends State<BusyDayModal> {
   String selectedDay = 'Mon';
   String startTime = '';
   String endTime = '';
+  String? _timeError;
 
   final List<Map<String, dynamic>> days = const [
-    {'id': 'Sun', 'color': Color(0xFFEC407A)},
-    {'id': 'Mon', 'color': Color(0xFFFACC15)},
-    {'id': 'Tue', 'color': Color(0xFFF9A8D4)},
-    {'id': 'Wed', 'color': Color(0xFF4ADE80)},
-    {'id': 'Thu', 'color': Color(0xFFFB923C)},
-    {'id': 'Fri', 'color': Color(0xFF38BDF8)},
-    {'id': 'Sat', 'color': Color(0xFFD8B4FE)},
+    {'id': 'Sun', 'color': Color(0xFFFECDD3), 'borderColor': Color(0xFFFB7185)},
+    {'id': 'Mon', 'color': Color(0xFFFDE68A), 'borderColor': Color(0xFFFBBF24)},
+    {'id': 'Tue', 'color': Color(0xFFF5D0FE), 'borderColor': Color(0xFFE879F9)},
+    {'id': 'Wed', 'color': Color(0xFFA7F3D0), 'borderColor': Color(0xFF34D399)},
+    {'id': 'Thu', 'color': Color(0xFFFED7AA), 'borderColor': Color(0xFFFB923C)},
+    {'id': 'Fri', 'color': Color(0xFFBAE6FD), 'borderColor': Color(0xFF38BDF8)},
+    {'id': 'Sat', 'color': Color(0xFFDDD6FE), 'borderColor': Color(0xFFA78BFA)},
   ];
 
   @override
@@ -106,6 +115,7 @@ class _BusyDayModalState extends State<BusyDayModal> {
 
   void _loadInitialData() {
     final item = widget.editItem;
+    _timeError = null;
 
     if (item != null) {
       selectedDay = item.day;
@@ -139,6 +149,11 @@ class _BusyDayModalState extends State<BusyDayModal> {
 
     setState(() {
       startTime = _formatTime(selected);
+      _timeError = _getTimeError(
+        startTime,
+        endTime,
+        requireCompletePair: false,
+      );
     });
   }
 
@@ -155,7 +170,34 @@ class _BusyDayModalState extends State<BusyDayModal> {
 
     setState(() {
       endTime = _formatTime(selected);
+      _timeError = _getTimeError(
+        startTime,
+        endTime,
+        requireCompletePair: false,
+      );
     });
+  }
+
+  String? _getTimeError(
+    String start,
+    String end, {
+    bool requireCompletePair = true,
+  }) {
+    if (requireCompletePair && (start.isEmpty || end.isEmpty)) {
+      return 'กรุณาเลือกเวลาเริ่มต้นและเวลาสิ้นสุดให้ครบ';
+    }
+    if (start.isEmpty || end.isEmpty) return null;
+
+    final startValue = parseBusyDayTime(start);
+    final endValue = parseBusyDayTime(end);
+    if (startValue == null || endValue == null) return 'รูปแบบเวลาไม่ถูกต้อง';
+
+    final startMinutes = startValue.hour * 60 + startValue.minute;
+    final endMinutes = endValue.hour * 60 + endValue.minute;
+    if (startMinutes >= endMinutes) {
+      return 'เวลาเริ่มต้นต้องน้อยกว่าเวลาสิ้นสุด';
+    }
+    return null;
   }
 
   void _closeModal() {
@@ -167,13 +209,11 @@ class _BusyDayModalState extends State<BusyDayModal> {
   }
 
   void _confirm() {
-    if (startTime.isEmpty || endTime.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณาเลือกเวลาเริ่มต้นและเวลาสิ้นสุด')),
-      );
-
-      return;
-    }
+    final error = _getTimeError(startTime, endTime);
+    setState(() {
+      _timeError = error;
+    });
+    if (error != null) return;
 
     widget.onConfirm(selectedDay, startTime, endTime);
 
@@ -261,11 +301,13 @@ class _BusyDayModalState extends State<BusyDayModal> {
                         children: days.map((day) {
                           final String id = day['id'];
                           final Color color = day['color'];
+                          final Color borderColor = day['borderColor'];
                           final bool isSelected = selectedDay == id;
 
                           return _DayButton(
                             id: id,
                             color: color,
+                            borderColor: borderColor,
                             isSelected: isSelected,
                             onPressed: () {
                               setState(() {
@@ -315,8 +357,12 @@ class _BusyDayModalState extends State<BusyDayModal> {
                                   ),
 
                                   border: inputBorder,
-                                  enabledBorder: inputBorder,
-                                  focusedBorder: focusedInputBorder,
+                                  enabledBorder: _timeError == null
+                                      ? inputBorder
+                                      : errorInputBorder,
+                                  focusedBorder: _timeError == null
+                                      ? focusedInputBorder
+                                      : errorInputBorder,
                                   errorBorder: errorInputBorder,
                                   focusedErrorBorder: errorInputBorder,
 
@@ -376,8 +422,12 @@ class _BusyDayModalState extends State<BusyDayModal> {
                                   ),
 
                                   border: inputBorder,
-                                  enabledBorder: inputBorder,
-                                  focusedBorder: focusedInputBorder,
+                                  enabledBorder: _timeError == null
+                                      ? inputBorder
+                                      : errorInputBorder,
+                                  focusedBorder: _timeError == null
+                                      ? focusedInputBorder
+                                      : errorInputBorder,
                                   errorBorder: errorInputBorder,
                                   focusedErrorBorder: errorInputBorder,
 
@@ -394,6 +444,21 @@ class _BusyDayModalState extends State<BusyDayModal> {
                           ),
                         ],
                       ),
+
+                      if (_timeError != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          _timeError!,
+                          key: const Key('busy-day-time-error'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFEF4444),
+                            fontFamily: _fontFamily,
+                            fontWeight: FontWeight.w300,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
 
                       SizedBox(height: mobile ? 22 : 26),
 
@@ -435,12 +500,14 @@ class _BusyDayModalState extends State<BusyDayModal> {
 class _DayButton extends StatefulWidget {
   final String id;
   final Color color;
+  final Color borderColor;
   final bool isSelected;
   final VoidCallback onPressed;
 
   const _DayButton({
     required this.id,
     required this.color,
+    required this.borderColor,
     required this.isSelected,
     required this.onPressed,
   });
@@ -451,10 +518,23 @@ class _DayButton extends StatefulWidget {
 
 class _DayButtonState extends State<_DayButton> {
   bool isHovered = false;
+  bool isPressed = false;
 
   @override
   Widget build(BuildContext context) {
-    final bool active = widget.isSelected || isHovered;
+    final double scale = isPressed
+        ? 1.05
+        : widget.isSelected
+        ? 1.10
+        : isHovered
+        ? 1.05
+        : 1;
+    final double opacity = isPressed
+        ? 0.70
+        : isHovered
+        ? 0.80
+        : 1;
+    final bool showBorder = !isPressed && isHovered;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -469,38 +549,53 @@ class _DayButtonState extends State<_DayButton> {
         });
       },
       child: AnimatedScale(
-        scale: active ? 1.08 : 1,
-        duration: const Duration(milliseconds: 160),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(24),
-            onTap: widget.onPressed,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
-              decoration: BoxDecoration(
-                color: widget.color,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: widget.isSelected ? Colors.white : Colors.transparent,
-                  width: 3,
+        scale: scale,
+        duration: const Duration(milliseconds: 180),
+        child: AnimatedOpacity(
+          opacity: opacity,
+          duration: const Duration(milliseconds: 180),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: Key('busy-day-option-${widget.id}'),
+              borderRadius: BorderRadius.circular(24),
+              onHighlightChanged: (value) {
+                setState(() {
+                  isPressed = value;
+                });
+              },
+              onTap: widget.onPressed,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 15,
+                  vertical: 9,
                 ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 5,
-                    offset: Offset(0, 2),
+                decoration: BoxDecoration(
+                  color: widget.color,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: showBorder ? widget.borderColor : Colors.transparent,
+                    width: 2,
                   ),
-                ],
-              ),
-              child: Text(
-                widget.id,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: _fontFamily,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  boxShadow: [
+                    const BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 5,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  widget.id,
+                  style: TextStyle(
+                    color: widget.isSelected
+                        ? Colors.white
+                        : const Color(0xFF1F2937),
+                    fontFamily: _fontFamily,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ),

@@ -1,8 +1,60 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../../interfaces/auth.interface.dart' as auth;
 import 'CustomDayDropdown.dart';
 import 'WorkTime.dart';
 import 'BusyDay.dart';
+import 'BusyDayModal.dart';
+
+class ConstraintFormData {
+  final int? dayOff;
+  final int? continuousWorkingDuration;
+  final int? breakTime;
+  final String? startTime;
+  final String? endTime;
+  final int? timePreference;
+  final List<auth.BusyDay> busyDays;
+
+  const ConstraintFormData({
+    required this.dayOff,
+    required this.continuousWorkingDuration,
+    required this.breakTime,
+    required this.startTime,
+    required this.endTime,
+    required this.timePreference,
+    required this.busyDays,
+  });
+}
+
+int dayNameToNumber(String day) {
+  const dayMap = <String, int>{
+    'Monday': 1,
+    'Tuesday': 2,
+    'Wednesday': 3,
+    'Thursday': 4,
+    'Friday': 5,
+    'Saturday': 6,
+    'Sunday': 7,
+  };
+  return dayMap[day] ?? 1;
+}
+
+int durationToMinutes(String hours, String minutes) {
+  final hoursText = hours.trim();
+  final minutesText = minutes.trim();
+  final parsedHours = hoursText.isEmpty ? 0 : int.tryParse(hoursText);
+  final parsedMinutes = minutesText.isEmpty ? 0 : int.tryParse(minutesText);
+
+  if (parsedHours == null || parsedMinutes == null || parsedHours < 0) {
+    throw const FormatException('ระยะเวลาต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป');
+  }
+  if (parsedMinutes < 0 || parsedMinutes > 59) {
+    throw const FormatException('นาทีต้องอยู่ระหว่าง 0 ถึง 59');
+  }
+
+  return parsedHours * 60 + parsedMinutes;
+}
 
 const String _fontFamily = 'Sansation';
 const Color _accentColor = Color(0xFF9CC5F9);
@@ -18,6 +70,7 @@ OutlineInputBorder _inputBorder({Color color = _inputBorderColor}) {
 InputDecoration _inputDecoration({
   required String hintText,
   Widget? suffixIcon,
+  bool hasError = false,
   EdgeInsetsGeometry contentPadding = const EdgeInsets.symmetric(
     horizontal: 20,
     vertical: 16,
@@ -37,8 +90,12 @@ InputDecoration _inputDecoration({
     contentPadding: contentPadding,
     suffixIcon: suffixIcon,
     border: _inputBorder(),
-    enabledBorder: _inputBorder(),
-    focusedBorder: _inputBorder(color: _accentColor),
+    enabledBorder: _inputBorder(
+      color: hasError ? const Color(0xFFB3261E) : _inputBorderColor,
+    ),
+    focusedBorder: _inputBorder(
+      color: hasError ? const Color(0xFFB3261E) : _accentColor,
+    ),
     errorBorder: _inputBorder(color: const Color(0xFFB3261E)),
     focusedErrorBorder: _inputBorder(color: const Color(0xFFB3261E)),
   );
@@ -62,11 +119,28 @@ class Constraint extends StatefulWidget {
   const Constraint({super.key});
 
   @override
-  State<Constraint> createState() => _ConstraintState();
+  State<Constraint> createState() => ConstraintState();
 }
 
-class _ConstraintState extends State<Constraint> {
+class ConstraintState extends State<Constraint> {
+  static const String _incompleteWorkTimeMessage =
+      'กรุณาเลือกเวลาเริ่มต้นและเวลาสิ้นสุดให้ครบ';
+  static const String _invalidWorkTimeMessage = 'รูปแบบเวลาทำงานไม่ถูกต้อง';
+  static const String _workTimeOrderMessage =
+      'เวลาเริ่มต้นต้องน้อยกว่าเวลาสิ้นสุด';
+
   String? selectedDay;
+  int? timePreference;
+  String? _errorMessage;
+
+  String? get validationMessage => _errorMessage;
+
+  bool get _hasWorkTimeError =>
+      _errorMessage == _incompleteWorkTimeMessage ||
+      _errorMessage == _invalidWorkTimeMessage ||
+      _errorMessage == _workTimeOrderMessage;
+
+  final GlobalKey<BusyDayState> _busyDayKey = GlobalKey<BusyDayState>();
 
   final TextEditingController workHourController = TextEditingController();
 
@@ -80,6 +154,88 @@ class _ConstraintState extends State<Constraint> {
 
   final TextEditingController endTimeController = TextEditingController();
 
+  ConstraintFormData? validateAndGetData() {
+    int continuousDuration;
+    int breakDuration;
+    try {
+      continuousDuration = durationToMinutes(
+        workHourController.text,
+        workMinuteController.text,
+      );
+      breakDuration = durationToMinutes(
+        breakHourController.text,
+        breakMinuteController.text,
+      );
+    } on FormatException catch (error) {
+      _setError(error.message);
+      return null;
+    }
+
+    final workTimeError = _getWorkTimeError();
+    if (workTimeError != null) {
+      _setError(workTimeError);
+      return null;
+    }
+
+    final startDisplay = startTimeController.text.trim();
+    final endDisplay = endTimeController.text.trim();
+    final startTime = startDisplay.isEmpty
+        ? null
+        : convertDisplayTimeTo24Hour(startDisplay);
+    final endTime = endDisplay.isEmpty
+        ? null
+        : convertDisplayTimeTo24Hour(endDisplay);
+
+    List<auth.BusyDay> busyDays;
+    try {
+      busyDays = _busyDayKey.currentState?.getFormData() ?? const [];
+    } on FormatException catch (error) {
+      _setError(error.message);
+      return null;
+    }
+
+    _setError(null);
+    return ConstraintFormData(
+      dayOff: selectedDay == null ? null : dayNameToNumber(selectedDay!),
+      continuousWorkingDuration: continuousDuration == 0
+          ? null
+          : continuousDuration,
+      breakTime: breakDuration == 0 ? null : breakDuration,
+      startTime: startTime,
+      endTime: endTime,
+      timePreference: timePreference,
+      busyDays: busyDays,
+    );
+  }
+
+  void _setError(String? message) {
+    if (!mounted) return;
+    setState(() {
+      _errorMessage = message;
+    });
+  }
+
+  String? _getWorkTimeError({bool requireCompletePair = true}) {
+    final startDisplay = startTimeController.text.trim();
+    final endDisplay = endTimeController.text.trim();
+
+    if (startDisplay.isEmpty && endDisplay.isEmpty) return null;
+    if (startDisplay.isEmpty || endDisplay.isEmpty) {
+      return requireCompletePair ? _incompleteWorkTimeMessage : null;
+    }
+
+    final startTime = convertDisplayTimeTo24Hour(startDisplay);
+    final endTime = convertDisplayTimeTo24Hour(endDisplay);
+    if (startTime == null || endTime == null) {
+      return _invalidWorkTimeMessage;
+    }
+    if (startTime.compareTo(endTime) >= 0) {
+      return _workTimeOrderMessage;
+    }
+
+    return null;
+  }
+
   Future<void> _selectTime(TextEditingController controller) async {
     final TimeOfDay? selectedTime = await showTimePicker(
       context: context,
@@ -90,7 +246,14 @@ class _ConstraintState extends State<Constraint> {
       return;
     }
 
-    controller.text = selectedTime.format(context);
+    final previousErrorWasWorkTime = _hasWorkTimeError;
+    setState(() {
+      controller.text = selectedTime.format(context);
+      final workTimeError = _getWorkTimeError(requireCompletePair: false);
+      if (workTimeError != null || previousErrorWasWorkTime) {
+        _errorMessage = workTimeError;
+      }
+    });
   }
 
   @override
@@ -177,6 +340,8 @@ class _ConstraintState extends State<Constraint> {
           const SizedBox(height: 8),
 
           _DurationFields(
+            hourFieldKey: const Key('work-hour-field'),
+            minuteFieldKey: const Key('work-minute-field'),
             hourController: workHourController,
             minuteController: workMinuteController,
             fieldHeight: numberFieldHeight,
@@ -191,6 +356,8 @@ class _ConstraintState extends State<Constraint> {
           const SizedBox(height: 8),
 
           _DurationFields(
+            hourFieldKey: const Key('break-hour-field'),
+            minuteFieldKey: const Key('break-minute-field'),
             hourController: breakHourController,
             minuteController: breakMinuteController,
             fieldHeight: numberFieldHeight,
@@ -208,6 +375,7 @@ class _ConstraintState extends State<Constraint> {
             fieldKey: const Key('start-time-field'),
             controller: startTimeController,
             height: timeFieldHeight,
+            hasError: _hasWorkTimeError,
             onTap: () => _selectTime(startTimeController),
           ),
 
@@ -222,16 +390,38 @@ class _ConstraintState extends State<Constraint> {
             fieldKey: const Key('end-time-field'),
             controller: endTimeController,
             height: timeFieldHeight,
+            hasError: _hasWorkTimeError,
             onTap: () => _selectTime(endTimeController),
           ),
 
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage!,
+              key: const Key('constraint-error'),
+              style: const TextStyle(
+                color: Color(0xFFEF4444),
+                fontFamily: _fontFamily,
+                fontWeight: FontWeight.w300,
+                fontSize: 12,
+              ),
+            ),
+          ],
+
           SizedBox(height: mobile ? 24 : 30),
 
-          const WorkTime(),
+          WorkTime(
+            value: timePreference,
+            onChanged: (value) {
+              setState(() {
+                timePreference = value;
+              });
+            },
+          ),
 
           SizedBox(height: mobile ? 20 : 24),
 
-          const BusyDay(),
+          BusyDay(key: _busyDayKey),
         ],
       ),
     );
@@ -239,6 +429,8 @@ class _ConstraintState extends State<Constraint> {
 }
 
 class _DurationFields extends StatelessWidget {
+  final Key hourFieldKey;
+  final Key minuteFieldKey;
   final TextEditingController hourController;
 
   final TextEditingController minuteController;
@@ -247,6 +439,8 @@ class _DurationFields extends StatelessWidget {
   final double fontSize;
 
   const _DurationFields({
+    required this.hourFieldKey,
+    required this.minuteFieldKey,
     required this.hourController,
     required this.minuteController,
     required this.fieldHeight,
@@ -264,8 +458,10 @@ class _DurationFields extends StatelessWidget {
                 child: SizedBox(
                   height: fieldHeight,
                   child: TextField(
+                    key: hourFieldKey,
                     controller: hourController,
                     keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     textAlign: TextAlign.center,
                     textAlignVertical: TextAlignVertical.center,
                     style: _inputTextStyle,
@@ -303,8 +499,10 @@ class _DurationFields extends StatelessWidget {
                 child: SizedBox(
                   height: fieldHeight,
                   child: TextField(
+                    key: minuteFieldKey,
                     controller: minuteController,
                     keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     textAlign: TextAlign.center,
                     textAlignVertical: TextAlignVertical.center,
                     style: _inputTextStyle,
@@ -341,12 +539,14 @@ class _TimeField extends StatelessWidget {
   final Key fieldKey;
   final TextEditingController controller;
   final double height;
+  final bool hasError;
   final VoidCallback onTap;
 
   const _TimeField({
     required this.fieldKey,
     required this.controller,
     required this.height,
+    required this.hasError,
     required this.onTap,
   });
 
@@ -364,6 +564,7 @@ class _TimeField extends StatelessWidget {
         textAlignVertical: TextAlignVertical.center,
         decoration: _inputDecoration(
           hintText: 'select time',
+          hasError: hasError,
           contentPadding: const EdgeInsets.only(
             left: 18,
             right: 8,

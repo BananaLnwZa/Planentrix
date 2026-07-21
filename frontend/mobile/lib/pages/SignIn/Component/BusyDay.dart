@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../interfaces/auth.interface.dart' as auth;
 import 'BusyDayModal.dart';
 
 const String _fontFamily = 'Sansation';
@@ -30,11 +31,42 @@ class BusyDay extends StatefulWidget {
   const BusyDay({super.key});
 
   @override
-  State<BusyDay> createState() => _BusyDayState();
+  State<BusyDay> createState() => BusyDayState();
 }
 
-class _BusyDayState extends State<BusyDay> {
+int busyDayNameToNumber(String day) {
+  const dayMap = <String, int>{
+    'Mon': 1,
+    'Tue': 2,
+    'Wed': 3,
+    'Thu': 4,
+    'Fri': 5,
+    'Sat': 6,
+    'Sun': 7,
+  };
+  return dayMap[day] ?? 1;
+}
+
+class BusyDayState extends State<BusyDay> {
   final List<BusyDayItem> items = [];
+
+  List<auth.BusyDay> getFormData() {
+    return items
+        .map((item) {
+          final start = convertDisplayTimeTo24Hour(item.start);
+          final end = convertDisplayTimeTo24Hour(item.end);
+          if (start == null || end == null) {
+            throw const FormatException('รูปแบบเวลาของวันที่ไม่ว่างไม่ถูกต้อง');
+          }
+
+          return auth.BusyDay(
+            day: busyDayNameToNumber(item.day),
+            start: start,
+            end: end,
+          );
+        })
+        .toList(growable: false);
+  }
 
   String _generateId() {
     return DateTime.now().microsecondsSinceEpoch.toString();

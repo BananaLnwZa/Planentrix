@@ -4,15 +4,30 @@ const String _fontFamily = 'Sansation';
 const Color _inputBorderColor = Color(0x4D000000);
 
 class WorkTime extends StatefulWidget {
-  const WorkTime({super.key});
+  final int? value;
+  final ValueChanged<int?>? onChanged;
+
+  const WorkTime({super.key, this.value, this.onChanged});
 
   @override
   State<WorkTime> createState() => _WorkTimeState();
 }
 
 class _WorkTimeState extends State<WorkTime> {
-  String? selected;
+  int? selected;
   String? hovered;
+
+  @override
+  void initState() {
+    super.initState();
+    selected = widget.value;
+  }
+
+  @override
+  void didUpdateWidget(covariant WorkTime oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) selected = widget.value;
+  }
 
   final List<Map<String, dynamic>> timeSlots = [
     {"id": "morning", "label": "เช้า", "color": const Color(0xFFBBDEF4)},
@@ -45,7 +60,8 @@ class _WorkTimeState extends State<WorkTime> {
             final String label = slot["label"];
             final Color color = slot["color"];
 
-            final bool isSelected = selected == id;
+            final int value = index + 1;
+            final bool isSelected = selected == value;
             final bool isHovered = hovered == id;
             final bool isActive = isSelected || isHovered;
 
@@ -76,8 +92,9 @@ class _WorkTimeState extends State<WorkTime> {
                         key: Key('work-time-$id'),
                         onPressed: () {
                           setState(() {
-                            selected = id;
+                            selected = value;
                           });
+                          widget.onChanged?.call(value);
                         },
                         style: ButtonStyle(
                           elevation: WidgetStateProperty.all(0),

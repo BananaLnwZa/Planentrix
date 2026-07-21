@@ -29,26 +29,13 @@ export interface RegisterRequest {
 export interface LoginRequest {
   user_name: string;
   user_password: string;
-  platform?: "web" | "mobile";
+  platform: "web";
 }
 
 export interface LoginResponse {
   message: string;
   role: string;
   userId: number;
-  accessToken: string;
-  expiresIn: string;
-  refreshToken?: string;
-}
-
-// ==============================
-// REFRESH TOKEN REQUEST & RESPONSE
-// ==============================
-export interface RefreshTokenRequest {
-  refreshToken: string;
-}
-
-export interface RefreshTokenResponse {
   accessToken: string;
   expiresIn: string;
 }
@@ -99,7 +86,6 @@ export interface ApiErrorResponse {
 export interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
-  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -130,7 +116,7 @@ export interface RecurringBusyTime {
   }[] | null;
 }
 
-export interface UpdateConstraintRequest extends ConstraintData, RecurringBusyTime {}
+export interface UpdateConstraintRequest extends ConstraintData, RecurringBusyTime { }
 
 export interface UpdateConstraintResponse {
   message: string;
