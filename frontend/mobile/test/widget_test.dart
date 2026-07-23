@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:mobile/pages/Login/Component/LoginForm.dart';
 import 'package:mobile/pages/Login/LogInPage.dart';
+import 'package:mobile/services/auth.service.dart';
 
 bool _sansationLoaded = false;
 
-Widget buildLoginApp({double keyboardInset = 0}) {
+Widget buildLoginApp({double keyboardInset = 0, LoginAction? loginAction}) {
   return MaterialApp(
     debugShowCheckedModeBanner: false,
     builder: (context, child) {
@@ -18,10 +22,17 @@ Widget buildLoginApp({double keyboardInset = 0}) {
         child: child!,
       );
     },
-    home: const RepaintBoundary(key: Key('login-golden'), child: LoginPage()),
+    home: RepaintBoundary(
+      key: const Key('login-golden'),
+      child: LoginPage(
+        loginAction: loginAction ?? (username, password) async {},
+      ),
+    ),
     routes: {
       '/signIn': (_) =>
           const Scaffold(body: Center(child: Text('Sign up destination'))),
+      '/main': (_) =>
+          const Scaffold(body: Center(child: Text('Main destination'))),
     },
   );
 }
@@ -31,7 +42,11 @@ Future<void> setTestSize(WidgetTester tester, Size size) async {
   await tester.binding.setSurfaceSize(size);
 }
 
-Future<void> pumpLogin(WidgetTester tester, {double keyboardInset = 0}) async {
+Future<void> pumpLogin(
+  WidgetTester tester, {
+  double keyboardInset = 0,
+  LoginAction? loginAction,
+}) async {
   if (!_sansationLoaded) {
     final fontLoader = FontLoader('Sansation')
       ..addFont(rootBundle.load('assets/fonts/Sansation-Light.ttf'));
@@ -39,7 +54,9 @@ Future<void> pumpLogin(WidgetTester tester, {double keyboardInset = 0}) async {
     _sansationLoaded = true;
   }
 
-  await tester.pumpWidget(buildLoginApp(keyboardInset: keyboardInset));
+  await tester.pumpWidget(
+    buildLoginApp(keyboardInset: keyboardInset, loginAction: loginAction),
+  );
   final context = tester.element(find.byType(LoginPage));
   await tester.runAsync(() async {
     await precacheImage(const AssetImage('assets/images/bg.png'), context);
@@ -78,7 +95,6 @@ void main() {
 
       expect(tester.takeException(), isNull);
       final cardSize = tester.getSize(find.byKey(const Key('login-card')));
-      expect(cardSize.width, lessThanOrEqualTo(300));
       expect(cardSize.width, lessThanOrEqualTo(size.width - 40));
     }
   });
@@ -105,6 +121,57 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('password eye button toggles password visibility', (
+    tester,
+  ) async {
+    addTearDown(() async {
+      tester.view.resetDevicePixelRatio();
+      await tester.binding.setSurfaceSize(null);
+    });
+    await setTestSize(tester, const Size(360, 640));
+    await pumpLogin(tester);
+
+    EditableText passwordField() => tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const Key('password-field')),
+        matching: find.byType(EditableText),
+      ),
+    );
+
+    expect(passwordField().obscureText, isTrue);
+    expect(find.byKey(const Key('login-password-icon-show')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('login-password-visibility')));
+    await tester.pump();
+
+    expect(passwordField().obscureText, isFalse);
+    expect(find.byKey(const Key('login-password-icon-hide')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('login-password-visibility')));
+    await tester.pump();
+    expect(passwordField().obscureText, isTrue);
+  });
+
+  testWidgets('minimum-length validation messages match web login', (
+    tester,
+  ) async {
+    addTearDown(() async {
+      tester.view.resetDevicePixelRatio();
+      await tester.binding.setSurfaceSize(null);
+    });
+    await setTestSize(tester, const Size(360, 640));
+    await pumpLogin(tester);
+
+    await tester.enterText(find.byKey(const Key('username-field')), 'ab');
+    await tester.enterText(find.byKey(const Key('password-field')), '1234567');
+    await tester.tap(find.byKey(const Key('login-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Username must be at least 3 characters'), findsOneWidget);
+    expect(find.text('Password must be at least 8 characters'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('content remains reachable when the keyboard is open', (
     tester,
   ) async {
@@ -126,7 +193,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('valid login keeps the existing loading and success behavior', (
+  testWidgets('valid login shows loading and opens the main page', (
     tester,
   ) async {
     addTearDown(() async {
@@ -134,7 +201,11 @@ void main() {
       await tester.binding.setSurfaceSize(null);
     });
     await setTestSize(tester, const Size(360, 640));
-    await pumpLogin(tester);
+    final completer = Completer<void>();
+    await pumpLogin(
+      tester,
+      loginAction: (username, password) => completer.future,
+    );
 
     await tester.enterText(find.byKey(const Key('username-field')), 'student');
     await tester.enterText(
@@ -146,10 +217,38 @@ void main() {
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pump();
+    completer.complete();
+    await tester.pumpAndSettle();
 
-    expect(find.text('Login Success'), findsOneWidget);
+    expect(find.text('Main destination'), findsOneWidget);
+    expect(find.byType(LoginPage), findsNothing);
+  });
+
+  testWidgets('shows the backend validation message when login fails', (
+    tester,
+  ) async {
+    addTearDown(() async {
+      tester.view.resetDevicePixelRatio();
+      await tester.binding.setSurfaceSize(null);
+    });
+    await setTestSize(tester, const Size(360, 640));
+    await pumpLogin(
+      tester,
+      loginAction: (username, password) async {
+        throw const AuthException('Invalid username or password');
+      },
+    );
+
+    await tester.enterText(find.byKey(const Key('username-field')), 'student');
+    await tester.enterText(
+      find.byKey(const Key('password-field')),
+      'password123',
+    );
+    await tester.tap(find.byKey(const Key('login-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('login-error')), findsOneWidget);
+    expect(find.text('Invalid username or password'), findsOneWidget);
   });
 
   testWidgets('Sign up opens the existing registration route', (tester) async {

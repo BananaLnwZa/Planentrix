@@ -65,9 +65,9 @@ const getCurrentAcademicYear = async () => {
 // ==============================
 export const getUserProfile = async (req: Request, res: Response) => {
   try {
-    const userId = Number(req.params.id);
+    const userId = req.user?.id;
     if (!userId) {
-      return res.status(400).json({ message: "Invalid user id" });
+      return res.status(401).json({ message: "Authentication required" });
     }
 
     const [users] = (await db.query(
@@ -103,9 +103,9 @@ export const getUserProfile = async (req: Request, res: Response) => {
 // ==============================
 export const getUserProfilePage = async (req: Request, res: Response) => {
   try {
-    const userId = Number(req.params.id);
+    const userId = req.user?.id;
     if (!userId) {
-      return res.status(400).json({ message: "Invalid user id" });
+      return res.status(401).json({ message: "Authentication required" });
     }
 
     const [users] = (await db.query(
@@ -159,15 +159,10 @@ const deleteOldImage = (imageName: string) => {
 // ==============================
 export const updateUserProfile = async (req: Request, res: Response) => {
   try {
-    const userId = Number(req.params.id);
-    const authenticatedUserId = req.user?.id;
+    const userId = req.user?.id;
 
-    if (!authenticatedUserId) {
+    if (!userId) {
       return res.status(401).json({ message: "Authentication required" });
-    }
-
-    if (userId !== authenticatedUserId) {
-      return res.status(403).json({ message: "Forbidden - Cannot update other user's profile" });
     }
 
     // ตรวจสอบว่าผู้ใช้มีอยู่หรือไม่
@@ -260,15 +255,10 @@ export const updateUserProfile = async (req: Request, res: Response) => {
 // ==============================
 export const updateProfileImage = async (req: Request, res: Response) => {
   try {
-    const userId = Number(req.params.id);
-    const authenticatedUserId = req.user?.id;
+    const userId = req.user?.id;
 
-    if (!authenticatedUserId) {
+    if (!userId) {
       return res.status(401).json({ message: "Authentication required" });
-    }
-
-    if (userId !== authenticatedUserId) {
-      return res.status(403).json({ message: "Forbidden - Cannot update other user's profile" });
     }
 
     if (!req.file) {
@@ -316,9 +306,9 @@ export const updateProfileImage = async (req: Request, res: Response) => {
 // ==============================
 export const getConstraints = async (req: Request, res: Response) => {
   try {
-    const userId = Number(req.params.id);
+    const userId = req.user?.id;
     if (!userId) {
-      return res.status(400).json({ message: "Invalid user id" });
+      return res.status(401).json({ message: "Authentication required" });
     }
 
     // ตรวจสอบว่าผู้ใช้มีอยู่หรือไม่
@@ -362,15 +352,10 @@ export const getConstraints = async (req: Request, res: Response) => {
 // ==============================
 export const updateConstraints = async (req: Request, res: Response) => {
   try {
-    const userId = Number(req.params.id);
-    const authenticatedUserId = req.user?.id;
+    const userId = req.user?.id;
 
-    if (!authenticatedUserId) {
+    if (!userId) {
       return res.status(401).json({ message: "Authentication required" });
-    }
-
-    if (userId !== authenticatedUserId) {
-      return res.status(403).json({ message: "Forbidden - Cannot update other user's constraints" });
     }
 
     // ตรวจสอบว่าผู้ใช้มีอยู่หรือไม่

@@ -3,8 +3,14 @@ import 'package:flutter/material.dart';
 class SignInButton extends StatefulWidget {
   final String text;
   final VoidCallback? onPressed;
+  final bool isLoading;
 
-  const SignInButton({super.key, this.text = "Sign In", this.onPressed});
+  const SignInButton({
+    super.key,
+    this.text = "Sign In",
+    this.onPressed,
+    this.isLoading = false,
+  });
 
   @override
   State<SignInButton> createState() => _SignInButtonState();
@@ -26,7 +32,8 @@ class _SignInButtonState extends State<SignInButton> {
           width: 110,
           height: 42,
           child: ElevatedButton(
-            onPressed: widget.onPressed,
+            key: const Key('signup-submit-button'),
+            onPressed: widget.isLoading ? null : widget.onPressed,
             style: ElevatedButton.styleFrom(
               elevation: 0,
               backgroundColor: isHover ? const Color(0xFF9CC5F9) : Colors.white,
@@ -37,14 +44,23 @@ class _SignInButtonState extends State<SignInButton> {
               ),
               padding: EdgeInsets.zero,
             ),
-            child: Text(
-              widget.text,
-              style: const TextStyle(
-                fontFamily: 'Sansation',
-                fontWeight: FontWeight.w400,
-                fontSize: 14,
-              ),
-            ),
+            child: widget.isLoading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.black54,
+                    ),
+                  )
+                : Text(
+                    widget.text,
+                    style: const TextStyle(
+                      fontFamily: 'Sansation',
+                      fontWeight: FontWeight.w400,
+                      fontSize: 14,
+                    ),
+                  ),
           ),
         ),
       ),

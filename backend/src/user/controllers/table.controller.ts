@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import db from "../../config/db";
 
+const ALLOWED_SCHEDULE_TYPE_IDS = [2, 3]; // 2 = Study, 3 = Homework
+
 // ==========================================================================
 // ดึงวิชาเรียนของเทอมปัจจุบัน (แค่ดู ไม่บันทึก)
 // (แสดงเฉพาะ subject_id และ subject_name)
@@ -264,51 +266,6 @@ export const updateScheduleTime = async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error("updateScheduleTime error:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// ==========================================================================
-// ดึงรายการตารางเวลาทั้งหมดของ user ที่ล็อกอินอยู่ (join กับ subjects เพื่อดึง subject_name)
-// ==========================================================================
-export const getAllScheduleTime = async (req: Request, res: Response) => {
-  try {
-    const authUser = (req as any).user;
-    if (!authUser?.id) {
-      return res.status(401).json({ message: "Unauthorized: Missing user ID" });
-    }
-    if (authUser.role && authUser.role !== "user") {
-      return res.status(403).json({ message: "Forbidden: user role required" });
-    }
-    const userId = authUser.id;
-
-    const [rows]: any = await db.query(
-      `SELECT
-         st.schedule_time_id,
-         st.term_id,
-         st.user_id,
-         st.schedule_type_id,
-         st.subject_id,
-         s.subject_name,
-         st.schedule_day,
-         st.start_time,
-         st.end_time,
-         st.classroom
-       FROM schedule_time st
-       JOIN subjects s ON st.subject_id = s.subject_id
-       WHERE st.user_id = ?
-       ORDER BY st.schedule_day ASC, st.start_time ASC`,
-      [userId]
-    );
-
-    res.json({
-      message: "All schedule time retrieved successfully",
-      user_id: userId,
-      total: rows.length,
-      data: rows,
-    });
-  } catch (err) {
-    console.error("getAllScheduleTime error:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 };

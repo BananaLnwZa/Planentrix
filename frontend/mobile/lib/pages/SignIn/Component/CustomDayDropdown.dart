@@ -38,8 +38,8 @@ class _CustomDayDropdownState extends State<CustomDayDropdown> {
     DayOption(id: 'Tuesday', label: 'Tuesday', color: Color(0xFFF5B5CB)),
     DayOption(id: 'Wednesday', label: 'Wednesday', color: Color(0xFFB5E48C)),
     DayOption(id: 'Thursday', label: 'Thursday', color: Color(0xFFFBC49C)),
-    DayOption(id: 'Friday', label: 'Friday', color: Color(0xFFD8B8E8)),
-    DayOption(id: 'Saturday', label: 'Saturday', color: Color(0xFF71B7E4)),
+    DayOption(id: 'Friday', label: 'Friday', color: Color(0xFF71B7E4)),
+    DayOption(id: 'Saturday', label: 'Saturday', color: Color(0xFFD8B8E8)),
     DayOption(id: 'Sunday', label: 'Sunday', color: Color(0xFFFB9A92)),
   ];
 
@@ -286,6 +286,7 @@ class _DayDropdownItemState extends State<_DayDropdownItem> {
             ),
           ),
           child: Container(
+            key: Key('day-dropdown-option-${widget.option.id}'),
             width: double.infinity,
             height: double.infinity,
             alignment: Alignment.center,

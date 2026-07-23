@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../services/auth.service.dart';
+
+typedef LoginAction = Future<void> Function(String username, String password);
+
 class LoginForm extends StatefulWidget {
-  const LoginForm({super.key});
+  final LoginAction? loginAction;
+
+  const LoginForm({super.key, this.loginAction});
 
   @override
   State<LoginForm> createState() => _LoginFormState();
@@ -16,6 +22,8 @@ class _LoginFormState extends State<LoginForm> {
 
   bool isLoading = false;
   bool isSignUpActive = false;
+  bool _showPassword = false;
+  String? loginError;
 
   static const String _fontFamily = 'Sansation';
   static const Color _accentColor = Color(0xFF9CC5F9);
@@ -36,19 +44,47 @@ class _LoginFormState extends State<LoginForm> {
 
     setState(() {
       isLoading = true;
+      loginError = null;
     });
 
-    await Future<void>.delayed(const Duration(seconds: 1));
+    try {
+      final action = widget.loginAction;
+      if (action != null) {
+        await action(usernameController.text.trim(), passwordController.text);
+      } else {
+        await AuthService().login(
+          usernameController.text.trim(),
+          passwordController.text,
+        );
+      }
 
-    if (!mounted) return;
+      if (!mounted) return;
 
+      Navigator.of(context).pushNamedAndRemoveUntil('/main', (route) => false);
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        loginError = error.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        loginError = 'Login failed. Please try again.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _clearLoginError() {
+    if (loginError == null || !mounted) return;
     setState(() {
-      isLoading = false;
+      loginError = null;
     });
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Login Success')));
   }
 
   String? _validateUsername(String? value) {
@@ -86,7 +122,7 @@ class _LoginFormState extends State<LoginForm> {
     );
   }
 
-  InputDecoration _inputDecoration(String hintText) {
+  InputDecoration _inputDecoration(String hintText, {Widget? suffixIcon}) {
     return InputDecoration(
       hintText: hintText,
       hintStyle: const TextStyle(
@@ -99,6 +135,7 @@ class _LoginFormState extends State<LoginForm> {
       fillColor: Colors.white,
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      suffixIcon: suffixIcon,
       border: _border(),
       enabledBorder: _border(),
       focusedBorder: _border(color: _accentColor),
@@ -241,6 +278,32 @@ class _LoginFormState extends State<LoginForm> {
                       ),
                     ),
 
+                    if (loginError != null) ...[
+                      const SizedBox(height: 20),
+                      Container(
+                        key: const Key('login-error'),
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFEBEE),
+                          border: Border.all(color: const Color(0xFFB3261E)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          loginError!,
+                          style: const TextStyle(
+                            color: Color(0xFFB3261E),
+                            fontFamily: _fontFamily,
+                            fontWeight: FontWeight.w300,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+
                     const SizedBox(height: 36),
 
                     _fieldLabel('username'),
@@ -252,7 +315,9 @@ class _LoginFormState extends State<LoginForm> {
                       controller: usernameController,
                       style: inputTextStyle,
                       textInputAction: TextInputAction.next,
-                      decoration: _inputDecoration('enter username'),
+                      onChanged: (_) => _clearLoginError(),
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
+                      decoration: _inputDecoration('Enter username'),
                       validator: _validateUsername,
                     ),
 
@@ -265,15 +330,33 @@ class _LoginFormState extends State<LoginForm> {
                     TextFormField(
                       key: const Key('password-field'),
                       controller: passwordController,
-                      obscureText: true,
+                      obscureText: !_showPassword,
                       style: inputTextStyle,
                       textInputAction: TextInputAction.done,
+                      onChanged: (_) => _clearLoginError(),
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
                       onFieldSubmitted: (_) {
                         if (!isLoading) {
                           login();
                         }
                       },
-                      decoration: _inputDecoration('enter password'),
+                      decoration: _inputDecoration(
+                        'Enter password',
+                        suffixIcon: IconButton(
+                          key: const Key('login-password-visibility'),
+                          tooltip: _showPassword
+                              ? 'Hide password'
+                              : 'Show password',
+                          onPressed: () {
+                            setState(() {
+                              _showPassword = !_showPassword;
+                            });
+                          },
+                          icon: _PasswordVisibilityIcon(
+                            passwordIsVisible: _showPassword,
+                          ),
+                        ),
+                      ),
                       validator: _validatePassword,
                     ),
 
@@ -354,5 +437,79 @@ class _LoginFormState extends State<LoginForm> {
         );
       },
     );
+  }
+}
+
+class _PasswordVisibilityIcon extends StatelessWidget {
+  final bool passwordIsVisible;
+
+  const _PasswordVisibilityIcon({required this.passwordIsVisible});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: Key(
+        passwordIsVisible
+            ? 'login-password-icon-hide'
+            : 'login-password-icon-show',
+      ),
+      width: 21,
+      height: 21,
+      child: CustomPaint(
+        painter: _PasswordVisibilityPainter(
+          drawSlash: passwordIsVisible,
+          color: Colors.grey.shade500,
+        ),
+      ),
+    );
+  }
+}
+
+class _PasswordVisibilityPainter extends CustomPainter {
+  final bool drawSlash;
+  final Color color;
+
+  const _PasswordVisibilityPainter({
+    required this.drawSlash,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final eyePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final eye = Path()
+      ..moveTo(1.5, center.dy)
+      ..quadraticBezierTo(center.dx, 3.5, size.width - 1.5, center.dy)
+      ..quadraticBezierTo(center.dx, size.height - 3.5, 1.5, center.dy)
+      ..close();
+
+    canvas.drawPath(eye, eyePaint);
+    canvas.drawCircle(center, 3, eyePaint);
+
+    if (drawSlash) {
+      final slashStart = Offset(3, 3);
+      final slashEnd = Offset(size.width - 3, size.height - 3);
+      canvas.drawLine(
+        slashStart,
+        slashEnd,
+        Paint()
+          ..color = Colors.white
+          ..strokeWidth = 3.8
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.drawLine(slashStart, slashEnd, eyePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PasswordVisibilityPainter oldDelegate) {
+    return drawSlash != oldDelegate.drawSlash || color != oldDelegate.color;
   }
 }

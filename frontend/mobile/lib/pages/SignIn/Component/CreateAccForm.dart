@@ -1,16 +1,45 @@
 import 'package:flutter/material.dart';
 import 'Selectgender.dart';
 
+class CreateAccountData {
+  final String userName;
+  final String userPassword;
+  final String? userBirthdate;
+  final String userGender;
+
+  const CreateAccountData({
+    required this.userName,
+    required this.userPassword,
+    required this.userBirthdate,
+    required this.userGender,
+  });
+}
+
+String? formatBirthDateForApi(String value) {
+  final parts = value.trim().split('/');
+  if (parts.length != 3) return null;
+
+  final day = int.tryParse(parts[0]);
+  final month = int.tryParse(parts[1]);
+  final year = int.tryParse(parts[2]);
+  if (day == null || month == null || year == null) return null;
+
+  final date = DateTime(year, month, day);
+  if (date.year != year || date.month != month || date.day != day) return null;
+
+  return '${year.toString().padLeft(4, '0')}-'
+      '${month.toString().padLeft(2, '0')}-'
+      '${day.toString().padLeft(2, '0')}';
+}
+
 class CreateAccountForm extends StatefulWidget {
   const CreateAccountForm({super.key});
 
   @override
-  State<CreateAccountForm> createState() => _CreateAccountFormState();
+  State<CreateAccountForm> createState() => CreateAccountFormState();
 }
 
-class _CreateAccountFormState extends State<CreateAccountForm> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
+class CreateAccountFormState extends State<CreateAccountForm> {
   final TextEditingController usernameController = TextEditingController();
 
   final TextEditingController passwordController = TextEditingController();
@@ -21,10 +50,67 @@ class _CreateAccountFormState extends State<CreateAccountForm> {
   final TextEditingController birthDateController = TextEditingController();
 
   String? selectedGender;
+  String? _formError;
+  bool _showPassword = false;
+  bool _showConfirmPassword = false;
+
+  String? get validationMessage => _formError;
 
   static const String _fontFamily = 'Sansation';
 
   static const Color _accentColor = Color(0xFF9CC5F9);
+
+  static final RegExp _passwordRegex = RegExp(
+    r'^(?=.*[A-Za-z])(?=.*[\W_]).{8,}$',
+  );
+
+  CreateAccountData? validateAndGetData() {
+    final username = usernameController.text.trim();
+    final password = passwordController.text;
+    final confirmPassword = confirmPasswordController.text;
+
+    if (username.isEmpty) {
+      _setFormError('กรุณาป้อนชื่อผู้ใช้');
+      return null;
+    }
+    if (password.isEmpty) {
+      _setFormError('กรุณาป้อนรหัสผ่าน');
+      return null;
+    }
+    if (!_passwordRegex.hasMatch(password)) {
+      _setFormError(
+        'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร และต้องมีตัวอักษรภาษาอังกฤษ'
+        'กับอักขระพิเศษอย่างน้อยอย่างละ 1 ตัว',
+      );
+      return null;
+    }
+    if (password != confirmPassword) {
+      _setFormError('รหัสผ่านไม่ตรงกัน');
+      return null;
+    }
+    if (selectedGender == null) {
+      _setFormError('กรุณาเลือกเพศ');
+      return null;
+    }
+
+    final birthdate = birthDateController.text.trim();
+    _setFormError(null);
+    return CreateAccountData(
+      userName: username,
+      userPassword: password,
+      userBirthdate: birthdate.isEmpty
+          ? null
+          : formatBirthDateForApi(birthdate),
+      userGender: selectedGender!.toLowerCase(),
+    );
+  }
+
+  void _setFormError(String? message) {
+    if (!mounted) return;
+    setState(() {
+      _formError = message;
+    });
+  }
 
   @override
   void dispose() {
@@ -168,8 +254,6 @@ class _CreateAccountFormState extends State<CreateAccountForm> {
       ),
 
       child: Form(
-        key: _formKey,
-
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -186,12 +270,35 @@ class _CreateAccountFormState extends State<CreateAccountForm> {
 
             SizedBox(height: mobile ? 24 : 32),
 
+            if (_formError != null) ...[
+              Container(
+                key: const Key('signup-account-error'),
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _formError!,
+                  style: const TextStyle(
+                    color: Color(0xFFDC2626),
+                    fontFamily: _fontFamily,
+                    fontWeight: FontWeight.w300,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
             /// Username
             _buildLabel('username'),
 
             const SizedBox(height: 8),
 
             TextFormField(
+              key: const Key('signup-username-field'),
               controller: usernameController,
               style: inputTextStyle,
               textInputAction: TextInputAction.next,
@@ -206,11 +313,45 @@ class _CreateAccountFormState extends State<CreateAccountForm> {
             const SizedBox(height: 8),
 
             TextFormField(
+              key: const Key('signup-password-field'),
               controller: passwordController,
-              obscureText: true,
+              obscureText: !_showPassword,
               style: inputTextStyle,
               textInputAction: TextInputAction.next,
-              decoration: _inputDecoration(hintText: 'Enter password'),
+              decoration: _inputDecoration(
+                hintText: 'Enter password',
+                suffixIcon: IconButton(
+                  key: const Key('signup-password-visibility'),
+                  tooltip: _showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน',
+                  onPressed: () {
+                    setState(() {
+                      _showPassword = !_showPassword;
+                    });
+                  },
+                  icon: Icon(
+                    _showPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: Colors.grey.shade500,
+                    size: 21,
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 6),
+
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'อย่างน้อย 8 ตัวอักษร และต้องมีตัวอักษรภาษาอังกฤษกับอักขระพิเศษ',
+                style: TextStyle(
+                  color: Color(0xFF9CA3AF),
+                  fontFamily: _fontFamily,
+                  fontWeight: FontWeight.w300,
+                  fontSize: 11,
+                ),
+              ),
             ),
 
             const SizedBox(height: 18),
@@ -221,11 +362,32 @@ class _CreateAccountFormState extends State<CreateAccountForm> {
             const SizedBox(height: 8),
 
             TextFormField(
+              key: const Key('signup-confirm-password-field'),
               controller: confirmPasswordController,
-              obscureText: true,
+              obscureText: !_showConfirmPassword,
               style: inputTextStyle,
               textInputAction: TextInputAction.done,
-              decoration: _inputDecoration(hintText: 'Confirm password'),
+              decoration: _inputDecoration(
+                hintText: 'Confirm password',
+                suffixIcon: IconButton(
+                  key: const Key('signup-confirm-password-visibility'),
+                  tooltip: _showConfirmPassword
+                      ? 'ซ่อนรหัสผ่านยืนยัน'
+                      : 'แสดงรหัสผ่านยืนยัน',
+                  onPressed: () {
+                    setState(() {
+                      _showConfirmPassword = !_showConfirmPassword;
+                    });
+                  },
+                  icon: Icon(
+                    _showConfirmPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: Colors.grey.shade500,
+                    size: 21,
+                  ),
+                ),
+              ),
             ),
 
             const SizedBox(height: 18),
@@ -241,6 +403,7 @@ class _CreateAccountFormState extends State<CreateAccountForm> {
                 width: mobile ? screenWidth * 0.50 : 210,
 
                 child: TextFormField(
+                  key: const Key('signup-birthdate-field'),
                   controller: birthDateController,
 
                   readOnly: true,
