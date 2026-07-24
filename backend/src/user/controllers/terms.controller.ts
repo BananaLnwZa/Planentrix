@@ -48,14 +48,25 @@ export const addTerm = async (req: Request, res: Response) => {
     }
 
     const [result]: any = await db.query(
-      `INSERT INTO terms (user_id, term, semester, academic_year, start_midterm, end_midterm, start_final, end_final, term_status)
+      `INSERT INTO terms
+         (user_id, term, semester, academic_year, start_midterm, end_midterm, start_final, end_final, term_status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [userId, term, semester, academic_year, start_midterm || null, end_midterm || null, start_final || null, end_final || null]
+      [
+        userId,
+        term,
+        semester,
+        academic_year,
+        start_midterm || null,
+        end_midterm || null,
+        start_final || null,
+        end_final || null,
+      ]
     );
 
     res.status(201).json({
       message: "Term added successfully",
       term_id: result.insertId,
+      user_id: userId,
     });
   } catch (err) {
     console.error("addTerm error:", err);
@@ -80,7 +91,8 @@ export const getCurrentTerm = async (req: Request, res: Response) => {
     const [rows]: any = await db.query(
       `SELECT * FROM terms
        WHERE user_id = ? AND term_status = 1
-       ORDER BY term_id DESC LIMIT 1`,
+       ORDER BY term_id DESC
+       LIMIT 1`,
       [userId]
     );
 
@@ -116,7 +128,8 @@ export const endCurrentTerm = async (req: Request, res: Response) => {
     const [currentTermRows]: any = await db.query(
       `SELECT * FROM terms
        WHERE user_id = ? AND term_status = 1
-       ORDER BY term_id DESC LIMIT 1`,
+       ORDER BY term_id DESC
+       LIMIT 1`,
       [userId]
     );
 
@@ -127,7 +140,9 @@ export const endCurrentTerm = async (req: Request, res: Response) => {
     const currentTerm = currentTermRows[0];
 
     await db.query(
-      `UPDATE terms SET term_status = 0 WHERE term_id = ? AND user_id = ?`,
+      `UPDATE terms
+       SET term_status = 0
+       WHERE term_id = ? AND user_id = ?`,
       [currentTerm.term_id, userId]
     );
 

@@ -4,8 +4,6 @@ import {
   RegisterRequest,
   LoginRequest,
   LoginResponse,
-  RefreshTokenRequest,
-  RefreshTokenResponse,
   LogoutResponse,
   DeleteAccountResponse,
   ApiResponse,
@@ -43,40 +41,18 @@ class AuthService {
       (error) => Promise.reject(error)
     );
 
-    // Add response interceptor to handle token expiration
+    // Web sessions do not use refresh tokens. Expired sessions must log in again.
     this.apiClient.interceptors.response.use(
       (response) => response,
-      async (error) => {
-        const originalRequest = error.config;
+      (error) => {
+        if (error.response?.status === 401) {
+          Cookies.remove("accessToken");
 
-        // If token expired and not already retrying
-        if (
-          error.response?.status === 401 &&
-          !originalRequest._retry &&
-          Cookies.get("refreshToken")
-        ) {
-          originalRequest._retry = true;
-
-          try {
-            const refreshToken = Cookies.get("refreshToken");
-            const response = await this.refreshToken({ refreshToken: refreshToken || "" });
-            
-            // Update access token
-            Cookies.set("accessToken", response.accessToken, {
-              expires: 1, // 1 day
-              secure: true,
-              sameSite: "Strict",
-            });
-
-            // Retry original request
-            originalRequest.headers.Authorization = `Bearer ${response.accessToken}`;
-            return this.apiClient(originalRequest);
-          } catch (refreshError) {
-            // Refresh failed, redirect to login
-            Cookies.remove("accessToken");
-            Cookies.remove("refreshToken");
-            window.location.href = "/login";
-            return Promise.reject(refreshError);
+          if (
+            typeof window !== "undefined" &&
+            window.location.pathname !== "/LogIn"
+          ) {
+            window.location.href = "/LogIn";
           }
         }
 
@@ -110,8 +86,8 @@ class AuthService {
         { ...data, platform: "web" }
       );
 
-      // Save tokens to cookies
-      const { accessToken, refreshToken } = response.data;
+      // Save the web access token to a cookie.
+      const { accessToken } = response.data;
       
       Cookies.set("accessToken", accessToken, {
         expires: 1, // 1 day for web
@@ -119,30 +95,6 @@ class AuthService {
         sameSite: "Strict",
       });
 
-      // Store refresh token if provided (mobile)
-      if (refreshToken) {
-        Cookies.set("refreshToken", refreshToken, {
-          expires: 30,
-          secure: true,
-          sameSite: "Strict",
-        });
-      }
-
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Refresh access token
-   */
-  async refreshToken(data: RefreshTokenRequest): Promise<RefreshTokenResponse> {
-    try {
-      const response = await this.apiClient.post<RefreshTokenResponse>(
-        `${this.authEndpoint}/refresh-token`,
-        data
-      );
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -158,15 +110,13 @@ class AuthService {
         `${this.authEndpoint}/logout`
       );
 
-      // Clear tokens from cookies
+      // Clear the web access token from cookies
       Cookies.remove("accessToken");
-      Cookies.remove("refreshToken");
 
       return response.data;
     } catch (error) {
-      // Clear tokens even if request fails
+      // Clear the token even if the request fails
       Cookies.remove("accessToken");
-      Cookies.remove("refreshToken");
       throw this.handleError(error);
     }
   }
@@ -180,9 +130,8 @@ class AuthService {
         `${this.authEndpoint}/me`
       );
 
-      // Clear tokens from cookies
+      // Clear the web access token from cookies
       Cookies.remove("accessToken");
-      Cookies.remove("refreshToken");
 
       return response.data;
     } catch (error) {
@@ -195,13 +144,6 @@ class AuthService {
    */
   getAccessToken(): string | undefined {
     return Cookies.get("accessToken");
-  }
-
-  /**
-   * Get refresh token from cookies
-   */
-  getRefreshToken(): string | undefined {
-    return Cookies.get("refreshToken");
   }
 
   /**
@@ -231,7 +173,6 @@ class AuthService {
    */
   clearAuth(): void {
     Cookies.remove("accessToken");
-    Cookies.remove("refreshToken");
   }
 
   /**

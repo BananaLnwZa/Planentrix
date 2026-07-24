@@ -8,7 +8,6 @@ interface AuthStore extends AuthState {
   // Actions
   setUser: (user: AuthUser | null) => void;
   setAccessToken: (token: string | null) => void;
-  setRefreshToken: (token: string | null) => void;
   setError: (error: string | null) => void;
   setIsLoading: (loading: boolean) => void;
 
@@ -22,18 +21,16 @@ interface AuthStore extends AuthState {
   ) => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<void>;
-  refreshAccessToken: () => Promise<void>;
   checkAuthStatus: () => void;
   resetAuth: () => void;
 }
 
 export const useAuthStore = create<AuthStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       // Initial state
       user: null,
       accessToken: null,
-      refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
       error: null,
@@ -42,7 +39,6 @@ export const useAuthStore = create<AuthStore>()(
       setUser: (user) => set({ user }),
       setAccessToken: (accessToken) =>
         set({ accessToken, isAuthenticated: !!accessToken }),
-      setRefreshToken: (refreshToken) => set({ refreshToken }),
       setError: (error) => set({ error }),
       setIsLoading: (isLoading) => set({ isLoading }),
 
@@ -74,7 +70,6 @@ export const useAuthStore = create<AuthStore>()(
               username: username,
             },
             accessToken: response.accessToken,
-            refreshToken: response.refreshToken || null,
             isAuthenticated: true,
             isLoading: false,
             error: null,
@@ -121,7 +116,6 @@ export const useAuthStore = create<AuthStore>()(
           set({
             user: null,
             accessToken: null,
-            refreshToken: null,
             isAuthenticated: false,
             isLoading: false,
             error: null,
@@ -131,7 +125,6 @@ export const useAuthStore = create<AuthStore>()(
           set({
             user: null,
             accessToken: null,
-            refreshToken: null,
             isAuthenticated: false,
             error: null,
             isLoading: false,
@@ -148,7 +141,6 @@ export const useAuthStore = create<AuthStore>()(
           set({
             user: null,
             accessToken: null,
-            refreshToken: null,
             isAuthenticated: false,
             isLoading: false,
             error: null,
@@ -162,40 +154,11 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      // Refresh access token
-      refreshAccessToken: async () => {
-        try {
-          const refreshToken = Cookies.get("refreshToken");
-          if (!refreshToken) {
-            throw new Error("No refresh token available");
-          }
-
-          const response = await authService.refreshToken({
-            refreshToken,
-          });
-
-          set({
-            accessToken: response.accessToken,
-          });
-        } catch (error: any) {
-          // If refresh fails, clear auth
-          set({
-            user: null,
-            accessToken: null,
-            refreshToken: null,
-            isAuthenticated: false,
-            error: error.message || "Token refresh failed",
-          });
-          throw error;
-        }
-      },
-
       // Reset auth
       resetAuth: () => {
         set({
           user: null,
           accessToken: null,
-          refreshToken: null,
           isAuthenticated: false,
           isLoading: false,
           error: null,
