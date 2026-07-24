@@ -6,6 +6,8 @@ import userAuthRouter from "./routes/authen.route";
 import userProfileRouter from "./routes/profile.route";
 import userTermsRouter from "./routes/terms.route";
 import userTableRouter from "./routes/table.router";
+import userGradeRouter from "./routes/grade.routes";
+import userWorkloadRouter from "./routes/workload.routes";
 import { errorHandler } from "../middlewares/errorHandler";
 
 dotenv.config();
@@ -22,6 +24,8 @@ app.use("/user/auth", userAuthRouter);
 app.use("/user/profile", userProfileRouter);
 app.use("/user/terms", userTermsRouter);
 app.use("/user/schedule", userTableRouter);
+app.use("/user/grade", userGradeRouter);
+app.use("/user/workload", userWorkloadRouter);
 
 app.get("/", (req, res) => {
   res.json({ message: "User backend is running" });
