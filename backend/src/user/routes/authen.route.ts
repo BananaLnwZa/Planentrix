@@ -14,6 +14,6 @@ router.post("/register", register);
 router.post("/login", login);
 router.post("/refresh-token", refreshToken);
 router.post("/logout", verifyToken, logout);
-router.delete("/me", deleteOwnAccount);
+router.delete("/me", verifyToken, deleteOwnAccount);
 
 export default router;

@@ -372,13 +372,12 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
               onChange={handleWorkTimeChange}
               aria-invalid={Boolean(timeError)}
               aria-describedby={timeError ? "work-time-error" : undefined}
-              className="
+              className={`
                 appearance-none
                 h-[48px]
                 w-full
                 rounded-full
                 border
-                border-gray-300
                 bg-white
                 pl-4
                 pr-8
@@ -386,7 +385,12 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
                 text-gray-500
                 outline-none
                 [color-scheme:light]
-                focus:border-pink-300
+
+                ${
+                  timeError
+                    ? "border-red-500 bg-red-50/40 focus:border-red-500"
+                    : "border-gray-300 focus:border-pink-300"
+                }
 
                 sm:h-[52px]
                 sm:pl-5
@@ -395,7 +399,7 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
                 md:pl-6
                 md:pr-10
                 md:text-base
-              "
+              `}
             />
             <button
               type="button"
@@ -449,13 +453,12 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
               onChange={handleWorkTimeChange}
               aria-invalid={Boolean(timeError)}
               aria-describedby={timeError ? "work-time-error" : undefined}
-              className="
+              className={`
                 appearance-none
                 h-[48px]
                 w-full
                 rounded-full
                 border
-                border-gray-300
                 bg-white
                 pl-4
                 pr-8
@@ -463,7 +466,12 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
                 text-gray-500
                 outline-none
                 [color-scheme:light]
-                focus:border-pink-300
+
+                ${
+                  timeError
+                    ? "border-red-500 bg-red-50/40 focus:border-red-500"
+                    : "border-gray-300 focus:border-pink-300"
+                }
 
                 sm:h-[52px]
                 sm:pl-5
@@ -472,7 +480,7 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
                 md:pl-6
                 md:pr-11
                 md:text-base
-              "
+              `}
             />
             <button
               type="button"
@@ -511,7 +519,11 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
             </button>
           </div>
           {timeError && (
-            <p id="work-time-error" className="text-xs text-red-500" role="alert">
+            <p
+              id="work-time-error"
+              className="max-w-[280px] rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-600"
+              role="alert"
+            >
               {timeError}
             </p>
           )}

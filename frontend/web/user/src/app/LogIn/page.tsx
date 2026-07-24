@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import LogoSection from "@/components/common/LogoSection";
 
-const Notebook = dynamic(() => import("@/components/common/Notebook"), {
+const AuthNotebook = dynamic(() => import("@/components/common/AuthNotebook"), {
   ssr: false,
 });
 
@@ -19,10 +19,10 @@ const LoginForm = dynamic(() => import("@/components/login/LoginForm"), {
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[url('/images/bg.png')] bg-cover bg-center flex items-center justify-center p-8">
-      <Notebook>
+      <AuthNotebook>
         <LogoSection />
         <LoginForm />
-      </Notebook>
+      </AuthNotebook>
     </div>
   );
 }

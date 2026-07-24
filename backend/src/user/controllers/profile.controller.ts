@@ -53,9 +53,12 @@ export const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 });
 
-const getCurrentAcademicYear = async () => {
+const getCurrentAcademicYear = async (userId: number) => {
   const [terms] = (await db.query(
-    "SELECT academic_year FROM terms WHERE term_status = 1 ORDER BY term_id DESC LIMIT 1"
+    `SELECT academic_year FROM terms
+     WHERE user_id = ? AND term_status = 1
+     ORDER BY term_id DESC LIMIT 1`,
+    [userId]
   )) as any;
   return terms && terms.length > 0 ? terms[0].academic_year : null;
 };
@@ -118,7 +121,7 @@ export const getUserProfilePage = async (req: Request, res: Response) => {
     }
 
     const user = users[0];
-    const academicYear = await getCurrentAcademicYear();
+    const academicYear = await getCurrentAcademicYear(userId);
 
     if (user.user_birthdate) {
       user.user_birthdate = formatDateToString(user.user_birthdate);

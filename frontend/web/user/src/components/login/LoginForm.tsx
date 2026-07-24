@@ -7,12 +7,13 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/services/auth.store";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import LoginBtn from "./LoginBtn";
 
 // Validation schema
 const loginSchema = z.object({
-  user_name: z
-    .string()
+  user_name: 
+  z.string()
     .min(1, "Username is required")
     .min(3, "Username must be at least 3 characters"),
   user_password: z
@@ -27,7 +28,7 @@ export default function LoginForm() {
   const router = useRouter();
   const { login, isLoading, error: authError, isAuthenticated } = useAuthStore();
   const [formError, setFormError] = useState<string | null>(null);
-  const [isMounted, setIsMounted] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -39,17 +40,12 @@ export default function LoginForm() {
     mode: "onBlur",
   });
 
-  // Fix hydration issue
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
   // Redirect if already authenticated
   useEffect(() => {
-    if (isMounted && isAuthenticated) {
+    if (isAuthenticated) {
       router.push("/Main");
     }
-  }, [isAuthenticated, router, isMounted]);
+  }, [isAuthenticated, router]);
 
   const onSubmit = async (data: LoginFormData) => {
     setFormError(null);
@@ -58,23 +54,14 @@ export default function LoginForm() {
       await login(data.user_name, data.user_password);
       reset();
       router.push("/Main");
-    } catch (err: any) {
-      setFormError(err?.message || "Login failed. Please try again.");
+    } catch (err: unknown) {
+      setFormError(
+        err instanceof Error ? err.message : "Login failed. Please try again."
+      );
     }
   };
 
   const displayError = formError || authError;
-
-  if (!isMounted) {
-    return (
-      <div className="w-full max-w-[450px] min-h-[420px] md:min-h-[450px] rounded-2xl bg-white/70 p-6 sm:p-8 md:p-10 shadow-md backdrop-blur-sm">
-        <h2 className="mb-6 md:mb-8 text-center text-3xl sm:text-4xl font-medium text-black">
-          LogIn
-        </h2>
-        <div className="text-center text-gray-600">Loading...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full max-w-[450px] min-h-[420px] md:min-h-[450px] rounded-2xl bg-white/70 p-6 sm:p-8 md:p-10 shadow-md backdrop-blur-sm">
@@ -187,38 +174,67 @@ export default function LoginForm() {
               password
             </label>
 
-            <input
-              type="password"
-              placeholder="Enter password"
-              {...register("user_password")}
-              className={`
-                w-full
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter password"
+                autoComplete="current-password"
+                {...register("user_password")}
+                className={`
+                  w-full
 
-                rounded-full
-                border
-                ${errors.user_password ? "border-red-500" : "border-gray-300"}
+                  rounded-full
+                  border
+                  ${errors.user_password ? "border-red-500" : "border-gray-300"}
 
-                px-4
-                py-2.5
+                  px-4
+                  py-2.5
+                  pr-12
 
-                sm:px-5
-                sm:py-3
+                  sm:px-5
+                  sm:py-3
+                  sm:pr-12
 
-                outline-none
+                  outline-none
 
-                text-[11px]
-                sm:text-[12px]
-                md:text-[14px]
+                  text-[11px]
+                  sm:text-[12px]
+                  md:text-[14px]
 
-                text-gray-500
+                  text-gray-500
 
-                transition-colors
-                duration-200
+                  transition-colors
+                  duration-200
 
-                focus:border-blue-500
-                focus:bg-white
-              `}
-            />
+                  focus:border-blue-500
+                  focus:bg-white
+                `}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((previous) => !previous)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                title={showPassword ? "Hide password" : "Show password"}
+                className="
+                  absolute
+                  right-4
+                  top-1/2
+                  -translate-y-1/2
+                  text-gray-400
+                  transition-colors
+                  hover:text-gray-600
+                  focus-visible:outline-2
+                  focus-visible:outline-offset-2
+                  focus-visible:outline-[#9CC5F9]
+                "
+              >
+                {showPassword ? (
+                  <EyeOff aria-hidden="true" size={19} strokeWidth={1.8} />
+                ) : (
+                  <Eye aria-hidden="true" size={19} strokeWidth={1.8} />
+                )}
+              </button>
+            </div>
             {errors.user_password && (
               <p className="mt-1 text-xs text-red-500">
                 {errors.user_password.message}

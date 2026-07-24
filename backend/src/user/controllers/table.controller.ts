@@ -19,7 +19,10 @@ export const getScheduleForCurrentTerm = async (req: Request, res: Response) => 
     const userId = authUser.id;
 
     const [currentTermRows]: any = await db.query(
-      `SELECT * FROM terms WHERE term_status = 1 ORDER BY term_id DESC LIMIT 1`
+      `SELECT * FROM terms
+       WHERE user_id = ? AND term_status = 1
+       ORDER BY term_id DESC LIMIT 1`,
+      [userId]
     );
 
     if (currentTermRows.length === 0) {
@@ -69,7 +72,10 @@ export const generateScheduleForCurrentTerm = async (req: Request, res: Response
     const userId = authUser.id;
 
     const [currentTermRows]: any = await db.query(
-      `SELECT * FROM terms WHERE term_status = 1 ORDER BY term_id DESC LIMIT 1`
+      `SELECT * FROM terms
+       WHERE user_id = ? AND term_status = 1
+       ORDER BY term_id DESC LIMIT 1`,
+      [userId]
     );
 
     if (currentTermRows.length === 0) {
@@ -313,7 +319,10 @@ export const addTime = async (req: Request, res: Response) => {
 
     // 4. หาเทอมปัจจุบัน (term_status = 1)
     const [currentTermRows]: any = await db.query(
-      `SELECT * FROM terms WHERE term_status = 1 ORDER BY term_id DESC LIMIT 1`
+      `SELECT * FROM terms
+       WHERE user_id = ? AND term_status = 1
+       ORDER BY term_id DESC LIMIT 1`,
+      [userId]
     );
 
     if (currentTermRows.length === 0) {

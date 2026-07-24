@@ -37,6 +37,16 @@ export interface LoginResponse {
   role: string;
   userId: number;
   accessToken: string;
+  refreshToken?: string;
+  expiresIn: string;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
+}
+
+export interface RefreshTokenResponse {
+  accessToken: string;
   expiresIn: string;
 }
 
@@ -86,6 +96,7 @@ export interface ApiErrorResponse {
 export interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
+  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;

@@ -20,6 +20,7 @@ export const addTerm = async (req: Request, res: Response) => {
     if (authUser.role && authUser.role !== "user") {
       return res.status(403).json({ message: "Forbidden: user role required" });
     }
+    const userId = authUser.id;
 
     const {
       term,
@@ -47,9 +48,9 @@ export const addTerm = async (req: Request, res: Response) => {
     }
 
     const [result]: any = await db.query(
-      `INSERT INTO terms (term, semester, academic_year, start_midterm, end_midterm, start_final, end_final, term_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-      [term, semester, academic_year, start_midterm || null, end_midterm || null, start_final || null, end_final || null]
+      `INSERT INTO terms (user_id, term, semester, academic_year, start_midterm, end_midterm, start_final, end_final, term_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [userId, term, semester, academic_year, start_midterm || null, end_midterm || null, start_final || null, end_final || null]
     );
 
     res.status(201).json({
@@ -74,9 +75,13 @@ export const getCurrentTerm = async (req: Request, res: Response) => {
     if (authUser.role && authUser.role !== "user") {
       return res.status(403).json({ message: "Forbidden: user role required" });
     }
+    const userId = authUser.id;
 
     const [rows]: any = await db.query(
-      `SELECT * FROM terms WHERE term_status = 1 ORDER BY term_id DESC LIMIT 1`
+      `SELECT * FROM terms
+       WHERE user_id = ? AND term_status = 1
+       ORDER BY term_id DESC LIMIT 1`,
+      [userId]
     );
 
     if (rows.length === 0) {
@@ -106,9 +111,13 @@ export const endCurrentTerm = async (req: Request, res: Response) => {
     if (authUser.role && authUser.role !== "user") {
       return res.status(403).json({ message: "Forbidden: user role required" });
     }
+    const userId = authUser.id;
 
     const [currentTermRows]: any = await db.query(
-      `SELECT * FROM terms WHERE term_status = 1 ORDER BY term_id DESC LIMIT 1`
+      `SELECT * FROM terms
+       WHERE user_id = ? AND term_status = 1
+       ORDER BY term_id DESC LIMIT 1`,
+      [userId]
     );
 
     if (currentTermRows.length === 0) {
@@ -118,8 +127,8 @@ export const endCurrentTerm = async (req: Request, res: Response) => {
     const currentTerm = currentTermRows[0];
 
     await db.query(
-      `UPDATE terms SET term_status = 0 WHERE term_id = ?`,
-      [currentTerm.term_id]
+      `UPDATE terms SET term_status = 0 WHERE term_id = ? AND user_id = ?`,
+      [currentTerm.term_id, userId]
     );
 
     res.json({

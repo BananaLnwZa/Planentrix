@@ -38,7 +38,39 @@ export default function NotebookRing() {
             md:h-[24px]
           "
         >
-          {/* วงแหวนสีดำ */}
+
+
+          {/* แท่งสีทอง */}
+          <div
+            className="
+              absolute
+              left-0
+              top-0
+
+              w-[40px]
+              h-[7px]
+
+              sm:w-[55px]
+              sm:h-[2px]
+
+              md:w-[70px]
+              md:h-[10px]
+
+              rounded-full
+
+              bg-gradient-to-r
+              from-[#FDE68A]
+              via-[#FACC15]
+              to-[#EAB308]
+
+              shadow-sm
+              md:shadow-md
+
+              z-5
+            "
+          />
+
+                    {/* วงแหวนสีดำ */}
           <div
             className="
               absolute
@@ -75,35 +107,6 @@ export default function NotebookRing() {
             "
           />
 
-          {/* แท่งสีทอง */}
-          <div
-            className="
-              absolute
-              left-0
-              top-0
-
-              w-[40px]
-              h-[7px]
-
-              sm:w-[55px]
-              sm:h-[8px]
-
-              md:w-[70px]
-              md:h-[10px]
-
-              rounded-full
-
-              bg-gradient-to-r
-              from-[#FDE68A]
-              via-[#FACC15]
-              to-[#EAB308]
-
-              shadow-sm
-              md:shadow-md
-
-              z-10
-            "
-          />
         </div>
       ))}
     </div>

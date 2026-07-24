@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { authService } from "@/services/auth.service";
 import type { RegisterRequest } from "@/interfaces/auth.interface";
-import Notebook from "@/components/common/Notebook";
+import AuthNotebook from "@/components/common/AuthNotebook";
 import LogoSection from "@/components/common/LogoSection";
 import CreateAccForm from "@/components/SingIn/CreateAccForm";
 import Constraint from "@/components/SingIn/constraintForm";
@@ -193,7 +193,7 @@ export default function LoginPage() {
         </div>
       )}
 
-      <Notebook>
+      <AuthNotebook>
         <LogoSection />
 
         {message && (
@@ -222,7 +222,7 @@ export default function LoginPage() {
           isLoading={isLoading}
           text={isLoading ? "กำลังบันทึก..." : "Sign In"}
         />
-      </Notebook>
+      </AuthNotebook>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import NotebookRing from "./NotebookRing";
 
-export default function Notebook({
+export default function AuthNotebook({
   children,
 }: {
   children: React.ReactNode;
@@ -9,75 +9,58 @@ export default function Notebook({
     <div
       className="
         relative
+        flex
+        min-h-[600px]
         w-full
         max-w-[900px]
-        min-h-[600px]
-        md:min-h-[700px]
-
-        rounded-[20px]
-        md:rounded-[30px]
-
-        bg-[#F8DCE4]
-        shadow-xl
-        border
-        border-[#e8c7d1]
-
-        px-6
-        py-10
-        sm:px-8
-        md:p-12
-
-        flex
         flex-col
         items-center
         justify-center
-
         overflow-visible
+        rounded-[20px]
+        border
+        border-[#e8c7d1]
+        bg-[#F8DCE4]
+        px-6
+        py-10
+        shadow-xl
+        sm:px-8
+        md:min-h-[700px]
+        md:rounded-[30px]
+        md:p-12
       "
     >
-      {/* ห่วงสมุด */}
-      <div className="block">
-        <NotebookRing />
-      </div>
+      <NotebookRing />
 
-      {/* สันสมุด */}
       <div
+        aria-hidden="true"
         className="
           absolute
           left-0
           top-0
           h-full
-
           w-[50px]
-          md:w-[70px]
-
-          bg-[#FFF8F5]
-
           rounded-l-[20px]
-          md:rounded-l-[30px]
-
           border-r
           border-dashed
           border-[#d8b9c3]
+          bg-[#FFF8F5]
+          md:w-[70px]
+          md:rounded-l-[30px]
         "
       />
 
-      {/* เนื้อหาที่ส่งเข้ามา */}
       <div
         className="
           z-10
-
-          w-full
-
-          pl-[40px]
-          md:pl-[60px]
-
           flex
+          w-full
           flex-col
           items-center
-
           gap-6
+          pl-[40px]
           md:gap-10
+          md:pl-[60px]
         "
       >
         {children}
