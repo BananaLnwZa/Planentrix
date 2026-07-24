@@ -138,3 +138,23 @@ export const loginAdmin = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+// ==============================
+// LOGOUT ADMIN
+// ==============================
+export const logoutAdmin = async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ message: "Unauthorized: Missing admin ID" });
+    }
+
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Forbidden: Admin access required" });
+    }
+
+    res.json({ message: "Admin logged out successfully" });
+  } catch (err) {
+    console.error("logoutAdmin error:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};

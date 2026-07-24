@@ -26,7 +26,6 @@ export const apiEndpoints = {
   auth: {
     register: "/user/auth/register",
     login: "/user/auth/login",
-    refreshToken: "/user/auth/refresh-token",
     logout: "/user/auth/logout",
     deleteAccount: "/user/auth/me",
   },
