@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from "axios";
 import Cookies from "js-cookie";
 import {
   AdminAuthErrorResponse,
+  AdminProfileResponse,
   LoginAdminRequest,
   LoginAdminResponse,
   LogoutAdminResponse,
@@ -56,6 +57,16 @@ class AdminAuthService {
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
       });
+      Cookies.set("adminName", data.admin_name, {
+        expires: 1,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+      });
+      Cookies.set("adminId", String(response.data.adminId), {
+        expires: 1,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+      });
 
       return response.data;
     } catch (error: unknown) {
@@ -85,8 +96,22 @@ class AdminAuthService {
     }
   }
 
+  async getProfile(): Promise<AdminProfileResponse> {
+    try {
+      const response = await this.apiClient.get<AdminProfileResponse>(
+        apiEndpoints.auth.profile,
+      );
+
+      return response.data;
+    } catch (error: unknown) {
+      throw this.handleError(error);
+    }
+  }
+
   clearAuth(): void {
     Cookies.remove("adminAccessToken");
+    Cookies.remove("adminName");
+    Cookies.remove("adminId");
   }
 
   private handleError(error: unknown): Error {

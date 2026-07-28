@@ -2,6 +2,30 @@ import { Request, Response } from "express";
 import db from "../../config/db";
 import * as bcrypt from "bcrypt";
 import * as jwt from "jsonwebtoken";
+import type { RowDataPacket } from "mysql2";
+
+interface AdminIdRow extends RowDataPacket {
+  admin_id: number;
+}
+
+interface AdminLoginRow extends AdminIdRow {
+  admin_name: string;
+  admin_email: string;
+  admin_password: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone_number: string | null;
+  address: string | null;
+}
+
+interface AdminProfileRow extends AdminIdRow {
+  admin_name: string;
+  admin_email: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone_number: string | null;
+  address: string | null;
+}
 
 // ==============================
 // REGISTER ADMIN
@@ -49,7 +73,7 @@ export const registerAdmin = async (req: Request, res: Response) => {
     }
 
     // Check duplicate
-    const [existing]: any = await db.query(
+    const [existing] = await db.query<AdminIdRow[]>(
       "SELECT admin_id FROM admin WHERE BINARY admin_name = ? OR admin_email = ?",
       [admin_name, admin_email]
     );
@@ -100,7 +124,7 @@ export const loginAdmin = async (req: Request, res: Response) => {
 
     if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET not set");
 
-    const [adminRows]: any = await db.query(
+    const [adminRows] = await db.query<AdminLoginRow[]>(
       "SELECT * FROM admin WHERE BINARY admin_name = ?",
       [admin_name]
     );
@@ -155,6 +179,48 @@ export const logoutAdmin = async (req: Request, res: Response) => {
     res.json({ message: "Admin logged out successfully" });
   } catch (err) {
     console.error("logoutAdmin error:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==============================
+// GET ADMIN PROFILE
+// ==============================
+export const getAdminProfile = async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ message: "Unauthorized: Missing admin ID" });
+    }
+
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Forbidden: Admin access required" });
+    }
+
+    const [adminRows] = await db.query<AdminProfileRow[]>(
+      `SELECT
+        admin_id,
+        admin_name,
+        admin_email,
+        first_name,
+        last_name,
+        phone_number,
+        address
+      FROM admin
+      WHERE admin_id = ?
+      LIMIT 1`,
+      [req.user.id]
+    );
+
+    if (adminRows.length === 0) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    res.json({
+      message: "Admin profile retrieved successfully",
+      admin: adminRows[0],
+    });
+  } catch (err) {
+    console.error("getAdminProfile error:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 };

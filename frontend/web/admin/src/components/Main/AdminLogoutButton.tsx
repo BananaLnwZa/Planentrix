@@ -27,7 +27,7 @@ export default function AdminLogoutButton() {
       type="button"
       onClick={handleLogout}
       disabled={isLoggingOut}
-      className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#d39a8b] bg-[#fff7f4] px-7 text-sm font-medium text-[#9b594a] shadow-sm transition duration-200 hover:-translate-y-0.5 hover:bg-[#fce9e3] hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#f5d7cf] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:bg-[#fff7f4] disabled:hover:shadow-sm"
+      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[#d39a8b] bg-[#fff7f4] px-7 text-sm font-medium text-[#9b594a] shadow-sm transition duration-200 hover:-translate-y-0.5 hover:bg-[#fce9e3] hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#f5d7cf] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:bg-[#fff7f4] disabled:hover:shadow-sm"
     >
       <LogOut aria-hidden="true" size={17} strokeWidth={2} />
       {isLoggingOut ? "Logging out..." : "Log out"}

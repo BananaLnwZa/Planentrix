@@ -33,6 +33,21 @@ export interface LogoutAdminResponse {
   message: string;
 }
 
+export interface AdminProfile {
+  admin_id: number;
+  admin_name: string;
+  admin_email: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone_number: string | null;
+  address: string | null;
+}
+
+export interface AdminProfileResponse {
+  message: string;
+  admin: AdminProfile;
+}
+
 export interface AdminAuthErrorResponse {
   message: string;
 }

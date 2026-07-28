@@ -22,5 +22,6 @@ export const apiEndpoints = {
     register: "/admin/auth/register",
     login: "/admin/auth/login",
     logout: "/admin/auth/logout",
+    profile: "/admin/auth/me",
   },
 } as const;
