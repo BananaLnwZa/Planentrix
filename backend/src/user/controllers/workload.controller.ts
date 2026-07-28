@@ -89,7 +89,6 @@ export const createWorkload = async (req: Request, res: Response) => {
       });
     }
 
-    // เช็คว่า workload_type_id ที่ส่งมามีอยู่จริงในตาราง workload_types
     const [typeRows]: any = await db.query(
       `SELECT workload_type_id, workload_type_name FROM workload_types WHERE workload_type_id = ?`,
       [workload_type_id]
@@ -198,6 +197,56 @@ export const finishWorkload = async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error("finishWorkload error:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==========================================================================
+// แสดงภาระงานที่ยังไม่เสร็จสิ้น (workload_status = 0)
+// เรียงตามกำหนดส่ง (deadline_date, deadline_time) จากใกล้ไปไกล
+// ==========================================================================
+export const getPendingWorkloads = async (req: Request, res: Response) => {
+  try {
+    const authUser = (req as any).user;
+    if (!authUser?.id) {
+      return res.status(401).json({ message: "Unauthorized: Missing user ID" });
+    }
+    if (authUser.role && authUser.role !== "user") {
+      return res.status(403).json({ message: "Forbidden: user role required" });
+    }
+    const userId = authUser.id;
+
+    const [rows]: any = await db.query(
+      `SELECT
+         w.workload_id,
+         w.workload_name,
+         w.workload_type_id,
+         wt.workload_type_name,
+         w.schedule_time_id,
+         s.subject_id,
+         s.subject_name,
+         w.deadline_date,
+         w.deadline_time,
+         w.note,
+         w.create_at,
+         w.workload_status
+       FROM workloads w
+       JOIN schedule_time st ON w.schedule_time_id = st.schedule_time_id
+       JOIN subjects s ON st.subject_id = s.subject_id
+       JOIN workload_types wt ON w.workload_type_id = wt.workload_type_id
+       WHERE st.user_id = ? AND w.workload_status = 0
+       ORDER BY w.deadline_date ASC, w.deadline_time ASC`,
+      [userId]
+    );
+
+    res.json({
+      message: "Pending workloads retrieved successfully",
+      user_id: userId,
+      total: rows.length,
+      data: rows,
+    });
+  } catch (err) {
+    console.error("getPendingWorkloads error:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 };
