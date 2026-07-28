@@ -61,8 +61,8 @@ export interface UpdateConstraintResponse {
 
 export interface CurrentTerm {
   term_id: number;
+  year_level: string | number;
   term: string | number;
-  semester: string | number;
   academic_year: string | number;
   start_midterm?: string | null;
   end_midterm?: string | null;

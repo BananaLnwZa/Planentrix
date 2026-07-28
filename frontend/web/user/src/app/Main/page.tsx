@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import MainNotebookScreen from "@/components/common/MainNotebookScreen";
+import Schedule from "@/components/Main/Schedule";
 import StudentCard from "@/components/Main/StudentCard";
 import Term from "@/components/Main/Term";
 
@@ -10,12 +11,13 @@ export default function MainPage() {
 
   return (
     <MainNotebookScreen activeTab="main">
-      <div className="grid h-full w-full grid-cols-1 gap-8 md:grid-cols-2 md:gap-16">
-        <div className="flex h-full items-start justify-center md:-translate-x-3">
+      <div className="grid h-full min-h-0 w-full grid-cols-1 gap-8 md:grid-cols-2 md:gap-16">
+        <div className="flex h-full min-h-0 flex-col items-center gap-5 md:-translate-x-3">
           <Term
             onConfirm={() => setTermVersion((version) => version + 1)}
             onEndTerm={() => setTermVersion((version) => version + 1)}
           />
+          <Schedule />
         </div>
         <div className="flex h-full items-start justify-center md:translate-x-3">
           <StudentCard key={termVersion} />

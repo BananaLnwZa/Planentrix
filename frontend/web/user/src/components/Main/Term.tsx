@@ -245,8 +245,8 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
 
     try {
       const response = await termService.createTerm({
-        term: values.yearLevel,
-        semester: values.term,
+        year_level: values.yearLevel,
+        term: values.term,
         academic_year: values.academicYear,
         start_midterm: values.examStartDate,
         end_midterm: values.examEndDate,
@@ -256,8 +256,8 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
 
       setCurrentTerm({
         term_id: response.term_id,
-        term: values.yearLevel,
-        semester: values.term,
+        year_level: values.yearLevel,
+        term: values.term,
         academic_year: values.academicYear,
         start_midterm: values.examStartDate,
         end_midterm: values.examEndDate,
@@ -303,7 +303,7 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
               <div className="flex items-center gap-2 whitespace-nowrap text-[clamp(13px,2vw,16px)]">
                 <span>ชั้นปีที่</span>
                 <span className="flex h-9 min-w-[54px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-3 text-[clamp(16px,2.2vw,19px)] leading-none text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
-                  {currentTerm.term}
+                  {currentTerm.year_level}
                 </span>
               </div>
 
@@ -317,7 +317,7 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
               <div className="flex items-center gap-2 whitespace-nowrap text-[clamp(13px,2vw,16px)]">
                 <span>เทอม</span>
                 <span className="flex h-9 min-w-[54px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-3 text-[clamp(16px,2.2vw,19px)] leading-none text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
-                  {currentTerm.semester}
+                  {currentTerm.term}
                 </span>
               </div>
             </div>

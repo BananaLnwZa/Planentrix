@@ -46,6 +46,7 @@ export type EditConstraintValues = {
 
 type StudentCardPopupProps = {
   profile: UserProfile | null;
+  avatarImageUrl?: string | null;
   constraint: UserConstraint | null;
   displayName: string;
   displayBirthDate: string;
@@ -95,6 +96,7 @@ function ProfileAvatar({ imageUrl }: { imageUrl?: string | null }) {
 
 export default function StudentCardPopup({
   profile,
+  avatarImageUrl,
   constraint,
   displayName,
   displayBirthDate,
@@ -153,7 +155,7 @@ export default function StudentCardPopup({
         <header className="bg-[#C7E8F8] px-9 pb-5 pt-9">
           <div className="flex items-center gap-8">
             <div className="relative">
-              <ProfileAvatar imageUrl={profile?.user_pic_url} />
+              <ProfileAvatar imageUrl={avatarImageUrl} />
               {isEditing && (
                 <button
                   type="button"

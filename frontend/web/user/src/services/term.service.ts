@@ -6,8 +6,8 @@ import type {
 } from "@/interfaces/profile.interface";
 
 export interface CreateTermRequest {
+  year_level: string;
   term: string;
-  semester: string;
   academic_year: string;
   start_midterm: string | null;
   end_midterm: string | null;

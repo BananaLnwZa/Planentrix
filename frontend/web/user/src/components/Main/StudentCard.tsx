@@ -147,6 +147,8 @@ export default function StudentCard({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<EditProfileValues>({
     userName: "",
     birthDate: "",
@@ -154,6 +156,12 @@ export default function StudentCard({
   });
   const [editConstraintValues, setEditConstraintValues] =
     useState<EditConstraintValues>(emptyConstraintValues);
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+    };
+  }, [avatarPreviewUrl]);
 
   const userId = authUser?.userId;
 
@@ -218,7 +226,7 @@ export default function StudentCard({
   const displayName = profile?.user_name || name || authUser?.username || "Student";
   const displayGender = gender || formatGender(profile?.user_gender);
   const displayBirthDate = birthDate || formatDate(profile?.user_birthdate);
-  const displayYear = year ?? currentTerm?.term ?? "—";
+  const displayYear = year ?? currentTerm?.year_level ?? "—";
   const displayStudentNumber =
     studentNumber || String(profile?.user_id || userId || 1).padStart(2, "0");
   const visibleLoadError =
@@ -227,6 +235,8 @@ export default function StudentCard({
   const closeProfile = () => {
     setIsOpen(false);
     setIsEditing(false);
+    setPendingAvatarFile(null);
+    setAvatarPreviewUrl(null);
     setActionError("");
   };
 
@@ -240,6 +250,8 @@ export default function StudentCard({
     onEditProfile?.();
     setActionError("");
     setActivePanel("profile");
+    setPendingAvatarFile(null);
+    setAvatarPreviewUrl(null);
     setEditValues({
       userName: profile?.user_name || displayName,
       birthDate: profile?.user_birthdate?.slice(0, 10) || "",
@@ -309,10 +321,11 @@ export default function StudentCard({
     }
 
     setIsSaving(true);
+    setIsUploadingAvatar(Boolean(pendingAvatarFile));
     setActionError("");
 
     try {
-      const [profileResult, constraintResult] = await Promise.allSettled([
+      const [profileResult, constraintResult, avatarResult] = await Promise.allSettled([
         profileService.updateProfile({
           user_name: editValues.userName,
           user_birthdate: editValues.birthDate || undefined,
@@ -331,6 +344,9 @@ export default function StudentCard({
             : null,
           busy_days: editConstraintValues.busyDays,
         }),
+        pendingAvatarFile
+          ? profileService.updateAvatar(pendingAvatarFile)
+          : Promise.resolve(null),
       ]);
 
       const saveErrors: string[] = [];
@@ -368,6 +384,25 @@ export default function StudentCard({
         );
       }
 
+      if (avatarResult.status === "fulfilled") {
+        if (avatarResult.value) {
+          const uploadedImageUrl = avatarResult.value.image_url;
+          setProfile((previous) =>
+            previous
+              ? { ...previous, user_pic_url: uploadedImageUrl }
+              : previous
+          );
+          setPendingAvatarFile(null);
+          setAvatarPreviewUrl(null);
+        }
+      } else {
+        saveErrors.push(
+          avatarResult.reason instanceof Error
+            ? avatarResult.reason.message
+            : "Unable to update profile image"
+        );
+      }
+
       if (saveErrors.length) {
         setActionError(saveErrors.join(" "));
       } else {
@@ -375,6 +410,7 @@ export default function StudentCard({
       }
     } finally {
       setIsSaving(false);
+      setIsUploadingAvatar(false);
     }
   };
 
@@ -383,10 +419,10 @@ export default function StudentCard({
     void handleSaveAll();
   };
 
-  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file || !userId) return;
+    if (!file) return;
 
     if (!file.type.startsWith("image/")) {
       setActionError("Please select an image file.");
@@ -397,20 +433,9 @@ export default function StudentCard({
       return;
     }
 
-    setIsUploadingAvatar(true);
     setActionError("");
-    try {
-      const response = await profileService.updateAvatar(file);
-      setProfile((previous) =>
-        previous ? { ...previous, user_pic_url: response.image_url } : previous
-      );
-    } catch (error) {
-      setActionError(
-        error instanceof Error ? error.message : "Unable to update profile image"
-      );
-    } finally {
-      setIsUploadingAvatar(false);
-    }
+    setPendingAvatarFile(file);
+    setAvatarPreviewUrl(URL.createObjectURL(file));
   };
 
   const handleDeleteProfile = async () => {
@@ -539,6 +564,7 @@ export default function StudentCard({
       {isOpen && (
         <StudentCardPopup
           profile={profile}
+          avatarImageUrl={avatarPreviewUrl ?? profile?.user_pic_url}
           constraint={constraint}
           displayName={displayName}
           displayBirthDate={displayBirthDate}
@@ -565,6 +591,8 @@ export default function StudentCard({
           onStartEditing={startEditing}
           onCancelEditing={() => {
             setIsEditing(false);
+            setPendingAvatarFile(null);
+            setAvatarPreviewUrl(null);
             setActionError("");
           }}
           onSaveAll={handleSaveAll}

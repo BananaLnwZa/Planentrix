@@ -23,8 +23,8 @@ export const addTerm = async (req: Request, res: Response) => {
     const userId = authUser.id;
 
     const {
+      year_level,
       term,
-      semester,
       academic_year,
       start_midterm,
       end_midterm,
@@ -32,9 +32,9 @@ export const addTerm = async (req: Request, res: Response) => {
       end_final,
     } = req.body;
 
-    if (!term || !semester || !academic_year) {
+    if (!year_level || !term || !academic_year) {
       return res.status(400).json({
-        message: "term, semester, and academic_year are required",
+        message: "year_level, term, and academic_year are required",
       });
     }
 
@@ -49,12 +49,12 @@ export const addTerm = async (req: Request, res: Response) => {
 
     const [result]: any = await db.query(
       `INSERT INTO terms
-         (user_id, term, semester, academic_year, start_midterm, end_midterm, start_final, end_final, term_status)
+         (user_id, year_level, term, academic_year, start_midterm, end_midterm, start_final, end_final, term_status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [
         userId,
+        year_level,
         term,
-        semester,
         academic_year,
         start_midterm || null,
         end_midterm || null,
