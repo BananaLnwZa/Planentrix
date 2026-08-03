@@ -250,3 +250,95 @@ export const getPendingWorkloads = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+// ==========================================================================
+// บันทึกคะแนน (actual_score, max_score) ของภาระงานที่เสร็จแล้ว ลงตาราง score
+// เฉพาะ workload ที่ workload_status = 1 (เสร็จแล้ว) เท่านั้น
+// ==========================================================================
+export const saveWorkloadScore = async (req: Request, res: Response) => {
+  try {
+    const authUser = (req as any).user;
+    if (!authUser?.id) {
+      return res.status(401).json({ message: "Unauthorized: Missing user ID" });
+    }
+    if (authUser.role && authUser.role !== "user") {
+      return res.status(403).json({ message: "Forbidden: user role required" });
+    }
+    const userId = authUser.id;
+
+    const { workload_id, actual_score, max_score } = req.body;
+
+    if (!workload_id || actual_score === undefined || max_score === undefined) {
+      return res.status(400).json({
+        message: "workload_id, actual_score, max_score are required",
+      });
+    }
+
+    const actualScoreNum = Number(actual_score);
+    const maxScoreNum = Number(max_score);
+
+    if (isNaN(actualScoreNum) || isNaN(maxScoreNum)) {
+      return res.status(400).json({ message: "actual_score and max_score must be numbers" });
+    }
+
+    if (actualScoreNum < 0 || maxScoreNum <= 0 || actualScoreNum > maxScoreNum) {
+      return res.status(400).json({
+        message: "Invalid score range: 0 <= actual_score <= max_score, and max_score > 0",
+      });
+    }
+
+    const [existingWorkload]: any = await db.query(
+      `SELECT w.* FROM workloads w
+       JOIN schedule_time st ON w.schedule_time_id = st.schedule_time_id
+       WHERE w.workload_id = ? AND st.user_id = ?`,
+      [workload_id, userId]
+    );
+
+    if (existingWorkload.length === 0) {
+      return res.status(404).json({
+        message: "Workload not found or does not belong to this user",
+      });
+    }
+
+    if (existingWorkload[0].workload_status !== 1) {
+      return res.status(400).json({
+        message: "Score can only be saved for a finished workload (workload_status = 1)",
+      });
+    }
+
+    const [existingScore]: any = await db.query(
+      `SELECT * FROM score WHERE workload_id = ?`,
+      [workload_id]
+    );
+
+    if (existingScore.length > 0) {
+      await db.query(
+        `UPDATE score SET actual_score = ?, max_score = ? WHERE workload_id = ?`,
+        [actualScoreNum, maxScoreNum, workload_id]
+      );
+
+      return res.json({
+        message: "Score updated successfully",
+        workload_id,
+        actual_score: actualScoreNum,
+        max_score: maxScoreNum,
+      });
+    }
+
+    const [result]: any = await db.query(
+      `INSERT INTO score (workload_id, actual_score, max_score) VALUES (?, ?, ?)`,
+      [workload_id, actualScoreNum, maxScoreNum]
+    );
+
+    res.status(201).json({
+      message: "Score saved successfully",
+      score_id: result.insertId,
+      workload_id,
+      actual_score: actualScoreNum,
+      max_score: maxScoreNum,
+    });
+  } catch (err) {
+    console.error("saveWorkloadScore error:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};

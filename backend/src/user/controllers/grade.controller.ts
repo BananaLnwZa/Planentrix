@@ -14,6 +14,9 @@ const GRADE_TO_GPA: Record<string, number> = {
   F: 0.0,
 };
 
+// ==========================================================================
+// แสดงตารางเรียน (schedule_type_id = 1)
+// ==========================================================================
 export const getAllScheduleTime = async (req: Request, res: Response) => {
   try {
     const authUser = (req as any).user;
@@ -54,6 +57,9 @@ export const getAllScheduleTime = async (req: Request, res: Response) => {
   }
 };
 
+// ==========================================================================
+// บันทึกเกรด (A, B+, B, ...) แปลงเป็น GPA เก็บใน target_score
+// ==========================================================================
 export const saveGrade = async (req: Request, res: Response) => {
   try {
     const authUser = (req as any).user;
@@ -65,7 +71,7 @@ export const saveGrade = async (req: Request, res: Response) => {
     }
     const userId = authUser.id;
 
-    const { id: schedule_time_id } = req.params; // ← แก้ตรงนี้
+    const { id: schedule_time_id } = req.params;
     const { grade } = req.body;
 
     if (!schedule_time_id) {
@@ -117,6 +123,80 @@ export const saveGrade = async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error("saveGrade error:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==========================================================================
+// แสดงเป้าหมายเกรดแต่ละวิชา: รายละเอียดวิชา + target_score
+// พร้อมรายการภาระงานและ actual_score/max_score ของแต่ละภาระงาน
+// ==========================================================================
+export const getSubjectGoals = async (req: Request, res: Response) => {
+  try {
+    const authUser = (req as any).user;
+    if (!authUser?.id) {
+      return res.status(401).json({ message: "Unauthorized: Missing user ID" });
+    }
+    if (authUser.role && authUser.role !== "user") {
+      return res.status(403).json({ message: "Forbidden: user role required" });
+    }
+    const userId = authUser.id;
+
+    const [subjects]: any = await db.query(
+      `SELECT
+         st.schedule_time_id,
+         s.subject_id,
+         s.subject_name,
+         s.credits,
+         s.teacher_name,
+         st.target_score
+       FROM schedule_time st
+       JOIN subjects s ON st.subject_id = s.subject_id
+       WHERE st.user_id = ? AND st.schedule_type_id = ?
+       ORDER BY s.subject_name ASC`,
+      [userId, CLASS_SCHEDULE_TYPE_ID]
+    );
+
+    const result = [];
+    for (const subject of subjects) {
+      const [workloadsWithScore]: any = await db.query(
+        `SELECT
+           w.workload_id,
+           w.workload_name,
+           w.workload_type_id,
+           wt.workload_type_name,
+           w.deadline_date,
+           w.deadline_time,
+           w.workload_status,
+           sc.actual_score,
+           sc.max_score
+         FROM workloads w
+         JOIN workload_types wt ON w.workload_type_id = wt.workload_type_id
+         LEFT JOIN score sc ON w.workload_id = sc.workload_id
+         WHERE w.schedule_time_id = ?
+         ORDER BY w.deadline_date ASC, w.deadline_time ASC`,
+        [subject.schedule_time_id]
+      );
+
+      result.push({
+        schedule_time_id: subject.schedule_time_id,
+        subject_id: subject.subject_id,
+        subject_name: subject.subject_name,
+        credits: subject.credits,
+        teacher_name: subject.teacher_name,
+        target_score: subject.target_score,
+        workloads: workloadsWithScore,
+      });
+    }
+
+    res.json({
+      message: "Subject goals retrieved successfully",
+      user_id: userId,
+      total: result.length,
+      data: result,
+    });
+  } catch (err) {
+    console.error("getSubjectGoals error:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 };
