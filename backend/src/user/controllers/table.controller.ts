@@ -32,7 +32,9 @@ export const getScheduleForCurrentTerm = async (req: Request, res: Response) => 
     const currentTerm = currentTermRows[0];
 
     const [subjects]: any = await db.query(
-      `SELECT subject_id, subject_name FROM subjects WHERE term = ? AND academic_year = ?`,
+      `SELECT subject_id, subject_name
+       FROM subjects
+       WHERE term = ? AND academic_year = ? AND is_active = 1`,
       [currentTerm.term, currentTerm.academic_year]
     );
 
@@ -85,7 +87,8 @@ export const generateScheduleForCurrentTerm = async (req: Request, res: Response
     const currentTerm = currentTermRows[0];
 
     const [subjects]: any = await db.query(
-      `SELECT * FROM subjects WHERE term = ? AND academic_year = ?`,
+      `SELECT * FROM subjects
+       WHERE term = ? AND academic_year = ? AND is_active = 1`,
       [currentTerm.term, currentTerm.academic_year]
     );
 
@@ -309,7 +312,7 @@ export const addTime = async (req: Request, res: Response) => {
 
     // 3. เช็คว่าวิชาที่เลือกมีอยู่จริง
     const [subjectRows]: any = await db.query(
-      `SELECT * FROM subjects WHERE subject_id = ?`,
+      `SELECT * FROM subjects WHERE subject_id = ? AND is_active = 1`,
       [subject_id]
     );
 

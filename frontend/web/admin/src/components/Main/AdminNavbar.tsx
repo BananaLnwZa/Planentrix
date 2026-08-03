@@ -9,21 +9,23 @@ import Link from "next/link";
 import AdminProfileMenu from "./AdminProfileMenu";
 
 const navItems = [
-  { label: "สถิติ", href: "/Main", icon: BarChart3, active: true },
-  { label: "ผู้ใช้งาน", href: "/Users", icon: UsersRound },
-  { label: "ข้อสอบ", href: "/Exams", icon: ClipboardList },
-  { label: "วิชา", href: "/Subjects", icon: BookOpen },
-  { label: "รายวิชา", href: "/Courses", icon: LibraryBig },
+  { label: "สถิติ", href: "/Main", icon: BarChart3 },
+  { label: "ผู้ใช้งาน", href: "/ManageUsers", icon: UsersRound },
+  { label: "ข้อสอบ", href: "/Exam", icon: ClipboardList },
+  { label: "วิชา", href: "/Subject", icon: BookOpen },
+  { label: "ประเภทวิชา", href: "/SubjectType", icon: LibraryBig },
 ];
 
 interface AdminNavbarProps {
   adminName: string;
   adminId?: string;
+  activeHref?: string;
 }
 
 export default function AdminNavbar({
   adminName,
   adminId,
+  activeHref = "/Main",
 }: AdminNavbarProps) {
   return (
     <nav
@@ -34,7 +36,10 @@ export default function AdminNavbar({
         <AdminProfileMenu adminName={adminName} adminId={adminId} />
 
         <div className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {navItems.map(({ label, href, icon: Icon, active }) => (
+          {navItems.map(({ label, href, icon: Icon }) => {
+            const active = href === activeHref;
+
+            return (
             <Link
               key={href}
               href={href}
@@ -48,7 +53,8 @@ export default function AdminNavbar({
               <Icon aria-hidden="true" size={17} strokeWidth={1.8} />
               <span>{label}</span>
             </Link>
-          ))}
+            );
+          })}
         </div>
       </div>
     </nav>

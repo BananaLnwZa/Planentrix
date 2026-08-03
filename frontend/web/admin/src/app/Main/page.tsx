@@ -35,7 +35,11 @@ export default async function AdminMainPage() {
 
   return (
     <div className="min-h-svh bg-[#f5fafc] pb-12">
-      <AdminNavbar adminName={adminName} adminId={adminId} />
+      <AdminNavbar
+        adminName={adminName}
+        adminId={adminId}
+        activeHref="/Main"
+      />
 
       <main className="mx-auto w-full max-w-[1440px] px-4 pt-10 sm:px-6 lg:px-8">
         <DashboardHeader />

@@ -27,9 +27,16 @@ body {
   cursor: pointer;
 }
 
-/* ซ่อนไอคอนนาฬิกาเดิม แต่ยังกดเปิดตัวเลือกเวลาได้ */
+/* แสดงไอคอนเลือกเวลาให้ชัดเจนบนฟอร์มพื้นหลังสีอ่อน */
 input[type="time"]::-webkit-calendar-picker-indicator {
-  width: 24px;
+  width: 20px;
+  height: 20px;
   cursor: pointer;
-  opacity: 0;
+  opacity: 1;
+  filter: invert(48%) sepia(28%) saturate(902%) hue-rotate(149deg)
+    brightness(91%) contrast(88%);
+}
+
+input[type="time"] {
+  color-scheme: light;
 }
