@@ -74,9 +74,9 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
             error: null,
           });
-        } catch (error: any) {
+        } catch (error: unknown) {
           set({
-            error: error.message || "Login failed",
+            error: error instanceof Error ? error.message : "Login failed",
             isLoading: false,
           });
           throw error;
@@ -98,9 +98,10 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
             error: null,
           });
-        } catch (error: any) {
+        } catch (error: unknown) {
           set({
-            error: error.message || "Registration failed",
+            error:
+              error instanceof Error ? error.message : "Registration failed",
             isLoading: false,
           });
           throw error;
@@ -120,7 +121,7 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
             error: null,
           });
-        } catch (error: any) {
+        } catch {
           // Still clear state even if logout request fails
           set({
             user: null,
@@ -145,9 +146,12 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
             error: null,
           });
-        } catch (error: any) {
+        } catch (error: unknown) {
           set({
-            error: error.message || "Failed to delete account",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to delete account",
             isLoading: false,
           });
           throw error;

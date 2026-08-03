@@ -1,7 +1,6 @@
 import axios, { AxiosInstance } from "axios";
 import Cookies from "js-cookie";
 import type {
-  CurrentTermResponse,
   UpdateAvatarResponse,
   UpdateConstraintRequest,
   UpdateConstraintResponse,
@@ -10,6 +9,7 @@ import type {
   UserConstraint,
   UserProfile,
 } from "@/interfaces/profile.interface";
+import type { CurrentTermResponse } from "@/interfaces/term.interface";
 
 class ProfileService {
   private apiClient: AxiosInstance;

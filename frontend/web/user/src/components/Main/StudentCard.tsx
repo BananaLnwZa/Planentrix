@@ -10,10 +10,10 @@ import {
 import { useRouter } from "next/navigation";
 import { UserRound } from "lucide-react";
 import type {
-  CurrentTerm,
   UserConstraint,
   UserProfile,
 } from "@/interfaces/profile.interface";
+import type { CurrentTerm } from "@/interfaces/term.interface";
 import { useAuthStore } from "@/services/auth.store";
 import profileService from "@/services/profile.service";
 import StudentCardPopup, {
@@ -226,7 +226,7 @@ export default function StudentCard({
   const displayName = profile?.user_name || name || authUser?.username || "Student";
   const displayGender = gender || formatGender(profile?.user_gender);
   const displayBirthDate = birthDate || formatDate(profile?.user_birthdate);
-  const displayYear = year ?? currentTerm?.year_level ?? "—";
+  const displayYear = year ?? currentTerm?.academic_year ?? "—";
   const displayStudentNumber =
     studentNumber || String(profile?.user_id || userId || 1).padStart(2, "0");
   const visibleLoadError =

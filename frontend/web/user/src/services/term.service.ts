@@ -1,29 +1,12 @@
 import axios, { AxiosInstance } from "axios";
 import Cookies from "js-cookie";
 import type {
+  CreateTermRequest,
+  CreateTermResponse,
   CurrentTerm,
   CurrentTermResponse,
-} from "@/interfaces/profile.interface";
-
-export interface CreateTermRequest {
-  year_level: string;
-  term: string;
-  academic_year: string;
-  start_midterm: string | null;
-  end_midterm: string | null;
-  start_final: string | null;
-  end_final: string | null;
-}
-
-export interface CreateTermResponse {
-  message: string;
-  term_id: number;
-}
-
-export interface EndTermResponse {
-  message: string;
-  ended_term: CurrentTerm;
-}
+  EndTermResponse,
+} from "@/interfaces/term.interface";
 
 class TermService {
   private apiClient: AxiosInstance;

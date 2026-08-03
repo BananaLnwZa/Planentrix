@@ -2,7 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import type { CurrentTerm } from "@/interfaces/profile.interface";
+import type { CurrentTerm } from "@/interfaces/term.interface";
 
 type DialogPosition = {
   left: number;
@@ -65,14 +65,14 @@ export default function TermDetailsPopup({
           <div className="flex items-center gap-4 text-[18px] leading-none">
             <span className="w-[118px] shrink-0">ชั้นปีที่</span>
             <span className="flex h-[52px] min-w-[100px] items-center justify-center rounded-full border border-[#83AFC3] bg-[#B9DFF0] px-6 text-[22px] text-[#4A5F6B]">
-              {term.year_level}
+              {term.academic_year}
             </span>
           </div>
 
           <div className="flex items-center gap-4 text-[18px] leading-none">
             <span className="w-[118px] shrink-0">ปีการศึกษา</span>
             <span className="flex h-[52px] min-w-[158px] items-center justify-center rounded-full border border-[#83AFC3] bg-[#B9DFF0] px-6 text-[22px] text-[#4A5F6B]">
-              {term.academic_year}
+              {term.semester}
             </span>
           </div>
 

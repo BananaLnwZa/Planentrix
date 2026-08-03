@@ -1,7 +1,28 @@
 import { Request, Response } from "express";
+import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import db from "../../config/db";
 
-const isValidDateString = (value: any) => {
+interface TermRow extends RowDataPacket {
+  term_id: number;
+  user_id: number;
+  term: number;
+  semester: string;
+  academic_year: number;
+  start_midterm: Date | null;
+  end_midterm: Date | null;
+  start_final: Date | null;
+  end_final: Date | null;
+  term_status: 0 | 1;
+}
+
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: number;
+    role?: string;
+  };
+}
+
+const isValidDateString = (value: unknown) => {
   if (typeof value !== "string") return false;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(value);
@@ -11,9 +32,9 @@ const isValidDateString = (value: any) => {
 // ==============================
 // ADD NEW TERM
 // ==============================
-export const addTerm = async (req: Request, res: Response) => {
+export const addTerm = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const authUser = (req as any).user;
+    const authUser = req.user;
     if (!authUser?.id) {
       return res.status(401).json({ message: "Unauthorized: Missing user ID" });
     }
@@ -23,18 +44,18 @@ export const addTerm = async (req: Request, res: Response) => {
     const userId = authUser.id;
 
     const {
-      year_level,
-      term,
       academic_year,
+      semester,
+      term,
       start_midterm,
       end_midterm,
       start_final,
       end_final,
     } = req.body;
 
-    if (!year_level || !term || !academic_year) {
+    if (!academic_year || !semester || !term) {
       return res.status(400).json({
-        message: "year_level, term, and academic_year are required",
+        message: "academic_year, semester, and term are required",
       });
     }
 
@@ -47,15 +68,15 @@ export const addTerm = async (req: Request, res: Response) => {
       }
     }
 
-    const [result]: any = await db.query(
+    const [result] = await db.query<ResultSetHeader>(
       `INSERT INTO terms
-         (user_id, year_level, term, academic_year, start_midterm, end_midterm, start_final, end_final, term_status)
+         (user_id, academic_year, semester, term, start_midterm, end_midterm, start_final, end_final, term_status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [
         userId,
-        year_level,
-        term,
         academic_year,
+        semester,
+        term,
         start_midterm || null,
         end_midterm || null,
         start_final || null,
@@ -77,9 +98,12 @@ export const addTerm = async (req: Request, res: Response) => {
 // ==============================
 // GET CURRENT TERM (status = 1)
 // ==============================
-export const getCurrentTerm = async (req: Request, res: Response) => {
+export const getCurrentTerm = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
-    const authUser = (req as any).user;
+    const authUser = req.user;
     if (!authUser?.id) {
       return res.status(401).json({ message: "Unauthorized: Missing user ID" });
     }
@@ -88,7 +112,7 @@ export const getCurrentTerm = async (req: Request, res: Response) => {
     }
     const userId = authUser.id;
 
-    const [rows]: any = await db.query(
+    const [rows] = await db.query<TermRow[]>(
       `SELECT * FROM terms
        WHERE user_id = ? AND term_status = 1
        ORDER BY term_id DESC
@@ -114,9 +138,12 @@ export const getCurrentTerm = async (req: Request, res: Response) => {
 // END CURRENT TERM
 // (หาเทอมปัจจุบัน status = 1 เองแล้วจบให้)
 // ==============================
-export const endCurrentTerm = async (req: Request, res: Response) => {
+export const endCurrentTerm = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
-    const authUser = (req as any).user;
+    const authUser = req.user;
     if (!authUser?.id) {
       return res.status(401).json({ message: "Unauthorized: Missing user ID" });
     }
@@ -125,7 +152,7 @@ export const endCurrentTerm = async (req: Request, res: Response) => {
     }
     const userId = authUser.id;
 
-    const [currentTermRows]: any = await db.query(
+    const [currentTermRows] = await db.query<TermRow[]>(
       `SELECT * FROM terms
        WHERE user_id = ? AND term_status = 1
        ORDER BY term_id DESC

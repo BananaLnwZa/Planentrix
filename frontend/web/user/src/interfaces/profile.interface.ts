@@ -58,20 +58,3 @@ export interface UpdateConstraintResponse {
   message: string;
   constraint: UserConstraint;
 }
-
-export interface CurrentTerm {
-  term_id: number;
-  year_level: string | number;
-  term: string | number;
-  academic_year: string | number;
-  start_midterm?: string | null;
-  end_midterm?: string | null;
-  start_final?: string | null;
-  end_final?: string | null;
-  term_status: number;
-}
-
-export interface CurrentTermResponse {
-  message: string;
-  data: CurrentTerm;
-}

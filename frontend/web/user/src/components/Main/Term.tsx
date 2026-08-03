@@ -3,13 +3,13 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronsUpDown, Plus, X } from "lucide-react";
-import type { CurrentTerm } from "@/interfaces/profile.interface";
+import type { CurrentTerm } from "@/interfaces/term.interface";
 import termService from "@/services/term.service";
 import TermDetailsPopup from "@/components/Main/TermDetailsPopup";
 
 export type TermFormValues = {
-  yearLevel: string;
   academicYear: string;
+  semester: string;
   term: string;
   examStartDate: string;
   examEndDate: string;
@@ -227,8 +227,8 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
 
     const formData = new FormData(event.currentTarget);
     const values: TermFormValues = {
-      yearLevel: String(formData.get("yearLevel") ?? ""),
       academicYear: String(formData.get("academicYear") ?? ""),
+      semester: String(formData.get("semester") ?? ""),
       term: String(formData.get("term") ?? ""),
       examStartDate: String(formData.get("examStartDate") ?? ""),
       examEndDate: String(formData.get("examEndDate") ?? ""),
@@ -245,9 +245,9 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
 
     try {
       const response = await termService.createTerm({
-        year_level: values.yearLevel,
-        term: values.term,
-        academic_year: values.academicYear,
+        academic_year: Number(values.academicYear),
+        semester: values.semester,
+        term: Number(values.term),
         start_midterm: values.examStartDate,
         end_midterm: values.examEndDate,
         start_final: values.examStartDate,
@@ -256,9 +256,10 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
 
       setCurrentTerm({
         term_id: response.term_id,
-        year_level: values.yearLevel,
-        term: values.term,
-        academic_year: values.academicYear,
+        user_id: response.user_id,
+        term: Number(values.term),
+        academic_year: Number(values.academicYear),
+        semester: values.semester,
         start_midterm: values.examStartDate,
         end_midterm: values.examEndDate,
         start_final: values.examStartDate,
@@ -303,14 +304,14 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
               <div className="flex items-center gap-2 whitespace-nowrap text-[clamp(13px,2vw,16px)]">
                 <span>ชั้นปีที่</span>
                 <span className="flex h-9 min-w-[54px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-3 text-[clamp(16px,2.2vw,19px)] leading-none text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
-                  {currentTerm.year_level}
+                  {currentTerm.academic_year}
                 </span>
               </div>
 
               <div className="flex items-center gap-2 whitespace-nowrap text-[clamp(13px,2vw,16px)]">
                 <span>ปีการศึกษา</span>
                 <span className="flex h-9 min-w-[82px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-3 text-[clamp(16px,2.2vw,19px)] leading-none text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
-                  {currentTerm.academic_year}
+                  {currentTerm.semester}
                 </span>
               </div>
 
@@ -402,13 +403,13 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
 
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div className="grid grid-cols-[104px_1fr] items-center gap-2">
-                  <label htmlFor="year-level" className="text-[17px] text-[#353535]">
+                  <label htmlFor="academic-year" className="text-[17px] text-[#353535]">
                     ชั้นปีที่
                   </label>
                   <div className="max-w-[142px]">
                     <SelectField
-                      id="year-level"
-                      name="yearLevel"
+                      id="academic-year"
+                      name="academicYear"
                       placeholder="select year"
                     >
                       {[1, 2, 3, 4, 5, 6, 7, 8].map((year) => (
@@ -421,12 +422,12 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
                 </div>
 
                 <div className="grid grid-cols-[104px_1fr] items-center gap-2">
-                  <label htmlFor="academic-year" className="text-[17px] text-[#353535]">
+                  <label htmlFor="semester" className="text-[17px] text-[#353535]">
                     ปีการศึกษา
                   </label>
                   <input
-                    id="academic-year"
-                    name="academicYear"
+                    id="semester"
+                    name="semester"
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]{4}"

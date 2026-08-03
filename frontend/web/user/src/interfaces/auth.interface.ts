@@ -37,24 +37,7 @@ export interface LoginResponse {
   role: string;
   userId: number;
   accessToken: string;
-  refreshToken?: string;
   expiresIn: string;
-}
-
-export interface RefreshTokenRequest {
-  refreshToken: string;
-}
-
-export interface RefreshTokenResponse {
-  accessToken: string;
-  expiresIn: string;
-}
-
-// ==============================
-// LOGOUT REQUEST
-// ==============================
-export interface LogoutRequest {
-  // No body required, uses authorization header
 }
 
 export interface LogoutResponse {
@@ -62,12 +45,8 @@ export interface LogoutResponse {
 }
 
 // ==============================
-// DELETE ACCOUNT REQUEST & RESPONSE
+// DELETE ACCOUNT RESPONSE
 // ==============================
-export interface DeleteAccountRequest {
-  // No body required, uses authorization header
-}
-
 export interface DeleteAccountResponse {
   message: string;
 }
@@ -96,7 +75,6 @@ export interface ApiErrorResponse {
 export interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
-  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -131,5 +109,5 @@ export interface UpdateConstraintRequest extends ConstraintData, RecurringBusyTi
 
 export interface UpdateConstraintResponse {
   message: string;
-  data?: any;
+  data?: unknown;
 }
