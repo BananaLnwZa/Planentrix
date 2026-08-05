@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import db from "../../config/db";
 
+const CLASS_SCHEDULE_TYPE_ID = 1;
+
 interface TermRow extends RowDataPacket {
   term_id: number;
   user_id: number;
@@ -25,8 +27,11 @@ interface AuthenticatedRequest extends Request {
 const isValidDateString = (value: unknown) => {
   if (typeof value !== "string") return false;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(value);
-  return !Number.isNaN(date.getTime());
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return (
+    !Number.isNaN(date.getTime()) &&
+    date.toISOString().slice(0, 10) === value
+  );
 };
 
 // ==============================
@@ -53,9 +58,43 @@ export const addTerm = async (req: AuthenticatedRequest, res: Response) => {
       end_final,
     } = req.body;
 
-    if (!academic_year || !semester || !term) {
+    if (
+      !academic_year ||
+      !semester ||
+      !term ||
+      !start_midterm ||
+      !end_midterm ||
+      !start_final ||
+      !end_final
+    ) {
       return res.status(400).json({
-        message: "academic_year, semester, and term are required",
+        message:
+          "academic_year, semester, term, start_midterm, end_midterm, start_final, and end_final are required",
+      });
+    }
+
+    const academicYearNumber = Number(academic_year);
+    const termNumber = Number(term);
+
+    if (
+      !Number.isInteger(academicYearNumber) ||
+      academicYearNumber < 1 ||
+      academicYearNumber > 4
+    ) {
+      return res.status(400).json({
+        message: "academic_year must be an integer between 1 and 4",
+      });
+    }
+
+    if (!Number.isInteger(termNumber) || termNumber < 1 || termNumber > 2) {
+      return res.status(400).json({
+        message: "term must be an integer between 1 and 2",
+      });
+    }
+
+    if (typeof semester !== "string" || !/^\d{4}$/.test(semester)) {
+      return res.status(400).json({
+        message: "semester must contain exactly 4 digits",
       });
     }
 
@@ -68,27 +107,85 @@ export const addTerm = async (req: AuthenticatedRequest, res: Response) => {
       }
     }
 
-    const [result] = await db.query<ResultSetHeader>(
-      `INSERT INTO terms
-         (user_id, academic_year, semester, term, start_midterm, end_midterm, start_final, end_final, term_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [
-        userId,
-        academic_year,
-        semester,
-        term,
-        start_midterm || null,
-        end_midterm || null,
-        start_final || null,
-        end_final || null,
-      ]
-    );
+    if (end_midterm <= start_midterm) {
+      return res.status(400).json({
+        message: "end_midterm must be after start_midterm",
+      });
+    }
 
-    res.status(201).json({
-      message: "Term added successfully",
-      term_id: result.insertId,
-      user_id: userId,
-    });
+    if (end_final <= start_final) {
+      return res.status(400).json({
+        message: "end_final must be after start_final",
+      });
+    }
+
+    if (start_final <= end_midterm) {
+      return res.status(400).json({
+        message: "start_final must be after end_midterm",
+      });
+    }
+
+    const connection = await db.getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      const [result] = await connection.query<ResultSetHeader>(
+        `INSERT INTO terms
+           (user_id, academic_year, semester, term, start_midterm, end_midterm, start_final, end_final, term_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+        [
+          userId,
+          academicYearNumber,
+          semester,
+          termNumber,
+          start_midterm,
+          end_midterm,
+          start_final,
+          end_final,
+        ]
+      );
+
+      const [scheduleResult] = await connection.query<ResultSetHeader>(
+        `INSERT INTO schedule_time
+           (term_id, user_id, schedule_type_id, subject_id, schedule_day, start_time, end_time, classroom, target_score, note)
+         SELECT ?, ?, ?, subject_id, schedule_day, start_time, end_time, classroom, NULL, NULL
+         FROM subjects
+         WHERE term = ? AND academic_year = ? AND is_active = 1`,
+        [
+          result.insertId,
+          userId,
+          CLASS_SCHEDULE_TYPE_ID,
+          termNumber,
+          academicYearNumber,
+        ]
+      );
+
+      if (scheduleResult.affectedRows === 0) {
+        await connection.rollback();
+        return res.status(404).json({
+          message: "No subjects found for this term/academic_year",
+        });
+      }
+
+      await connection.commit();
+
+      return res.status(201).json({
+        message: "Term and schedule added successfully",
+        term_id: result.insertId,
+        user_id: userId,
+        schedule: {
+          total_subjects_found: scheduleResult.affectedRows,
+          newly_added: scheduleResult.affectedRows,
+          skipped_count: 0,
+        },
+      });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   } catch (err) {
     console.error("addTerm error:", err);
     res.status(500).json({ message: "Internal server error" });
