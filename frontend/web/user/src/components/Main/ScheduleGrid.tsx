@@ -39,26 +39,26 @@ const timeSlots = [
 
 export default function ScheduleGrid() {
   return (
-    <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto rounded-[15px] pb-0.5 [scrollbar-gutter:stable]">
+    <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto rounded-[14px] [scrollbar-gutter:stable]">
       <div
         className="w-full min-w-0 text-[#52636D]"
         style={{ fontFamily: "var(--font-sansation)" }}
       >
-        <div className="sticky top-0 z-10 grid grid-cols-[58px_repeat(7,minmax(0,1fr))] overflow-hidden rounded-xl border border-[#D8BBC7] bg-white shadow-[0_3px_6px_rgba(104,79,89,0.17)]">
+        <div className="sticky top-0 z-10 grid grid-cols-[58px_repeat(7,minmax(0,1fr))] overflow-hidden rounded-t-[14px] bg-white shadow-[0_2px_7px_rgba(104,79,89,0.14)]">
           <div className="flex h-11 items-center justify-center border-r border-[#E2C7D1] bg-[#BFE4F5] text-[15px] text-[#426477]">
             Time
           </div>
           {scheduleDays.map((day, index) => (
             <div
               key={day}
-              className={`flex h-11 items-center justify-center text-[15px] font-medium text-[#596D78] [text-shadow:1px_1px_0_rgba(255,255,255,0.85)] ${dayHeaderColors[index]} ${index < scheduleDays.length - 1 ? "border-r border-white/70" : ""}`}
+              className={`flex h-11 items-center justify-center text-[15px] font-medium text-[#596D78] [text-shadow:1px_1px_0_rgba(255,255,255,0.85)] ${dayHeaderColors[index]} ${index < scheduleDays.length - 1 ? "border-r border-white/50" : ""}`}
             >
               {day}
             </div>
           ))}
         </div>
 
-        <div className="mt-2 overflow-hidden rounded-xl border border-[#DECBD2] bg-white shadow-[0_3px_6px_rgba(104,79,89,0.14)]">
+        <div className="overflow-hidden rounded-b-xl border border-t-0 border-[#DECBD2] bg-white shadow-[0_3px_6px_rgba(104,79,89,0.14)]">
           {timeSlots.map((time, rowIndex) => (
             <div
               key={time}

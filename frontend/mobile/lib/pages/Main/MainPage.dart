@@ -2,14 +2,28 @@ import 'package:flutter/material.dart';
 
 import '../../services/auth.service.dart';
 import '../../services/storage.service.dart';
+import '../../services/term.service.dart';
+import '../../common/NotebookTabs.dart';
+import 'Component/Schedule.dart';
+import 'Component/StudentCard.dart';
+import 'Component/StudentCardPopup.dart';
+import 'Component/Term.dart';
 
 typedef LogoutAction = Future<void> Function();
 
 class MainPage extends StatefulWidget {
   final LogoutAction? logoutAction;
   final String? username;
+  final int? userId;
+  final TermRepository? termRepository;
 
-  const MainPage({super.key, this.logoutAction, this.username});
+  const MainPage({
+    super.key,
+    this.logoutAction,
+    this.username,
+    this.userId,
+    this.termRepository,
+  });
 
   @override
   State<MainPage> createState() => _MainPageState();
@@ -20,6 +34,7 @@ class _MainPageState extends State<MainPage> {
   final StorageService _storageService = StorageService();
 
   String? _username;
+  int? _userId;
   bool _isLoadingSession = true;
   bool _isLoggingOut = false;
 
@@ -28,6 +43,7 @@ class _MainPageState extends State<MainPage> {
     super.initState();
     if (widget.username != null) {
       _username = widget.username;
+      _userId = widget.userId;
       _isLoadingSession = false;
       return;
     }
@@ -36,9 +52,11 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _loadSession() async {
     String? username;
+    int? userId;
     try {
       final session = await _storageService.getSession();
       username = session?.username;
+      userId = session?.userId;
     } catch (_) {
       username = null;
     }
@@ -47,8 +65,44 @@ class _MainPageState extends State<MainPage> {
 
     setState(() {
       _username = username;
+      _userId = userId;
       _isLoadingSession = false;
     });
+  }
+
+  String get _displayName => _username ?? 'Student';
+
+  String get _displayStudentNumber => (_userId ?? 1).toString().padLeft(2, '0');
+
+  void _openStudentCard() {
+    showStudentCardPopup(
+      context,
+      name: _displayName,
+      studentNumber: _displayStudentNumber,
+      onLogout: _logout,
+    );
+  }
+
+  void _changeTab(NotebookTabId tab) {
+    if (tab == NotebookTabId.main) return;
+    Navigator.of(context).pushReplacementNamed(notebookTabRoute(tab));
+  }
+
+  Widget _buildNotebookContent() {
+    return Column(
+      key: const ValueKey('main-tab-content'),
+      children: [
+        StudentCard(
+          name: _displayName,
+          studentNumber: _displayStudentNumber,
+          onTap: _openStudentCard,
+        ),
+        const SizedBox(height: 24),
+        Term(repository: widget.termRepository),
+        const SizedBox(height: 24),
+        const Schedule(),
+      ],
+    );
   }
 
   Future<void> _logout() async {
@@ -77,86 +131,99 @@ class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F8FE),
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text('Planentrix'),
-        backgroundColor: const Color(0xFF9CC5F9),
-        foregroundColor: Colors.black87,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Card(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.check_circle_outline,
-                      color: Color(0xFF2E7D32),
-                      size: 72,
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Login successful',
-                      key: Key('login-success-message'),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    if (_isLoadingSession)
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    else
-                      Text(
-                        _username == null
-                            ? 'You are signed in.'
-                            : 'Welcome, $_username',
-                        key: const Key('current-user'),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.black54,
-                          fontSize: 16,
-                        ),
-                      ),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: 150,
-                      height: 44,
-                      child: ElevatedButton(
-                        key: const Key('logout-button'),
-                        onPressed: _isLoggingOut ? null : _logout,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF9CC5F9),
-                          foregroundColor: Colors.black87,
-                        ),
-                        child: _isLoggingOut
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.black54,
-                                ),
-                              )
-                            : const Text('Logout'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+      backgroundColor: Colors.transparent,
+      body: Container(
+        key: const Key('main-background'),
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/bg.png'),
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
           ),
+        ),
+        child: SafeArea(
+          child: _isLoadingSession
+              ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 68),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: Stack(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 42),
+                            child: Container(
+                              key: const Key('main-notebook-cover'),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFFF8DDE5),
+                                    Color(0xFFF3CCD8),
+                                    Color(0xFFEABCCA),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(28),
+                                border: Border.all(
+                                  color: const Color(0xFFE1B6C5),
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x426A4E42),
+                                    blurRadius: 24,
+                                    offset: Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: Container(
+                                key: const Key('main-notebook-paper'),
+                                width: double.infinity,
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  24,
+                                  12,
+                                  24,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEFBEA),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: const Color(0xFFE8DDD3),
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x246A4E42),
+                                      blurRadius: 16,
+                                      offset: Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 220),
+                                  child: _buildNotebookContent(),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: 28,
+                            right: 28,
+                            bottom: 10,
+                            child: NotebookTabs(
+                              activeTab: NotebookTabId.main,
+                              onTabChange: _changeTab,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
         ),
       ),
     );
