@@ -6,8 +6,8 @@ import { Pencil, Trash2 } from "lucide-react";
 
 export type BusyDayFormData = {
   day: number; // 1-7 (Monday-Sunday)
-  start: string; // HH:MM AM/PM
-  end: string; // HH:MM AM/PM
+  start: string; // HH:mm (24-hour format)
+  end: string; // HH:mm (24-hour format)
 };
 
 type Item = BusyDayFormData & {
@@ -31,8 +31,8 @@ const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedu
     getFormData: async () => {
       return items.map((item) => ({
         day: item.day,
-        start: convertAmPmTo24hr(item.start),
-        end: convertAmPmTo24hr(item.end),
+        start: item.start,
+        end: item.end,
       }));
     },
   }));
@@ -49,34 +49,6 @@ const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedu
       "Sat": "Saturday",
     };
     return dayMap[abbr] || "Monday";
-  };
-
-  // Convert 24hr format to 12hr AM/PM format
-  const convertTimeToAmPm = (time: string): string => {
-    if (!time) return "";
-    const [hours, minutes] = time.split(":");
-    const hour = parseInt(hours);
-    const suffix = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    return `${displayHour.toString().padStart(2, "0")}:${minutes} ${suffix}`;
-  };
-
-  // Convert 12hr AM/PM format to 24hr format for database
-  const convertAmPmTo24hr = (timeAmPm: string): string => {
-    if (!timeAmPm) return "";
-    const parts = timeAmPm.split(" ");
-    const time = parts[0];
-    const period = parts[1];
-    const [hours, minutes] = time.split(":");
-    let hour = parseInt(hours);
-
-    if (period === "PM" && hour !== 12) {
-      hour += 12;
-    } else if (period === "AM" && hour === 12) {
-      hour = 0;
-    }
-
-    return `${hour.toString().padStart(2, "0")}:${minutes}`;
   };
 
   // Map day name to number (1-7)
@@ -251,8 +223,8 @@ const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedu
         editItem={editingItem ? {
           id: editingItem.id,
           day: dayNumberToAbbreviation(editingItem.day),
-          start: convertAmPmTo24hr(editingItem.start),
-          end: convertAmPmTo24hr(editingItem.end),
+          start: editingItem.start,
+          end: editingItem.end,
         } : null}
         onClose={() => {
           setOpen(false);
@@ -261,9 +233,6 @@ const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedu
         onConfirm={(abbreviatedDay, start, end) => {
           const fullDayName = abbreviatedToFullDayName(abbreviatedDay);
           const dayNumber = dayNameToNumber(fullDayName);
-          const startTimeAmPm = convertTimeToAmPm(start);
-          const endTimeAmPm = convertTimeToAmPm(end);
-
           if (editingItem) {
             // แก้ไขรายการเดิม
             setItems(
@@ -272,8 +241,8 @@ const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedu
                   ? {
                     ...item,
                     day: dayNumber,
-                    start: startTimeAmPm,
-                    end: endTimeAmPm,
+                    start,
+                    end,
                   }
                   : item
               )
@@ -285,8 +254,8 @@ const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedu
               {
                 id: crypto.randomUUID(),
                 day: dayNumber,
-                start: startTimeAmPm,
-                end: endTimeAmPm,
+                start,
+                end,
               },
             ]);
           }

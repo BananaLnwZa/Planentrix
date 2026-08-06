@@ -177,7 +177,10 @@ export default function StudentCardPopup({
             </div>
 
             <div className="min-w-0">
-              <h2 id="student-profile-title" className="truncate text-5xl text-black">
+              <h2
+                id="student-profile-title"
+                className="truncate text-[clamp(26px,8vw,34px)] leading-tight text-black"
+              >
                 {displayName}
               </h2>
 
@@ -267,9 +270,13 @@ export default function StudentCardPopup({
 
           {activePanel === "profile" ? (
             isEditing ? (
-              <form id="profile-edit-form" onSubmit={onEditFormSubmit} className="space-y-5">
-                <div>
-                  <label htmlFor="profile-username" className="text-lg text-gray-800">
+              <form
+                id="profile-edit-form"
+                onSubmit={onEditFormSubmit}
+                className="grid grid-cols-2 gap-3"
+              >
+                <div className="col-span-2">
+                  <label htmlFor="profile-username" className="text-sm text-gray-800">
                     ชื่อผู้ใช้
                   </label>
                   <input
@@ -284,11 +291,11 @@ export default function StudentCardPopup({
                         userName: event.target.value,
                       }))
                     }
-                    className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-6 py-2 text-lg text-gray-800 outline-none focus:border-[#9CC5F9]"
+                    className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-5 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
                   />
                 </div>
                 <div>
-                  <label htmlFor="profile-birthdate" className="text-lg text-gray-800">
+                  <label htmlFor="profile-birthdate" className="text-sm text-gray-800">
                     วันเกิด
                   </label>
                   <input
@@ -301,11 +308,11 @@ export default function StudentCardPopup({
                         birthDate: event.target.value,
                       }))
                     }
-                    className="custom-date mt-1 block w-full rounded-full border border-gray-300 bg-white px-6 py-2 text-lg text-gray-800 outline-none focus:border-[#9CC5F9]"
+                    className="custom-date mt-1 block w-full rounded-full border border-gray-300 bg-white px-4 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
                   />
                 </div>
                 <div>
-                  <label htmlFor="profile-gender" className="text-lg text-gray-800">
+                  <label htmlFor="profile-gender" className="text-sm text-gray-800">
                     เพศ
                   </label>
                   <select
@@ -317,7 +324,7 @@ export default function StudentCardPopup({
                         gender: event.target.value as ProfileGender | "",
                       }))
                     }
-                    className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-6 py-2 text-lg text-gray-800 outline-none focus:border-[#9CC5F9]"
+                    className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-4 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
                   >
                     <option value="male">ชาย</option>
                     <option value="female">หญิง</option>
@@ -326,22 +333,22 @@ export default function StudentCardPopup({
                 </div>
               </form>
             ) : (
-              <dl className="space-y-6">
-                <div>
-                  <dt className="text-lg text-gray-800">ชื่อผู้ใช้</dt>
-                  <dd className="mt-1 inline-flex min-w-32 rounded-full border border-gray-300 bg-white px-6 py-2 text-lg text-gray-800">
+              <dl className="grid grid-cols-2 gap-3">
+                <div className="col-span-2 rounded-2xl border border-gray-200 bg-white/80 p-3">
+                  <dt className="text-sm text-gray-500">ชื่อผู้ใช้</dt>
+                  <dd className="mt-1 break-words text-base text-[#314553]">
                     {displayName}
                   </dd>
                 </div>
-                <div>
-                  <dt className="text-lg text-gray-800">วันเกิด</dt>
-                  <dd className="mt-1 inline-flex min-w-40 rounded-full border border-gray-300 bg-white px-6 py-2 text-lg text-gray-800">
+                <div className="rounded-2xl border border-gray-200 bg-white/80 p-3">
+                  <dt className="text-sm text-gray-500">วันเกิด</dt>
+                  <dd className="mt-1 break-words text-base text-[#314553]">
                     {displayBirthDate}
                   </dd>
                 </div>
-                <div>
-                  <dt className="text-lg text-gray-800">เพศ</dt>
-                  <dd className="mt-1 inline-flex min-w-32 rounded-full border border-gray-300 bg-white px-6 py-2 text-lg text-gray-800">
+                <div className="rounded-2xl border border-gray-200 bg-white/80 p-3">
+                  <dt className="text-sm text-gray-500">เพศ</dt>
+                  <dd className="mt-1 break-words text-base text-[#314553]">
                     {displayGender}
                   </dd>
                 </div>

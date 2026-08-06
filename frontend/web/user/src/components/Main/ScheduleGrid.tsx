@@ -1,81 +1,119 @@
-const scheduleDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+import type { ScheduleItem } from "@/interfaces/table.interface";
+import ScheduleBlock from "./ScheduleBlock";
 
+const scheduleDays = ["จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."];
 const dayHeaderColors = [
-  "bg-[#FFD7E5]",
-  "bg-[#FFE0C9]",
   "bg-[#FFF0B8]",
+  "bg-[#FFD7E5]",
   "bg-[#DDF0C7]",
+  "bg-[#FFE0C9]",
   "bg-[#D6EBFA]",
   "bg-[#DDDDF8]",
-  "bg-[#F5D8EE]",
+  "bg-[#F8D1CD]",
 ];
 
-const timeSlots = [
-  "6 AM",
-  "7 AM",
-  "8 AM",
-  "9 AM",
-  "10 AM",
-  "11 AM",
-  "12 PM",
-  "1 PM",
-  "2 PM",
-  "3 PM",
-  "4 PM",
-  "5 PM",
-  "6 PM",
-  "7 PM",
-  "8 PM",
-  "9 PM",
-  "10 PM",
-  "11 PM",
-  "12 AM",
-  "1 AM",
-  "2 AM",
-  "3 AM",
-  "4 AM",
-  "5 AM",
-];
+const START_HOUR = 6;
+const END_HOUR = 24;
+const ROW_HEIGHT = 38;
+const hours = Array.from(
+  { length: END_HOUR - START_HOUR },
+  (_, index) => START_HOUR + index
+);
 
-export default function ScheduleGrid() {
+function formatHour(hour: number) {
+  if (hour === 12) return "12 PM";
+  if (hour > 12) return `${hour - 12} PM`;
+  return `${hour} AM`;
+}
+
+function timeToMinutes(value: string) {
+  const [hour, minute] = value.split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+function getBlockPosition(item: ScheduleItem) {
+  const gridStart = START_HOUR * 60;
+  const gridEnd = END_HOUR * 60;
+  const start = Math.max(gridStart, timeToMinutes(item.start_time));
+  const end = Math.min(gridEnd, timeToMinutes(item.end_time));
+
+  return {
+    top: ((start - gridStart) / 60) * ROW_HEIGHT + 2,
+    height: Math.max(((end - start) / 60) * ROW_HEIGHT - 4, 32),
+  };
+}
+
+export default function ScheduleGrid({
+  items,
+  onSelect,
+}: {
+  items: ScheduleItem[];
+  onSelect: (item: ScheduleItem) => void;
+}) {
+  const gridHeight = hours.length * ROW_HEIGHT;
+
   return (
-    <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto rounded-[14px] [scrollbar-gutter:stable]">
+    <div className="min-h-0 flex-1 overflow-auto rounded-[14px] [scrollbar-gutter:stable]">
       <div
-        className="w-full min-w-0 text-[#52636D]"
+        className="min-w-[620px] text-[#52636D]"
         style={{ fontFamily: "var(--font-sansation)" }}
       >
-        <div className="sticky top-0 z-10 grid grid-cols-[58px_repeat(7,minmax(0,1fr))] overflow-hidden rounded-t-[14px] bg-white shadow-[0_2px_7px_rgba(104,79,89,0.14)]">
-          <div className="flex h-11 items-center justify-center border-r border-[#E2C7D1] bg-[#BFE4F5] text-[15px] text-[#426477]">
-            Time
+        <div className="sticky top-0 z-10 grid grid-cols-[54px_repeat(7,minmax(0,1fr))] overflow-hidden rounded-t-[14px] bg-white shadow-[0_2px_7px_rgba(104,79,89,0.14)]">
+          <div className="flex h-10 items-center justify-center border-r border-[#E2C7D1] bg-[#FFFFFF] text-[13px] text-[#426477]">
+            เวลา
           </div>
           {scheduleDays.map((day, index) => (
             <div
               key={day}
-              className={`flex h-11 items-center justify-center text-[15px] font-medium text-[#596D78] [text-shadow:1px_1px_0_rgba(255,255,255,0.85)] ${dayHeaderColors[index]} ${index < scheduleDays.length - 1 ? "border-r border-white/50" : ""}`}
+              className={`flex h-10 items-center justify-center text-[13px] font-medium text-[#596D78] [text-shadow:1px_1px_0_rgba(255,255,255,0.85)] ${dayHeaderColors[index]} ${index < scheduleDays.length - 1 ? "border-r border-white/50" : ""}`}
             >
               {day}
             </div>
           ))}
         </div>
 
-        <div className="overflow-hidden rounded-b-xl border border-t-0 border-[#DECBD2] bg-white shadow-[0_3px_6px_rgba(104,79,89,0.14)]">
-          {timeSlots.map((time, rowIndex) => (
-            <div
-              key={time}
-              className={`grid h-8 grid-cols-[58px_repeat(7,minmax(0,1fr))] ${rowIndex < timeSlots.length - 1 ? "border-b border-[#EEE1E6]" : ""}`}
-            >
-              <div className={`flex items-center justify-center border-r border-[#E5D4DA] text-[11px] text-[#687983] ${rowIndex % 2 === 0 ? "bg-[#FFF1D5]" : "bg-[#FFF7E8]"}`}>
-                {time}
+        <div className="flex overflow-hidden rounded-b-xl border border-t-0 border-[#DECBD2] bg-white shadow-[0_3px_6px_rgba(104,79,89,0.14)]">
+          <div className="w-[54px] shrink-0 border-r border-[#E5D4DA]">
+            {hours.map((hour, index) => (
+              <div
+                key={hour}
+                className={`flex h-[38px] items-start justify-center border-b border-[#EEE1E6] pt-1 text-[10px] text-[#687983] ${index % 2 === 0 ? "bg-[#FFF1D5]" : "bg-[#FFF7E8]"}`}
+              >
+                {formatHour(hour)}
               </div>
-              {scheduleDays.map((day, columnIndex) => (
-                <div
-                  key={`${day}-${time}`}
-                  aria-hidden="true"
-                  className={`transition-colors duration-150 hover:bg-[#FFF3F8] ${columnIndex < scheduleDays.length - 1 ? "border-r border-[#EEE4E8]" : ""} ${rowIndex % 2 === 0 ? "bg-[#FFFEFC]" : "bg-white"}`}
-                />
-              ))}
-            </div>
-          ))}
+            ))}
+          </div>
+
+          <div
+            className="grid min-w-0 flex-1 grid-cols-7"
+            style={{ height: gridHeight }}
+          >
+            {scheduleDays.map((day, dayIndex) => (
+              <div
+                key={day}
+                className={`relative ${dayIndex < scheduleDays.length - 1 ? "border-r border-[#EEE4E8]" : ""}`}
+              >
+                {hours.map((hour, rowIndex) => (
+                  <div
+                    key={hour}
+                    aria-hidden="true"
+                    className={`h-[38px] border-b border-[#EEE1E6] ${rowIndex % 2 === 0 ? "bg-[#FFFEFC]" : "bg-white"}`}
+                  />
+                ))}
+
+                {items
+                  .filter((item) => item.schedule_day === dayIndex + 1)
+                  .map((item) => (
+                    <ScheduleBlock
+                      key={item.schedule_time_id}
+                      item={item}
+                      style={getBlockPosition(item)}
+                      onClick={() => onSelect(item)}
+                    />
+                  ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

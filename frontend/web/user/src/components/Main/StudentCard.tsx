@@ -492,16 +492,16 @@ export default function StudentCard({
 
   return (
     <>
-      <div className="w-full max-w-[430px]">
+      <div className="w-full max-w-[390px]">
         <button
           type="button"
           onClick={openProfile}
           aria-haspopup="dialog"
-          className="w-full overflow-hidden rounded-[28px] border border-[#93A3AA] bg-white text-left shadow-[0_8px_10px_rgba(53,64,69,0.28)] transition-transform duration-200 hover:-translate-y-1 hover:shadow-[0_12px_18px_rgba(53,64,69,0.3)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#9CC5F9]"
+          className="w-full overflow-hidden rounded-[24px] border border-[#93A3AA] bg-white text-left shadow-[0_7px_9px_rgba(53,64,69,0.25)] transition-transform duration-200 hover:-translate-y-1 hover:shadow-[0_10px_16px_rgba(53,64,69,0.28)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#9CC5F9]"
         >
-          <div className="flex items-center justify-between bg-[#C7E8F8] px-5 py-3">
+          <div className="flex items-center justify-between bg-[#C7E8F8] px-4 py-2.5">
             <span
-              className="text-[35px] leading-none text-white"
+              className="text-[29px] leading-none text-white"
               style={{
                 fontFamily: "var(--font-pacifico)",
                 textShadow: "3px 3px 0 #9CC5F9",
@@ -510,45 +510,45 @@ export default function StudentCard({
               Planentrix
             </span>
             <div className="text-right text-white">
-              <p className="text-lg leading-none">{displayStudentNumber}</p>
-              <p className="mt-1 text-[10px] tracking-wide">STUDENT IDENTITY CARD</p>
+              <p className="text-base leading-none">{displayStudentNumber}</p>
+              <p className="mt-0.5 text-[9px] tracking-wide">STUDENT IDENTITY CARD</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-[116px_1fr] gap-4 px-5 pb-3 pt-4">
+          <div className="grid grid-cols-[94px_1fr] gap-3 px-4 pb-2.5 pt-3">
             <div className="overflow-hidden rounded-sm border border-gray-300 bg-[#F3FAFD]">
               <StudentCardPhoto imageUrl={profile?.user_pic_url} />
             </div>
 
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
               <div>
-                <dt className="text-xs uppercase text-gray-400">Name</dt>
-                <dd className="truncate text-lg text-gray-900">{displayName}</dd>
+                <dt className="text-[10px] leading-tight uppercase text-gray-400">Name</dt>
+                <dd className="truncate text-base leading-tight text-gray-900">{displayName}</dd>
               </div>
               <div>
-                <dt className="text-xs uppercase text-gray-400">Gender</dt>
-                <dd className="truncate text-lg text-gray-900">{displayGender}</dd>
+                <dt className="text-[10px] leading-tight uppercase text-gray-400">Gender</dt>
+                <dd className="truncate text-base leading-tight text-gray-900">{displayGender}</dd>
               </div>
               <div>
-                <dt className="text-xs uppercase text-gray-400">Major</dt>
-                <dd className="truncate text-lg text-gray-900">COMSCI</dd>
+                <dt className="text-[10px] leading-tight uppercase text-gray-400">Major</dt>
+                <dd className="truncate text-base leading-tight text-gray-900">COMSCI</dd>
               </div>
               <div>
-                <dt className="text-xs uppercase text-gray-400">Year</dt>
-                <dd className="truncate text-lg text-gray-900">{displayYear}</dd>
+                <dt className="text-[10px] leading-tight uppercase text-gray-400">Year</dt>
+                <dd className="truncate text-base leading-tight text-gray-900">{displayYear}</dd>
               </div>
               <div className="col-span-2">
-                <dt className="text-xs uppercase text-gray-400">Birthday</dt>
-                <dd className="truncate text-lg text-gray-900">{displayBirthDate}</dd>
+                <dt className="text-[10px] leading-tight uppercase text-gray-400">Birthday</dt>
+                <dd className="truncate text-base leading-tight text-gray-900">{displayBirthDate}</dd>
               </div>
             </dl>
           </div>
 
           <div
             aria-hidden="true"
-            className="flex w-full items-center justify-between px-5 pb-2 text-xs text-gray-700"
+            className="flex w-full items-center justify-between px-4 pb-1.5 text-[10px] text-gray-700"
           >
-            {Array.from({ length: 42 }, (_, index) => (
+            {Array.from({ length: 38 }, (_, index) => (
               <span key={index}>&gt;</span>
             ))}
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, type RefObject } from "react";
-import Image from "next/image";
+import { useState } from "react";
+import TimePicker24Hour from "./TimePicker24Hour";
 
 type EditItem = {
   id: string;
@@ -92,20 +92,6 @@ export default function BusyDayModal({
   const [timeError, setTimeError] =
     useState<string | null>(null);
 
-  const startRef = useRef<HTMLInputElement | null>(null);
-  const endRef = useRef<HTMLInputElement | null>(null);
-
-  const openTimePicker = (ref: RefObject<HTMLInputElement | null>) => {
-    const input = ref.current;
-    if (!input) return;
-
-    if (typeof input.showPicker === "function") {
-      input.showPicker();
-    } else {
-      input.focus();
-    }
-  };
-
   const getTimeError = (start: string, end: string): string | null => {
     if (!start || !end) {
       return "กรุณาเลือกเวลาเริ่มต้นและเวลาสิ้นสุดให้ครบ";
@@ -133,11 +119,6 @@ export default function BusyDayModal({
     setTimeError(currentTimeError);
 
     if (currentTimeError) {
-      if (!startTime) {
-        startRef.current?.focus();
-      } else {
-        endRef.current?.focus();
-      }
       return;
     }
 
@@ -254,22 +235,21 @@ export default function BusyDayModal({
         "
         >
         {/* Start Time */}
-        <div className="relative">
-          <input
-            ref={startRef}
-            type="time"
+        <div className="relative w-[145px]">
+          <TimePicker24Hour
+            id="busy-start-time"
             value={startTime}
-            onChange={(event) => handleStartTimeChange(event.target.value)}
-            max={endTime || undefined}
-            aria-invalid={Boolean(timeError)}
-            aria-describedby={timeError ? "busy-time-error" : undefined}
-            className={`
-              w-[145px]
+            onChange={handleStartTimeChange}
+            ariaLabel="เวลาเริ่มต้น"
+            ariaInvalid={Boolean(timeError)}
+            ariaDescribedBy={timeError ? "busy-time-error" : undefined}
+            iconSize={18}
+            className={`w-full
               border
               ${timeError ? "border-red-500" : "border-gray-300"}
               rounded-full
               pl-4
-              pr-6
+              pr-9
               py-2
               text-sm
               leading-none
@@ -277,53 +257,26 @@ export default function BusyDayModal({
               outline-none
             `}
           />
-
-          <button
-            type="button"
-            onClick={() => openTimePicker(startRef)}
-            className="
-              absolute
-              right-3
-              top-1/2
-              -translate-y-1/2
-              flex
-              items-center
-              justify-center
-              h-6
-              w-6
-              rounded-full
-            "
-            aria-label="Open start time picker"
-          >
-            <Image
-              src="/icons/clock.svg"
-              alt="clock"
-              width={18}
-              height={18}
-              className="h-[18px] w-[18px]"
-            />
-          </button>
         </div>
 
         <span className="text-gray-500">-</span>
 
         {/* End Time */}
-        <div className="relative">
-          <input
-            ref={endRef}
-            type="time"
+        <div className="relative w-[145px]">
+          <TimePicker24Hour
+            id="busy-end-time"
             value={endTime}
-            onChange={(event) => handleEndTimeChange(event.target.value)}
-            min={startTime || undefined}
-            aria-invalid={Boolean(timeError)}
-            aria-describedby={timeError ? "busy-time-error" : undefined}
-            className={`
-              w-[145px]
+            onChange={handleEndTimeChange}
+            ariaLabel="เวลาสิ้นสุด"
+            ariaInvalid={Boolean(timeError)}
+            ariaDescribedBy={timeError ? "busy-time-error" : undefined}
+            iconSize={18}
+            className={`w-full
               border
               ${timeError ? "border-red-500" : "border-gray-300"}
               rounded-full
               pl-4
-              pr-6
+              pr-9
               py-2
               text-sm
               leading-none
@@ -331,32 +284,6 @@ export default function BusyDayModal({
               outline-none
             `}
           />
-
-          <button
-            type="button"
-            onClick={() => openTimePicker(endRef)}
-            className="
-              absolute
-              right-3
-              top-1/2
-              -translate-y-1/2
-              flex
-              items-center
-              justify-center
-              h-6
-              w-6
-              rounded-full
-            "
-            aria-label="Open end time picker"
-          >
-            <Image
-              src="/icons/clock.svg"
-              alt="clock"
-              width={18}
-              height={18}
-              className="h-[18px] w-[18px]"
-            />
-          </button>
         </div>
         </div>
         {timeError && (

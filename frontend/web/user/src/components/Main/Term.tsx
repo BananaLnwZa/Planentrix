@@ -397,7 +397,7 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
       <section
         ref={termCardRef}
         aria-labelledby="term-empty-title"
-        className={`flex min-h-[116px] w-full max-w-[440px] flex-col items-center justify-center rounded-xl border border-[#AFAFAF] bg-white shadow-[0_6px_10px_rgba(75,93,102,0.24)] ${currentTerm ? "p-0" : "px-5 py-3"}`}
+        className={`flex min-h-[98px] w-full max-w-[440px] flex-col items-center justify-center rounded-xl border border-[#AFAFAF] bg-white shadow-[0_5px_9px_rgba(75,93,102,0.22)] ${currentTerm ? "p-0" : "px-4 py-2.5"}`}
       >
         {isLoadingTerm ? (
           <p className="text-center text-sm text-[#7897AC]">
@@ -408,7 +408,7 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
             type="button"
             onClick={openTermDetails}
             aria-haspopup="dialog"
-            className="group min-h-[166px] w-full rounded-[11px] px-5 py-3 text-left text-[#242424] transition-all duration-200 hover:bg-[#B9DFF0] hover:text-white hover:shadow-[0_8px_12px_rgba(75,93,102,0.28)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9CC5F9]"
+            className="group min-h-[132px] w-full rounded-[11px] px-4 py-2 text-left text-[#242424] transition-all duration-200 hover:bg-[#B9DFF0] hover:text-white hover:shadow-[0_7px_11px_rgba(75,93,102,0.26)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9CC5F9]"
             style={{ fontFamily: "var(--font-sansation)" }}
           >
             <span id="term-empty-title" className="sr-only">
@@ -416,43 +416,43 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
             </span>
 
             <div className="grid grid-cols-[auto_auto_auto] items-center justify-between gap-2">
-              <div className="flex items-center gap-2 whitespace-nowrap text-[clamp(13px,2vw,16px)]">
+              <div className="flex items-center gap-1.5 whitespace-nowrap text-[clamp(12px,2vw,14px)]">
                 <span>ชั้นปีที่</span>
-                <span className="flex h-9 min-w-[54px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-3 text-[clamp(16px,2.2vw,19px)] leading-none text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
+                <span className="flex h-8 min-w-[48px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-2.5 text-[clamp(15px,2.2vw,17px)] leading-none text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
                   {currentTerm.academic_year}
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 whitespace-nowrap text-[clamp(13px,2vw,16px)]">
+              <div className="flex items-center gap-1.5 whitespace-nowrap text-[clamp(12px,2vw,14px)]">
                 <span>ปีการศึกษา</span>
-                <span className="flex h-9 min-w-[82px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-3 text-[clamp(16px,2.2vw,19px)] leading-none text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
+                <span className="flex h-8 min-w-[74px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-2.5 text-[clamp(15px,2.2vw,17px)] leading-none text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
                   {currentTerm.semester}
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 whitespace-nowrap text-[clamp(13px,2vw,16px)]">
+              <div className="flex items-center gap-1.5 whitespace-nowrap text-[clamp(12px,2vw,14px)]">
                 <span>เทอม</span>
-                <span className="flex h-9 min-w-[54px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-3 text-[clamp(16px,2.2vw,19px)] leading-none text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
+                <span className="flex h-8 min-w-[48px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-2.5 text-[clamp(15px,2.2vw,17px)] leading-none text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
                   {currentTerm.term}
                 </span>
               </div>
             </div>
 
-            <div className="mt-3 space-y-2 rounded-2xl bg-[#F6FBFD] px-3 py-2 text-[clamp(12px,2vw,14px)] transition-colors duration-200 group-hover:bg-white/25">
-              <div className="grid grid-cols-[100px_minmax(0,1fr)] items-center gap-2">
+            <div className="mt-2 space-y-1.5 rounded-xl bg-[#F6FBFD] px-2.5 py-1.5 text-[clamp(11px,2vw,13px)] transition-colors duration-200 group-hover:bg-white/25">
+              <div className="grid grid-cols-[92px_minmax(0,1fr)] items-center gap-2">
                 <span className="whitespace-nowrap text-[#688492] transition-colors group-hover:text-white">
                   สอบกลางภาค
                 </span>
-                <span className="flex h-8 min-w-0 items-center justify-center whitespace-nowrap rounded-full border border-[#C8C8C8] bg-white px-2 text-[clamp(12px,2.1vw,15px)] text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
+                <span className="flex h-7 min-w-0 items-center justify-center whitespace-nowrap rounded-full border border-[#C8C8C8] bg-white px-2 text-[clamp(11px,2.1vw,13px)] text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
                   {formatThaiExamDate(currentTerm.start_midterm)} –{" "}
                   {formatThaiExamDate(currentTerm.end_midterm)}
                 </span>
               </div>
-              <div className="grid grid-cols-[100px_minmax(0,1fr)] items-center gap-2">
+              <div className="grid grid-cols-[92px_minmax(0,1fr)] items-center gap-2">
                 <span className="whitespace-nowrap text-[#688492] transition-colors group-hover:text-white">
                   สอบปลายภาค
                 </span>
-                <span className="flex h-8 min-w-0 items-center justify-center whitespace-nowrap rounded-full border border-[#C8C8C8] bg-white px-2 text-[clamp(12px,2.1vw,15px)] text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
+                <span className="flex h-7 min-w-0 items-center justify-center whitespace-nowrap rounded-full border border-[#C8C8C8] bg-white px-2 text-[clamp(11px,2.1vw,13px)] text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
                   {formatThaiExamDate(currentTerm.start_final)} –{" "}
                   {formatThaiExamDate(currentTerm.end_final)}
                 </span>
@@ -463,7 +463,7 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
           <>
             <h2
               id="term-empty-title"
-              className="text-center text-[20px] leading-none text-[#9CC5F9]"
+              className="text-center text-[18px] leading-none text-[#9CC5F9]"
               style={{ fontFamily: "var(--font-Sansation Light)" }}
             >
               *กรุณาระบุข้อมูลเทอมก่อนใช้งาน*
@@ -474,9 +474,9 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
               onClick={openTermForm}
               aria-label="เพิ่มข้อมูลเทอม"
               aria-haspopup="dialog"
-              className="mt-3 flex h-[46px] w-[106px] items-center justify-center rounded-full bg-[#A9DDFC] text-white transition-all duration-200 hover:scale-105 hover:bg-[#96D3F7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9CC5F9] active:scale-95"
+              className="mt-2.5 flex h-10 w-[92px] items-center justify-center rounded-full bg-[#A9DDFC] text-white transition-all duration-200 hover:scale-105 hover:bg-[#96D3F7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9CC5F9] active:scale-95"
             >
-              <Plus aria-hidden="true" size={32} strokeWidth={3.5} />
+              <Plus aria-hidden="true" size={27} strokeWidth={3.5} />
             </button>
 
             {formError && (

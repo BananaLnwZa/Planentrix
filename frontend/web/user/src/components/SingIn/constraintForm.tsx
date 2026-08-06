@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
-import { type RefObject, useRef, useState, forwardRef, useImperativeHandle } from "react";
+import { useRef, useState, forwardRef, useImperativeHandle } from "react";
 
 import Worktime from "./Worktime";
 import BusyDay, { type BusyDayHandle } from "./BusyDay";
 import CustomDayDropdown from "./CustomDayDropdown";
+import TimePicker24Hour from "./TimePicker24Hour";
 
 interface ConstraintFormData {
   day_off: number | null;
@@ -33,6 +33,8 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [timePreference, setTimePreference] = useState<number | null>(null);
   const [timeError, setTimeError] = useState<string | null>(null);
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   
   // Working duration (hours, minutes)
   const continuousWorkingHoursRef = useRef<HTMLInputElement>(null);
@@ -42,48 +44,7 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
   const breakHoursRef = useRef<HTMLInputElement>(null);
   const breakMinutesRef = useRef<HTMLInputElement>(null);
   
-  const startTimeRef = useRef<HTMLInputElement>(null);
-  const endTimeRef = useRef<HTMLInputElement>(null);
   const busyDayRef = useRef<BusyDayHandle>(null);
-
-  const openTimePicker = (ref: RefObject<HTMLInputElement | null>) => {
-    const input = ref.current;
-    if (!input) return;
-
-    if (typeof input.showPicker === "function") {
-      input.showPicker();
-    } else {
-      input.focus();
-    }
-  };
-
-  // Convert 24hr format to 12hr AM/PM format
-  const convertTimeToAmPm = (time: string): string => {
-    if (!time) return "";
-    const [hours, minutes] = time.split(":");
-    const hour = parseInt(hours);
-    const suffix = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    return `${displayHour.toString().padStart(2, "0")}:${minutes} ${suffix}`;
-  };
-
-  // Convert 12hr AM/PM format to 24hr format for database
-  const convertAmPmTo24hr = (timeAmPm: string): string => {
-    if (!timeAmPm) return "";
-    const parts = timeAmPm.split(" ");
-    const time = parts[0];
-    const period = parts[1];
-    const [hours, minutes] = time.split(":");
-    let hour = parseInt(hours);
-
-    if (period === "PM" && hour !== 12) {
-      hour += 12;
-    } else if (period === "AM" && hour === 12) {
-      hour = 0;
-    }
-
-    return `${hour.toString().padStart(2, "0")}:${minutes}`;
-  };
 
   // Calculate minutes from hours and minutes
   const calculateMinutes = (hours: string, minutes: string): number => {
@@ -108,10 +69,14 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
     return null;
   };
 
-  const handleWorkTimeChange = () => {
-    const startTime = startTimeRef.current?.value || "";
-    const endTime = endTimeRef.current?.value || "";
-    setTimeError(getWorkTimeError(startTime, endTime));
+  const handleStartTimeChange = (value: string) => {
+    setStartTime(value);
+    setTimeError(getWorkTimeError(value, endTime));
+  };
+
+  const handleEndTimeChange = (value: string) => {
+    setEndTime(value);
+    setTimeError(getWorkTimeError(startTime, value));
   };
 
   // Handle save constraints
@@ -121,30 +86,17 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
       const continuousWorkingMinutes = continuousWorkingMinutesRef.current?.value || "0";
       const breakHours = breakHoursRef.current?.value || "0";
       const breakMinutes = breakMinutesRef.current?.value || "0";
-      const startTime = startTimeRef.current?.value;
-      const endTime = endTimeRef.current?.value;
       const currentTimeError = getWorkTimeError(
-        startTime || "",
-        endTime || "",
+        startTime,
+        endTime,
         true
       );
 
       setTimeError(currentTimeError);
 
       if (currentTimeError) {
-        if (!startTime) {
-          startTimeRef.current?.focus();
-        } else {
-          endTimeRef.current?.focus();
-        }
         return null;
       }
-
-      // Convert time to AM/PM first, then to 24hr for database
-      const startTimeAmPm = startTime ? convertTimeToAmPm(startTime) : null;
-      const endTimeAmPm = endTime ? convertTimeToAmPm(endTime) : null;
-      const startTime24hr = startTimeAmPm ? convertAmPmTo24hr(startTimeAmPm) : null;
-      const endTime24hr = endTimeAmPm ? convertAmPmTo24hr(endTimeAmPm) : null;
 
       const continuousDurationMinutes = calculateMinutes(continuousWorkingHours, continuousWorkingMinutes);
       const breakDurationMinutes = calculateMinutes(breakHours, breakMinutes);
@@ -153,8 +105,8 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
         day_off: selectedDay,
         continuous_working_duration: continuousDurationMinutes || null,
         break: breakDurationMinutes || null,
-        start_time: startTime24hr,
-        end_time: endTime24hr,
+        start_time: startTime || null,
+        end_time: endTime || null,
         time_preference: timePreference,
       };
 
@@ -365,15 +317,15 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
           </label>
 
           <div className="relative w-full max-w-[200px]">
-            <input
-              ref={startTimeRef}
+            <TimePicker24Hour
               id="start-work-time"
-              type="time"
-              onChange={handleWorkTimeChange}
-              aria-invalid={Boolean(timeError)}
-              aria-describedby={timeError ? "work-time-error" : undefined}
+              value={startTime}
+              onChange={handleStartTimeChange}
+              ariaLabel="เวลาเริ่มทำงาน"
+              ariaInvalid={Boolean(timeError)}
+              ariaDescribedBy={timeError ? "work-time-error" : undefined}
+              iconSize={22}
               className={`
-                appearance-none
                 h-[48px]
                 w-full
                 rounded-full
@@ -384,7 +336,6 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
                 text-sm
                 text-gray-500
                 outline-none
-                [color-scheme:light]
 
                 ${
                   timeError
@@ -401,41 +352,6 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
                 md:text-base
               `}
             />
-            <button
-              type="button"
-              onClick={() => openTimePicker(startTimeRef)}
-              className="
-                absolute
-                right-5
-                inset-y-0
-                flex
-                h-full
-                w-5
-                cursor-pointer
-                items-center
-                justify-center
-                text-gray-500
-
-                sm:right-5
-                md:right-5
-              "
-            >
-              <Image
-                src="/icons/clock.svg"
-                alt="clock"
-                width={22}
-                height={22}
-                className="
-                  h-[18px]
-                  w-[18px]
-
-                  sm:h-[20px]
-                  sm:w-[20px]
-                  md:h-[22px]
-                  md:w-[22px]
-                "
-              />
-            </button>
           </div>
         </div>
 
@@ -446,15 +362,15 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
           </label>
 
           <div className="relative w-full max-w-[200px]">
-            <input
-              ref={endTimeRef}
+            <TimePicker24Hour
               id="end-work-time"
-              type="time"
-              onChange={handleWorkTimeChange}
-              aria-invalid={Boolean(timeError)}
-              aria-describedby={timeError ? "work-time-error" : undefined}
+              value={endTime}
+              onChange={handleEndTimeChange}
+              ariaLabel="เวลาสิ้นสุดการทำงาน"
+              ariaInvalid={Boolean(timeError)}
+              ariaDescribedBy={timeError ? "work-time-error" : undefined}
+              iconSize={22}
               className={`
-                appearance-none
                 h-[48px]
                 w-full
                 rounded-full
@@ -465,7 +381,6 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
                 text-sm
                 text-gray-500
                 outline-none
-                [color-scheme:light]
 
                 ${
                   timeError
@@ -482,41 +397,6 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
                 md:text-base
               `}
             />
-            <button
-              type="button"
-              onClick={() => openTimePicker(endTimeRef)}
-              className="
-                absolute
-                right-5
-                inset-y-0
-                flex
-                h-full
-                w-5
-                cursor-pointer
-                items-center
-                justify-center
-                text-gray-500
-
-                sm:right-5
-                md:right-5
-              "
-            >
-              <Image
-                src="/icons/clock.svg"
-                alt="clock"
-                width={22}
-                height={22}
-                className="
-                  h-[18px]
-                  w-[18px]
-
-                  sm:h-[20px]
-                  sm:w-[20px]
-                  md:h-[22px]
-                  md:w-[22px]
-                "
-              />
-            </button>
           </div>
           {timeError && (
             <p
