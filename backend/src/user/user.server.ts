@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import userAuthRouter from "./routes/authen.route";
+import userExamRouter from "./routes/exam.routes";
 import userProfileRouter from "./routes/profile.route";
 import userTermsRouter from "./routes/terms.route";
 import userTableRouter from "./routes/table.router";
@@ -28,6 +29,7 @@ app.use("/user/schedule", userTableRouter);
 app.use("/user/grade", userGradeRouter);
 app.use("/user/workload", userWorkloadRouter);
 app.use("/user/time", userTimeRouter);
+app.use("/user/exam", userExamRouter);
 
 app.get("/", (req, res) => {
   res.json({ message: "User backend is running" });
