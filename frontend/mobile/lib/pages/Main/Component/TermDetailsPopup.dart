@@ -69,21 +69,19 @@ class _TermDetailsPopupState extends State<_TermDetailsPopup> {
   @override
   Widget build(BuildContext context) {
     final term = widget.term;
-    final start = term.startFinal ?? term.startMidterm;
-    final end = term.endFinal ?? term.endMidterm;
 
     return Dialog(
       key: const Key('term-details-popup'),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: const BorderSide(color: Color(0xFFAFAFAF)),
       ),
       backgroundColor: Colors.white,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 440),
+        constraints: const BoxConstraints(maxWidth: 380),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(22, 14, 22, 24),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 22),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -94,35 +92,63 @@ class _TermDetailsPopupState extends State<_TermDetailsPopup> {
                   onPressed: () => Navigator.of(context).pop(false),
                   icon: const Icon(Icons.close_rounded),
                   color: const Color(0xFFEC4F78),
-                  iconSize: 30,
+                  iconSize: 25,
                   tooltip: 'ปิดรายละเอียดเทอม',
                 ),
               ),
               const Text(
                 'รายละเอียดเทอมปัจจุบัน',
-                style: TextStyle(fontSize: 20, color: Color(0xFF333333)),
+                style: TextStyle(fontSize: 19, color: Color(0xFF333333)),
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 18),
               _DetailRow(label: 'ชั้นปีที่', value: term.yearLevel),
-              const SizedBox(height: 14),
-              _DetailRow(label: 'ปีการศึกษา', value: term.academicYear),
-              const SizedBox(height: 14),
+              const SizedBox(height: 11),
+              _DetailRow(
+                label: 'ปีการศึกษา',
+                value: term.academicYear,
+                wide: true,
+              ),
+              const SizedBox(height: 11),
               _DetailRow(label: 'เทอม', value: term.term),
               const SizedBox(height: 14),
-              _DetailRow(
-                label: 'สัปดาห์สอบ',
-                value:
-                    '${formatThaiTermDate(start)} – ${formatThaiTermDate(end)}',
-                compact: true,
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4FAFD),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFB9D9E7)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'ช่วงสัปดาห์สอบ',
+                      style: TextStyle(fontSize: 14, color: Color(0xFF6A8795)),
+                    ),
+                    const SizedBox(height: 9),
+                    _PopupExamRange(
+                      label: 'สอบกลางภาค',
+                      start: term.startMidterm,
+                      end: term.endMidterm,
+                    ),
+                    const SizedBox(height: 8),
+                    _PopupExamRange(
+                      label: 'สอบปลายภาค',
+                      start: term.startFinal,
+                      end: term.endFinal,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 19),
               const Text(
                 '*เมื่อจบเทอมแล้วกรุณากดปุ่มจบเทอมเพื่อเริ่มเทอมใหม่',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Color(0xFF333333)),
+                style: TextStyle(fontSize: 12, color: Color(0xFF555555)),
               ),
               if (_error != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Text(
                   _error!,
                   textAlign: TextAlign.center,
@@ -132,17 +158,16 @@ class _TermDetailsPopupState extends State<_TermDetailsPopup> {
                   ),
                 ),
               ],
-              const SizedBox(height: 20),
+              const SizedBox(height: 17),
               OutlinedButton(
                 key: const Key('end-term-button'),
                 onPressed: _isEnding ? null : _endTerm,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF333333),
-                  backgroundColor: const Color(0xFF9CC5F9),
                   side: const BorderSide(color: Color(0xFF8F8F8F)),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 28,
-                    vertical: 11,
+                    horizontal: 24,
+                    vertical: 8,
                   ),
                   shape: const StadiumBorder(),
                 ),
@@ -159,12 +184,12 @@ class _TermDetailsPopupState extends State<_TermDetailsPopup> {
 class _DetailRow extends StatelessWidget {
   final String label;
   final String value;
-  final bool compact;
+  final bool wide;
 
   const _DetailRow({
     required this.label,
     required this.value,
-    this.compact = false,
+    this.wide = false,
   });
 
   @override
@@ -172,31 +197,70 @@ class _DetailRow extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 92,
+          width: 96,
           child: Text(label, style: const TextStyle(fontSize: 16)),
         ),
+        Container(
+          height: 36,
+          constraints: BoxConstraints(minWidth: wide ? 104 : 64),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFB9DFF0),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFF83AFC3)),
+          ),
+          child: Text(
+            value,
+            maxLines: 1,
+            style: const TextStyle(fontSize: 16, color: Color(0xFF4A5F6B)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PopupExamRange extends StatelessWidget {
+  final String label;
+  final DateTime? start;
+  final DateTime? end;
+
+  const _PopupExamRange({
+    required this.label,
+    required this.start,
+    required this.end,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 82,
+          child: Text(
+            label,
+            maxLines: 1,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF506E7C)),
+          ),
+        ),
+        const SizedBox(width: 7),
         Expanded(
           child: Container(
-            constraints: const BoxConstraints(minHeight: 46),
+            height: 36,
             alignment: Alignment.center,
-            padding: EdgeInsets.symmetric(
-              horizontal: compact ? 10 : 18,
-              vertical: 10,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               color: const Color(0xFFB9DFF0),
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(22),
               border: Border.all(color: const Color(0xFF83AFC3)),
             ),
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                value,
+                '${formatThaiTermDate(start)} – ${formatThaiTermDate(end)}',
                 maxLines: 1,
-                style: TextStyle(
-                  fontSize: compact ? 16 : 20,
-                  color: const Color(0xFF4A5F6B),
-                ),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF4A5F6B)),
               ),
             ),
           ),

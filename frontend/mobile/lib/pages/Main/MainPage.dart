@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../services/auth.service.dart';
 import '../../services/storage.service.dart';
 import '../../services/term.service.dart';
+import '../../interfaces/term.interface.dart';
+import '../../common/NotebookSectionPage.dart';
 import '../../common/NotebookTabs.dart';
 import 'Component/Schedule.dart';
 import 'Component/StudentCard.dart';
@@ -37,6 +39,7 @@ class _MainPageState extends State<MainPage> {
   int? _userId;
   bool _isLoadingSession = true;
   bool _isLoggingOut = false;
+  CurrentTerm? _currentTerm;
 
   @override
   void initState() {
@@ -79,13 +82,9 @@ class _MainPageState extends State<MainPage> {
       context,
       name: _displayName,
       studentNumber: _displayStudentNumber,
+      year: _currentTerm?.yearLevel ?? '—',
       onLogout: _logout,
     );
-  }
-
-  void _changeTab(NotebookTabId tab) {
-    if (tab == NotebookTabId.main) return;
-    Navigator.of(context).pushReplacementNamed(notebookTabRoute(tab));
   }
 
   Widget _buildNotebookContent() {
@@ -95,10 +94,17 @@ class _MainPageState extends State<MainPage> {
         StudentCard(
           name: _displayName,
           studentNumber: _displayStudentNumber,
+          year: _currentTerm?.yearLevel ?? '—',
           onTap: _openStudentCard,
         ),
         const SizedBox(height: 24),
-        Term(repository: widget.termRepository),
+        Term(
+          repository: widget.termRepository,
+          onTermChanged: (term) {
+            if (!mounted || _currentTerm == term) return;
+            setState(() => _currentTerm = term);
+          },
+        ),
         const SizedBox(height: 24),
         const Schedule(),
       ],
@@ -130,102 +136,21 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        key: const Key('main-background'),
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/bg.png'),
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-          ),
-        ),
-        child: SafeArea(
-          child: _isLoadingSession
-              ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 68),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: Stack(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 42),
-                            child: Container(
-                              key: const Key('main-notebook-cover'),
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Color(0xFFF8DDE5),
-                                    Color(0xFFF3CCD8),
-                                    Color(0xFFEABCCA),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(28),
-                                border: Border.all(
-                                  color: const Color(0xFFE1B6C5),
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x426A4E42),
-                                    blurRadius: 24,
-                                    offset: Offset(0, 10),
-                                  ),
-                                ],
-                              ),
-                              child: Container(
-                                key: const Key('main-notebook-paper'),
-                                width: double.infinity,
-                                padding: const EdgeInsets.fromLTRB(
-                                  12,
-                                  24,
-                                  12,
-                                  24,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFEFBEA),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: const Color(0xFFE8DDD3),
-                                  ),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x246A4E42),
-                                      blurRadius: 16,
-                                      offset: Offset(0, 6),
-                                    ),
-                                  ],
-                                ),
-                                child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 220),
-                                  child: _buildNotebookContent(),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            left: 28,
-                            right: 28,
-                            bottom: 10,
-                            child: NotebookTabs(
-                              activeTab: NotebookTabId.main,
-                              onTabChange: _changeTab,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-        ),
-      ),
+    return NotebookSectionPage(
+      activeTab: NotebookTabId.main,
+      backgroundKey: const Key('main-background'),
+      coverKey: const Key('main-notebook-cover'),
+      paperKey: const Key('main-notebook-paper'),
+      contentPadding: _isLoadingSession
+          ? EdgeInsets.zero
+          : const EdgeInsets.fromLTRB(12, 24, 12, 24),
+      centerContent: _isLoadingSession,
+      child: _isLoadingSession
+          ? const CircularProgressIndicator(strokeWidth: 2)
+          : AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: _buildNotebookContent(),
+            ),
     );
   }
 }

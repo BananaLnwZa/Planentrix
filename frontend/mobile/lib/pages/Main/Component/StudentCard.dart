@@ -27,43 +27,49 @@ class StudentCard extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'Student identity card for $name',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          key: const Key('student-card'),
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(28),
-          child: Ink(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: const Color(0xFF93A3AA)),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x47354045),
-                  blurRadius: 10,
-                  offset: Offset(0, 8),
-                ),
-              ],
+      child: DecoratedBox(
+        key: const Key('student-card-shadow'),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x40354045),
+              blurRadius: 9,
+              offset: Offset(0, 7),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(27),
+          ],
+        ),
+        child: Material(
+          key: const Key('student-card-surface'),
+          color: Colors.white,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: const BorderSide(color: Color(0xFF93A3AA)),
+          ),
+          child: InkWell(
+            key: const Key('student-card'),
+            onTap: onTap,
+            customBorder: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: SizedBox(
+              width: double.infinity,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _StudentCardHeader(studentNumber: studentNumber),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SizedBox(
-                          width: 100,
-                          height: 126,
+                          width: 94,
+                          height: 112,
                           child: _StudentPhoto(photo: photo),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -77,7 +83,7 @@ class StudentCard extends StatelessWidget {
                                       value: name,
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
+                                  const SizedBox(width: 9),
                                   Expanded(
                                     child: _CardDetail(
                                       label: 'GENDER',
@@ -86,7 +92,7 @@ class StudentCard extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 6),
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -96,7 +102,7 @@ class StudentCard extends StatelessWidget {
                                       value: major,
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
+                                  const SizedBox(width: 9),
                                   Expanded(
                                     child: _CardDetail(
                                       label: 'YEAR',
@@ -105,7 +111,7 @@ class StudentCard extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 6),
                               Align(
                                 alignment: Alignment.centerLeft,
                                 child: _CardDetail(
@@ -120,7 +126,7 @@ class StudentCard extends StatelessWidget {
                     ),
                   ),
                   const Padding(
-                    padding: EdgeInsets.fromLTRB(18, 0, 18, 10),
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, 6),
                     child: _SecurityPattern(),
                   ),
                 ],
@@ -142,7 +148,7 @@ class _StudentCardHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: const Color(0xFFC7E8F8),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
           const Expanded(
@@ -153,7 +159,7 @@ class _StudentCardHeader extends StatelessWidget {
               style: TextStyle(
                 color: Colors.white,
                 fontFamily: 'Sansation',
-                fontSize: 28,
+                fontSize: 29,
                 fontWeight: FontWeight.w400,
                 height: 1,
                 shadows: [
@@ -162,7 +168,7 @@ class _StudentCardHeader extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -172,18 +178,18 @@ class _StudentCardHeader extends StatelessWidget {
                 style: const TextStyle(
                   color: Colors.white,
                   fontFamily: 'Sansation',
-                  fontSize: 17,
+                  fontSize: 16,
                   fontWeight: FontWeight.w400,
                   height: 1,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               const Text(
                 'STUDENT IDENTITY CARD',
                 style: TextStyle(
                   color: Colors.white,
                   fontFamily: 'Sansation',
-                  fontSize: 8,
+                  fontSize: 9,
                   fontWeight: FontWeight.w400,
                   letterSpacing: 0.5,
                 ),
@@ -260,7 +266,7 @@ class _CardDetail extends StatelessWidget {
           style: const TextStyle(
             color: Color(0xFF111827),
             fontFamily: 'Sansation',
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.w400,
             height: 1.1,
           ),
@@ -278,10 +284,19 @@ class _SecurityPattern extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: List<Widget>.generate(
-        20,
-        (_) => const Text(
-          '›',
-          style: TextStyle(color: Color(0xFF4B5563), fontSize: 10, height: 1),
+        30,
+        (_) => const Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              '›',
+              style: TextStyle(
+                color: Color(0xFF4B5563),
+                fontSize: 10,
+                height: 1,
+              ),
+            ),
+          ),
         ),
       ),
     );

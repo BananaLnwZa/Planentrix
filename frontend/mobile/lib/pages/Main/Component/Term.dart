@@ -7,8 +7,9 @@ import 'TermDetailsPopup.dart';
 
 class Term extends StatefulWidget {
   final TermRepository? repository;
+  final ValueChanged<CurrentTerm?>? onTermChanged;
 
-  const Term({super.key, this.repository});
+  const Term({super.key, this.repository, this.onTermChanged});
 
   @override
   State<Term> createState() => _TermState();
@@ -37,6 +38,7 @@ class _TermState extends State<Term> {
       final term = await _repository.getCurrentTerm();
       if (!mounted) return;
       setState(() => _currentTerm = term);
+      widget.onTermChanged?.call(term);
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = '$error');
@@ -61,6 +63,7 @@ class _TermState extends State<Term> {
       final term = await _repository.createTerm(request);
       if (!mounted) return;
       setState(() => _currentTerm = term);
+      widget.onTermChanged?.call(term);
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = '$error');
@@ -82,6 +85,7 @@ class _TermState extends State<Term> {
         _currentTerm = null;
         _error = null;
       });
+      widget.onTermChanged?.call(null);
     }
   }
 
@@ -90,16 +94,16 @@ class _TermState extends State<Term> {
     return Container(
       key: const Key('term-card'),
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 122),
+      constraints: const BoxConstraints(minHeight: 98),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(13),
         border: Border.all(color: const Color(0xFFAFAFAF)),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x3D4B5D66),
-            blurRadius: 10,
-            offset: Offset(0, 6),
+            color: Color(0x384B5D66),
+            blurRadius: 9,
+            offset: Offset(0, 5),
           ),
         ],
       ),
@@ -126,19 +130,19 @@ class _TermState extends State<Term> {
 
     return Padding(
       key: const Key('term-empty'),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Text(
             '*กรุณาระบุข้อมูลเทอมก่อนใช้งาน*',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 17, color: Color(0xFF9CC5F9)),
+            style: TextStyle(fontSize: 18, color: Color(0xFF9CC5F9)),
           ),
-          const SizedBox(height: 11),
+          const SizedBox(height: 10),
           SizedBox(
-            width: 106,
-            height: 46,
+            width: 92,
+            height: 40,
             child: FilledButton(
               key: const Key('add-term-button'),
               onPressed: _isSubmitting ? null : _openCreateForm,
@@ -150,8 +154,8 @@ class _TermState extends State<Term> {
               ),
               child: _isSubmitting
                   ? const SizedBox(
-                      width: 22,
-                      height: 22,
+                      width: 20,
+                      height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
                         color: Colors.white,
@@ -159,7 +163,7 @@ class _TermState extends State<Term> {
                     )
                   : const Icon(
                       Icons.add_rounded,
-                      size: 34,
+                      size: 27,
                       color: Colors.white,
                     ),
             ),
@@ -186,8 +190,6 @@ class _CurrentTermCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final start = term.startFinal ?? term.startMidterm;
-    final end = term.endFinal ?? term.endMidterm;
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(12),
@@ -197,59 +199,48 @@ class _CurrentTermCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         splashColor: const Color(0xFFB9DFF0),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(13, 12, 13, 13),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _MiniTermValue(
-                      label: 'ชั้นปีที่',
-                      value: term.yearLevel,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    flex: 2,
-                    child: _MiniTermValue(
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  children: [
+                    _InlineTermValue(label: 'ชั้นปีที่', value: term.yearLevel),
+                    const SizedBox(width: 10),
+                    _InlineTermValue(
                       label: 'ปีการศึกษา',
                       value: term.academicYear,
+                      minWidth: 72,
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _MiniTermValue(label: 'เทอม', value: term.term),
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    _InlineTermValue(label: 'เทอม', value: term.term),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Text('สัปดาห์สอบ', style: TextStyle(fontSize: 13)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Container(
-                      height: 36,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: const Color(0xFFC8C8C8)),
-                      ),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          '${formatThaiTermDate(start)} – ${formatThaiTermDate(end)}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF242424),
-                          ),
-                        ),
-                      ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6FBFD),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    _ExamRangeRow(
+                      label: 'สอบกลางภาค',
+                      start: term.startMidterm,
+                      end: term.endMidterm,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    _ExamRangeRow(
+                      label: 'สอบปลายภาค',
+                      start: term.startFinal,
+                      end: term.endFinal,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -259,37 +250,91 @@ class _CurrentTermCard extends StatelessWidget {
   }
 }
 
-class _MiniTermValue extends StatelessWidget {
+class _InlineTermValue extends StatelessWidget {
   final String label;
   final String value;
+  final double minWidth;
 
-  const _MiniTermValue({required this.label, required this.value});
+  const _InlineTermValue({
+    required this.label,
+    required this.value,
+    this.minWidth = 46,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        FittedBox(child: Text(label, style: const TextStyle(fontSize: 12))),
-        const SizedBox(height: 5),
+        Text(label, style: const TextStyle(fontSize: 12)),
+        const SizedBox(width: 5),
         Container(
-          height: 34,
-          width: double.infinity,
+          height: 31,
+          constraints: BoxConstraints(minWidth: minWidth),
           alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 9),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: const Color(0xFFC8C8C8)),
           ),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(value, style: const TextStyle(fontSize: 16)),
+          child: Text(value, style: const TextStyle(fontSize: 16, height: 1)),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExamRangeRow extends StatelessWidget {
+  final String label;
+  final DateTime? start;
+  final DateTime? end;
+
+  const _ExamRangeRow({
+    required this.label,
+    required this.start,
+    required this.end,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 82,
+          child: Text(
+            label,
+            maxLines: 1,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF688492)),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Container(
+            height: 28,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 7),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFC8C8C8)),
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '${formatThaiTermDate(start)} – ${formatThaiTermDate(end)}',
+                maxLines: 1,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF242424)),
+              ),
+            ),
           ),
         ),
       ],
     );
   }
 }
+
+enum _TermDateField { midtermStart, midtermEnd, finalStart, finalEnd }
 
 class _CreateTermPopup extends StatefulWidget {
   const _CreateTermPopup();
@@ -303,38 +348,103 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
   final _academicYearController = TextEditingController();
   String? _yearLevel;
   String? _term;
-  DateTime? _examStart;
-  DateTime? _examEnd;
+  DateTime? _midtermStart;
+  DateTime? _midtermEnd;
+  DateTime? _finalStart;
+  DateTime? _finalEnd;
+
+  bool get _isComplete =>
+      _yearLevel != null &&
+      _term != null &&
+      RegExp(r'^\d{4}$').hasMatch(_academicYearController.text.trim()) &&
+      _midtermStart != null &&
+      _midtermEnd != null &&
+      _finalStart != null &&
+      _finalEnd != null &&
+      _datesAreValid;
+
+  bool get _datesAreValid =>
+      _midtermStart != null &&
+      _midtermEnd != null &&
+      _midtermEnd!.isAfter(_midtermStart!) &&
+      _finalStart != null &&
+      _finalStart!.isAfter(_midtermEnd!) &&
+      _finalEnd != null &&
+      _finalEnd!.isAfter(_finalStart!);
+
+  @override
+  void initState() {
+    super.initState();
+    _academicYearController.addListener(_refresh);
+  }
 
   @override
   void dispose() {
-    _academicYearController.dispose();
+    _academicYearController
+      ..removeListener(_refresh)
+      ..dispose();
     super.dispose();
   }
 
-  Future<void> _pickDate({required bool isStart}) async {
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  DateTime? _dateFor(_TermDateField field) {
+    return switch (field) {
+      _TermDateField.midtermStart => _midtermStart,
+      _TermDateField.midtermEnd => _midtermEnd,
+      _TermDateField.finalStart => _finalStart,
+      _TermDateField.finalEnd => _finalEnd,
+    };
+  }
+
+  DateTime? _minimumFor(_TermDateField field) {
+    return switch (field) {
+      _TermDateField.midtermStart => null,
+      _TermDateField.midtermEnd => _midtermStart?.add(const Duration(days: 1)),
+      _TermDateField.finalStart => _midtermEnd?.add(const Duration(days: 1)),
+      _TermDateField.finalEnd => _finalStart?.add(const Duration(days: 1)),
+    };
+  }
+
+  Future<void> _pickDate(_TermDateField field) async {
     final now = DateTime.now();
-    final initial = isStart
-        ? (_examStart ?? now)
-        : (_examEnd ?? _examStart?.add(const Duration(days: 1)) ?? now);
-    final firstDate = isStart
-        ? DateTime(now.year - 2)
-        : (_examStart ?? DateTime(now.year - 2));
+    final minimum = _minimumFor(field) ?? DateTime(now.year - 2);
+    final current = _dateFor(field);
+    final initial = current == null || current.isBefore(minimum)
+        ? minimum
+        : current;
     final result = await showDatePicker(
       context: context,
-      initialDate: initial.isBefore(firstDate) ? firstDate : initial,
-      firstDate: firstDate,
+      initialDate: initial,
+      firstDate: minimum,
       lastDate: DateTime(now.year + 10),
     );
     if (result == null || !mounted) return;
+
     setState(() {
-      if (isStart) {
-        _examStart = result;
-        if (_examEnd != null && !_examEnd!.isAfter(result)) {
-          _examEnd = null;
-        }
-      } else {
-        _examEnd = result;
+      switch (field) {
+        case _TermDateField.midtermStart:
+          _midtermStart = result;
+          if (_midtermEnd != null && !_midtermEnd!.isAfter(result)) {
+            _midtermEnd = null;
+            _finalStart = null;
+            _finalEnd = null;
+          }
+        case _TermDateField.midtermEnd:
+          _midtermEnd = result;
+          if (_finalStart != null && !_finalStart!.isAfter(result)) {
+            _finalStart = null;
+            _finalEnd = null;
+          }
+        case _TermDateField.finalStart:
+          _finalStart = result;
+          if (_finalEnd != null && !_finalEnd!.isAfter(result)) {
+            _finalEnd = null;
+          }
+        case _TermDateField.finalEnd:
+          _finalEnd = result;
       }
     });
     _formKey.currentState?.validate();
@@ -348,26 +458,29 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
   }
 
   void _submit() {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!_isComplete || !(_formKey.currentState?.validate() ?? false)) return;
     Navigator.of(context).pop(
       CreateTermRequest(
         yearLevel: _yearLevel!,
         term: _term!,
         academicYear: _academicYearController.text.trim(),
-        examStartDate: _examStart!,
-        examEndDate: _examEnd!,
+        midtermStartDate: _midtermStart!,
+        midtermEndDate: _midtermEnd!,
+        finalStartDate: _finalStart!,
+        finalEndDate: _finalEnd!,
       ),
     );
   }
 
   InputDecoration _decoration(String hint) {
+    const borderColor = Color(0xFFC8C8C8);
     return InputDecoration(
       hintText: hint,
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
-        borderSide: const BorderSide(color: Color(0xFFC8C8C8)),
+        borderSide: const BorderSide(color: borderColor),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(24),
@@ -388,7 +501,7 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
   Widget build(BuildContext context) {
     return Dialog(
       key: const Key('term-create-popup'),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: const BorderSide(color: Color(0xFFAFAFAF)),
@@ -397,11 +510,12 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 440),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 22),
           child: Form(
             key: _formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Align(
                   alignment: Alignment.centerRight,
@@ -412,8 +526,16 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
                     tooltip: 'ปิดแบบฟอร์มสร้างเทอม',
                   ),
                 ),
-                const Text('สร้างเทอม', style: TextStyle(fontSize: 20)),
-                const SizedBox(height: 18),
+                const Text(
+                  'สร้างเทอมใหม่',
+                  style: TextStyle(fontSize: 20, color: Color(0xFF5C7C8B)),
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  'ระบุข้อมูลเทอมและช่วงสัปดาห์สอบให้ครบถ้วน',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF8AA0AA)),
+                ),
+                const SizedBox(height: 16),
                 _FormRow(
                   label: 'ชั้นปีที่',
                   child: DropdownButtonFormField<String>(
@@ -422,7 +544,7 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
                     initialValue: _yearLevel,
                     decoration: _decoration('เลือกชั้นปี'),
                     items: List.generate(
-                      8,
+                      4,
                       (index) => DropdownMenuItem(
                         value: '${index + 1}',
                         child: Text('${index + 1}'),
@@ -433,7 +555,7 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
                         value == null ? 'กรุณาเลือกชั้นปี' : null,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 _FormRow(
                   label: 'ปีการศึกษา',
                   child: TextFormField(
@@ -451,7 +573,7 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
                         : 'กรุณากรอกปี 4 หลัก',
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 _FormRow(
                   label: 'เทอม',
                   child: DropdownButtonFormField<String>(
@@ -462,54 +584,88 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
                     items: const [
                       DropdownMenuItem(value: '1', child: Text('1')),
                       DropdownMenuItem(value: '2', child: Text('2')),
-                      DropdownMenuItem(value: '3', child: Text('3')),
                     ],
                     onChanged: (value) => setState(() => _term = value),
                     validator: (value) =>
                         value == null ? 'กรุณาเลือกเทอม' : null,
                   ),
                 ),
-                const SizedBox(height: 12),
-                _DateFormField(
-                  key: const Key('exam-start-field'),
-                  label: 'วันเริ่มสอบ',
-                  value: _displayDate(_examStart),
-                  onTap: () => _pickDate(isStart: true),
-                  validator: () =>
-                      _examStart == null ? 'กรุณาเลือกวันเริ่มสอบ' : null,
-                ),
-                const SizedBox(height: 12),
-                _DateFormField(
-                  key: const Key('exam-end-field'),
-                  label: 'วันสิ้นสุด',
-                  value: _displayDate(_examEnd),
-                  onTap: _examStart == null
-                      ? null
-                      : () => _pickDate(isStart: false),
-                  validator: () {
-                    if (_examEnd == null) {
-                      return 'กรุณาเลือกวันสิ้นสุด';
-                    }
-                    if (!_examEnd!.isAfter(_examStart!)) {
-                      return 'วันสิ้นสุดต้องอยู่หลังวันเริ่มต้น';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 22),
-                OutlinedButton(
-                  key: const Key('confirm-term-button'),
-                  onPressed: _submit,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF555555),
-                    side: const BorderSide(color: Color(0xFFC8C8C8)),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 26,
-                      vertical: 11,
-                    ),
-                    shape: const StadiumBorder(),
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(11),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7FBFD),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFD7E7EE)),
                   ),
-                  child: const Text('ยืนยัน'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'ช่วงสัปดาห์สอบ',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF6D8996),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _ExamWeekInput(
+                        label: 'สอบกลางภาค',
+                        startKey: const Key('midterm-start-field'),
+                        endKey: const Key('midterm-end-field'),
+                        startValue: _displayDate(_midtermStart),
+                        endValue: _displayDate(_midtermEnd),
+                        onStartTap: () =>
+                            _pickDate(_TermDateField.midtermStart),
+                        onEndTap: _midtermStart == null
+                            ? null
+                            : () => _pickDate(_TermDateField.midtermEnd),
+                      ),
+                      const SizedBox(height: 10),
+                      _ExamWeekInput(
+                        label: 'สอบปลายภาค',
+                        startKey: const Key('final-start-field'),
+                        endKey: const Key('final-end-field'),
+                        startValue: _displayDate(_finalStart),
+                        endValue: _displayDate(_finalEnd),
+                        onStartTap: _midtermEnd == null
+                            ? null
+                            : () => _pickDate(_TermDateField.finalStart),
+                        onEndTap: _finalStart == null
+                            ? null
+                            : () => _pickDate(_TermDateField.finalEnd),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 9),
+                if (!_isComplete)
+                  const SizedBox(
+                    width: double.infinity,
+                    child: Text(
+                      '*กรุณากรอกข้อมูลทุกช่องก่อนสร้างเทอม',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: Color(0xFF8AA0AA)),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                Center(
+                  child: OutlinedButton(
+                    key: const Key('confirm-term-button'),
+                    onPressed: _isComplete ? _submit : null,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF555555),
+                      disabledForegroundColor: const Color(0xFFAAAAAA),
+                      side: const BorderSide(color: Color(0xFFC8C8C8)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 26,
+                        vertical: 9,
+                      ),
+                      shape: const StadiumBorder(),
+                    ),
+                    child: const Text('ยืนยัน'),
+                  ),
                 ),
               ],
             ),
@@ -532,9 +688,9 @@ class _FormRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 90,
+          width: 88,
           child: Padding(
-            padding: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.only(top: 11),
             child: Text(label, style: const TextStyle(fontSize: 15)),
           ),
         ),
@@ -544,72 +700,102 @@ class _FormRow extends StatelessWidget {
   }
 }
 
-class _DateFormField extends FormField<DateTime> {
-  _DateFormField({
-    super.key,
-    required String label,
-    required String value,
-    required VoidCallback? onTap,
-    required String? Function() validator,
-  }) : super(
-         validator: (_) => validator(),
-         builder: (state) {
-           return _FormRow(
-             label: label,
-             child: Column(
-               crossAxisAlignment: CrossAxisAlignment.start,
-               children: [
-                 InkWell(
-                   onTap: onTap,
-                   borderRadius: BorderRadius.circular(24),
-                   child: Container(
-                     height: 44,
-                     padding: const EdgeInsets.symmetric(horizontal: 14),
-                     decoration: BoxDecoration(
-                       color: onTap == null
-                           ? const Color(0xFFF5F5F5)
-                           : Colors.white,
-                       borderRadius: BorderRadius.circular(24),
-                       border: Border.all(
-                         color: state.hasError
-                             ? const Color(0xFFE14F79)
-                             : const Color(0xFFC8C8C8),
-                       ),
-                     ),
-                     child: Row(
-                       children: [
-                         Expanded(
-                           child: Text(
-                             value,
-                             style: const TextStyle(
-                               fontSize: 14,
-                               color: Color(0xFF777777),
-                             ),
-                           ),
-                         ),
-                         const Icon(
-                           Icons.calendar_month_outlined,
-                           size: 19,
-                           color: Color(0xFF7897AC),
-                         ),
-                       ],
-                     ),
-                   ),
-                 ),
-                 if (state.hasError)
-                   Padding(
-                     padding: const EdgeInsets.only(left: 12, top: 5),
-                     child: Text(
-                       state.errorText!,
-                       style: const TextStyle(
-                         fontSize: 12,
-                         color: Color(0xFFE14F79),
-                       ),
-                     ),
-                   ),
-               ],
-             ),
-           );
-         },
-       );
+class _ExamWeekInput extends StatelessWidget {
+  final String label;
+  final Key startKey;
+  final Key endKey;
+  final String startValue;
+  final String endValue;
+  final VoidCallback? onStartTap;
+  final VoidCallback? onEndTap;
+
+  const _ExamWeekInput({
+    required this.label,
+    required this.startKey,
+    required this.endKey,
+    required this.startValue,
+    required this.endValue,
+    required this.onStartTap,
+    required this.onEndTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 13, color: Color(0xFF506E7C)),
+        ),
+        const SizedBox(height: 5),
+        Row(
+          children: [
+            Expanded(
+              child: _DateButton(
+                key: startKey,
+                value: startValue,
+                onTap: onStartTap,
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 5),
+              child: Text('–', style: TextStyle(color: Color(0xFF8AA6B3))),
+            ),
+            Expanded(
+              child: _DateButton(key: endKey, value: endValue, onTap: onEndTap),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _DateButton extends StatelessWidget {
+  final String value;
+  final VoidCallback? onTap;
+
+  const _DateButton({super.key, required this.value, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: onTap == null ? const Color(0xFFF2F4F5) : Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFC8C8C8)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF777777),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 3),
+            const Icon(
+              Icons.calendar_month_outlined,
+              size: 16,
+              color: Color(0xFF7897AC),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

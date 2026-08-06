@@ -11,6 +11,53 @@ void main() {
   runApp(const MyApp());
 }
 
+Route<dynamic>? generateAppRoute(RouteSettings settings) {
+  final WidgetBuilder? builder;
+
+  switch (settings.name) {
+    case '/login':
+      builder = (_) => const LoginPage();
+    case '/main':
+      builder = (_) => const MainPage();
+    case '/score':
+      builder = (_) => const ScorePage();
+    case '/homework':
+      builder = (_) => const HomeworkPage();
+    case '/timer':
+      builder = (_) => const TimerPage();
+    case '/test':
+      builder = (_) => const TestPage();
+    case '/signIn':
+      builder = (_) => const SigninPage();
+    default:
+      builder = null;
+  }
+
+  if (builder == null) return null;
+
+  return InstantMaterialPageRoute<void>(builder: builder, settings: settings);
+}
+
+class InstantMaterialPageRoute<T> extends MaterialPageRoute<T> {
+  InstantMaterialPageRoute({required super.builder, super.settings});
+
+  @override
+  Duration get transitionDuration => Duration.zero;
+
+  @override
+  Duration get reverseTransitionDuration => Duration.zero;
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child;
+  }
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -22,16 +69,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(fontFamily: 'Sansation'),
 
       home: const LoginPage(),
-
-      routes: {
-        '/login': (context) => const LoginPage(),
-        '/main': (context) => const MainPage(),
-        '/score': (context) => const ScorePage(),
-        '/homework': (context) => const HomeworkPage(),
-        '/timer': (context) => const TimerPage(),
-        '/test': (context) => const TestPage(),
-        '/signIn': (context) => const SigninPage(),
-      },
+      onGenerateRoute: generateAppRoute,
     );
   }
 }

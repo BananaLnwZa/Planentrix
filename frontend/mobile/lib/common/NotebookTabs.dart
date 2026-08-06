@@ -26,7 +26,7 @@ class NotebookTabs extends StatelessWidget {
     _NotebookTabData(
       id: NotebookTabId.main,
       label: 'Main',
-      color: Color(0xFFFFEAAE),
+      color: Color.fromARGB(255, 250, 218, 130),
     ),
     _NotebookTabData(
       id: NotebookTabId.score,

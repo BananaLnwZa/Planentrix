@@ -153,8 +153,6 @@ class _StudentCardPopupState extends State<StudentCardPopup> {
                           name: widget.name,
                           birthDate: widget.birthDate,
                           gender: widget.gender,
-                          major: widget.major,
-                          year: widget.year,
                         )
                       : _ConstraintPanel(
                           dayOff: widget.dayOff,
@@ -221,7 +219,7 @@ class _PopupHeader extends StatelessWidget {
                         style: const TextStyle(
                           color: Colors.black,
                           fontFamily: 'Sansation',
-                          fontSize: 27,
+                          fontSize: 30,
                           fontWeight: FontWeight.w400,
                           height: 1.05,
                         ),
@@ -457,15 +455,11 @@ class _ProfilePanel extends StatelessWidget {
   final String name;
   final String birthDate;
   final String gender;
-  final String major;
-  final String year;
 
   const _ProfilePanel({
     required this.name,
     required this.birthDate,
     required this.gender,
-    required this.major,
-    required this.year,
   });
 
   @override
@@ -474,20 +468,17 @@ class _ProfilePanel extends StatelessWidget {
       key: const Key('profile-panel'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _WebStyleField(label: 'ชื่อผู้ใช้', value: name),
-        const SizedBox(height: 18),
-        _WebStyleField(label: 'วันเกิด', value: birthDate),
-        const SizedBox(height: 18),
-        _WebStyleField(label: 'เพศ', value: gender),
-        const SizedBox(height: 18),
+        _ProfileInfoCard(label: 'ชื่อผู้ใช้', value: name),
+        const SizedBox(height: 12),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _WebStyleField(label: 'สาขา', value: major),
+              child: _ProfileInfoCard(label: 'วันเกิด', value: birthDate),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
-              child: _WebStyleField(label: 'ชั้นปี', value: year),
+              child: _ProfileInfoCard(label: 'เพศ', value: gender),
             ),
           ],
         ),
@@ -578,50 +569,49 @@ class _ConstraintPanel extends StatelessWidget {
   }
 }
 
-class _WebStyleField extends StatelessWidget {
+class _ProfileInfoCard extends StatelessWidget {
   final String label;
   final String value;
 
-  const _WebStyleField({required this.label, required this.value});
+  const _ProfileInfoCard({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFF374151),
-            fontFamily: 'Sansation',
-            fontSize: 15,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-        const SizedBox(height: 5),
-        Container(
-          width: double.infinity,
-          constraints: const BoxConstraints(minHeight: 42),
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(25),
-            border: Border.all(color: const Color(0xFFD1D5DB)),
-          ),
-          child: Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 76),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xCCFFFFFF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
             style: const TextStyle(
               color: Color(0xFF374151),
               fontFamily: 'Sansation',
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.w400,
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF314553),
+              fontFamily: 'Sansation',
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -24,9 +24,9 @@ class CurrentTerm {
   factory CurrentTerm.fromJson(Map<String, dynamic> json) {
     return CurrentTerm(
       termId: _asInt(json['term_id']),
-      yearLevel: '${json['year_level'] ?? ''}',
+      yearLevel: '${json['academic_year'] ?? ''}',
       term: '${json['term'] ?? ''}',
-      academicYear: '${json['academic_year'] ?? ''}',
+      academicYear: '${json['semester'] ?? ''}',
       startMidterm: _asDate(json['start_midterm']),
       endMidterm: _asDate(json['end_midterm']),
       startFinal: _asDate(json['start_final']),
@@ -50,28 +50,30 @@ class CreateTermRequest {
   final String yearLevel;
   final String term;
   final String academicYear;
-  final DateTime examStartDate;
-  final DateTime examEndDate;
+  final DateTime midtermStartDate;
+  final DateTime midtermEndDate;
+  final DateTime finalStartDate;
+  final DateTime finalEndDate;
 
   const CreateTermRequest({
     required this.yearLevel,
     required this.term,
     required this.academicYear,
-    required this.examStartDate,
-    required this.examEndDate,
+    required this.midtermStartDate,
+    required this.midtermEndDate,
+    required this.finalStartDate,
+    required this.finalEndDate,
   });
 
   Map<String, dynamic> toJson() {
-    final start = _dateOnly(examStartDate);
-    final end = _dateOnly(examEndDate);
     return {
-      'year_level': yearLevel,
-      'term': term,
-      'academic_year': academicYear,
-      'start_midterm': start,
-      'end_midterm': end,
-      'start_final': start,
-      'end_final': end,
+      'academic_year': int.parse(yearLevel),
+      'semester': academicYear,
+      'term': int.parse(term),
+      'start_midterm': _dateOnly(midtermStartDate),
+      'end_midterm': _dateOnly(midtermEndDate),
+      'start_final': _dateOnly(finalStartDate),
+      'end_final': _dateOnly(finalEndDate),
     };
   }
 
@@ -81,10 +83,10 @@ class CreateTermRequest {
       yearLevel: yearLevel,
       term: term,
       academicYear: academicYear,
-      startMidterm: examStartDate,
-      endMidterm: examEndDate,
-      startFinal: examStartDate,
-      endFinal: examEndDate,
+      startMidterm: midtermStartDate,
+      endMidterm: midtermEndDate,
+      startFinal: finalStartDate,
+      endFinal: finalEndDate,
     );
   }
 
