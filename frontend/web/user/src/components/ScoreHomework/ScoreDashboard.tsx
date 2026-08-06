@@ -74,27 +74,39 @@ export default function ScoreDashboard({ subjects }: { subjects: SubjectGradeGoa
   }, [subjects]);
 
   if (!selected) return null;
+  const orderedSubjects = [
+    selected,
+    ...subjects.filter(
+      (subject) => subject.schedule_time_id !== selected.schedule_time_id
+    ),
+  ];
   const summary = getScoreSummary(selected.workloads);
+  const progressPercent = Math.min(100, Math.max(0, summary.percent));
   const currentGrade = gradeFromPercent(summary.percent, summary.maximum > 0);
 
   return (
     <div className="space-y-4 pb-4">
       <GpaGauge currentGpa={currentGpa} targetGpa={targetGpa} />
 
-      <section className="overflow-hidden rounded-[20px] border border-[#DCE8ED] bg-white shadow-[0_7px_18px_rgba(55,93,112,0.12)]">
-        <div className="overflow-x-auto border-b border-[#C8DFEA] bg-[#F8FCFE]">
-          <div className="flex min-w-max items-end px-2 pt-2">
-            {subjects.map((subject) => {
+      <section>
+        <div className="relative z-40 -mb-px overflow-x-auto bg-transparent pt-2">
+          <div className="flex min-w-max items-end">
+            {orderedSubjects.map((subject, index) => {
               const active = subject.schedule_time_id === selected.schedule_time_id;
               return (
                 <button
                   key={subject.schedule_time_id}
                   type="button"
                   onClick={() => setSelectedId(subject.schedule_time_id)}
-                  className={`h-[38px] w-[92px] rounded-t-[7px] border border-b-0 border-r-0 px-1.5 py-1 text-center text-[10px] leading-[12px] transition last:border-r ${
+                  style={{
+                    zIndex: active
+                      ? orderedSubjects.length + 1
+                      : orderedSubjects.length - index,
+                  }}
+                  className={`relative -ml-[52px] w-[104px] rounded-t-[9px] border border-b-0 px-2 py-1 text-center text-[10px] leading-[12px] shadow-[0_-2px_6px_rgba(69,117,143,0.08)] transition-all first:ml-0 ${
                     active
-                      ? "border-[#75B9DB] bg-[#82C6E7] font-semibold text-white"
-                      : "border-[#BDD7E4] bg-[#DDEEF6] text-[#7392A2] hover:bg-[#D1E9F4]"
+                      ? "h-[42px] border-[#68B1D6] bg-[#78C0E4] font-semibold text-white shadow-[0_-3px_9px_rgba(69,140,177,0.18)]"
+                      : "mt-1 h-[38px] border-[#BDD7E4] bg-[#DDEEF6] text-[#7392A2] hover:-translate-y-0.5 hover:bg-[#D1E9F4]"
                   }`}
                 >
                   <span className="line-clamp-2">{subject.subject_name}</span>
@@ -104,6 +116,7 @@ export default function ScoreDashboard({ subjects }: { subjects: SubjectGradeGoa
           </div>
         </div>
 
+        <div className="relative z-30 overflow-hidden rounded-b-[20px] rounded-tr-[20px] border border-[#DCE8ED] bg-white shadow-[0_7px_18px_rgba(55,93,112,0.12)]">
         <div className="px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -111,8 +124,8 @@ export default function ScoreDashboard({ subjects }: { subjects: SubjectGradeGoa
                 <span className="mr-1.5 text-[#5B849A]">{selected.subject_id}</span>
                 <span>{selected.subject_name}</span>
               </h2>
-              <p className="mt-0.5 truncate text-xs text-[#83A0AF]">
-                อ.ผู้สอน {selected.teacher_name || "ไม่ระบุ"}
+              <p className="mt-1.5 truncate text-xs text-[#83A0AF]">
+                ผู้สอน {selected.teacher_name || "ไม่ระบุ"}
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-[#EEF7FB] px-2.5 py-1 text-xs text-[#668A9E]">
@@ -135,12 +148,12 @@ export default function ScoreDashboard({ subjects }: { subjects: SubjectGradeGoa
             </span>
             <div className="min-w-[74px] flex-1 pb-0.5">
               <p className="mb-1 text-right text-[10px] font-semibold leading-none text-[#58A9D5]">
-                {summary.maximum ? `${summary.percent.toFixed(0)}%` : "—"}
+                {progressPercent.toFixed(0)}%
               </p>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#E7F0F4]">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-[#86CBEF] to-[#58B2E3] transition-all"
-                  style={{ width: `${Math.min(100, summary.percent)}%` }}
+                  style={{ width: `${progressPercent}%` }}
                 />
               </div>
             </div>
@@ -188,6 +201,7 @@ export default function ScoreDashboard({ subjects }: { subjects: SubjectGradeGoa
               {summary.actual}/{summary.maximum || "—"}
             </strong>
           </div>
+        </div>
         </div>
       </section>
     </div>
