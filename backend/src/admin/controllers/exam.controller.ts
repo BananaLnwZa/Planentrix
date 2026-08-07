@@ -520,13 +520,19 @@ export const createQuestion = async (req: Request, res: Response) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    const [parts] = await connection.query<RowDataPacket[]>(
-      "SELECT exam_part_id FROM exam_part WHERE exam_part_id = ? FOR UPDATE",
+    const [parts] = await connection.query<IdRow[]>(
+      "SELECT exam_repository_id FROM exam_part WHERE exam_part_id = ? FOR UPDATE",
       [partId],
     );
     if (parts.length === 0) {
       await connection.rollback();
       return res.status(404).json({ message: "ไม่พบ Part" });
+    }
+    if (await hasExamHistory(connection, parts[0].exam_repository_id)) {
+      await connection.rollback();
+      return res.status(409).json({
+        message: "ไม่สามารถเพิ่มคำถามในข้อสอบที่มีประวัติการทำแล้ว",
+      });
     }
     const [duplicates] = await connection.query<RowDataPacket[]>(
       `SELECT question_id FROM question
@@ -580,6 +586,16 @@ export const updateQuestion = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "ไม่พบคำถาม" });
     }
     const partId = questions[0].exam_part_id;
+    const [examRows] = await connection.query<IdRow[]>(
+      "SELECT exam_repository_id FROM exam_part WHERE exam_part_id = ? LIMIT 1",
+      [partId],
+    );
+    if (await hasExamHistory(connection, examRows[0].exam_repository_id)) {
+      await connection.rollback();
+      return res.status(409).json({
+        message: "ไม่สามารถแก้คำถามหรือคะแนนของข้อสอบที่มีประวัติการทำแล้ว",
+      });
+    }
     const [duplicates] = await connection.query<RowDataPacket[]>(
       `SELECT question_id FROM question
        WHERE exam_part_id = ? AND question_order = ? AND question_id <> ? LIMIT 1`,
@@ -671,6 +687,16 @@ export const createChoice = async (req: Request, res: Response) => {
       [questionId, order],
     );
     if (duplicates.length > 0) return res.status(409).json({ message: "ลำดับตัวเลือกนี้มีอยู่แล้ว" });
+    if (isCorrect) {
+      const [correctChoices] = await db.query<RowDataPacket[]>(
+        `SELECT choice_id FROM choice
+         WHERE question_id = ? AND is_correct = 1 LIMIT 1`,
+        [questionId],
+      );
+      if (correctChoices.length > 0) {
+        return res.status(409).json({ message: "คำถามหนึ่งข้อมีคำตอบที่ถูกได้เพียงหนึ่งตัวเลือก" });
+      }
+    }
     await db.query(
       `INSERT INTO choice (question_id, choice_order, choice_text, is_correct)
        VALUES (?, ?, ?, ?)`,
@@ -709,6 +735,16 @@ export const updateChoice = async (req: Request, res: Response) => {
       [choices[0].question_id, order, choiceId],
     );
     if (duplicates.length > 0) return res.status(409).json({ message: "ลำดับตัวเลือกนี้มีอยู่แล้ว" });
+    if (isCorrect) {
+      const [correctChoices] = await db.query<RowDataPacket[]>(
+        `SELECT choice_id FROM choice
+         WHERE question_id = ? AND is_correct = 1 AND choice_id <> ? LIMIT 1`,
+        [choices[0].question_id, choiceId],
+      );
+      if (correctChoices.length > 0) {
+        return res.status(409).json({ message: "คำถามหนึ่งข้อมีคำตอบที่ถูกได้เพียงหนึ่งตัวเลือก" });
+      }
+    }
     await db.query(
       `UPDATE choice SET choice_order = ?, choice_text = ?, is_correct = ?
        WHERE choice_id = ?`,

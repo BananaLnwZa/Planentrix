@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mobile/main.dart' as app;
+import 'package:mobile/interfaces/homework.interface.dart';
+import 'package:mobile/interfaces/exam.interface.dart';
+import 'package:mobile/interfaces/score.interface.dart';
+import 'package:mobile/interfaces/time.interface.dart';
+import 'package:mobile/interfaces/table.interface.dart';
 import 'package:mobile/pages/Homework/Homework.dart';
 import 'package:mobile/interfaces/term.interface.dart';
 import 'package:mobile/pages/Main/MainPage.dart';
@@ -9,6 +14,11 @@ import 'package:mobile/pages/Score/Score.dart';
 import 'package:mobile/pages/Test/Test.dart';
 import 'package:mobile/pages/Timer/Timer.dart';
 import 'package:mobile/services/term.service.dart';
+import 'package:mobile/services/score.service.dart';
+import 'package:mobile/services/time.service.dart';
+import 'package:mobile/services/homework.service.dart';
+import 'package:mobile/services/exam.service.dart';
+import 'package:mobile/services/table.service.dart';
 
 class EmptyTermRepository implements TermRepository {
   @override
@@ -20,6 +30,154 @@ class EmptyTermRepository implements TermRepository {
 
   @override
   Future<void> endCurrentTerm() async {}
+}
+
+class EmptyTableRepository implements TableRepository {
+  @override
+  Future<CurrentSchedule?> getCurrentSchedule() async => null;
+
+  @override
+  Future<ScheduleItem> getScheduleDetail(int scheduleTimeId) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<List<ScheduleSubject>> getCurrentTermSubjects() async => const [];
+
+  @override
+  Future<void> addSchedule(AddScheduleInput input) async {}
+
+  @override
+  Future<void> updateSchedule(
+    int scheduleTimeId,
+    UpdateScheduleInput input,
+  ) async {}
+
+  @override
+  Future<void> deleteSchedule(int scheduleTimeId) async {}
+}
+
+class EmptyScoreRepository implements ScoreRepository {
+  @override
+  Future<List<SubjectScore>> getCompletedSubjectScores() async => const [];
+
+  @override
+  Future<OverallGradeSummary> getOverallGrade() async =>
+      const OverallGradeSummary(
+        targetGpa: 0,
+        actualGpa: 0,
+        grade: 'F',
+        percent: 0,
+        maximumGpa: 4,
+      );
+
+  @override
+  Future<void> saveTargetGrades(Map<int, String> goals) async {}
+
+  @override
+  Future<void> saveWorkloadScore(
+    int workloadId,
+    WorkloadScoreInput input,
+  ) async {}
+}
+
+class EmptyHomeworkRepository implements HomeworkRepository {
+  @override
+  Future<List<HomeworkTaskData>> getPendingHomework() async => const [];
+
+  @override
+  Future<List<HomeworkSubject>> getSubjects() async => const [];
+
+  @override
+  Future<HomeworkTaskData> createHomework(CreateHomeworkInput input) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<HomeworkTaskData> updateHomework(
+    HomeworkTaskData task,
+    UpdateHomeworkInput input,
+  ) async => throw UnimplementedError();
+
+  @override
+  Future<void> deleteHomework(int workloadId) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> finishHomework(int workloadId) async {}
+}
+
+class EmptyExamRepository implements ExamRepository {
+  @override
+  Future<List<ExamSummary>> getExams() async => const [];
+
+  @override
+  Future<ExamDetail> getExamDetail(int examRepositoryId) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<List<ExamHistoryItem>> getHistory() async => const [];
+
+  @override
+  Future<ExamInsights> getInsights() async => const ExamInsights();
+
+  @override
+  Future<ExamSubmissionResult> submitExam(
+    int examRepositoryId,
+    List<ExamAnswer> answers,
+  ) async => throw UnimplementedError();
+}
+
+class EmptyTimeRepository implements TimeRepository {
+  final _term = const TimerTerm(
+    termId: 1,
+    term: 1,
+    semester: '1',
+    academicYear: 2569,
+  );
+
+  @override
+  Future<TimerSetup> getSetup() async => TimerSetup(
+    currentTerm: _term,
+    subjects: const [],
+    studyTypes: const [],
+    policy: const TimerPolicy(),
+  );
+
+  @override
+  Future<ActiveStudySession> getActiveSession() async =>
+      const ActiveStudySession();
+
+  @override
+  Future<StudyDashboard> getDashboard() async =>
+      StudyDashboard(currentTerm: _term, summary: const StudySummary());
+
+  @override
+  Future<StudySession> startSession({
+    required int scheduleTimeId,
+    required int studyTypeId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<StudySession> pauseSession(int studyTimeId, int version) =>
+      throw UnimplementedError();
+
+  @override
+  Future<StudySession> resumeSession(int studyTimeId, int version) =>
+      throw UnimplementedError();
+
+  @override
+  Future<StudySession> finishSession(int studyTimeId, int version) =>
+      throw UnimplementedError();
+
+  @override
+  Future<StudySession> heartbeatSession(int studyTimeId, int version) =>
+      throw UnimplementedError();
+
+  @override
+  Future<StudySession> recoverSession(
+    int studyTimeId,
+    int version,
+    String action,
+  ) => throw UnimplementedError();
 }
 
 void setPhoneSize(WidgetTester tester) {
@@ -59,17 +217,20 @@ void main() {
           username: 'Nicha',
           userId: 42,
           termRepository: EmptyTermRepository(),
+          tableRepository: EmptyTableRepository(),
         ),
         routes: {
           '/main': (_) => MainPage(
             username: 'Nicha',
             userId: 42,
             termRepository: EmptyTermRepository(),
+            tableRepository: EmptyTableRepository(),
           ),
-          '/score': (_) => const ScorePage(),
-          '/homework': (_) => const HomeworkPage(),
-          '/timer': (_) => const TimerPage(),
-          '/test': (_) => const TestPage(),
+          '/score': (_) => ScorePage(repository: EmptyScoreRepository()),
+          '/homework': (_) =>
+              HomeworkPage(repository: EmptyHomeworkRepository()),
+          '/timer': (_) => TimerPage(repository: EmptyTimeRepository()),
+          '/test': (_) => TestPage(repository: EmptyExamRepository()),
         },
       ),
     );

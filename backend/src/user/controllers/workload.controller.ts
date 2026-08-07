@@ -1,5 +1,19 @@
 import { Request, Response } from "express";
+import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import db from "../../config/db";
+
+type UserRequest = Request & {
+  user?: { id?: number | string; role?: string };
+};
+
+interface EditableWorkloadRow extends RowDataPacket {
+  workload_id: number;
+  workload_status: number;
+}
+
+interface ScoreTotalRow extends RowDataPacket {
+  total_max_score: number | string;
+}
 
 // ==========================================================================
 // ดึงรายชื่อวิชาสำหรับเลือกตอน "เพิ่มภาระงาน"
@@ -149,6 +163,122 @@ export const createWorkload = async (req: Request, res: Response) => {
 };
 
 // ==========================================================================
+// แก้ไขข้อมูลงานที่ยังไม่ส่ง
+// ==========================================================================
+export const updateWorkload = async (req: Request, res: Response) => {
+  try {
+    const authUser = (req as UserRequest).user;
+    if (!authUser?.id) {
+      return res.status(401).json({ message: "Unauthorized: Missing user ID" });
+    }
+    if (authUser.role && authUser.role !== "user") {
+      return res.status(403).json({ message: "Forbidden: user role required" });
+    }
+
+    const userId = authUser.id;
+    const workloadId = Number(req.params.workload_id);
+    const workloadName = String(req.body.workload_name ?? "").trim();
+    const deadlineDate = String(req.body.deadline_date ?? "").trim();
+    const deadlineTime = String(req.body.deadline_time ?? "").trim();
+    const note = String(req.body.note ?? "").trim();
+
+    if (
+      !Number.isInteger(workloadId) ||
+      workloadId <= 0 ||
+      !workloadName ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(deadlineDate) ||
+      !/^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(deadlineTime)
+    ) {
+      return res.status(400).json({
+        message:
+          "A valid workload_id, workload_name, deadline_date, and deadline_time are required",
+      });
+    }
+
+    const [existing] = await db.query<EditableWorkloadRow[]>(
+      `SELECT w.workload_id, w.workload_status
+       FROM workloads w
+       INNER JOIN schedule_time st ON st.schedule_time_id = w.schedule_time_id
+       WHERE w.workload_id = ? AND st.user_id = ?
+       LIMIT 1`,
+      [workloadId, userId]
+    );
+
+    if (existing.length === 0) {
+      return res.status(404).json({
+        message: "Workload not found or does not belong to this user",
+      });
+    }
+    if (Number(existing[0].workload_status) !== 0) {
+      return res.status(409).json({
+        message: "A finished workload cannot be edited",
+      });
+    }
+
+    await db.query(
+      `UPDATE workloads
+       SET workload_name = ?, deadline_date = ?, deadline_time = ?, note = ?
+       WHERE workload_id = ?`,
+      [workloadName, deadlineDate, deadlineTime, note || null, workloadId]
+    );
+
+    return res.json({
+      message: "Workload updated successfully",
+      workload_id: workloadId,
+      workload_name: workloadName,
+      deadline_date: deadlineDate,
+      deadline_time: deadlineTime,
+      note: note || null,
+    });
+  } catch (err) {
+    console.error("updateWorkload error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==========================================================================
+// ลบงานที่ยังไม่ส่ง
+// ==========================================================================
+export const deleteWorkload = async (req: Request, res: Response) => {
+  try {
+    const authUser = (req as UserRequest).user;
+    if (!authUser?.id) {
+      return res.status(401).json({ message: "Unauthorized: Missing user ID" });
+    }
+    if (authUser.role && authUser.role !== "user") {
+      return res.status(403).json({ message: "Forbidden: user role required" });
+    }
+
+    const workloadId = Number(req.params.workload_id);
+    if (!Number.isInteger(workloadId) || workloadId <= 0) {
+      return res.status(400).json({ message: "A valid workload_id is required" });
+    }
+
+    const [result] = await db.query<ResultSetHeader>(
+      `DELETE w
+       FROM workloads w
+       INNER JOIN schedule_time st ON st.schedule_time_id = w.schedule_time_id
+       WHERE w.workload_id = ? AND st.user_id = ? AND w.workload_status = 0`,
+      [workloadId, authUser.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        message: "Pending workload not found or does not belong to this user",
+      });
+    }
+
+    return res.json({
+      message: "Workload deleted successfully",
+      workload_id: workloadId,
+    });
+  } catch (err) {
+    console.error("deleteWorkload error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==========================================================================
 // จบงาน (กด "เสร็จแล้ว") — บันทึก finish_at = NOW() และเปลี่ยน workload_status = 1
 // ==========================================================================
 export const finishWorkload = async (req: Request, res: Response) => {
@@ -225,8 +355,8 @@ export const getPendingWorkloads = async (req: Request, res: Response) => {
          w.schedule_time_id,
          s.subject_id,
          s.subject_name,
-         w.deadline_date,
-         w.deadline_time,
+         DATE_FORMAT(w.deadline_date, '%Y-%m-%d') AS deadline_date,
+         TIME_FORMAT(w.deadline_time, '%H:%i:%s') AS deadline_time,
          w.note,
          w.create_at,
          w.workload_status
@@ -303,6 +433,20 @@ export const saveWorkloadScore = async (req: Request, res: Response) => {
     if (existingWorkload[0].workload_status !== 1) {
       return res.status(400).json({
         message: "Score can only be saved for a finished workload (workload_status = 1)",
+      });
+    }
+
+    const [scoreTotalRows] = await db.query<ScoreTotalRow[]>(
+      `SELECT COALESCE(SUM(sc.max_score), 0) AS total_max_score
+       FROM workloads w
+       LEFT JOIN score sc ON sc.workload_id = w.workload_id
+       WHERE w.schedule_time_id = ? AND w.workload_id <> ?`,
+      [existingWorkload[0].schedule_time_id, workload_id]
+    );
+    const otherMaximumScore = Number(scoreTotalRows[0]?.total_max_score) || 0;
+    if (otherMaximumScore + maxScoreNum > 100) {
+      return res.status(400).json({
+        message: "The accumulated maximum score for a subject cannot exceed 100",
       });
     }
 

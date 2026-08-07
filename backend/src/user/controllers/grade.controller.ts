@@ -59,6 +59,13 @@ interface WorkloadRow extends RowDataPacket {
   max_score: number | string | null;
 }
 
+interface SubjectScoreSummaryRow extends RowDataPacket {
+  schedule_time_id: number;
+  credits: number | string;
+  total_actual: number | string | null;
+  total_max: number | string | null;
+}
+
 const getAuthenticatedUserId = (
   req: AuthenticatedRequest,
   res: Response
@@ -100,6 +107,66 @@ const gradeFromGpa = (gpa: number | string | null) => {
     Object.entries(GRADE_TO_GPA).find(([, value]) => value === numericGpa)?.[0] ??
     null
   );
+};
+
+const gradeFromGpaBand = (gpa: number) => {
+  if (gpa >= 4) return "A";
+  if (gpa >= 3.5) return "B+";
+  if (gpa >= 3) return "B";
+  if (gpa >= 2.5) return "C+";
+  if (gpa >= 2) return "C";
+  if (gpa >= 1.5) return "D+";
+  if (gpa >= 1) return "D";
+  return "F";
+};
+
+export const calculateWeightedGradeSummary = (
+  subjects: Array<{
+    credits: number;
+    actualScore: number;
+    maximumScore: number;
+  }>
+) => {
+  let totalCredits = 0;
+  let weightedGpa = 0;
+  let weightedPercent = 0;
+  let totalActualScore = 0;
+  let totalMaximumScore = 0;
+
+  for (const subject of subjects) {
+    const credits = Number.isFinite(subject.credits)
+      ? Math.max(subject.credits, 0)
+      : 0;
+    const actualScore = Number.isFinite(subject.actualScore)
+      ? Math.max(subject.actualScore, 0)
+      : 0;
+    const maximumScore = Number.isFinite(subject.maximumScore)
+      ? Math.max(subject.maximumScore, 0)
+      : 0;
+    const percent =
+      maximumScore > 0
+        ? Math.min((actualScore / maximumScore) * 100, 100)
+        : 0;
+    const grade = percentToGrade(percent);
+
+    totalCredits += credits;
+    weightedGpa += grade.gpa * credits;
+    weightedPercent += percent * credits;
+    totalActualScore += actualScore;
+    totalMaximumScore += maximumScore;
+  }
+
+  const gpa = totalCredits > 0 ? weightedGpa / totalCredits : 0;
+  const percent = totalCredits > 0 ? weightedPercent / totalCredits : 0;
+
+  return {
+    gpa,
+    grade: gradeFromGpaBand(gpa),
+    percent,
+    totalCredits,
+    totalActualScore,
+    totalMaximumScore,
+  };
 };
 
 const loadCurrentSubjectGoals = async (userId: number, termId: number) => {
@@ -415,29 +482,43 @@ export const getOverallGradeGoal = async (
          AND st.target_score IS NOT NULL`,
       [userId, currentTerm.term_id, CLASS_SCHEDULE_TYPE_ID]
     );
-    const [scoreRows] = await db.query<RowDataPacket[]>(
-      `SELECT SUM(sc.actual_score) AS total_actual, SUM(sc.max_score) AS total_max
-       FROM score sc
-       INNER JOIN workloads w ON w.workload_id = sc.workload_id
-       INNER JOIN schedule_time st ON st.schedule_time_id = w.schedule_time_id
-       WHERE st.user_id = ? AND st.term_id = ? AND st.schedule_type_id = ?`,
+    const [scoreRows] = await db.query<SubjectScoreSummaryRow[]>(
+      `SELECT
+         st.schedule_time_id,
+         s.credits,
+         COALESCE(SUM(sc.actual_score), 0) AS total_actual,
+         COALESCE(SUM(sc.max_score), 0) AS total_max
+       FROM schedule_time st
+       INNER JOIN subjects s ON s.subject_id = st.subject_id
+       LEFT JOIN workloads w ON w.schedule_time_id = st.schedule_time_id
+       LEFT JOIN score sc ON sc.workload_id = w.workload_id
+       WHERE st.user_id = ? AND st.term_id = ? AND st.schedule_type_id = ?
+       GROUP BY st.schedule_time_id, s.credits
+       ORDER BY st.schedule_time_id`,
       [userId, currentTerm.term_id, CLASS_SCHEDULE_TYPE_ID]
     );
 
-    const totalActual = Number(scoreRows[0]?.total_actual) || 0;
-    const totalMax = Number(scoreRows[0]?.total_max) || 0;
-    const percent = totalMax > 0 ? (totalActual / totalMax) * 100 : 0;
-    const actual = percentToGrade(percent);
+    const actual = calculateWeightedGradeSummary(
+      scoreRows.map((row) => ({
+        credits: Number(row.credits) || 0,
+        actualScore: Number(row.total_actual) || 0,
+        maximumScore: Number(row.total_max) || 0,
+      }))
+    );
 
     return res.json({
       message: "Current-term overall grade goal retrieved successfully",
       current_term: currentTerm,
       overall_target_gpa: Number(Number(targetRows[0]?.target_gpa || 0).toFixed(2)),
-      overall_actual_gpa: actual.gpa,
+      overall_actual_gpa: Number(actual.gpa.toFixed(2)),
       overall_grade: actual.grade,
-      overall_percent: Number(percent.toFixed(2)),
+      overall_percent: Number(actual.percent.toFixed(2)),
       max_gpa: 4,
-      raw: { total_actual_score: totalActual, total_max_score: totalMax },
+      raw: {
+        total_actual_score: actual.totalActualScore,
+        total_max_score: actual.totalMaximumScore,
+        total_credits: actual.totalCredits,
+      },
     });
   } catch (error) {
     console.error("getOverallGradeGoal error:", error);

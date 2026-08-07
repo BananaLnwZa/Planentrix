@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mobile/interfaces/term.interface.dart';
+import 'package:mobile/interfaces/table.interface.dart';
+import 'package:mobile/interfaces/profile.interface.dart';
 import 'package:mobile/pages/Main/Component/StudentCard.dart';
 import 'package:mobile/pages/Main/MainPage.dart';
+import 'package:mobile/services/table.service.dart';
 import 'package:mobile/services/term.service.dart';
+import 'package:mobile/services/profile.service.dart';
 
 class EmptyTermRepository implements TermRepository {
   @override
@@ -16,6 +20,76 @@ class EmptyTermRepository implements TermRepository {
 
   @override
   Future<void> endCurrentTerm() async {}
+}
+
+class EmptyTableRepository implements TableRepository {
+  @override
+  Future<CurrentSchedule?> getCurrentSchedule() async => null;
+
+  @override
+  Future<ScheduleItem> getScheduleDetail(int scheduleTimeId) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<List<ScheduleSubject>> getCurrentTermSubjects() async => const [];
+
+  @override
+  Future<void> addSchedule(AddScheduleInput input) async {}
+
+  @override
+  Future<void> updateSchedule(
+    int scheduleTimeId,
+    UpdateScheduleInput input,
+  ) async {}
+
+  @override
+  Future<void> deleteSchedule(int scheduleTimeId) async {}
+}
+
+class FakeProfileRepository implements ProfileRepository {
+  @override
+  Future<UserProfile> getProfile() async => UserProfile(
+    userId: 42,
+    userName: 'NichaAPI',
+    birthdate: DateTime(2004, 7, 16),
+    gender: 'female',
+  );
+
+  @override
+  Future<UserConstraint> getConstraints() async => const UserConstraint(
+    constraintId: 9,
+    userId: 42,
+    dayOff: 7,
+    continuousWorkingDuration: 50,
+    breakDuration: 10,
+    startTime: '08:00',
+    endTime: '18:00',
+    timePreference: 1,
+    busyDays: [BusyTime(day: 1, start: '12:00', end: '13:00')],
+  );
+
+  @override
+  Future<UserProfile> updateProfile(UpdateProfileInput input) async =>
+      UserProfile(
+        userId: 42,
+        userName: input.userName,
+        birthdate: input.birthdate,
+        gender: input.gender,
+      );
+
+  @override
+  Future<UserConstraint> updateConstraints(UpdateConstraintInput input) async =>
+      UserConstraint(
+        constraintId: 9,
+        userId: 42,
+        dayOff: input.dayOff,
+        continuousWorkingDuration: input.continuousWorkingDuration,
+        breakDuration: input.breakDuration,
+        startTime: input.startTime,
+        endTime: input.endTime,
+        timePreference: input.timePreference,
+        busyDays: input.busyDays,
+      );
 }
 
 void setPhoneSize(WidgetTester tester) {
@@ -82,6 +156,7 @@ void main() {
           userId: 42,
           logoutAction: () async {},
           termRepository: EmptyTermRepository(),
+          tableRepository: EmptyTableRepository(),
         ),
       ),
     );
@@ -175,5 +250,43 @@ void main() {
 
     expect(find.byKey(const Key('constraint-panel')), findsOneWidget);
     expect(find.text('วันเวลาไม่ว่างประจำ'), findsOneWidget);
+  });
+
+  testWidgets('main page loads profile and constraints from the web APIs', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MainPage(
+          username: 'placeholder',
+          userId: 42,
+          profileRepository: FakeProfileRepository(),
+          termRepository: EmptyTermRepository(),
+          tableRepository: EmptyTableRepository(),
+          logoutAction: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('NichaAPI'), findsOneWidget);
+    expect(find.text('Female'), findsOneWidget);
+    expect(find.text('16/07/2004'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('student-card')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('constraint-tab')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('50 min'), findsOneWidget);
+    expect(find.text('08:00 – 18:00'), findsOneWidget);
+    expect(find.text('Monday 12:00 – 13:00'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('edit-profile-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('edit-profile-popup')), findsOneWidget);
+    expect(find.byKey(const Key('save-profile-button')), findsOneWidget);
   });
 }
