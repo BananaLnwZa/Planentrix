@@ -1,0 +1,24 @@
+.historyScroll {
+  scrollbar-width: thin;
+  scrollbar-color: #8fc7e4 #edf6fa;
+  overscroll-behavior: contain;
+}
+
+.historyScroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.historyScroll::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: #edf6fa;
+}
+
+.historyScroll::-webkit-scrollbar-thumb {
+  border: 2px solid #edf6fa;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #91c9e8 0%, #b8ddec 72%, #d8bccc 100%);
+}
+
+.historyScroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #77b9dc 0%, #a8d5e8 72%, #cfaabc 100%);
+}

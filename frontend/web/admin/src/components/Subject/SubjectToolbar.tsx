@@ -1,4 +1,5 @@
-import { Plus, Search, SlidersHorizontal } from "lucide-react";
+import { Plus, Search } from "lucide-react";
+import AdminSelect from "@/components/ui/AdminSelect";
 import { SubjectType } from "@/interfaces/subject-management.interface";
 
 interface SubjectToolbarProps {
@@ -39,31 +40,31 @@ export default function SubjectToolbar({
           />
         </div>
 
-        <div className="relative min-w-60">
-          <SlidersHorizontal className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8aa0aa]" size={17} />
-          <select
-            value={selectedType}
-            onChange={(event) => onTypeChange(event.target.value)}
-            aria-label="กรองตามประเภทวิชา"
-            className="h-11 w-full appearance-none rounded-xl border border-[#dce7eb] bg-[#f9fcfd] pl-10 pr-8 text-sm text-[#4a626c] outline-none focus:border-[#79bdd4] focus:ring-4 focus:ring-[#dff3fa]"
-          >
-            <option value="all">ทุกประเภทวิชา</option>
-            {subjectTypes.map((type) => (
-              <option key={type.subject_type_id} value={type.subject_type_id}>{type.subject_type_name}</option>
-            ))}
-          </select>
-        </div>
+        <AdminSelect
+          value={selectedType}
+          onChange={onTypeChange}
+          ariaLabel="กรองตามประเภทวิชา"
+          className="min-w-60"
+          options={[
+            { value: "all", label: "ทุกประเภทวิชา", description: "แสดงวิชาทุกหมวด" },
+            ...subjectTypes.map((type) => ({
+              value: String(type.subject_type_id),
+              label: type.subject_type_name,
+            })),
+          ]}
+        />
 
-        <select
+        <AdminSelect
           value={selectedStatus}
-          onChange={(event) => onStatusChange(event.target.value)}
-          aria-label="กรองตามสถานะวิชา"
-          className="h-11 min-w-40 rounded-xl border border-[#dce7eb] bg-[#f9fcfd] px-3.5 text-sm text-[#4a626c] outline-none focus:border-[#79bdd4] focus:ring-4 focus:ring-[#dff3fa]"
-        >
-          <option value="all">ทุกสถานะ</option>
-          <option value="active">เปิดใช้งาน</option>
-          <option value="inactive">ปิดใช้งาน</option>
-        </select>
+          onChange={onStatusChange}
+          ariaLabel="กรองตามสถานะวิชา"
+          className="min-w-44"
+          options={[
+            { value: "all", label: "ทุกสถานะ", description: "แสดงทั้งวิชาที่เปิดและปิด" },
+            { value: "active", label: "เปิดใช้งาน", description: "วิชาที่ผู้ใช้มองเห็น" },
+            { value: "inactive", label: "ปิดใช้งาน", description: "วิชาที่ซ่อนไว้" },
+          ]}
+        />
 
         <button type="button" onClick={onAdd} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#4c93ac] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#3f8299]">
           <Plus size={18} aria-hidden="true" /> เพิ่มวิชา

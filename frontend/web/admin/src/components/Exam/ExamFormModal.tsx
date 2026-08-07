@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { ClipboardPlus, LoaderCircle, Save, X } from "lucide-react";
+import AdminSelect from "@/components/ui/AdminSelect";
 import { ExamPayload, ExamSubjectOption, ExamSummary } from "@/interfaces/exam-management.interface";
 
 interface ExamFormModalProps {
@@ -50,7 +51,23 @@ export default function ExamFormModal({ exam, subjects, onClose, onSave }: ExamF
       <div className="w-full max-w-xl rounded-[26px] border border-white/70 bg-white p-6 shadow-[0_28px_80px_rgba(28,54,65,0.25)] sm:p-7">
         <div className="flex items-start justify-between"><div className="flex items-center gap-3"><span className="rounded-2xl bg-[#e8f5f9] p-3 text-[#478ca4]"><ClipboardPlus size={22} /></span><div><p className="text-xs uppercase tracking-[0.15em] text-[#64a0b5]">Exam set</p><h2 className="text-xl font-semibold text-[#304852]">{exam ? "แก้ไขชุดข้อสอบ" : "เพิ่มชุดข้อสอบ"}</h2></div></div><button type="button" onClick={onClose} disabled={saving} aria-label="ปิด" className="rounded-full p-2 text-[#7d9098] hover:bg-[#edf4f6]"><X size={19} /></button></div>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <label className="block text-sm font-medium text-[#4c626c]">วิชา<select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-[#dbe6ea] bg-[#fbfdfe] px-3.5 font-normal outline-none focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]"><option value="" disabled>เลือกวิชา</option>{options.map((subject) => <option key={subject.subject_id} value={subject.subject_id}>ปี {subject.academic_year} เทอม {subject.term} · {subject.subject_id} · {subject.subject_name}</option>)}</select></label>
+          <div className="text-sm font-medium text-[#4c626c]">
+            <span>วิชา</span>
+            <AdminSelect
+              value={subjectId}
+              onChange={setSubjectId}
+              ariaLabel="เลือกวิชาสำหรับชุดข้อสอบ"
+              placeholder="เลือกวิชา"
+              className="mt-2"
+              tone="violet"
+              disabled={options.length === 0}
+              options={options.map((subject) => ({
+                value: subject.subject_id,
+                label: `${subject.subject_id} · ${subject.subject_name}`,
+                description: `ชั้นปี ${subject.academic_year} · เทอม ${subject.term}`,
+              }))}
+            />
+          </div>
           <label className="block text-sm font-medium text-[#4c626c]">ชื่อชุดข้อสอบ<input autoFocus value={examName} onChange={(event) => setExamName(event.target.value)} maxLength={200} placeholder="เช่น ข้อสอบกลางภาค" className="mt-2 h-11 w-full rounded-xl border border-[#dbe6ea] bg-[#fbfdfe] px-3.5 font-normal outline-none focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]" /></label>
           <label className="block text-sm font-medium text-[#4c626c]">เวลาทำข้อสอบ (นาที)<input type="number" min="1" max="1440" step="1" value={timeLimit} onChange={(event) => setTimeLimit(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-[#dbe6ea] bg-[#fbfdfe] px-3.5 font-normal outline-none focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]" /></label>
           {error && <p role="alert" className="rounded-xl bg-[#fff0ec] px-3.5 py-3 text-sm text-[#a9503c]">{error}</p>}

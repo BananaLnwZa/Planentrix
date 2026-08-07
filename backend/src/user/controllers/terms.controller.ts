@@ -263,6 +263,31 @@ export const endCurrentTerm = async (
 
     const currentTerm = currentTermRows[0];
 
+    const [activeStudyRows] = await db.query<RowDataPacket[]>(
+      `SELECT study.study_time_id
+       FROM study_time study
+       INNER JOIN schedule_time schedule
+         ON schedule.schedule_time_id = study.schedule_time_id
+       WHERE schedule.user_id = ?
+         AND schedule.term_id = ?
+         AND (
+           study.session_status IN ('running', 'paused')
+           OR (
+             study.session_status = 'interrupted'
+             AND study.time_spent IS NULL
+           )
+         )
+       LIMIT 1`,
+      [userId, currentTerm.term_id]
+    );
+
+    if (activeStudyRows.length > 0) {
+      return res.status(409).json({
+        message: "Please finish the active study timer before ending the term",
+        study_time_id: activeStudyRows[0].study_time_id,
+      });
+    }
+
     await db.query(
       `UPDATE terms
        SET term_status = 0

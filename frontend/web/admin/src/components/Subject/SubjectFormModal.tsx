@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { BookPlus, LoaderCircle, Save, X } from "lucide-react";
+import AdminSelect from "@/components/ui/AdminSelect";
 import { Subject, SubjectPayload, SubjectType } from "@/interfaces/subject-management.interface";
 
 interface SubjectFormModalProps {
@@ -143,12 +144,21 @@ export default function SubjectFormModal({ subject, subjectTypes, onClose, onSav
             <label className="text-sm font-medium text-[#4c626c]">ชื่อวิชา
               <input value={form.subject_name} onChange={(event) => updateField("subject_name", event.target.value)} maxLength={100} placeholder="ชื่อรายวิชา" className={inputClass} />
             </label>
-            <label className="text-sm font-medium text-[#4c626c]">ประเภทวิชา
-              <select value={form.subject_type_id} onChange={(event) => updateField("subject_type_id", event.target.value)} className={inputClass}>
-                <option value="" disabled>เลือกประเภทวิชา</option>
-                {subjectTypes.map((type) => <option key={type.subject_type_id} value={type.subject_type_id}>{type.subject_type_name}</option>)}
-              </select>
-            </label>
+            <div className="text-sm font-medium text-[#4c626c]">
+              <span>ประเภทวิชา</span>
+              <AdminSelect
+                value={form.subject_type_id}
+                onChange={(value) => updateField("subject_type_id", value)}
+                ariaLabel="เลือกประเภทวิชา"
+                placeholder="เลือกประเภทวิชา"
+                className="mt-1.5"
+                disabled={subjectTypes.length === 0}
+                options={subjectTypes.map((type) => ({
+                  value: String(type.subject_type_id),
+                  label: type.subject_type_name,
+                }))}
+              />
+            </div>
             <label className="text-sm font-medium text-[#4c626c]">หน่วยกิต
               <input
                 type="number"
@@ -181,21 +191,52 @@ export default function SubjectFormModal({ subject, subjectTypes, onClose, onSav
             <label className="text-sm font-medium text-[#4c626c]">ห้องเรียน
               <input value={form.classroom} onChange={(event) => updateField("classroom", event.target.value)} maxLength={10} placeholder="เช่น SC401" className={inputClass} />
             </label>
-            <label className="text-sm font-medium text-[#4c626c]">ชั้นปี
-              <select value={form.academic_year} onChange={(event) => updateField("academic_year", event.target.value)} className={inputClass}>
-                {Array.from({ length: 8 }, (_, index) => index + 1).map((year) => <option key={year} value={year}>ชั้นปีที่ {year}</option>)}
-              </select>
-            </label>
-            <label className="text-sm font-medium text-[#4c626c]">ภาคการศึกษา
-              <select value={form.term} onChange={(event) => updateField("term", event.target.value)} className={inputClass}>
-                <option value="1">เทอม 1</option><option value="2">เทอม 2</option><option value="3">ภาคฤดูร้อน</option>
-              </select>
-            </label>
-            <label className="text-sm font-medium text-[#4c626c]">วันเรียน
-              <select value={form.schedule_day} onChange={(event) => updateField("schedule_day", event.target.value)} className={inputClass}>
-                {[[1, "จันทร์"], [2, "อังคาร"], [3, "พุธ"], [4, "พฤหัสบดี"], [5, "ศุกร์"], [6, "เสาร์"], [7, "อาทิตย์"]].map(([value, label]) => <option key={value} value={value}>วัน{label}</option>)}
-              </select>
-            </label>
+            <div className="text-sm font-medium text-[#4c626c]">
+              <span>ชั้นปี</span>
+              <AdminSelect
+                value={form.academic_year}
+                onChange={(value) => updateField("academic_year", value)}
+                ariaLabel="เลือกชั้นปี"
+                className="mt-1.5"
+                tone="violet"
+                options={Array.from({ length: 4 }, (_, index) => ({
+                  value: String(index + 1),
+                  label: `ชั้นปีที่ ${index + 1}`,
+                }))}
+              />
+            </div>
+            <div className="text-sm font-medium text-[#4c626c]">
+              <span>ภาคการศึกษา</span>
+              <AdminSelect
+                value={form.term}
+                onChange={(value) => updateField("term", value)}
+                ariaLabel="เลือกภาคการศึกษา"
+                className="mt-1.5"
+                tone="violet"
+                options={[
+                  { value: "1", label: "เทอม 1" },
+                  { value: "2", label: "เทอม 2" },
+                ]}
+              />
+            </div>
+            <div className="text-sm font-medium text-[#4c626c]">
+              <span>วันเรียน</span>
+              <AdminSelect
+                value={form.schedule_day}
+                onChange={(value) => updateField("schedule_day", value)}
+                ariaLabel="เลือกวันเรียน"
+                className="mt-1.5"
+                options={[
+                  ["1", "วันจันทร์"],
+                  ["2", "วันอังคาร"],
+                  ["3", "วันพุธ"],
+                  ["4", "วันพฤหัสบดี"],
+                  ["5", "วันศุกร์"],
+                  ["6", "วันเสาร์"],
+                  ["7", "วันอาทิตย์"],
+                ].map(([value, label]) => ({ value, label }))}
+              />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <label className="text-sm font-medium text-[#4c626c]">เวลาเริ่ม
                 <input type="time" value={form.start_time} onChange={(event) => updateField("start_time", event.target.value)} className={inputClass} />

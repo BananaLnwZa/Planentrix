@@ -132,12 +132,12 @@ const validateSubjectPayload = (
     return { message: "เวลาเลิกเรียนต้องอยู่หลังเวลาเริ่มเรียน" };
   }
 
-  if (!Number.isInteger(term) || term < 1 || term > 3) {
-    return { message: "เทอมต้องอยู่ระหว่าง 1-3" };
+  if (!Number.isInteger(term) || term < 1 || term > 2) {
+    return { message: "เทอมต้องอยู่ระหว่าง 1-2" };
   }
 
-  if (!Number.isInteger(academicYear) || academicYear < 1 || academicYear > 8) {
-    return { message: "ชั้นปีต้องอยู่ระหว่าง 1-8" };
+  if (!Number.isInteger(academicYear) || academicYear < 1 || academicYear > 4) {
+    return { message: "ชั้นปีต้องอยู่ระหว่าง 1-4" };
   }
 
   if (!Number.isInteger(subjectTypeId) || subjectTypeId <= 0) {

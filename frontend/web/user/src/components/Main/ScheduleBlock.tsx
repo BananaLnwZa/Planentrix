@@ -42,7 +42,7 @@ export default function ScheduleBlock({
         aria-hidden="true"
         className={`absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full ring-2 ring-white/55 ${typeStyle.dot}`}
       />
-      <span className="block truncate pr-2 text-[11px] font-semibold leading-tight">
+      <span className="line-clamp-2 break-words pr-2 text-[11px] font-semibold leading-tight">
         {item.subject_name}
       </span>
       {item.classroom && (
