@@ -151,8 +151,12 @@ export default function Schedule() {
     }
   };
 
+  const hasScheduleItems = items.length > 0;
+
   return (
-    <section className="flex h-[440px] min-h-0 w-full max-w-[440px] flex-col md:h-auto md:flex-1">
+    <section
+      className={`flex min-h-0 w-full max-w-[440px] flex-col ${hasScheduleItems || isLoading ? "h-[440px] md:h-auto md:flex-1" : "h-[150px]"}`}
+    >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
         <h2
           className="text-base font-semibold text-[#52636D]"
@@ -168,7 +172,9 @@ export default function Schedule() {
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        <ScheduleGrid items={items} onSelect={handleSelect} />
+        {hasScheduleItems && (
+          <ScheduleGrid items={items} onSelect={handleSelect} />
+        )}
 
         {(isLoading || isLoadingDetail) && (
           <div className="absolute inset-0 z-20 flex items-center justify-center rounded-[14px] bg-white/65 text-sm text-[#6A8795] backdrop-blur-[1px]">
@@ -177,12 +183,12 @@ export default function Schedule() {
         )}
 
         {!isLoading && !error && items.length === 0 && (
-          <div className="pointer-events-none absolute inset-x-3 top-16 z-[5] rounded-xl border border-dashed border-[#B9D9E7] bg-white/90 px-4 py-3 text-center text-xs text-[#6A8795] shadow-sm">
+          <div className="pointer-events-none absolute inset-x-3 top-3 z-[5] rounded-xl border border-dashed border-[#B9D9E7] bg-white/90 px-4 py-3 text-center text-xs text-[#6A8795] shadow-sm">
             ยังไม่มีข้อมูลตารางเวลาสำหรับเทอมปัจจุบัน
           </div>
         )}
 
-        <button
+        {hasScheduleItems && <button
           type="button"
           onClick={() => void handleOpenAdd()}
           disabled={isLoading || !hasCurrentTerm}
@@ -191,7 +197,7 @@ export default function Schedule() {
           className="absolute bottom-3 right-3 z-10 flex h-11 w-11 items-center justify-center rounded-xl border-2 border-white bg-[#F58BC2] text-white shadow-[0_5px_12px_rgba(190,83,140,0.3)] transition hover:-translate-y-0.5 hover:bg-[#EC78B3] hover:shadow-[0_7px_15px_rgba(190,83,140,0.36)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D865A2] disabled:cursor-not-allowed disabled:bg-[#C9D4D9] disabled:shadow-none"
         >
           <Plus aria-hidden="true" size={27} strokeWidth={3.2} />
-        </button>
+        </button>}
       </div>
 
       {error && (

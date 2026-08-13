@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../common/AppTimePicker.dart';
 import '../../../interfaces/table.interface.dart';
 
 Future<void> showScheduleDetailsPopup(
@@ -69,13 +70,10 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
   Future<void> _pickTime(bool start) async {
     final value = start ? _start : _end;
     final parts = value.split(':').map(int.parse).toList();
-    final picked = await showTimePicker(
+    final picked = await showAppTimePicker(
       context: context,
       initialTime: TimeOfDay(hour: parts[0], minute: parts[1]),
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-        child: child!,
-      ),
+      title: start ? 'เลือกเวลาเริ่ม' : 'เลือกเวลาสิ้นสุด',
     );
     if (picked == null || !mounted) return;
     final formatted =
@@ -441,7 +439,18 @@ class _TimeButton extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 5),
       side: const BorderSide(color: Color(0xFFA9C8D6)),
     ),
-    child: Text(value, style: const TextStyle(fontSize: 11)),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value, style: const TextStyle(fontSize: 11)),
+        const SizedBox(width: 4),
+        const Icon(
+          Icons.access_time_rounded,
+          size: 14,
+          color: Color(0xFF74B88A),
+        ),
+      ],
+    ),
   );
 }
 

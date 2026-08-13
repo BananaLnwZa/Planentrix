@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../common/AppTimePicker.dart';
 import '../../../interfaces/table.interface.dart';
 
 Future<AddScheduleInput?> showAddSchedulePopup(
@@ -38,13 +39,10 @@ class _AddSchedulePopupState extends State<_AddSchedulePopup> {
 
   Future<void> _pickTime(bool start) async {
     final current = _parseTime(start ? _start : _end);
-    final picked = await showTimePicker(
+    final picked = await showAppTimePicker(
       context: context,
       initialTime: current,
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-        child: child!,
-      ),
+      title: start ? 'เลือกเวลาเริ่ม' : 'เลือกเวลาสิ้นสุด',
     );
     if (picked == null || !mounted) return;
     setState(() {
@@ -380,9 +378,9 @@ class _TimeField extends StatelessWidget {
                 child: Text(value, style: const TextStyle(fontSize: 12)),
               ),
               const Icon(
-                Icons.schedule_rounded,
+                Icons.access_time_rounded,
                 size: 16,
-                color: Color(0xFF78BBDD),
+                color: Color(0xFF74B88A),
               ),
             ],
           ),

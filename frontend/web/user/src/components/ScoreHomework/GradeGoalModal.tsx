@@ -82,7 +82,7 @@ export default function GradeGoalModal({
               <h2 id="grade-goal-title" className="text-lg font-semibold text-[#244B63]">
                 เลือกเกรดที่ต้องการ
               </h2>
-              <p className="mt-0.5 text-[11px] text-[#7693A4]">
+              <p className="mt-0.5 text-[11px] font-medium text-[#567486]">
                 เกณฑ์มาตรฐาน A 80 คะแนนขึ้นไป · F ต่ำกว่า 50 คะแนน
               </p>
             </div>
@@ -111,7 +111,7 @@ export default function GradeGoalModal({
                     <span className="block truncate text-sm font-medium text-[#31566C]">
                       {index + 1}. {subject.subject_name}
                     </span>
-                    <span className="mt-0.5 flex items-center gap-2 text-xs text-[#8BA2AF]">
+                    <span className="mt-0.5 flex items-center gap-2 text-xs font-medium text-[#607887]">
                       {subject.subject_id} · {subject.credits} หน่วยกิต
                       {isPreviouslySaved && (
                         <LockKeyhole className="h-3.5 w-3.5 text-[#6CB6DF]" aria-label="บันทึกแล้ว" />
@@ -128,7 +128,7 @@ export default function GradeGoalModal({
                         [subject.schedule_time_id]: event.target.value as GradeLetter,
                       }))
                     }
-                    className="min-h-9 w-full rounded-lg border border-[#BFD9E8] bg-[#F8FCFF] px-2.5 text-xs font-semibold text-[#39779A] outline-none transition focus:border-[#62B5E5] focus:ring-2 focus:ring-[#D9F0FC] disabled:cursor-not-allowed disabled:bg-[#EDF5F9]"
+                    className="min-h-9 w-full rounded-lg border border-[#9FC5D9] bg-[#F8FCFF] px-2.5 text-xs font-semibold text-[#2F657F] opacity-100 outline-none transition focus:border-[#4A9ECB] focus:ring-2 focus:ring-[#D9F0FC] disabled:cursor-not-allowed disabled:bg-[#EDF5F9] disabled:text-[#536D7A]"
                   >
                     <option value="">เลือกเกรด</option>
                     {GRADE_OPTIONS.map((option) => (
@@ -147,7 +147,7 @@ export default function GradeGoalModal({
           <div className="flex items-center justify-between gap-3 rounded-xl bg-[#EAF7FE] px-3 py-2.5">
             <div>
               <p className="text-xs text-[#668B9F]">GPA เป้าหมายของเทอม</p>
-              <p className="mt-0.5 text-xs text-[#8AA3B0]">
+              <p className="mt-0.5 text-xs font-medium text-[#5F7887]">
                 {isComplete
                   ? `ครบ ${subjects.length} วิชา · คำนวณแบบถ่วงหน่วยกิต`
                   : `เหลืออีก ${subjects.length - selectedSubjects.length} วิชา`}
@@ -155,7 +155,7 @@ export default function GradeGoalModal({
             </div>
             <p className="shrink-0 text-2xl font-semibold text-[#4CA9DD]">
               {selectedSubjects.length ? targetGpa.toFixed(2) : "—"}
-              <span className="text-sm font-normal text-[#82A3B5]"> / 4.00</span>
+              <span className="text-sm font-medium text-[#5D7A8B]"> / 4.00</span>
             </p>
           </div>
           <button

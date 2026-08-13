@@ -8,6 +8,7 @@ import type {
   SetStateAction,
 } from "react";
 import { createPortal } from "react-dom";
+import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
 import {
   BookOpen,
   Camera,
@@ -94,6 +95,62 @@ function ProfileAvatar({ imageUrl }: { imageUrl?: string | null }) {
   );
 }
 
+function DurationEditor({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const total = value === "" ? null : Math.max(0, Number(value) || 0);
+  const hours = total === null ? "" : String(Math.floor(total / 60));
+  const minutes = total === null ? "" : String(total % 60);
+
+  const updatePart = (part: "hours" | "minutes", rawValue: string) => {
+    const parsed = rawValue === "" ? 0 : Math.max(0, Math.floor(Number(rawValue) || 0));
+    const nextHours = part === "hours" ? parsed : Number(hours || 0);
+    const nextMinutes = part === "minutes" ? Math.min(59, parsed) : Number(minutes || 0);
+    onChange(String(nextHours * 60 + nextMinutes));
+  };
+
+  return (
+    <fieldset>
+      <legend className="text-sm text-gray-800">{label}</legend>
+      <div className="mt-1 grid grid-cols-2 gap-2">
+        <label className="text-xs text-gray-600">
+          ชม.
+          <input
+            id={`${id}-hours`}
+            type="number"
+            min={0}
+            step={1}
+            value={hours}
+            onChange={(event) => updatePart("hours", event.target.value)}
+            className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-3 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
+          />
+        </label>
+        <label className="text-xs text-gray-600">
+          นาที
+          <input
+            id={`${id}-minutes`}
+            type="number"
+            min={0}
+            max={59}
+            step={1}
+            value={minutes}
+            onChange={(event) => updatePart("minutes", event.target.value)}
+            className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-3 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
+          />
+        </label>
+      </div>
+    </fieldset>
+  );
+}
+
 export default function StudentCardPopup({
   profile,
   avatarImageUrl,
@@ -130,6 +187,12 @@ export default function StudentCardPopup({
   onClearActionError,
   formatTime,
 }: StudentCardPopupProps) {
+  const hasInvalidWorkingTime = Boolean(
+    editConstraintValues.startTime &&
+      editConstraintValues.endTime &&
+      editConstraintValues.startTime >= editConstraintValues.endTime
+  );
+
   return createPortal(
     <div
       className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/35 p-4 backdrop-blur-[2px]"
@@ -298,7 +361,7 @@ export default function StudentCardPopup({
                   <label htmlFor="profile-birthdate" className="text-sm text-gray-800">
                     วันเกิด
                   </label>
-                  <input
+                  <LocalizedDateTimeInput
                     id="profile-birthdate"
                     type="date"
                     value={editValues.birthDate}
@@ -308,7 +371,7 @@ export default function StudentCardPopup({
                         birthDate: event.target.value,
                       }))
                     }
-                    className="custom-date mt-1 block w-full rounded-full border border-gray-300 bg-white px-4 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
+                    className="mt-1 h-10 w-full rounded-full border border-gray-300 bg-white px-4 text-base text-gray-800 outline-none focus-within:border-[#9CC5F9]"
                   />
                 </div>
                 <div>
@@ -381,42 +444,30 @@ export default function StudentCardPopup({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="constraint-work-duration" className="text-sm text-gray-800">
-                    ระยะเวลาทำงาน (min)
-                  </label>
-                  <input
-                    id="constraint-work-duration"
-                    type="number"
-                    min={0}
-                    value={editConstraintValues.continuousWorkingDuration}
-                    onChange={(event) =>
-                      setEditConstraintValues((previous) => ({
-                        ...previous,
-                        continuousWorkingDuration: event.target.value,
-                      }))
-                    }
-                    className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-4 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="constraint-break-duration" className="text-sm text-gray-800">
-                    ระยะเวลาพัก (min)
-                  </label>
-                  <input
-                    id="constraint-break-duration"
-                    type="number"
-                    min={0}
-                    value={editConstraintValues.breakDuration}
-                    onChange={(event) =>
-                      setEditConstraintValues((previous) => ({
-                        ...previous,
-                        breakDuration: event.target.value,
-                      }))
-                    }
-                    className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-4 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
-                  />
-                </div>
+                <DurationEditor
+                  id="constraint-work-duration"
+                  label="ระยะเวลาทำงาน"
+                  value={editConstraintValues.continuousWorkingDuration}
+                  onChange={(value) => {
+                    onClearActionError();
+                    setEditConstraintValues((previous) => ({
+                      ...previous,
+                      continuousWorkingDuration: value,
+                    }));
+                  }}
+                />
+                <DurationEditor
+                  id="constraint-break-duration"
+                  label="ระยะเวลาพัก"
+                  value={editConstraintValues.breakDuration}
+                  onChange={(value) => {
+                    onClearActionError();
+                    setEditConstraintValues((previous) => ({
+                      ...previous,
+                      breakDuration: value,
+                    }));
+                  }}
+                />
               </div>
 
               <fieldset>
@@ -426,9 +477,10 @@ export default function StudentCardPopup({
                     <label htmlFor="constraint-start-time" className="text-xs text-gray-500">
                       เริ่ม
                     </label>
-                    <input
+                    <LocalizedDateTimeInput
                       id="constraint-start-time"
                       type="time"
+                      step={60}
                       value={editConstraintValues.startTime}
                       onChange={(event) => {
                         onClearActionError();
@@ -437,16 +489,18 @@ export default function StudentCardPopup({
                           startTime: event.target.value,
                         }));
                       }}
-                      className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-4 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
+                      aria-invalid={hasInvalidWorkingTime}
+                      className={`mt-1 h-10 w-full rounded-full border bg-white px-4 text-base text-gray-800 outline-none ${hasInvalidWorkingTime ? "border-red-400 focus-within:border-red-500" : "border-gray-300 focus-within:border-[#9CC5F9]"}`}
                     />
                   </div>
                   <div>
                     <label htmlFor="constraint-end-time" className="text-xs text-gray-500">
                       สิ้นสุด
                     </label>
-                    <input
+                    <LocalizedDateTimeInput
                       id="constraint-end-time"
                       type="time"
+                      step={60}
                       value={editConstraintValues.endTime}
                       min={editConstraintValues.startTime || undefined}
                       onChange={(event) => {
@@ -456,10 +510,16 @@ export default function StudentCardPopup({
                           endTime: event.target.value,
                         }));
                       }}
-                      className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-4 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
+                      aria-invalid={hasInvalidWorkingTime}
+                      className={`mt-1 h-10 w-full rounded-full border bg-white px-4 text-base text-gray-800 outline-none ${hasInvalidWorkingTime ? "border-red-400 focus-within:border-red-500" : "border-gray-300 focus-within:border-[#9CC5F9]"}`}
                     />
                   </div>
                 </div>
+                {hasInvalidWorkingTime && (
+                  <p className="mt-2 text-xs text-red-500" role="alert">
+                    เวลาสิ้นสุดการทำงานต้องมากกว่าเวลาเริ่มทำงาน
+                  </p>
+                )}
               </fieldset>
 
               <div>
@@ -549,8 +609,9 @@ export default function StudentCardPopup({
                         </button>
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2">
-                        <input
+                        <LocalizedDateTimeInput
                           type="time"
+                          step={60}
                           aria-label={`Busy time ${index + 1} start`}
                           value={busyTime.start}
                           onChange={(event) => {
@@ -564,10 +625,11 @@ export default function StudentCardPopup({
                               ),
                             }));
                           }}
-                          className="min-w-0 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-[#9CC5F9]"
+                          className="h-9 min-w-0 rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-700 outline-none focus-within:border-[#9CC5F9]"
                         />
-                        <input
+                        <LocalizedDateTimeInput
                           type="time"
+                          step={60}
                           aria-label={`Busy time ${index + 1} end`}
                           value={busyTime.end}
                           min={busyTime.start || undefined}
@@ -582,7 +644,7 @@ export default function StudentCardPopup({
                               ),
                             }));
                           }}
-                          className="min-w-0 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-[#9CC5F9]"
+                          className="h-9 min-w-0 rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-700 outline-none focus-within:border-[#9CC5F9]"
                         />
                       </div>
                     </div>

@@ -6,6 +6,8 @@ import { ChevronsUpDown, Plus, X } from "lucide-react";
 import type { CurrentTerm } from "@/interfaces/term.interface";
 import termService from "@/services/term.service";
 import TermDetailsPopup from "@/components/Main/TermDetailsPopup";
+import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
+import { formatDisplayDate } from "@/utils/dateTime";
 
 export type TermFormValues = {
   academicYear: string;
@@ -90,34 +92,8 @@ function getTermValidationError(values: TermFormValues) {
   return "";
 }
 
-function formatDisplayDate(date?: string | null) {
-  if (!date) return "—";
-  const [year, month, day] = date.slice(0, 10).split("-");
-  return year && month && day ? `${day}/${month}/${year}` : date;
-}
-
-const thaiMonthNames = [
-  "มกราคม",
-  "กุมภาพันธ์",
-  "มีนาคม",
-  "เมษายน",
-  "พฤษภาคม",
-  "มิถุนายน",
-  "กรกฎาคม",
-  "สิงหาคม",
-  "กันยายน",
-  "ตุลาคม",
-  "พฤศจิกายน",
-  "ธันวาคม",
-];
-
 function formatThaiExamDate(date?: string | null) {
-  if (!date) return "—";
-
-  const [, month, day] = date.slice(0, 10).split("-");
-  const monthName = thaiMonthNames[Number(month) - 1];
-
-  return monthName && day ? `${Number(day)} ${monthName}` : formatDisplayDate(date);
+  return formatDisplayDate(date);
 }
 
 function SelectField({
@@ -189,7 +165,7 @@ function ExamWeekField({
         {label}
       </label>
       <div className="flex min-w-0 items-center gap-2">
-        <input
+        <LocalizedDateTimeInput
           id={`${idPrefix}-start-date`}
           name={startName}
           type="date"
@@ -198,12 +174,12 @@ function ExamWeekField({
           value={startDate}
           onChange={(event) => onStartDateChange(event.target.value)}
           aria-label={`วันเริ่ม${label}`}
-          className="custom-date h-10 min-w-0 flex-1 rounded-full border border-[#C8C8C8] bg-white px-3 text-xs text-[#777777] outline-none transition-colors focus:border-[#F080A7]"
+          className="h-10 min-w-0 flex-1 rounded-full border border-[#C8C8C8] bg-white px-3 text-xs text-[#4F6875] outline-none transition-colors focus-within:border-[#F080A7]"
         />
         <span aria-hidden="true" className="text-lg text-[#8AA6B3]">
           –
         </span>
-        <input
+        <LocalizedDateTimeInput
           id={`${idPrefix}-end-date`}
           name={endName}
           type="date"
@@ -212,7 +188,7 @@ function ExamWeekField({
           value={endDate}
           onChange={(event) => onEndDateChange(event.target.value)}
           aria-label={`วันสิ้นสุด${label}`}
-          className="custom-date h-10 min-w-0 flex-1 rounded-full border border-[#C8C8C8] bg-white px-3 text-xs text-[#777777] outline-none transition-colors focus:border-[#F080A7]"
+          className="h-10 min-w-0 flex-1 rounded-full border border-[#C8C8C8] bg-white px-3 text-xs text-[#4F6875] outline-none transition-colors focus-within:border-[#F080A7]"
         />
       </div>
     </div>

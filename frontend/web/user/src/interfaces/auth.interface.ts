@@ -93,8 +93,8 @@ export interface ConstraintData {
   day_off?: number | null; // 1-7 (Monday-Sunday)
   continuous_working_duration?: number | null; // in minutes
   break?: number | null; // in minutes
-  start_time?: string | null; // HH:MM AM/PM format
-  end_time?: string | null; // HH:MM AM/PM format
+  start_time?: string | null; // 24-hour HH:mm format
+  end_time?: string | null; // 24-hour HH:mm format
 }
 
 export interface RecurringBusyTime {

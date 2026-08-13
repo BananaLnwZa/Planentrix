@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../common/AppDatePicker.dart';
 import 'package:flutter/services.dart';
 
 import '../../../interfaces/term.interface.dart';
@@ -415,7 +416,7 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
     final initial = current == null || current.isBefore(minimum)
         ? minimum
         : current;
-    final result = await showDatePicker(
+    final result = await showAppDatePicker(
       context: context,
       initialDate: initial,
       firstDate: minimum,
@@ -791,7 +792,7 @@ class _DateButton extends StatelessWidget {
             const Icon(
               Icons.calendar_month_outlined,
               size: 16,
-              color: Color(0xFF7897AC),
+              color: Color(0xFFF080A7),
             ),
           ],
         ),

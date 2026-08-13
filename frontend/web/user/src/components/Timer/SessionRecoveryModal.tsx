@@ -5,6 +5,7 @@ import type {
   StudySession,
 } from "@/interfaces/time.interface";
 import { formatClock } from "./timer.utils";
+import { formatDisplayDateTime } from "@/utils/dateTime";
 
 interface SessionRecoveryModalProps {
   session: StudySession | null;
@@ -23,10 +24,7 @@ export default function SessionRecoveryModal({
 
   const interrupted = session.session_status === "interrupted";
   const lastSeenText = session.last_seen_at
-    ? new Intl.DateTimeFormat("th-TH", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }).format(new Date(session.last_seen_at))
+    ? formatDisplayDateTime(session.last_seen_at)
     : "ไม่ทราบเวลา";
 
   return createPortal(

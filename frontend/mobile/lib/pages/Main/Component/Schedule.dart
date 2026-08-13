@@ -135,10 +135,11 @@ class _ScheduleState extends State<Schedule> {
 
   @override
   Widget build(BuildContext context) {
+    final hasScheduleItems = _items.isNotEmpty;
     return SizedBox(
       key: const Key('schedule'),
       width: double.infinity,
-      height: 470,
+      height: hasScheduleItems || _loading ? 470 : 150,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -147,9 +148,10 @@ class _ScheduleState extends State<Schedule> {
           Expanded(
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: _ScheduleGrid(items: _items, onSelect: _selectItem),
-                ),
+                if (hasScheduleItems)
+                  Positioned.fill(
+                    child: _ScheduleGrid(items: _items, onSelect: _selectItem),
+                  ),
                 if (_loading || _loadingDetail)
                   Positioned.fill(
                     child: DecoratedBox(
@@ -181,32 +183,35 @@ class _ScheduleState extends State<Schedule> {
                   const Positioned(
                     left: 15,
                     right: 15,
-                    top: 55,
+                    top: 8,
                     child: _EmptySchedule(),
                   ),
-                Positioned(
-                  right: 12,
-                  bottom: 12,
-                  child: Tooltip(
-                    message: _hasCurrentTerm
-                        ? 'เพิ่มบล็อกเวลา'
-                        : 'กรุณาสร้างเทอมก่อน',
-                    child: FloatingActionButton.small(
-                      key: const Key('add-schedule-button'),
-                      heroTag: 'add-schedule',
-                      onPressed: _loading || !_hasCurrentTerm ? null : _openAdd,
-                      backgroundColor: _hasCurrentTerm
-                          ? const Color(0xFFF58BC2)
-                          : const Color(0xFFC9D4D9),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: const BorderSide(color: Colors.white, width: 2),
+                if (hasScheduleItems)
+                  Positioned(
+                    right: 12,
+                    bottom: 12,
+                    child: Tooltip(
+                      message: _hasCurrentTerm
+                          ? 'เพิ่มบล็อกเวลา'
+                          : 'กรุณาสร้างเทอมก่อน',
+                      child: FloatingActionButton.small(
+                        key: const Key('add-schedule-button'),
+                        heroTag: 'add-schedule',
+                        onPressed: _loading || !_hasCurrentTerm
+                            ? null
+                            : _openAdd,
+                        backgroundColor: _hasCurrentTerm
+                            ? const Color(0xFFF58BC2)
+                            : const Color(0xFFC9D4D9),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(Icons.add_rounded, size: 28),
                       ),
-                      child: const Icon(Icons.add_rounded, size: 28),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -328,8 +333,6 @@ class _ScheduleGridState extends State<_ScheduleGrid> {
     Color(0xFFDDDDF8),
     Color(0xFFF8D1CD),
   ];
-  static const _startHour = 6;
-  static const _endHour = 24;
   static const _rowHeight = 38.0;
   static const _timeWidth = 54.0;
   final ScrollController _verticalController = ScrollController();
@@ -342,6 +345,9 @@ class _ScheduleGridState extends State<_ScheduleGrid> {
 
   @override
   Widget build(BuildContext context) {
+    final range = _scheduleHourRange(widget.items);
+    if (range == null) return const SizedBox.shrink();
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final contentWidth = math.max(620.0, constraints.maxWidth);
@@ -367,6 +373,8 @@ class _ScheduleGridState extends State<_ScheduleGrid> {
                         child: _GridBody(
                           items: widget.items,
                           dayWidth: dayWidth,
+                          startHour: range.startHour,
+                          endHour: range.endHour,
                           onSelect: widget.onSelect,
                         ),
                       ),
@@ -423,18 +431,21 @@ class _GridHeader extends StatelessWidget {
 class _GridBody extends StatelessWidget {
   final List<ScheduleItem> items;
   final double dayWidth;
+  final int startHour;
+  final int endHour;
   final ValueChanged<ScheduleItem> onSelect;
 
   const _GridBody({
     required this.items,
     required this.dayWidth,
+    required this.startHour,
+    required this.endHour,
     required this.onSelect,
   });
 
   @override
   Widget build(BuildContext context) {
-    const rowCount =
-        _ScheduleGridState._endHour - _ScheduleGridState._startHour;
+    final rowCount = endHour - startHour;
     final gridHeight = rowCount * _ScheduleGridState._rowHeight;
     return SizedBox(
       width: _ScheduleGridState._timeWidth + dayWidth * 7,
@@ -445,33 +456,53 @@ class _GridBody extends StatelessWidget {
             children: [
               SizedBox(
                 width: _ScheduleGridState._timeWidth,
-                child: Column(
+                height: gridHeight,
+                child: Stack(
                   children: [
-                    for (var index = 0; index < rowCount; index++)
-                      Container(
-                        key: Key(
-                          'schedule-time-${_formatHour(index + _ScheduleGridState._startHour).replaceAll(' ', '-').toLowerCase()}',
-                        ),
-                        height: _ScheduleGridState._rowHeight,
-                        alignment: Alignment.topCenter,
-                        padding: const EdgeInsets.only(top: 4),
-                        decoration: BoxDecoration(
-                          color: index.isEven
-                              ? const Color(0xFFFFF1D5)
-                              : const Color(0xFFFFF7E8),
-                          border: const Border(
-                            right: BorderSide(color: Color(0xFFE5D4DA)),
-                            bottom: BorderSide(color: Color(0xFFEEE1E6)),
+                    Column(
+                      children: [
+                        for (var index = 0; index < rowCount; index++)
+                          Container(
+                            key: Key(
+                              'schedule-time-${_formatHour(index + startHour).replaceAll(' ', '-').toLowerCase()}',
+                            ),
+                            height: _ScheduleGridState._rowHeight,
+                            alignment: Alignment.topCenter,
+                            padding: const EdgeInsets.only(top: 4),
+                            decoration: BoxDecoration(
+                              color: index.isEven
+                                  ? const Color(0xFFFFF1D5)
+                                  : const Color(0xFFFFF7E8),
+                              border: const Border(
+                                right: BorderSide(color: Color(0xFFE5D4DA)),
+                                bottom: BorderSide(color: Color(0xFFEEE1E6)),
+                              ),
+                            ),
+                            child: Text(
+                              _formatHour(index + startHour),
+                              style: const TextStyle(
+                                fontSize: 9,
+                                color: Color(0xFF687983),
+                              ),
+                            ),
                           ),
-                        ),
+                      ],
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 1,
+                      child: IgnorePointer(
                         child: Text(
-                          _formatHour(index + _ScheduleGridState._startHour),
+                          _formatHour(endHour),
+                          textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 9,
                             color: Color(0xFF687983),
                           ),
                         ),
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -499,7 +530,8 @@ class _GridBody extends StatelessWidget {
             ],
           ),
           for (final item in items)
-            if (_blockGeometry(item, dayWidth) case final geometry?)
+            if (_blockGeometry(item, dayWidth, startHour, endHour)
+                case final geometry?)
               Positioned(
                 key: Key('schedule-block-${item.scheduleTimeId}'),
                 left: geometry.left,
@@ -589,10 +621,12 @@ class _ScheduleBlock extends StatelessWidget {
 ({double left, double top, double width, double height})? _blockGeometry(
   ScheduleItem item,
   double dayWidth,
+  int startHour,
+  int endHour,
 ) {
   if (item.scheduleDay < 1 || item.scheduleDay > 7) return null;
-  final gridStart = _ScheduleGridState._startHour * 60;
-  final gridEnd = _ScheduleGridState._endHour * 60;
+  final gridStart = startHour * 60;
+  final gridEnd = endHour * 60;
   final start = math.max(gridStart, _minutes(item.startTime));
   final end = math.min(gridEnd, _minutes(item.endTime));
   if (end <= start) return null;
@@ -612,8 +646,26 @@ int _minutes(String value) {
   return parts[0] * 60 + parts[1];
 }
 
+({int startHour, int endHour})? _scheduleHourRange(List<ScheduleItem> items) {
+  final ranges = items
+      .map(
+        (item) =>
+            (start: _minutes(item.startTime), end: _minutes(item.endTime)),
+      )
+      .where((range) => range.end > range.start)
+      .toList(growable: false);
+  if (ranges.isEmpty) return null;
+
+  final earliestStart = ranges.map((range) => range.start).reduce(math.min);
+  final latestEnd = ranges.map((range) => range.end).reduce(math.max);
+  final startHour = math.max(0, earliestStart ~/ 60);
+  final endHour = math.min(
+    24,
+    math.max(startHour + 1, (latestEnd / 60).ceil()),
+  );
+  return (startHour: startHour, endHour: endHour);
+}
+
 String _formatHour(int hour) {
-  if (hour == 12) return '12 PM';
-  if (hour > 12) return '${hour - 12} PM';
-  return '$hour AM';
+  return '${hour.toString().padLeft(2, '0')}:00';
 }

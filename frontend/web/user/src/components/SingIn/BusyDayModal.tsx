@@ -129,10 +129,14 @@ export default function BusyDayModal({
 
   return (
     <div
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
       className="
         fixed
         inset-0
-        bg-black/30
+        bg-transparent
+        backdrop-blur-[3px]
         flex
         items-center
         justify-center
@@ -181,7 +185,7 @@ export default function BusyDayModal({
             flex
             flex-wrap
             justify-center
-            gap-3
+            gap-2
             mb-8
           "
         >
@@ -235,7 +239,7 @@ export default function BusyDayModal({
         "
         >
         {/* Start Time */}
-        <div className="relative w-[145px]">
+        <div className="relative w-[112px] sm:w-[120px]">
           <TimePicker24Hour
             id="busy-start-time"
             value={startTime}
@@ -243,14 +247,13 @@ export default function BusyDayModal({
             ariaLabel="เวลาเริ่มต้น"
             ariaInvalid={Boolean(timeError)}
             ariaDescribedBy={timeError ? "busy-time-error" : undefined}
-            iconSize={18}
+            iconSize={21}
             className={`w-full
+              h-[42px]
               border
               ${timeError ? "border-red-500" : "border-gray-300"}
               rounded-full
-              pl-4
-              pr-9
-              py-2
+              px-3
               text-sm
               leading-none
               text-gray-500
@@ -262,7 +265,7 @@ export default function BusyDayModal({
         <span className="text-gray-500">-</span>
 
         {/* End Time */}
-        <div className="relative w-[145px]">
+        <div className="relative w-[112px] sm:w-[120px]">
           <TimePicker24Hour
             id="busy-end-time"
             value={endTime}
@@ -270,14 +273,13 @@ export default function BusyDayModal({
             ariaLabel="เวลาสิ้นสุด"
             ariaInvalid={Boolean(timeError)}
             ariaDescribedBy={timeError ? "busy-time-error" : undefined}
-            iconSize={18}
+            iconSize={21}
             className={`w-full
+              h-[42px]
               border
               ${timeError ? "border-red-500" : "border-gray-300"}
               rounded-full
-              pl-4
-              pr-9
-              py-2
+              px-3
               text-sm
               leading-none
               text-gray-500

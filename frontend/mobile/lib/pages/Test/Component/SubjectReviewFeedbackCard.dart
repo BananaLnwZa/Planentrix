@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../interfaces/exam.interface.dart';
+import '../../../common/DateTimeFormat.dart';
 
 class SubjectReviewFeedbackCard extends StatelessWidget {
   final String subjectId;
@@ -363,8 +364,7 @@ String _reviewTimeText(int minutes) {
 }
 
 String _dateText(DateTime value) {
-  final local = value.toLocal();
-  return '${local.day}/${local.month}/${local.year + 543}';
+  return formatDisplayDate(value);
 }
 
 String _studyTypeLabel(String value) {

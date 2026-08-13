@@ -2,8 +2,15 @@
 
 import { useMemo, useState } from "react";
 import { ClipboardList } from "lucide-react";
-import type { GradeWorkload, SubjectGradeGoal } from "@/interfaces/grade.interface";
+import type {
+  GradeWorkload,
+  OverallGradeSummary,
+  SubjectGradeGoal,
+  WorkloadScoreInput,
+} from "@/interfaces/grade.interface";
+import gradeService from "@/services/grade.service";
 import GpaGauge from "./GpaGauge";
+import ScoreEntryModal from "./ScoreEntryModal";
 
 const workloadColors = [
   "bg-[#F9D2DF] text-[#9D506A]",
@@ -44,8 +51,28 @@ const gpaFromPercent = (percent: number) => {
   return 0;
 };
 
-export default function ScoreDashboard({ subjects }: { subjects: SubjectGradeGoal[] }) {
+const isCompleted = (status: GradeWorkload["workload_status"]) => {
+  if (status === true || status === 1) return true;
+  return ["1", "completed", "complete", "done"].includes(
+    String(status).toLowerCase().trim()
+  );
+};
+
+export default function ScoreDashboard({
+  subjects,
+  overall,
+  onSubjectsChange,
+  onScoreSaved,
+}: {
+  subjects: SubjectGradeGoal[];
+  overall: OverallGradeSummary | null;
+  onSubjectsChange: (subjects: SubjectGradeGoal[]) => void;
+  onScoreSaved: () => void;
+}) {
   const [selectedId, setSelectedId] = useState(subjects[0]?.schedule_time_id);
+  const [editingWorkload, setEditingWorkload] = useState<GradeWorkload | null>(null);
+  const [isSavingScore, setIsSavingScore] = useState(false);
+  const [scoreError, setScoreError] = useState<string | null>(null);
   const selected =
     subjects.find((subject) => subject.schedule_time_id === selectedId) ?? subjects[0];
 
@@ -63,7 +90,9 @@ export default function ScoreDashboard({ subjects }: { subjects: SubjectGradeGoa
     if (!totalCredits) return 0;
 
     const currentPoints = subjects.reduce((sum, subject) => {
-      const subjectScore = getScoreSummary(subject.workloads);
+      const subjectScore = getScoreSummary(
+        subject.workloads.filter((workload) => isCompleted(workload.workload_status))
+      );
       const subjectGpa = subjectScore.maximum
         ? gpaFromPercent(subjectScore.percent)
         : 0;
@@ -80,13 +109,53 @@ export default function ScoreDashboard({ subjects }: { subjects: SubjectGradeGoa
       (subject) => subject.schedule_time_id !== selected.schedule_time_id
     ),
   ];
-  const summary = getScoreSummary(selected.workloads);
+  const completedWorkloads = selected.workloads.filter((workload) =>
+    isCompleted(workload.workload_status)
+  );
+  const summary = getScoreSummary(completedWorkloads);
   const progressPercent = Math.min(100, Math.max(0, summary.percent));
   const currentGrade = gradeFromPercent(summary.percent, summary.maximum > 0);
 
+  const openScoreEntry = (workload: GradeWorkload) => {
+    setScoreError(null);
+    setEditingWorkload(workload);
+  };
+
+  const saveScore = async (input: WorkloadScoreInput) => {
+    if (!editingWorkload) return;
+    setIsSavingScore(true);
+    setScoreError(null);
+    try {
+      await gradeService.saveWorkloadScore(editingWorkload.workload_id, input);
+      onSubjectsChange(
+        subjects.map((subject) => ({
+          ...subject,
+          workloads: subject.workloads.map((workload) =>
+            workload.workload_id === editingWorkload.workload_id
+              ? {
+                  ...workload,
+                  actual_score: input.actual_score,
+                  max_score: input.max_score,
+                }
+              : workload
+          ),
+        }))
+      );
+      onScoreSaved();
+      setEditingWorkload(null);
+    } catch (error) {
+      setScoreError(error instanceof Error ? error.message : "บันทึกคะแนนไม่สำเร็จ");
+    } finally {
+      setIsSavingScore(false);
+    }
+  };
+
   return (
     <div className="space-y-4 pb-4">
-      <GpaGauge currentGpa={currentGpa} targetGpa={targetGpa} />
+      <GpaGauge
+        currentGpa={overall?.overall_actual_gpa ?? currentGpa}
+        targetGpa={overall?.overall_target_gpa ?? targetGpa}
+      />
 
       <section>
         <div className="relative z-40 -mb-px overflow-x-auto bg-transparent pt-2">
@@ -106,7 +175,7 @@ export default function ScoreDashboard({ subjects }: { subjects: SubjectGradeGoa
                   className={`relative -ml-[52px] w-[104px] rounded-t-[9px] border border-b-0 px-2 py-1 text-center text-[10px] leading-[12px] shadow-[0_-2px_6px_rgba(69,117,143,0.08)] transition-all first:ml-0 ${
                     active
                       ? "h-[42px] border-[#68B1D6] bg-[#78C0E4] font-semibold text-white shadow-[0_-3px_9px_rgba(69,140,177,0.18)]"
-                      : "mt-1 h-[38px] border-[#BDD7E4] bg-[#DDEEF6] text-[#7392A2] hover:-translate-y-0.5 hover:bg-[#D1E9F4]"
+                      : "mt-1 h-[38px] border-[#BDD7E4] bg-[#DDEEF6] font-medium text-[#527184] hover:-translate-y-0.5 hover:bg-[#D1E9F4]"
                   }`}
                 >
                   <span className="line-clamp-2">{subject.subject_name}</span>
@@ -124,7 +193,7 @@ export default function ScoreDashboard({ subjects }: { subjects: SubjectGradeGoa
                 <span className="mr-1.5 text-[#5B849A]">{selected.subject_id}</span>
                 <span>{selected.subject_name}</span>
               </h2>
-              <p className="mt-1.5 truncate text-xs text-[#83A0AF]">
+              <p className="mt-1.5 truncate text-xs font-medium text-[#5F7887]">
                 ผู้สอน {selected.teacher_name || "ไม่ระบุ"}
               </p>
             </div>
@@ -133,7 +202,7 @@ export default function ScoreDashboard({ subjects }: { subjects: SubjectGradeGoa
             </span>
           </div>
 
-          <div className="mt-3 flex items-end gap-2.5 text-xs text-[#7793A2]">
+          <div className="mt-3 flex items-end gap-2.5 text-xs font-medium text-[#526F80]">
             <span className="shrink-0">
               เกรดปัจจุบัน
               <strong className="ml-1 rounded-full bg-[#EDF2F5] px-2 py-0.5 text-[#587384]">
@@ -167,19 +236,19 @@ export default function ScoreDashboard({ subjects }: { subjects: SubjectGradeGoa
             <span className="text-center">ประเภท</span>
             <span className="text-right">คะแนน</span>
           </div>
-          {selected.workloads.length === 0 ? (
+          {completedWorkloads.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-4 py-7 text-center">
               <ClipboardList className="h-6 w-6 text-[#D89BAF]" aria-hidden="true" />
-              <p className="mt-2 text-xs text-[#A67A89]">ยังไม่มีงานในวิชานี้</p>
+              <p className="mt-2 text-xs font-medium text-[#825C69]">ยังไม่มีงานในวิชานี้</p>
             </div>
           ) : (
             <div className="max-h-[180px] overflow-y-auto">
-              {selected.workloads.map((workload, index) => (
+              {completedWorkloads.map((workload, index) => (
                 <div
                   key={workload.workload_id}
                   className="grid grid-cols-[34px_minmax(0,1fr)_88px_62px] items-center border-t border-[#F5E1E8] bg-[#FFFBFC] px-2 py-2 text-[11px] text-[#765E67] first:border-t-0"
                 >
-                  <span className="text-[#9AAEB8]">{index + 1}</span>
+                  <span className="font-medium text-[#667D89]">{index + 1}</span>
                   <span className="truncate pr-2">{workload.workload_name}</span>
                   <span
                     className={`mx-auto max-w-[80px] truncate rounded-full px-2 py-1 text-center ${
@@ -188,9 +257,16 @@ export default function ScoreDashboard({ subjects }: { subjects: SubjectGradeGoa
                   >
                     {workload.workload_type_name}
                   </span>
-                  <span className="text-right font-medium">
-                    {workload.actual_score ?? "—"}/{workload.max_score ?? "—"}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => openScoreEntry(workload)}
+                    className="justify-self-end rounded-full px-2 py-1 text-right font-medium text-[#A85370] transition hover:bg-[#F9DFE8]"
+                    aria-label={`กรอกคะแนน ${workload.workload_name}`}
+                  >
+                    {workload.actual_score !== null && workload.max_score !== null
+                      ? `${workload.actual_score}/${workload.max_score}`
+                      : "กรอก"}
+                  </button>
                 </div>
               ))}
             </div>
@@ -204,6 +280,23 @@ export default function ScoreDashboard({ subjects }: { subjects: SubjectGradeGoa
         </div>
         </div>
       </section>
+
+      {editingWorkload && (
+        <ScoreEntryModal
+          workload={editingWorkload}
+          maximumAllowed={Math.max(
+            0,
+            100 -
+              completedWorkloads
+                .filter((item) => item.workload_id !== editingWorkload.workload_id)
+                .reduce((sum, item) => sum + Number(item.max_score ?? 0), 0)
+          )}
+          isSaving={isSavingScore}
+          serverError={scoreError}
+          onClose={() => !isSavingScore && setEditingWorkload(null)}
+          onSave={(input) => void saveScore(input)}
+        />
+      )}
     </div>
   );
 }

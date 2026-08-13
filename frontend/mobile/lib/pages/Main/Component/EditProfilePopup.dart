@@ -1,6 +1,9 @@
 // ignore_for_file: file_names
 
 import 'package:flutter/material.dart';
+import '../../../common/AppDatePicker.dart';
+import '../../../common/AppTimePicker.dart';
+import '../../../common/DateTimeFormat.dart';
 
 import '../../../interfaces/profile.interface.dart';
 import '../../../services/profile.service.dart';
@@ -39,8 +42,10 @@ class _EditProfilePopup extends StatefulWidget {
 
 class _EditProfilePopupState extends State<_EditProfilePopup> {
   late final TextEditingController _name;
-  late final TextEditingController _workingDuration;
-  late final TextEditingController _breakDuration;
+  late final TextEditingController _workingHours;
+  late final TextEditingController _workingMinutes;
+  late final TextEditingController _breakHours;
+  late final TextEditingController _breakMinutes;
   DateTime? _birthdate;
   String? _gender;
   int? _dayOff;
@@ -55,11 +60,19 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
   void initState() {
     super.initState();
     _name = TextEditingController(text: widget.profile.userName);
-    _workingDuration = TextEditingController(
-      text: widget.constraint.continuousWorkingDuration?.toString() ?? '',
+    final workingDuration = widget.constraint.continuousWorkingDuration;
+    final breakDuration = widget.constraint.breakDuration;
+    _workingHours = TextEditingController(
+      text: workingDuration == null ? '' : '${workingDuration ~/ 60}',
     );
-    _breakDuration = TextEditingController(
-      text: widget.constraint.breakDuration?.toString() ?? '',
+    _workingMinutes = TextEditingController(
+      text: workingDuration == null ? '' : '${workingDuration % 60}',
+    );
+    _breakHours = TextEditingController(
+      text: breakDuration == null ? '' : '${breakDuration ~/ 60}',
+    );
+    _breakMinutes = TextEditingController(
+      text: breakDuration == null ? '' : '${breakDuration % 60}',
     );
     _birthdate = widget.profile.birthdate;
     _gender = widget.profile.gender;
@@ -73,13 +86,15 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
   @override
   void dispose() {
     _name.dispose();
-    _workingDuration.dispose();
-    _breakDuration.dispose();
+    _workingHours.dispose();
+    _workingMinutes.dispose();
+    _breakHours.dispose();
+    _breakMinutes.dispose();
     super.dispose();
   }
 
   Future<void> _pickBirthdate() async {
-    final picked = await showDatePicker(
+    final picked = await showAppDatePicker(
       context: context,
       initialDate: _birthdate ?? DateTime(2004, 1, 1),
       firstDate: DateTime(1950),
@@ -90,13 +105,9 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
 
   Future<String?> _pickTime(String? current) async {
     final parts = (current ?? '08:00').split(':').map(int.parse).toList();
-    final picked = await showTimePicker(
+    final picked = await showAppTimePicker(
       context: context,
       initialTime: TimeOfDay(hour: parts[0], minute: parts[1]),
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-        child: child!,
-      ),
     );
     if (picked == null) return null;
     return '${picked.hour.toString().padLeft(2, '0')}:'
@@ -132,6 +143,36 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
     });
   }
 
+  String? get _workingTimeError {
+    if (_startTime == null || _endTime == null) return null;
+    if (_startTime!.compareTo(_endTime!) >= 0) {
+      return 'เวลาสิ้นสุดการทำงานต้องมากกว่าเวลาเริ่มทำงาน';
+    }
+    return null;
+  }
+
+  ({int? value, bool valid}) _durationValue(
+    TextEditingController hoursController,
+    TextEditingController minutesController,
+  ) {
+    final hoursText = hoursController.text.trim();
+    final minutesText = minutesController.text.trim();
+    if (hoursText.isEmpty && minutesText.isEmpty) {
+      return (value: null, valid: true);
+    }
+
+    final hours = int.tryParse(hoursText.isEmpty ? '0' : hoursText);
+    final minutes = int.tryParse(minutesText.isEmpty ? '0' : minutesText);
+    if (hours == null ||
+        minutes == null ||
+        hours < 0 ||
+        minutes < 0 ||
+        minutes > 59) {
+      return (value: null, valid: false);
+    }
+    return (value: hours * 60 + minutes, valid: true);
+  }
+
   Future<void> _save() async {
     final username = _name.text.trim();
     if (!RegExp(r'^(?=.*[a-zA-Z])[a-zA-Z0-9]{3,}$').hasMatch(username)) {
@@ -145,15 +186,16 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
       setState(() => _error = 'กรุณาระบุเวลาเริ่มและเวลาสิ้นสุดให้ครบ');
       return;
     }
-    if (_startTime != null && _startTime!.compareTo(_endTime!) >= 0) {
-      setState(() => _error = 'เวลาเริ่มทำงานต้องอยู่ก่อนเวลาสิ้นสุด');
+    if (_workingTimeError != null) {
+      setState(() => _error = _workingTimeError);
       return;
     }
-    final working = int.tryParse(_workingDuration.text);
-    final breakTime = int.tryParse(_breakDuration.text);
-    if ((working != null && working < 0) ||
-        (breakTime != null && breakTime < 0)) {
-      setState(() => _error = 'ระยะเวลาทำงานและพักต้องไม่ติดลบ');
+    final workingDuration = _durationValue(_workingHours, _workingMinutes);
+    final breakDuration = _durationValue(_breakHours, _breakMinutes);
+    if (!workingDuration.valid || !breakDuration.valid) {
+      setState(
+        () => _error = 'กรุณาระบุชั่วโมงตั้งแต่ 0 ขึ้นไป และนาทีระหว่าง 0–59',
+      );
       return;
     }
     setState(() {
@@ -172,8 +214,8 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
         widget.repository.updateConstraints(
           UpdateConstraintInput(
             dayOff: _dayOff,
-            continuousWorkingDuration: working,
-            breakDuration: breakTime,
+            continuousWorkingDuration: workingDuration.value,
+            breakDuration: breakDuration.value,
             startTime: _startTime,
             endTime: _endTime,
             timePreference: _timePreference,
@@ -196,6 +238,7 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
   @override
   Widget build(BuildContext context) {
     final height = MediaQuery.sizeOf(context).height;
+    final workingTimeError = _workingTimeError;
     return Dialog(
       key: const Key('edit-profile-popup'),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
@@ -261,6 +304,8 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
                           ? 'ไม่ระบุ'
                           : _formatDate(_birthdate!),
                       onTap: _pickBirthdate,
+                      icon: Icons.calendar_month_rounded,
+                      iconColor: const Color(0xFFF080A7),
                     ),
                     const SizedBox(height: 18),
                     const _SectionTitle('ข้อจำกัดการจัดตาราง'),
@@ -280,18 +325,18 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
                     Row(
                       children: [
                         Expanded(
-                          child: _TextField(
-                            label: 'ทำงานต่อเนื่อง (นาที)',
-                            controller: _workingDuration,
-                            numeric: true,
+                          child: _DurationFields(
+                            label: 'ระยะเวลาทำงาน',
+                            hoursController: _workingHours,
+                            minutesController: _workingMinutes,
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: _TextField(
-                            label: 'เวลาพัก (นาที)',
-                            controller: _breakDuration,
-                            numeric: true,
+                          child: _DurationFields(
+                            label: 'ระยะเวลาพัก',
+                            hoursController: _breakHours,
+                            minutesController: _breakMinutes,
                           ),
                         ),
                       ],
@@ -306,9 +351,14 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
                             onTap: () async {
                               final value = await _pickTime(_startTime);
                               if (value != null && mounted) {
-                                setState(() => _startTime = value);
+                                setState(() {
+                                  _startTime = value;
+                                  _error = null;
+                                });
                               }
                             },
+                            icon: Icons.access_time_rounded,
+                            iconColor: const Color(0xFF74B88A),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -319,13 +369,29 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
                             onTap: () async {
                               final value = await _pickTime(_endTime);
                               if (value != null && mounted) {
-                                setState(() => _endTime = value);
+                                setState(() {
+                                  _endTime = value;
+                                  _error = null;
+                                });
                               }
                             },
+                            icon: Icons.access_time_rounded,
+                            iconColor: const Color(0xFF74B88A),
                           ),
                         ),
                       ],
                     ),
+                    if (workingTimeError != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        workingTimeError,
+                        key: const Key('profile-working-time-error'),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFFD65D69),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     _SelectField<int>(
                       label: 'ช่วงเวลาที่ชอบ',
@@ -434,6 +500,49 @@ class _SectionTitle extends StatelessWidget {
   );
 }
 
+class _DurationFields extends StatelessWidget {
+  final String label;
+  final TextEditingController hoursController;
+  final TextEditingController minutesController;
+
+  const _DurationFields({
+    required this.label,
+    required this.hoursController,
+    required this.minutesController,
+  });
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563)),
+      ),
+      const SizedBox(height: 5),
+      Row(
+        children: [
+          Expanded(
+            child: _TextField(
+              label: 'ชม.',
+              controller: hoursController,
+              numeric: true,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _TextField(
+              label: 'นาที',
+              controller: minutesController,
+              numeric: true,
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
 class _TextField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
@@ -480,11 +589,15 @@ class _ValueButton extends StatelessWidget {
   final String label;
   final String value;
   final VoidCallback onTap;
+  final IconData icon;
+  final Color iconColor;
 
   const _ValueButton({
     required this.label,
     required this.value,
     required this.onTap,
+    required this.icon,
+    required this.iconColor,
   });
 
   @override
@@ -493,7 +606,12 @@ class _ValueButton extends StatelessWidget {
     borderRadius: BorderRadius.circular(14),
     child: InputDecorator(
       decoration: _decoration(label),
-      child: Text(value, style: const TextStyle(fontSize: 12)),
+      child: Row(
+        children: [
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
+          Icon(icon, size: 17, color: iconColor),
+        ],
+      ),
     ),
   );
 }
@@ -506,9 +624,7 @@ InputDecoration _decoration(String label) => InputDecoration(
   border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
 );
 
-String _formatDate(DateTime value) =>
-    '${value.day.toString().padLeft(2, '0')}/'
-    '${value.month.toString().padLeft(2, '0')}/${value.year}';
+String _formatDate(DateTime value) => formatDisplayDate(value);
 
 const _dayNames = [
   'วันจันทร์',

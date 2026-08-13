@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../common/DateTimeFormat.dart';
+
 const studyTypeLabels = <String, String>{
   'reading': 'อ่านตำรา/เอกสาร',
   'practice': 'ทำโจทย์/ฝึกปฏิบัติ',
@@ -39,47 +41,16 @@ String formatStudyDuration(double minutes, {bool compact = false}) {
 }
 
 String formatThaiMonth(String monthKey) {
-  const months = [
-    'มกราคม',
-    'กุมภาพันธ์',
-    'มีนาคม',
-    'เมษายน',
-    'พฤษภาคม',
-    'มิถุนายน',
-    'กรกฎาคม',
-    'สิงหาคม',
-    'กันยายน',
-    'ตุลาคม',
-    'พฤศจิกายน',
-    'ธันวาคม',
-  ];
   final parts = monthKey.split('-');
   final year = parts.isNotEmpty ? int.tryParse(parts[0]) : null;
   final month = parts.length > 1 ? int.tryParse(parts[1]) : null;
   if (year == null || month == null || month < 1 || month > 12) {
     return monthKey;
   }
-  return '${months[month - 1]} ${year + 543}';
+  return formatDisplayMonthYear(year, month);
 }
 
 String formatThaiDateTime(DateTime? value) {
   if (value == null) return 'ไม่ทราบเวลา';
-  final local = value.toLocal();
-  const months = [
-    'ม.ค.',
-    'ก.พ.',
-    'มี.ค.',
-    'เม.ย.',
-    'พ.ค.',
-    'มิ.ย.',
-    'ก.ค.',
-    'ส.ค.',
-    'ก.ย.',
-    'ต.ค.',
-    'พ.ย.',
-    'ธ.ค.',
-  ];
-  return '${local.day} ${months[local.month - 1]} ${local.year + 543} '
-      '${local.hour.toString().padLeft(2, '0')}:'
-      '${local.minute.toString().padLeft(2, '0')} น.';
+  return formatDisplayDateTime(value);
 }

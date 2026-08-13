@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../common/AppDatePicker.dart';
 import 'Selectgender.dart';
 
 class CreateAccountData {
@@ -124,7 +125,7 @@ class CreateAccountFormState extends State<CreateAccountForm> {
   Future<void> selectBirthDate() async {
     final DateTime now = DateTime.now();
 
-    final DateTime? selectedDate = await showDatePicker(
+    final DateTime? selectedDate = await showAppDatePicker(
       context: context,
       initialDate: DateTime(now.year - 18, now.month, now.day),
       firstDate: DateTime(1900),
@@ -427,7 +428,7 @@ class CreateAccountFormState extends State<CreateAccountForm> {
                       icon: const Icon(
                         Icons.calendar_month,
                         size: 21,
-                        color: Color(0xFFFFB9DF),
+                        color: Color(0xFFF080A7),
                       ),
                     ),
                   ),

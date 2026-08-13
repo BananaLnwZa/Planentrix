@@ -29,9 +29,7 @@ export const getSubjectsForWorkload = async (req: Request, res: Response) => {
     }
     const userId = authUser.id;
 
-    const { schedule_type_id } = req.query;
-
-    let query = `
+    const query = `
       SELECT
         st.schedule_time_id,
         s.subject_id,
@@ -40,18 +38,14 @@ export const getSubjectsForWorkload = async (req: Request, res: Response) => {
       FROM schedule_time st
       JOIN subjects s ON st.subject_id = s.subject_id
       JOIN terms t ON st.term_id = t.term_id
-      WHERE st.user_id = ? AND t.term_status = 1
+      WHERE st.user_id = ?
+        AND t.user_id = ?
+        AND t.term_status = 1
+        AND st.schedule_type_id = 1
+      ORDER BY s.subject_name ASC
     `;
-    const params: any[] = [userId];
 
-    if (schedule_type_id) {
-      query += ` AND st.schedule_type_id = ?`;
-      params.push(schedule_type_id);
-    }
-
-    query += ` ORDER BY s.subject_name ASC`;
-
-    const [rows]: any = await db.query(query, params);
+    const [rows]: any = await db.query(query, [userId, userId]);
 
     if (rows.length === 0) {
       return res.status(404).json({
@@ -119,8 +113,15 @@ export const createWorkload = async (req: Request, res: Response) => {
     }
 
     const [existingSchedule]: any = await db.query(
-      `SELECT * FROM schedule_time WHERE schedule_time_id = ? AND user_id = ?`,
-      [schedule_time_id, userId]
+      `SELECT st.*
+       FROM schedule_time st
+       INNER JOIN terms t ON t.term_id = st.term_id
+       WHERE st.schedule_time_id = ?
+         AND st.user_id = ?
+         AND st.schedule_type_id = 1
+         AND t.user_id = ?
+         AND t.term_status = 1`,
+      [schedule_time_id, userId, userId]
     );
 
     if (existingSchedule.length === 0) {
@@ -199,9 +200,14 @@ export const updateWorkload = async (req: Request, res: Response) => {
       `SELECT w.workload_id, w.workload_status
        FROM workloads w
        INNER JOIN schedule_time st ON st.schedule_time_id = w.schedule_time_id
-       WHERE w.workload_id = ? AND st.user_id = ?
+       INNER JOIN terms t ON t.term_id = st.term_id
+       WHERE w.workload_id = ?
+         AND st.user_id = ?
+         AND st.schedule_type_id = 1
+         AND t.user_id = ?
+         AND t.term_status = 1
        LIMIT 1`,
-      [workloadId, userId]
+      [workloadId, userId, userId]
     );
 
     if (existing.length === 0) {
@@ -258,8 +264,14 @@ export const deleteWorkload = async (req: Request, res: Response) => {
       `DELETE w
        FROM workloads w
        INNER JOIN schedule_time st ON st.schedule_time_id = w.schedule_time_id
-       WHERE w.workload_id = ? AND st.user_id = ? AND w.workload_status = 0`,
-      [workloadId, authUser.id]
+       INNER JOIN terms t ON t.term_id = st.term_id
+       WHERE w.workload_id = ?
+         AND st.user_id = ?
+         AND st.schedule_type_id = 1
+         AND t.user_id = ?
+         AND t.term_status = 1
+         AND w.workload_status = 0`,
+      [workloadId, authUser.id, authUser.id]
     );
 
     if (result.affectedRows === 0) {
@@ -301,8 +313,13 @@ export const finishWorkload = async (req: Request, res: Response) => {
     const [existing]: any = await db.query(
       `SELECT w.* FROM workloads w
        JOIN schedule_time st ON w.schedule_time_id = st.schedule_time_id
-       WHERE w.workload_id = ? AND st.user_id = ?`,
-      [workload_id, userId]
+       JOIN terms t ON t.term_id = st.term_id
+       WHERE w.workload_id = ?
+         AND st.user_id = ?
+         AND st.schedule_type_id = 1
+         AND t.user_id = ?
+         AND t.term_status = 1`,
+      [workload_id, userId, userId]
     );
 
     if (existing.length === 0) {
@@ -364,9 +381,14 @@ export const getPendingWorkloads = async (req: Request, res: Response) => {
        JOIN schedule_time st ON w.schedule_time_id = st.schedule_time_id
        JOIN subjects s ON st.subject_id = s.subject_id
        JOIN workload_types wt ON w.workload_type_id = wt.workload_type_id
-       WHERE st.user_id = ? AND w.workload_status = 0
+       JOIN terms t ON st.term_id = t.term_id
+       WHERE st.user_id = ?
+         AND t.user_id = ?
+         AND t.term_status = 1
+         AND st.schedule_type_id = 1
+         AND w.workload_status = 0
        ORDER BY w.deadline_date ASC, w.deadline_time ASC`,
-      [userId]
+      [userId, userId]
     );
 
     res.json({
@@ -420,8 +442,13 @@ export const saveWorkloadScore = async (req: Request, res: Response) => {
     const [existingWorkload]: any = await db.query(
       `SELECT w.* FROM workloads w
        JOIN schedule_time st ON w.schedule_time_id = st.schedule_time_id
-       WHERE w.workload_id = ? AND st.user_id = ?`,
-      [workload_id, userId]
+       JOIN terms t ON t.term_id = st.term_id
+       WHERE w.workload_id = ?
+         AND st.user_id = ?
+         AND st.schedule_type_id = 1
+         AND t.user_id = ?
+         AND t.term_status = 1`,
+      [workload_id, userId, userId]
     );
 
     if (existingWorkload.length === 0) {

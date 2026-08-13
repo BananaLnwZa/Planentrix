@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import '../../../interfaces/auth.interface.dart' as auth;
 import 'BusyDayModal.dart';
@@ -75,45 +77,49 @@ class BusyDayState extends State<BusyDay> {
   Future<void> _openBusyDayModal({BusyDayItem? item}) async {
     await showDialog<void>(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.30),
+      barrierDismissible: true,
+      barrierColor: Colors.transparent,
       builder: (dialogContext) {
-        return BusyDayModal(
-          editItem: item == null
-              ? null
-              : BusyDayEditItem(
-                  id: item.id,
-                  day: item.day,
-                  start: item.start,
-                  end: item.end,
-                ),
-          onConfirm: (String day, String start, String end) {
-            if (!mounted) return;
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+          child: BusyDayModal(
+            editItem: item == null
+                ? null
+                : BusyDayEditItem(
+                    id: item.id,
+                    day: item.day,
+                    start: item.start,
+                    end: item.end,
+                  ),
+            onConfirm: (String day, String start, String end) {
+              if (!mounted) return;
 
-            setState(() {
-              if (item != null) {
-                final int index = items.indexWhere(
-                  (currentItem) => currentItem.id == item.id,
-                );
+              setState(() {
+                if (item != null) {
+                  final int index = items.indexWhere(
+                    (currentItem) => currentItem.id == item.id,
+                  );
 
-                if (index != -1) {
-                  items[index] = items[index].copyWith(
-                    day: day,
-                    start: start,
-                    end: end,
+                  if (index != -1) {
+                    items[index] = items[index].copyWith(
+                      day: day,
+                      start: start,
+                      end: end,
+                    );
+                  }
+                } else {
+                  items.add(
+                    BusyDayItem(
+                      id: _generateId(),
+                      day: day,
+                      start: start,
+                      end: end,
+                    ),
                   );
                 }
-              } else {
-                items.add(
-                  BusyDayItem(
-                    id: _generateId(),
-                    day: day,
-                    start: start,
-                    end: end,
-                  ),
-                );
-              }
-            });
-          },
+              });
+            },
+          ),
         );
       },
     );

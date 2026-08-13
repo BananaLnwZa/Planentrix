@@ -316,7 +316,7 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
             เวลาเริ่มทำงาน
           </label>
 
-          <div className="relative w-full max-w-[200px]">
+          <div className="relative w-[130px] max-w-full">
             <TimePicker24Hour
               id="start-work-time"
               value={startTime}
@@ -326,13 +326,13 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
               ariaDescribedBy={timeError ? "work-time-error" : undefined}
               iconSize={22}
               className={`
-                h-[48px]
+                h-[44px]
                 w-full
                 rounded-full
                 border
                 bg-white
                 pl-4
-                pr-8
+                pr-3
                 text-sm
                 text-gray-500
                 outline-none
@@ -343,12 +343,12 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
                     : "border-gray-300 focus:border-pink-300"
                 }
 
-                sm:h-[52px]
-                sm:pl-5
-                sm:pr-9
-                md:h-[56px]
-                md:pl-6
-                md:pr-10
+                sm:h-[46px]
+                sm:pl-4
+                sm:pr-3
+                md:h-[48px]
+                md:pl-5
+                md:pr-3
                 md:text-base
               `}
             />
@@ -361,7 +361,7 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
             เวลาสิ้นสุดการทำงาน
           </label>
 
-          <div className="relative w-full max-w-[200px]">
+          <div className="relative w-[130px] max-w-full">
             <TimePicker24Hour
               id="end-work-time"
               value={endTime}
@@ -371,13 +371,13 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
               ariaDescribedBy={timeError ? "work-time-error" : undefined}
               iconSize={22}
               className={`
-                h-[48px]
+                h-[44px]
                 w-full
                 rounded-full
                 border
                 bg-white
                 pl-4
-                pr-8
+                pr-3
                 text-sm
                 text-gray-500
                 outline-none
@@ -388,12 +388,12 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
                     : "border-gray-300 focus:border-pink-300"
                 }
 
-                sm:h-[52px]
-                sm:pl-5
-                sm:pr-9
-                md:h-[56px]
-                md:pl-6
-                md:pr-11
+                sm:h-[46px]
+                sm:pl-4
+                sm:pr-3
+                md:h-[48px]
+                md:pl-5
+                md:pr-3
                 md:text-base
               `}
             />

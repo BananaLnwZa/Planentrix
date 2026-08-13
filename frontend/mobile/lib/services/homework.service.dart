@@ -134,8 +134,7 @@ class HomeworkService implements HomeworkRepository {
         subject: input.subject.subjectName,
         assignment: input.assignment,
         deadline: input.deadline,
-        dueDate:
-            '${input.deadline.day}/${input.deadline.month}/${input.deadline.year + 543}',
+        dueDate: formatHomeworkDisplayDate(input.deadline),
         dueTime: formatHomeworkDisplayTime(input.deadline),
         note: input.note,
       );

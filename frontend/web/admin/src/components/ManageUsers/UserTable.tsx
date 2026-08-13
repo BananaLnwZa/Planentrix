@@ -1,6 +1,7 @@
 import { Pencil, Trash2, UserRound } from "lucide-react";
 import { ManagedUser, UserGender } from "@/interfaces/user-management.interface";
 import UserStatusBadge from "./UserStatusBadge";
+import { formatDisplayDate, formatDisplayDateTime } from "@/utils/dateTime";
 
 interface UserTableProps {
   users: ManagedUser[];
@@ -14,18 +15,8 @@ const genderLabels: Record<UserGender, string> = {
   other: "อื่น ๆ",
 };
 
-const formatDate = (value: string | null, includeTime = false): string => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-
-  return new Intl.DateTimeFormat("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    ...(includeTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-  }).format(date);
-};
+const formatDate = (value: string | null, includeTime = false): string =>
+  includeTime ? formatDisplayDateTime(value) : formatDisplayDate(value);
 
 function UserAvatar({ userName }: { userName: string }) {
   return (

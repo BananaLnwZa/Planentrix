@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../common/AppDateTimePicker.dart';
 import '../../../common/HomeworkTimeFormat.dart';
 import '../../../common/WorkloadTypePalette.dart';
 import '../../../interfaces/homework.interface.dart';
@@ -60,30 +61,15 @@ class _HomeworkDetailsPopupState extends State<_HomeworkDetailsPopup> {
   }
 
   Future<void> _pickDeadline() async {
-    final date = await showDatePicker(
+    final picked = await showAppDateTimePicker(
       context: context,
-      initialDate: _deadline,
+      initialDateTime: _deadline,
       firstDate: DateTime(2000),
       lastDate: DateTime(DateTime.now().year + 10),
     );
-    if (date == null || !mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_deadline),
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-        child: child!,
-      ),
-    );
-    if (time == null || !mounted) return;
+    if (picked == null || !mounted) return;
     setState(() {
-      _deadline = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
+      _deadline = picked;
       _error = null;
     });
   }
@@ -215,7 +201,7 @@ class _HomeworkDetailsPopupState extends State<_HomeworkDetailsPopup> {
                           trailing: const Icon(
                             Icons.calendar_month_rounded,
                             size: 15,
-                            color: Color(0xFF82C9EA),
+                            color: Color(0xFF74B88A),
                           ),
                         ),
                       )
@@ -464,9 +450,7 @@ class _SaveHomeworkButton extends StatelessWidget {
 }
 
 String _editedDeadlineText(DateTime value) {
-  final buddhistYear = value.year + 543;
-  return '${value.day}/${value.month}/$buddhistYear '
-      '${formatHomeworkDisplayTime(value)}';
+  return formatHomeworkDisplayDateTime(value);
 }
 
 class _PopupActionButton extends StatelessWidget {

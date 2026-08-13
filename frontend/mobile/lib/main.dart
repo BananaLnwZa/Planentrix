@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'pages/Homework/Homework.dart';
 import 'pages/Login/LogInPage.dart';
 import 'pages/Main/MainPage.dart';
@@ -65,9 +66,14 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-
+      locale: const Locale('en', 'GB'),
+      supportedLocales: const [Locale('en', 'GB')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: ThemeData(fontFamily: 'Sansation'),
-
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
       home: const LoginPage(),
       onGenerateRoute: generateAppRoute,
     );

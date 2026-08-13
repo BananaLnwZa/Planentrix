@@ -16,6 +16,10 @@ import type {
 import type { CurrentTerm } from "@/interfaces/term.interface";
 import { useAuthStore } from "@/services/auth.store";
 import profileService from "@/services/profile.service";
+import {
+  formatDisplayDate as formatDate,
+  formatDisplayTime as formatTime,
+} from "@/utils/dateTime";
 import StudentCardPopup, {
   type EditConstraintValues,
   type EditProfileValues,
@@ -63,24 +67,12 @@ function formatGender(value?: string | null) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return "—";
-  const [year, month, day] = value.slice(0, 10).split("-");
-  return year && month && day ? `${day}/${month}/${year}` : value;
-}
-
-function formatTime(value?: string | null) {
-  return value ? value.slice(0, 5) : "—";
-}
-
 function formatMinutes(value?: number | null) {
   if (value === null || value === undefined) return "—";
 
   const hours = Math.floor(value / 60);
   const minutes = value % 60;
-  if (hours && minutes) return `${hours} hr ${minutes} min`;
-  if (hours) return `${hours} hr`;
-  return `${minutes} min`;
+  return `${hours} ชม. ${minutes} นาที`;
 }
 
 function createEditConstraintValues(
@@ -287,7 +279,7 @@ export default function StudentCard({
       editConstraintValues.startTime >= editConstraintValues.endTime
     ) {
       setActivePanel("constraint");
-      setActionError("The start working time must be before the end time.");
+      setActionError("เวลาสิ้นสุดการทำงานต้องมากกว่าเวลาเริ่มทำงาน");
       return;
     }
 

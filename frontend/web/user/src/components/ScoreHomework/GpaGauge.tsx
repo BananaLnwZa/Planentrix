@@ -21,13 +21,13 @@ export default function GpaGauge({
     >
       <div className="flex items-center justify-between px-1">
         <div className="text-left">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#87A5B6]">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#5F7F91]">
             Progress
           </p>
           <h1 className="text-xl font-semibold text-[#31566C]">GPA ปัจจุบัน</h1>
         </div>
         <div className="text-right">
-          <p className="text-[11px] text-[#8AA3B0]">เป้าหมาย</p>
+          <p className="text-[11px] font-medium text-[#5F7887]">เป้าหมาย</p>
           <p className="text-lg font-semibold text-[#4EA9DA]">{safeTargetGpa.toFixed(2)}</p>
         </div>
       </div>
@@ -62,7 +62,7 @@ export default function GpaGauge({
         >
           {safeCurrentGpa.toFixed(2)}
         </text>
-        <text x="120" y="126" textAnchor="middle" fill="#8AA3B0" fontSize="10">
+        <text x="120" y="126" textAnchor="middle" fill="#5F7887" fontSize="10" fontWeight="500">
           จากเป้าหมาย {safeTargetGpa.toFixed(2)}
         </text>
       </svg>

@@ -27,7 +27,7 @@ export default function ConfirmGradeGoalsModal({
         <h2 id="confirm-grade-title" className="mt-4 text-lg font-semibold text-[#244B63]">
           ยืนยันเป้าหมายนี้ใช่ไหม?
         </h2>
-        <p className="mt-2 text-sm leading-6 text-[#6B8492]">
+        <p className="mt-2 text-sm font-medium leading-6 text-[#526D7B]">
           GPA เป้าหมายของเทอมนี้คือ
           <span className="mx-1 font-semibold text-[#4CA9DD]">{targetGpa.toFixed(2)}</span>
           เมื่อยืนยันแล้วจะไม่สามารถแก้ไขได้

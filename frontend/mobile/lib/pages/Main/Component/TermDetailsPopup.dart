@@ -1,25 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../interfaces/term.interface.dart';
-
-const _thaiMonths = [
-  'มกราคม',
-  'กุมภาพันธ์',
-  'มีนาคม',
-  'เมษายน',
-  'พฤษภาคม',
-  'มิถุนายน',
-  'กรกฎาคม',
-  'สิงหาคม',
-  'กันยายน',
-  'ตุลาคม',
-  'พฤศจิกายน',
-  'ธันวาคม',
-];
+import '../../../common/DateTimeFormat.dart';
 
 String formatThaiTermDate(DateTime? date) {
   if (date == null) return '—';
-  return '${date.day} ${_thaiMonths[date.month - 1]}';
+  return formatDisplayDate(date);
 }
 
 Future<bool?> showTermDetailsPopup(

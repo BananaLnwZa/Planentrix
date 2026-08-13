@@ -109,7 +109,7 @@ class HomeworkTaskData {
       subject: '${json['subject_name'] ?? ''}',
       assignment: '${json['workload_name'] ?? ''}',
       deadline: deadline,
-      dueDate: '${deadline.day}/${deadline.month}/${deadline.year + 543}',
+      dueDate: formatHomeworkDisplayDate(deadline),
       dueTime: formatHomeworkDisplayTime(deadline),
       note: '${json['note'] ?? ''}',
     );
@@ -130,8 +130,7 @@ class HomeworkTaskData {
       subject: subject,
       assignment: assignment ?? this.assignment,
       deadline: updatedDeadline,
-      dueDate:
-          '${updatedDeadline.day}/${updatedDeadline.month}/${updatedDeadline.year + 543}',
+      dueDate: formatHomeworkDisplayDate(updatedDeadline),
       dueTime: formatHomeworkDisplayTime(updatedDeadline),
       note: note ?? this.note,
     );

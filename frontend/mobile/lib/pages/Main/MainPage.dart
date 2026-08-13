@@ -12,6 +12,7 @@ import '../../interfaces/profile.interface.dart';
 import '../../interfaces/term.interface.dart';
 import '../../common/NotebookSectionPage.dart';
 import '../../common/NotebookTabs.dart';
+import '../../common/DateTimeFormat.dart';
 import 'Component/Schedule.dart';
 import 'Component/EditProfilePopup.dart';
 import 'Component/StudentCard.dart';
@@ -121,8 +122,7 @@ class _MainPageState extends State<MainPage> {
   String get _displayBirthdate {
     final date = _profile?.birthdate;
     if (date == null) return '—';
-    return '${date.day.toString().padLeft(2, '0')}/'
-        '${date.month.toString().padLeft(2, '0')}/${date.year}';
+    return formatDisplayDate(date);
   }
 
   ImageProvider<Object>? get _photo {
@@ -134,9 +134,7 @@ class _MainPageState extends State<MainPage> {
     if (value == null) return '—';
     final hours = value ~/ 60;
     final minutes = value % 60;
-    if (hours > 0 && minutes > 0) return '$hours hr $minutes min';
-    if (hours > 0) return '$hours hr';
-    return '$minutes min';
+    return '$hours ชม. $minutes นาที';
   }
 
   String _dayName(int? day) => day == null || day < 1 || day > 7

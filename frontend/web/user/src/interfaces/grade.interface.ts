@@ -15,9 +15,14 @@ export interface GradeWorkload {
   workload_type_name: string;
   deadline_date: string;
   deadline_time: string;
-  workload_status: string;
+  workload_status: string | number | boolean;
   actual_score: number | null;
   max_score: number | null;
+}
+
+export interface WorkloadScoreInput {
+  actual_score: number;
+  max_score: number;
 }
 
 export interface SubjectGradeGoal {
@@ -55,4 +60,12 @@ export interface SaveGradeGoalsResponse {
   goals_locked: true;
   target_gpa: number;
   data: Array<SaveGradeGoalItem & { target_score: number }>;
+}
+
+export interface OverallGradeSummary {
+  overall_target_gpa: number;
+  overall_actual_gpa: number;
+  overall_grade: string;
+  overall_percent: number;
+  max_gpa: number;
 }

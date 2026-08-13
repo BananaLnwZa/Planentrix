@@ -13,14 +13,11 @@ import 'package:mobile/pages/SignIn/SignInPage.dart';
 import 'package:mobile/services/auth.service.dart' show AuthException;
 
 void main() {
-  test('busy day times use the 12-hour AM/PM format', () {
-    expect(formatBusyDayTime(const TimeOfDay(hour: 0, minute: 5)), '12:05 AM');
-    expect(formatBusyDayTime(const TimeOfDay(hour: 9, minute: 30)), '09:30 AM');
-    expect(formatBusyDayTime(const TimeOfDay(hour: 12, minute: 0)), '12:00 PM');
-    expect(
-      formatBusyDayTime(const TimeOfDay(hour: 14, minute: 15)),
-      '02:15 PM',
-    );
+  test('busy day times use the 24-hour HH:mm format', () {
+    expect(formatBusyDayTime(const TimeOfDay(hour: 0, minute: 5)), '00:05');
+    expect(formatBusyDayTime(const TimeOfDay(hour: 9, minute: 30)), '09:30');
+    expect(formatBusyDayTime(const TimeOfDay(hour: 12, minute: 0)), '12:00');
+    expect(formatBusyDayTime(const TimeOfDay(hour: 14, minute: 15)), '14:15');
 
     expect(parseBusyDayTime('09:30 AM'), const TimeOfDay(hour: 9, minute: 30));
     expect(parseBusyDayTime('02:15 PM'), const TimeOfDay(hour: 14, minute: 15));
@@ -73,9 +70,9 @@ void main() {
     expect(busyDayBorder.top.width, 1);
     expect(
       tester.getSize(find.byKey(const Key('start-time-field'))).width,
-      170,
+      130,
     );
-    expect(tester.getSize(find.byKey(const Key('end-time-field'))).width, 170);
+    expect(tester.getSize(find.byKey(const Key('end-time-field'))).width, 130);
 
     final signInTheme = Theme.of(tester.element(createAccountFinder));
     expect(signInTheme.textTheme.bodyMedium?.fontFamily, 'Sansation');
@@ -517,6 +514,14 @@ void main() {
 
     expect(decorationOf(sunday).border!.top.color, Colors.transparent);
     expect(decorationOf(sunday).boxShadow, hasLength(1));
+    expect(
+      tester.getSize(find.byKey(const Key('busy-start-time-field'))).width,
+      125,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('busy-end-time-field'))).width,
+      125,
+    );
   });
 
   testWidgets('busy day modal shows the same time validation as web', (

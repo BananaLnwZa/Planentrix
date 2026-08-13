@@ -14,8 +14,8 @@ class FakeTableRepository implements TableRepository {
       subjectId: 'BI101',
       subjectName: 'Business Intelligence',
       scheduleDay: 1,
-      startTime: '08:00',
-      endTime: '10:00',
+      startTime: '09:30',
+      endTime: '17:00',
       classroom: 'SC101',
     ),
   ];
@@ -117,7 +117,9 @@ void main() {
     for (final day in ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.']) {
       expect(find.text(day), findsOneWidget);
     }
-    expect(find.text('6 AM'), findsOneWidget);
+    expect(find.text('06:00'), findsNothing);
+    expect(find.text('09:00'), findsOneWidget);
+    expect(find.text('17:00'), findsOneWidget);
     expect(find.byKey(const Key('schedule-block-1')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('schedule-block-1')));
@@ -126,5 +128,69 @@ void main() {
     expect(find.text('Business Intelligence'), findsWidgets);
     expect(find.byKey(const Key('edit-schedule-button')), findsOneWidget);
     expect(find.byKey(const Key('delete-schedule-button')), findsNothing);
+  });
+
+  testWidgets('schedule hides its grid and add button when it has no items', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+    final repository = FakeTableRepository()..items.clear();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Schedule(repository: repository),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('schedule-header')), findsNothing);
+    expect(find.byKey(const Key('schedule-time-list')), findsNothing);
+    expect(find.byKey(const Key('add-schedule-button')), findsNothing);
+    expect(
+      find.text('ยังไม่มีข้อมูลตารางเวลาสำหรับเทอมปัจจุบัน'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('schedule range supports times before 06:00 and after 23:00', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+    final repository = FakeTableRepository()
+      ..items = const [
+        ScheduleItem(
+          scheduleTimeId: 3,
+          scheduleTypeId: 2,
+          scheduleTypeName: 'Review',
+          subjectId: 'BI101',
+          subjectName: 'Business Intelligence',
+          scheduleDay: 2,
+          startTime: '05:30',
+          endTime: '23:30',
+        ),
+      ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Schedule(repository: repository),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('05:00'), findsOneWidget);
+    expect(find.text('24:00'), findsOneWidget);
+    expect(find.byKey(const Key('schedule-block-3')), findsOneWidget);
   });
 }

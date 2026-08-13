@@ -3,16 +3,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { BookX, CircleAlert, LoaderCircle, RefreshCw } from "lucide-react";
 import type {
+  OverallGradeSummary,
   SaveGradeGoalItem,
   SubjectGoalsResponse,
 } from "@/interfaces/grade.interface";
 import gradeService from "@/services/grade.service";
 import GradeGoalModal from "./GradeGoalModal";
 import GradeGoalPrompt from "./GradeGoalPrompt";
+import HomeworkDashboard from "./HomeworkDashboard";
 import ScoreDashboard from "./ScoreDashboard";
 
 export default function ScoreHomeworkContent() {
   const [data, setData] = useState<SubjectGoalsResponse | null>(null);
+  const [overall, setOverall] = useState<OverallGradeSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
@@ -23,7 +26,12 @@ export default function ScoreHomeworkContent() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      setData(await gradeService.getSubjectGoals());
+      const [goals, gradeOverall] = await Promise.all([
+        gradeService.getSubjectGoals(),
+        gradeService.getOverallGrade(),
+      ]);
+      setData(goals);
+      setOverall(gradeOverall);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "เกิดข้อผิดพลาด");
     } finally {
@@ -34,10 +42,12 @@ export default function ScoreHomeworkContent() {
   useEffect(() => {
     let isActive = true;
 
-    gradeService
-      .getSubjectGoals()
-      .then((result) => {
-        if (isActive) setData(result);
+    Promise.all([gradeService.getSubjectGoals(), gradeService.getOverallGrade()])
+      .then(([goals, gradeOverall]) => {
+        if (isActive) {
+          setData(goals);
+          setOverall(gradeOverall);
+        }
       })
       .catch((error: unknown) => {
         if (isActive) {
@@ -58,8 +68,12 @@ export default function ScoreHomeworkContent() {
     setSaveError(null);
     try {
       await gradeService.saveGradeGoals({ goals });
-      const refreshed = await gradeService.getSubjectGoals();
+      const [refreshed, gradeOverall] = await Promise.all([
+        gradeService.getSubjectGoals(),
+        gradeService.getOverallGrade(),
+      ]);
       setData(refreshed);
+      setOverall(gradeOverall);
       setIsGoalModalOpen(false);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "บันทึกไม่สำเร็จ");
@@ -69,7 +83,8 @@ export default function ScoreHomeworkContent() {
   };
 
   return (
-    <div className="relative h-full w-full md:w-[calc(50%-26px)] md:pr-1">
+    <div className="grid h-full w-full grid-cols-1 gap-10 md:grid-cols-[calc(50%-26px)_calc(50%-26px)] md:justify-between md:gap-[52px]">
+    <div className="relative h-full min-h-[500px] w-full md:-left-4 md:pr-1 xl:-left-5">
       {isLoading ? (
         <div className="flex min-h-[430px] items-center justify-center text-[#6BAED3]">
           <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
@@ -98,7 +113,16 @@ export default function ScoreHomeworkContent() {
           onAction={() => void loadGoals()}
         />
       ) : data.goals_locked ? (
-        <ScoreDashboard subjects={data.data} />
+        <ScoreDashboard
+          subjects={data.data}
+          overall={overall}
+          onSubjectsChange={(subjects) =>
+            setData((current) => (current ? { ...current, data: subjects } : current))
+          }
+          onScoreSaved={() => {
+            void gradeService.getOverallGrade().then(setOverall).catch(() => undefined);
+          }}
+        />
       ) : (
         <GradeGoalPrompt
           subjectCount={data.data.length}
@@ -118,6 +142,8 @@ export default function ScoreHomeworkContent() {
           onSave={(goals) => void handleSave(goals)}
         />
       )}
+    </div>
+      <HomeworkDashboard onHomeworkFinished={() => void loadGoals()} />
     </div>
   );
 }
@@ -142,7 +168,7 @@ function StateMessage({
           {icon}
         </span>
         <h1 className="mt-4 text-lg font-semibold text-[#31566C]">{title}</h1>
-        <p className="mx-auto mt-2 max-w-[290px] text-sm leading-6 text-[#7893A2]">
+        <p className="mx-auto mt-2 max-w-[290px] text-sm font-medium leading-6 text-[#566F7D]">
           {detail}
         </p>
         {actionLabel && onAction && (

@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { LoaderCircle, Save, X } from "lucide-react";
+import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
 import {
   ManagedUser,
   UpdateManagedUserRequest,
@@ -95,12 +96,12 @@ export default function EditUserModal({ user, onClose, onSave }: EditUserModalPr
 
           <label className="block text-sm font-medium text-[#4c626c]">
             วันเกิด
-            <input
+            <LocalizedDateTimeInput
               type="date"
               value={birthdate}
               max={new Date().toISOString().slice(0, 10)}
               onChange={(event) => setBirthdate(event.target.value)}
-              className="mt-2 h-11 w-full rounded-xl border border-[#dbe6ea] bg-[#fbfdfe] px-3.5 font-normal text-[#304852] outline-none focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]"
+              className="mt-2 h-11 w-full rounded-xl border border-[#dbe6ea] bg-[#fbfdfe] px-3.5 font-normal text-[#304852] outline-none focus-within:border-[#79bdd4] focus-within:ring-4 focus-within:ring-[#e1f4fa]"
             />
           </label>
 

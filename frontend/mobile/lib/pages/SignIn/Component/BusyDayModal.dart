@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../common/AppTimePicker.dart';
+
 const String _fontFamily = 'Sansation';
 
 TimeOfDay? parseBusyDayTime(String value) {
@@ -29,11 +31,8 @@ TimeOfDay? parseBusyDayTime(String value) {
 }
 
 String formatBusyDayTime(TimeOfDay time) {
-  final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
-  final minute = time.minute.toString().padLeft(2, '0');
-  final period = time.period == DayPeriod.am ? 'AM' : 'PM';
-
-  return '${hour.toString().padLeft(2, '0')}:$minute $period';
+  return '${time.hour.toString().padLeft(2, '0')}:'
+      '${time.minute.toString().padLeft(2, '0')}';
 }
 
 String? convertDisplayTimeTo24Hour(String value) {
@@ -137,12 +136,10 @@ class _BusyDayModalState extends State<BusyDayModal> {
   }
 
   Future<void> _selectStartTime() async {
-    final selected = await showTimePicker(
+    final selected = await showAppTimePicker(
       context: context,
       initialTime: _parseTime(startTime),
-      helpText: 'เลือกเวลาเริ่มต้น',
-      cancelText: 'ยกเลิก',
-      confirmText: 'ตกลง',
+      title: 'เลือกเวลาเริ่มต้น',
     );
 
     if (selected == null || !mounted) return;
@@ -158,12 +155,10 @@ class _BusyDayModalState extends State<BusyDayModal> {
   }
 
   Future<void> _selectEndTime() async {
-    final selected = await showTimePicker(
+    final selected = await showAppTimePicker(
       context: context,
       initialTime: _parseTime(endTime),
-      helpText: 'เลือกเวลาสิ้นสุด',
-      cancelText: 'ยกเลิก',
-      confirmText: 'ตกลง',
+      title: 'เลือกเวลาสิ้นสุด',
     );
 
     if (selected == null || !mounted) return;
@@ -231,6 +226,9 @@ class _BusyDayModalState extends State<BusyDayModal> {
     final double modalPadding = mobile ? 20 : 24;
     final double titleSize = mobile ? 17 : 20;
     const double timeFieldHeight = 46;
+    final double timeFieldWidth = mobile
+        ? ((screenWidth - 120) / 2).clamp(100.0, 115.0)
+        : 125;
 
     final inputBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(25),
@@ -322,8 +320,11 @@ class _BusyDayModalState extends State<BusyDayModal> {
 
                       /// เวลาเริ่มต้นและสิ้นสุด
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Expanded(
+                          SizedBox(
+                            key: const Key('busy-start-time-field'),
+                            width: timeFieldWidth,
                             child: SizedBox(
                               height: timeFieldHeight,
                               child: TextFormField(
@@ -351,9 +352,11 @@ class _BusyDayModalState extends State<BusyDayModal> {
                                   fillColor: Colors.white,
                                   isDense: true,
 
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 14,
+                                  contentPadding: const EdgeInsets.only(
+                                    left: 14,
+                                    right: 2,
+                                    top: 14,
+                                    bottom: 14,
                                   ),
 
                                   border: inputBorder,
@@ -368,11 +371,22 @@ class _BusyDayModalState extends State<BusyDayModal> {
 
                                   suffixIcon: IconButton(
                                     onPressed: _selectStartTime,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: 40,
+                                      height: 40,
+                                    ),
                                     icon: const Icon(
                                       Icons.access_time,
-                                      color: Color(0xFFFFB9DF),
+                                      size: 22,
+                                      color: Color(0xFF74B88A),
                                     ),
                                   ),
+                                  suffixIconConstraints:
+                                      const BoxConstraints.tightFor(
+                                        width: 40,
+                                        height: 40,
+                                      ),
                                 ),
                               ),
                             ),
@@ -388,7 +402,9 @@ class _BusyDayModalState extends State<BusyDayModal> {
                             ),
                           ),
 
-                          Expanded(
+                          SizedBox(
+                            key: const Key('busy-end-time-field'),
+                            width: timeFieldWidth,
                             child: SizedBox(
                               height: timeFieldHeight,
                               child: TextFormField(
@@ -416,9 +432,11 @@ class _BusyDayModalState extends State<BusyDayModal> {
                                   fillColor: Colors.white,
                                   isDense: true,
 
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 14,
+                                  contentPadding: const EdgeInsets.only(
+                                    left: 14,
+                                    right: 2,
+                                    top: 14,
+                                    bottom: 14,
                                   ),
 
                                   border: inputBorder,
@@ -433,11 +451,22 @@ class _BusyDayModalState extends State<BusyDayModal> {
 
                                   suffixIcon: IconButton(
                                     onPressed: _selectEndTime,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: 40,
+                                      height: 40,
+                                    ),
                                     icon: const Icon(
                                       Icons.access_time,
-                                      color: Color(0xFFFFB9DF),
+                                      size: 22,
+                                      color: Color(0xFF74B88A),
                                     ),
                                   ),
+                                  suffixIconConstraints:
+                                      const BoxConstraints.tightFor(
+                                        width: 40,
+                                        height: 40,
+                                      ),
                                 ),
                               ),
                             ),

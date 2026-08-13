@@ -280,7 +280,7 @@ void main() {
     await tester.tap(find.byKey(const Key('constraint-tab')));
     await tester.pumpAndSettle();
 
-    expect(find.text('50 min'), findsOneWidget);
+    expect(find.text('0 ชม. 50 นาที'), findsOneWidget);
     expect(find.text('08:00 – 18:00'), findsOneWidget);
     expect(find.text('Monday 12:00 – 13:00'), findsOneWidget);
 

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { BookPlus, LoaderCircle, Save, X } from "lucide-react";
 import AdminSelect from "@/components/ui/AdminSelect";
+import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
 import { Subject, SubjectPayload, SubjectType } from "@/interfaces/subject-management.interface";
 
 interface SubjectFormModalProps {
@@ -239,10 +240,10 @@ export default function SubjectFormModal({ subject, subjectTypes, onClose, onSav
             </div>
             <div className="grid grid-cols-2 gap-3">
               <label className="text-sm font-medium text-[#4c626c]">เวลาเริ่ม
-                <input type="time" value={form.start_time} onChange={(event) => updateField("start_time", event.target.value)} className={inputClass} />
+                <LocalizedDateTimeInput type="time" step={60} value={form.start_time} onChange={(event) => updateField("start_time", event.target.value)} className={inputClass} />
               </label>
               <label className="text-sm font-medium text-[#4c626c]">เวลาสิ้นสุด
-                <input type="time" value={form.end_time} onChange={(event) => updateField("end_time", event.target.value)} className={inputClass} />
+                <LocalizedDateTimeInput type="time" step={60} value={form.end_time} onChange={(event) => updateField("end_time", event.target.value)} className={inputClass} />
               </label>
             </div>
           </div>

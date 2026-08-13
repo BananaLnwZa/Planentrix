@@ -3,6 +3,7 @@
 import { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import SelectGender from "./SelectGender";
+import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
 
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*[\W_]).{8,}$/;
 
@@ -332,11 +333,10 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
           </label>
 
           <div className="w-1/2 min-w-[180px]">
-            <input
+            <LocalizedDateTimeInput
               ref={birthdateRef}
               type="date"
               className="
-                custom-date
                 h-[44px]
                 w-full
                 rounded-full

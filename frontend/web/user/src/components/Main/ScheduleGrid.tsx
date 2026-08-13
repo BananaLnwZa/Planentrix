@@ -12,18 +12,10 @@ const dayHeaderColors = [
   "bg-[#F8D1CD]",
 ];
 
-const START_HOUR = 6;
-const END_HOUR = 24;
 const ROW_HEIGHT = 38;
-const hours = Array.from(
-  { length: END_HOUR - START_HOUR },
-  (_, index) => START_HOUR + index
-);
 
 function formatHour(hour: number) {
-  if (hour === 12) return "12 PM";
-  if (hour > 12) return `${hour - 12} PM`;
-  return `${hour} AM`;
+  return `${String(hour).padStart(2, "0")}:00`;
 }
 
 function timeToMinutes(value: string) {
@@ -31,11 +23,36 @@ function timeToMinutes(value: string) {
   return hour * 60 + minute;
 }
 
-function getBlockPosition(item: ScheduleItem) {
-  const gridStart = START_HOUR * 60;
-  const gridEnd = END_HOUR * 60;
+export function getScheduleHourRange(items: ScheduleItem[]) {
+  const validRanges = items
+    .map((item) => ({
+      start: timeToMinutes(item.start_time),
+      end: timeToMinutes(item.end_time),
+    }))
+    .filter(({ start, end }) => Number.isFinite(start) && Number.isFinite(end) && end > start);
+
+  if (validRanges.length === 0) return null;
+
+  const earliestStart = Math.min(...validRanges.map(({ start }) => start));
+  const latestEnd = Math.max(...validRanges.map(({ end }) => end));
+  const startHour = Math.max(0, Math.floor(earliestStart / 60));
+  const endHour = Math.min(24, Math.max(startHour + 1, Math.ceil(latestEnd / 60)));
+
+  return { startHour, endHour };
+}
+
+function getBlockPosition(
+  item: ScheduleItem,
+  startHour: number,
+  endHour: number
+) {
+  const gridStart = startHour * 60;
+  const gridEnd = endHour * 60;
   const start = Math.max(gridStart, timeToMinutes(item.start_time));
   const end = Math.min(gridEnd, timeToMinutes(item.end_time));
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return null;
+  }
 
   return {
     top: ((start - gridStart) / 60) * ROW_HEIGHT + 2,
@@ -50,6 +67,14 @@ export default function ScheduleGrid({
   items: ScheduleItem[];
   onSelect: (item: ScheduleItem) => void;
 }) {
+  const range = getScheduleHourRange(items);
+  if (!range) return null;
+
+  const { startHour, endHour } = range;
+  const hours = Array.from(
+    { length: endHour - startHour },
+    (_, index) => startHour + index
+  );
   const gridHeight = hours.length * ROW_HEIGHT;
 
   return (
@@ -73,7 +98,10 @@ export default function ScheduleGrid({
         </div>
 
         <div className="flex overflow-hidden rounded-b-xl border border-t-0 border-[#DECBD2] bg-white shadow-[0_3px_6px_rgba(104,79,89,0.14)]">
-          <div className="w-[54px] shrink-0 border-r border-[#E5D4DA]">
+          <div
+            className="relative w-[54px] shrink-0 border-r border-[#E5D4DA]"
+            style={{ height: gridHeight }}
+          >
             {hours.map((hour, index) => (
               <div
                 key={hour}
@@ -82,6 +110,9 @@ export default function ScheduleGrid({
                 {formatHour(hour)}
               </div>
             ))}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] flex h-4 items-end justify-center bg-gradient-to-t from-[#FFF7E8] via-[#FFF7E8]/90 to-transparent pb-px text-[10px] text-[#687983]">
+              {formatHour(endHour)}
+            </div>
           </div>
 
           <div
@@ -103,14 +134,18 @@ export default function ScheduleGrid({
 
                 {items
                   .filter((item) => item.schedule_day === dayIndex + 1)
-                  .map((item) => (
-                    <ScheduleBlock
-                      key={item.schedule_time_id}
-                      item={item}
-                      style={getBlockPosition(item)}
-                      onClick={() => onSelect(item)}
-                    />
-                  ))}
+                  .map((item) => {
+                    const style = getBlockPosition(item, startHour, endHour);
+                    if (!style) return null;
+                    return (
+                      <ScheduleBlock
+                        key={item.schedule_time_id}
+                        item={item}
+                        style={style}
+                        onClick={() => onSelect(item)}
+                      />
+                    );
+                  })}
               </div>
             ))}
           </div>

@@ -1,4 +1,5 @@
 import type { StudyTypeName } from "@/interfaces/time.interface";
+import { formatDisplayMonthYear } from "@/utils/dateTime";
 
 export const studyTypeLabels: Record<StudyTypeName, string> = {
   reading: "อ่านตำรา/เอกสาร",
@@ -39,9 +40,5 @@ export const formatDuration = (minutes: number, compact = false) => {
 };
 
 export const formatThaiMonth = (monthKey: string) => {
-  const [year, month] = monthKey.split("-").map(Number);
-  return new Intl.DateTimeFormat("th-TH", {
-    month: "long",
-    year: "numeric",
-  }).format(new Date(year, month - 1, 1));
+  return formatDisplayMonthYear(monthKey);
 };

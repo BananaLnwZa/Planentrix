@@ -156,7 +156,7 @@ void main() {
     expect(find.byKey(const Key('study-statistics')), findsOneWidget);
     expect(find.byKey(const Key('study-history')), findsOneWidget);
     expect(find.text('Business Intelligence'), findsOneWidget);
-    expect(find.text('สิงหาคม 2569'), findsOneWidget);
+    expect(find.text('08/2026'), findsOneWidget);
     expect(find.text('อ่านตำรา/เอกสาร 01 ชม. 00 นาที'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

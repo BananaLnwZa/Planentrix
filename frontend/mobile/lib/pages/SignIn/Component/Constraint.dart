@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../interfaces/auth.interface.dart' as auth;
+import '../../../common/AppTimePicker.dart';
 import 'CustomDayDropdown.dart';
 import 'BusyDay.dart';
 import 'BusyDayModal.dart';
@@ -69,6 +70,7 @@ OutlineInputBorder _inputBorder({Color color = _inputBorderColor}) {
 InputDecoration _inputDecoration({
   required String hintText,
   Widget? suffixIcon,
+  BoxConstraints? suffixIconConstraints,
   bool hasError = false,
   EdgeInsetsGeometry contentPadding = const EdgeInsets.symmetric(
     horizontal: 20,
@@ -88,6 +90,7 @@ InputDecoration _inputDecoration({
     isDense: true,
     contentPadding: contentPadding,
     suffixIcon: suffixIcon,
+    suffixIconConstraints: suffixIconConstraints,
     border: _inputBorder(),
     enabledBorder: _inputBorder(
       color: hasError ? const Color(0xFFB3261E) : _inputBorderColor,
@@ -235,7 +238,7 @@ class ConstraintState extends State<Constraint> {
   }
 
   Future<void> _selectTime(TextEditingController controller) async {
-    final TimeOfDay? selectedTime = await showTimePicker(
+    final TimeOfDay? selectedTime = await showAppTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
     );
@@ -246,7 +249,7 @@ class ConstraintState extends State<Constraint> {
 
     final previousErrorWasWorkTime = _hasWorkTimeError;
     setState(() {
-      controller.text = selectedTime.format(context);
+      controller.text = formatBusyDayTime(selectedTime);
       final workTimeError = _getWorkTimeError(requireCompletePair: false);
       if (workTimeError != null || previousErrorWasWorkTime) {
         _errorMessage = workTimeError;
@@ -541,7 +544,7 @@ class _TimeField extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       key: fieldKey,
-      width: 170,
+      width: 130,
       height: height,
       child: TextField(
         controller: controller,
@@ -554,17 +557,23 @@ class _TimeField extends StatelessWidget {
           hasError: hasError,
           contentPadding: const EdgeInsets.only(
             left: 18,
-            right: 8,
+            right: 2,
             top: 16,
             bottom: 16,
           ),
           suffixIcon: IconButton(
             onPressed: onTap,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 40, height: 44),
             icon: const Icon(
               Icons.access_time,
               size: 22,
-              color: Colors.black54,
+              color: Color(0xFF74B88A),
             ),
+          ),
+          suffixIconConstraints: const BoxConstraints.tightFor(
+            width: 40,
+            height: 44,
           ),
         ),
       ),

@@ -1,6 +1,11 @@
-String formatHomeworkDisplayTime(DateTime value) =>
-    '${value.hour.toString().padLeft(2, '0')}:'
-    '${value.minute.toString().padLeft(2, '0')}';
+import 'DateTimeFormat.dart';
+
+String formatHomeworkDisplayDate(DateTime value) => formatDisplayDate(value);
+
+String formatHomeworkDisplayTime(DateTime value) => formatDisplayTime24(value);
+
+String formatHomeworkDisplayDateTime(DateTime value) =>
+    formatDisplayDateTime(value);
 
 String formatHomeworkApiTime(DateTime value) =>
     '${formatHomeworkDisplayTime(value)}:'

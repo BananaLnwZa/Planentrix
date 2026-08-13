@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../common/AppDateTimePicker.dart';
 import '../../../common/HomeworkTimeFormat.dart';
 import '../../../common/WorkloadTypePalette.dart';
 import '../../../interfaces/homework.interface.dart';
@@ -41,33 +42,15 @@ class _AddHomeworkPopupState extends State<_AddHomeworkPopup> {
 
   Future<void> _pickDeadline() async {
     final now = DateTime.now();
-    final date = await showDatePicker(
+    final picked = await showAppDateTimePicker(
       context: context,
-      initialDate: _deadline ?? now,
+      initialDateTime: _deadline ?? now,
       firstDate: DateTime(2000),
       lastDate: DateTime(now.year + 10),
     );
-    if (date == null || !mounted) return;
-    final initialTime = _deadline == null
-        ? TimeOfDay.fromDateTime(now)
-        : TimeOfDay.fromDateTime(_deadline!);
-    final time = await showTimePicker(
-      context: context,
-      initialTime: initialTime,
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-        child: child!,
-      ),
-    );
-    if (time == null || !mounted) return;
+    if (picked == null || !mounted) return;
     setState(() {
-      _deadline = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
+      _deadline = picked;
       _validationMessage = null;
     });
   }
@@ -202,7 +185,7 @@ class _AddHomeworkPopupState extends State<_AddHomeworkPopup> {
                     decoration: _fieldDecoration(
                       suffixIcon: const Icon(
                         Icons.calendar_month_rounded,
-                        color: Color(0xFF82C9EA),
+                        color: Color(0xFF74B88A),
                       ),
                     ),
                     child: Text(
@@ -380,6 +363,5 @@ InputDecoration _fieldDecoration({String? hintText, Widget? suffixIcon}) {
 }
 
 String _deadlineText(DateTime value) {
-  return '${value.day}/${value.month}/${value.year + 543}  '
-      '${formatHomeworkDisplayTime(value)}';
+  return formatHomeworkDisplayDateTime(value);
 }

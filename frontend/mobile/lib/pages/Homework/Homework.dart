@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../common/NotebookSectionPage.dart';
 import '../../common/NotebookTabs.dart';
+import '../../common/HomeworkTimeFormat.dart';
 import '../../interfaces/homework.interface.dart';
 import '../../services/homework.service.dart';
 import 'Component/AddHomeworkPopup.dart';
@@ -341,7 +342,7 @@ List<HomeworkSectionData> groupHomeworkTasks(
   for (final entry in datedTasks.entries) {
     groups.add(
       HomeworkSectionData(
-        title: _thaiDateLabel(entry.key),
+        title: formatHomeworkDisplayDate(entry.key),
         type: HomeworkSectionType.date,
         spacingAfter: 14,
         tasks: entry.value,
@@ -358,22 +359,4 @@ List<HomeworkSectionData> groupHomeworkTasks(
     );
   }
   return groups;
-}
-
-String _thaiDateLabel(DateTime date) {
-  const months = [
-    'ม.ค.',
-    'ก.พ.',
-    'มี.ค.',
-    'เม.ย.',
-    'พ.ค.',
-    'มิ.ย.',
-    'ก.ค.',
-    'ส.ค.',
-    'ก.ย.',
-    'ต.ค.',
-    'พ.ย.',
-    'ธ.ค.',
-  ];
-  return '${date.day} ${months[date.month - 1]} ${date.year + 543}';
 }

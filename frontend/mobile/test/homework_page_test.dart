@@ -23,7 +23,7 @@ List<HomeworkTaskData> sampleTasks() => [
     subject: 'Numerical Method',
     assignment: 'แบบฝึกหัด 2',
     deadline: DateTime(2026, 5, 4, 17),
-    dueDate: '4/5/2569',
+    dueDate: '04/05/2026',
     dueTime: '17:00',
     note: 'ทบทวนบทที่ 2',
   ),
@@ -36,7 +36,7 @@ List<HomeworkTaskData> sampleTasks() => [
     subject: 'Web Programing',
     assignment: 'แบบฝึกหัด 1',
     deadline: DateTime(2026, 5, 12, 17),
-    dueDate: '12/5/2569',
+    dueDate: '12/05/2026',
     dueTime: '17:00',
   ),
   HomeworkTaskData(
@@ -48,7 +48,7 @@ List<HomeworkTaskData> sampleTasks() => [
     subject: 'Numerical Method',
     assignment: 'แบบฝึกหัด 4',
     deadline: DateTime(2026, 5, 12, 17),
-    dueDate: '12/5/2569',
+    dueDate: '12/05/2026',
     dueTime: '17:00',
   ),
   HomeworkTaskData(
@@ -60,7 +60,7 @@ List<HomeworkTaskData> sampleTasks() => [
     subject: 'Numerical Method',
     assignment: 'แบบฝึกหัด 5',
     deadline: DateTime(2026, 5, 16, 17),
-    dueDate: '16/5/2569',
+    dueDate: '16/05/2026',
     dueTime: '17:00',
   ),
   HomeworkTaskData(
@@ -72,7 +72,7 @@ List<HomeworkTaskData> sampleTasks() => [
     subject: 'Numerical Method',
     assignment: 'งานล่าช้า',
     deadline: DateTime(2026, 5, 2, 15),
-    dueDate: '2/5/2569',
+    dueDate: '02/05/2026',
     dueTime: '15:00',
   ),
 ];
@@ -109,8 +109,7 @@ class FakeHomeworkRepository implements HomeworkRepository {
       subject: input.subject.subjectName,
       assignment: input.assignment,
       deadline: input.deadline,
-      dueDate:
-          '${input.deadline.day}/${input.deadline.month}/${input.deadline.year + 543}',
+      dueDate: formatHomeworkDisplayDate(input.deadline),
       dueTime: formatHomeworkDisplayTime(input.deadline),
     );
     tasks.add(task);
@@ -161,7 +160,7 @@ class SharedHomeworkScoreRepository
     subject: 'Mobile Development',
     assignment: 'งานเชื่อมหน้า',
     deadline: DateTime(2026, 5, 4, 17),
-    dueDate: '4/5/2569',
+    dueDate: '04/05/2026',
     dueTime: '17:00',
   );
 
@@ -266,7 +265,7 @@ void main() {
     });
 
     expect(task.deadline, DateTime(2026, 5, 4, 17, 5));
-    expect(task.dueDate, '4/5/2569');
+    expect(task.dueDate, '04/05/2026');
   });
 
   test('homework types use the IDs defined by the backend database', () {
@@ -310,8 +309,8 @@ void main() {
       ),
     );
     expect(find.text('ส่งพรุ่งนี้'), findsOneWidget);
-    expect(find.text('12 พ.ค. 2569'), findsOneWidget);
-    expect(find.text('16 พ.ค. 2569'), findsOneWidget);
+    expect(find.text('12/05/2026'), findsWidgets);
+    expect(find.text('16/05/2026'), findsWidgets);
     expect(find.text('ล่าช้า'), findsOneWidget);
     expect(find.byKey(const Key('homework-task-0-0')), findsOneWidget);
     expect(find.byKey(const Key('homework-task-1-0')), findsOneWidget);
@@ -472,7 +471,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('homework-details-deadline')),
-        matching: find.text('4/5/2569 17:00'),
+        matching: find.text('04/05/2026 17:00'),
       ),
       findsOneWidget,
     );
@@ -639,8 +638,9 @@ void main() {
     await tester.tap(find.byKey(const Key('homework-deadline-field')));
     await tester.pumpAndSettle();
 
-    final picker = tester.widget<DatePickerDialog>(
-      find.byType(DatePickerDialog),
+    expect(find.byKey(const Key('app-date-time-picker-dialog')), findsOneWidget);
+    final picker = tester.widget<CalendarDatePicker>(
+      find.byType(CalendarDatePicker),
     );
     expect(picker.firstDate, DateTime(2000));
     expect(picker.firstDate.isBefore(DateTime.now()), isTrue);
