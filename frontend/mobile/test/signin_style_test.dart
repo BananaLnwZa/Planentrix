@@ -109,23 +109,8 @@ void main() {
       expect(focusedBorder.borderSide.color, const Color(0xFF9CC5F9));
     }
 
-    final workTimeButtonFinder = find.byKey(const Key('work-time-morning'));
-    final workTimeButton = tester.widget<OutlinedButton>(workTimeButtonFinder);
-    final workTimeText = tester.widget<Text>(
-      find.descendant(of: workTimeButtonFinder, matching: find.text('เช้า')),
-    );
-
-    expect(tester.getSize(workTimeButtonFinder).height, 46);
-    expect(
-      workTimeButton.style?.side?.resolve(<WidgetState>{})?.color,
-      const Color(0x4D000000),
-    );
-    expect(
-      workTimeButton.style?.foregroundColor?.resolve(<WidgetState>{}),
-      Colors.black87,
-    );
-    expect(workTimeText.style?.fontFamily, 'Sansation');
-    expect(workTimeText.style?.fontSize, 14);
+    expect(find.byKey(const Key('work-time-morning')), findsNothing);
+    expect(find.text('เลือกช่วงเวลาทำงาน'), findsNothing);
 
     for (final label in [
       'username',
@@ -236,8 +221,6 @@ void main() {
     constraintState.breakMinuteController.text = '45';
     constraintState.startTimeController.text = '06:00 PM';
     constraintState.endTimeController.text = '08:00 PM';
-    constraintState.timePreference = 3;
-
     final busyDayState = tester.state<BusyDayState>(find.byType(BusyDay));
     busyDayState.items.add(
       const BusyDayItem(
@@ -264,7 +247,7 @@ void main() {
       'break': 45,
       'start_time': '18:00',
       'end_time': '20:00',
-      'time_preference': 3,
+      'time_preference': null,
       'busy_days': [
         {'day': 1, 'start': '09:00', 'end': '10:30'},
       ],

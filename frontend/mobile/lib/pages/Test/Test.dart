@@ -38,6 +38,7 @@ class _TestPageState extends State<TestPage> {
   int? _openingExamId;
   bool _isLoading = true;
   bool _isSubmitting = false;
+  bool _showAnswerWarning = false;
   String? _error;
   Duration _remainingTime = Duration.zero;
   Timer? _timer;
@@ -116,6 +117,7 @@ class _TestPageState extends State<TestPage> {
       _activeExam = detail;
       _answers.clear();
       _currentQuestionIndex = 0;
+      _showAnswerWarning = false;
       _remainingTime = Duration(
         minutes: detail.summary.timeLimitMinutes.clamp(1, 1440),
       );
@@ -137,6 +139,10 @@ class _TestPageState extends State<TestPage> {
   Future<void> _submitExam({bool skipConfirmation = false}) async {
     final exam = _activeExam;
     if (exam == null || _isSubmitting) return;
+    if (!skipConfirmation && !_hasAnsweredCurrentQuestion(exam)) {
+      _showAnswerRequiredWarning();
+      return;
+    }
     if (!skipConfirmation) {
       final confirmed = await showSubmitExamPopup(
         context,
@@ -178,6 +184,28 @@ class _TestPageState extends State<TestPage> {
       ..showSnackBar(
         SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
       );
+  }
+
+  bool _hasAnsweredCurrentQuestion(ExamDetail exam) {
+    final question = exam.questions[_currentQuestionIndex];
+    return _answers.containsKey(question.questionId);
+  }
+
+  void _showAnswerRequiredWarning() {
+    setState(() => _showAnswerWarning = true);
+  }
+
+  void _goToNextQuestion() {
+    final exam = _activeExam;
+    if (exam == null) return;
+    if (!_hasAnsweredCurrentQuestion(exam)) {
+      _showAnswerRequiredWarning();
+      return;
+    }
+    setState(() {
+      _currentQuestionIndex += 1;
+      _showAnswerWarning = false;
+    });
   }
 
   @override
@@ -297,8 +325,12 @@ class _TestPageState extends State<TestPage> {
         ExamQuestionCard(
           question: question,
           selectedChoiceId: _answers[question.questionId],
+          showAnswerWarning: _showAnswerWarning,
           onChoiceSelected: (choiceId) {
-            setState(() => _answers[question.questionId] = choiceId);
+            setState(() {
+              _answers[question.questionId] = choiceId;
+              _showAnswerWarning = false;
+            });
           },
         ),
         const SizedBox(height: 16),
@@ -306,8 +338,11 @@ class _TestPageState extends State<TestPage> {
           canGoBack: _currentQuestionIndex > 0,
           isLastQuestion: _currentQuestionIndex == exam.questions.length - 1,
           isSubmitting: _isSubmitting,
-          onBack: () => setState(() => _currentQuestionIndex -= 1),
-          onNext: () => setState(() => _currentQuestionIndex += 1),
+          onBack: () => setState(() {
+            _currentQuestionIndex -= 1;
+            _showAnswerWarning = false;
+          }),
+          onNext: _goToNextQuestion,
           onSubmit: _submitExam,
         ),
       ],

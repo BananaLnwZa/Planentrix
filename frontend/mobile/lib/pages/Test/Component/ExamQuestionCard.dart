@@ -6,12 +6,14 @@ import 'ExamChoiceButton.dart';
 class ExamQuestionCard extends StatelessWidget {
   final ExamQuestion question;
   final int? selectedChoiceId;
+  final bool showAnswerWarning;
   final ValueChanged<int> onChoiceSelected;
 
   const ExamQuestionCard({
     super.key,
     required this.question,
     required this.selectedChoiceId,
+    this.showAnswerWarning = false,
     required this.onChoiceSelected,
   });
 
@@ -64,6 +66,18 @@ class ExamQuestionCard extends StatelessWidget {
                   onChoiceSelected(question.choices[index].choiceId),
             ),
             if (index < question.choices.length - 1) const SizedBox(height: 9),
+          ],
+          if (showAnswerWarning) ...[
+            const SizedBox(height: 11),
+            const Text(
+              'กรุณาเลือกคำตอบก่อนดำเนินการต่อ',
+              key: Key('answer-required-warning'),
+              style: TextStyle(
+                fontSize: 11,
+                color: Color(0xFFD94F64),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ],
       ),

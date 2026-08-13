@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import '../../../interfaces/auth.interface.dart' as auth;
 import 'CustomDayDropdown.dart';
-import 'WorkTime.dart';
 import 'BusyDay.dart';
 import 'BusyDayModal.dart';
 
@@ -130,7 +129,6 @@ class ConstraintState extends State<Constraint> {
       'เวลาเริ่มต้นต้องน้อยกว่าเวลาสิ้นสุด';
 
   String? selectedDay;
-  int? timePreference;
   String? _errorMessage;
 
   String? get validationMessage => _errorMessage;
@@ -203,7 +201,7 @@ class ConstraintState extends State<Constraint> {
       breakTime: breakDuration == 0 ? null : breakDuration,
       startTime: startTime,
       endTime: endTime,
-      timePreference: timePreference,
+      timePreference: null,
       busyDays: busyDays,
     );
   }
@@ -291,7 +289,7 @@ class ConstraintState extends State<Constraint> {
       constraints: const BoxConstraints(maxWidth: 500, minHeight: 420),
       padding: EdgeInsets.all(containerPadding),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.92),
+        color: Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
@@ -407,17 +405,6 @@ class ConstraintState extends State<Constraint> {
               ),
             ),
           ],
-
-          SizedBox(height: mobile ? 24 : 30),
-
-          WorkTime(
-            value: timePreference,
-            onChanged: (value) {
-              setState(() {
-                timePreference = value;
-              });
-            },
-          ),
 
           SizedBox(height: mobile ? 20 : 24),
 

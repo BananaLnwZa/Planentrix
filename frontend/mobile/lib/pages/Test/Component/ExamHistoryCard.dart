@@ -14,6 +14,7 @@ class ExamHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final weakestTopic = _weakestTopic(item.weakTopics);
     return ConstrainedBox(
       key: Key('exam-history-${item.historyId}'),
       constraints: const BoxConstraints(minHeight: 35),
@@ -42,7 +43,8 @@ class ExamHistoryCard extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 showRightBorder: false,
                 child: Text(
-                  item.weakTopics.map((topic) => topic.topicName).join(', '),
+                  weakestTopic?.topicName ?? '—',
+                  key: Key('exam-history-weak-topic-${item.historyId}'),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -90,6 +92,14 @@ class _HistoryCell extends StatelessWidget {
       child: child,
     );
   }
+}
+
+ExamHistoryWeakTopic? _weakestTopic(List<ExamHistoryWeakTopic> topics) {
+  if (topics.isEmpty) return null;
+  return topics.reduce(
+    (weakest, current) =>
+        current.percentage < weakest.percentage ? current : weakest,
+  );
 }
 
 String _number(double value) => value == value.roundToDouble()

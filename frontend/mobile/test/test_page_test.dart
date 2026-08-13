@@ -84,7 +84,8 @@ class FakeExamRepository implements ExamRepository {
       maximumScore: 100,
       examDate: null,
       weakTopics: [
-        ExamHistoryWeakTopic(topicName: 'สมการเชิงเส้น', percentage: 40),
+        ExamHistoryWeakTopic(topicName: 'Data Warehouse', percentage: 65),
+        ExamHistoryWeakTopic(topicName: 'ETL', percentage: 30),
       ],
     ),
     const ExamHistoryItem(
@@ -202,7 +203,8 @@ void main() {
     expect(find.text('คะแนน'), findsOneWidget);
     expect(find.text('เรื่องที่อ่อน'), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
-    expect(find.text('สมการเชิงเส้น'), findsOneWidget);
+    expect(find.text('ETL'), findsOneWidget);
+    expect(find.text('Data Warehouse'), findsNothing);
     expect(find.text('70/100'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('exam-history-subject-tab-CS102')));
@@ -242,11 +244,37 @@ void main() {
     expect(find.byKey(const Key('exam-runner')), findsOneWidget);
     expect(find.byKey(const Key('exam-question-101')), findsOneWidget);
     expect(tester.takeException(), isNull, reason: 'first exam question');
+
+    await tester.tap(find.byKey(const Key('next-question-button')));
+    await tester.pump();
+    expect(find.byKey(const Key('answer-required-warning')), findsOneWidget);
+    final warningText = tester.widget<Text>(
+      find.byKey(const Key('answer-required-warning')),
+    );
+    expect(warningText.style?.color, const Color(0xFFD94F64));
+    expect(
+      tester.getTopLeft(find.byKey(const Key('answer-required-warning'))).dy,
+      greaterThan(
+        tester.getBottomLeft(find.byKey(const Key('exam-choice-1002'))).dy,
+      ),
+    );
+    expect(find.byKey(const Key('exam-question-101')), findsOneWidget);
+    expect(find.byKey(const Key('exam-question-102')), findsNothing);
+
     await tester.tap(find.byKey(const Key('exam-choice-1002')));
+    await tester.pump();
+    expect(find.byKey(const Key('answer-required-warning')), findsNothing);
     await tester.tap(find.byKey(const Key('next-question-button')));
     await tester.pump();
     expect(find.byKey(const Key('exam-question-102')), findsOneWidget);
     expect(tester.takeException(), isNull, reason: 'second exam question');
+
+    await tester.tap(find.byKey(const Key('submit-exam-button')));
+    await tester.pump();
+    expect(find.byKey(const Key('answer-required-warning')), findsOneWidget);
+    expect(find.byKey(const Key('submit-exam-popup')), findsNothing);
+    expect(find.byKey(const Key('exam-question-102')), findsOneWidget);
+
     await tester.tap(find.byKey(const Key('exam-choice-1003')));
     await tester.tap(find.byKey(const Key('submit-exam-button')));
     await tester.pump(const Duration(milliseconds: 300));
