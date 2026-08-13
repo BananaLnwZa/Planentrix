@@ -1,11 +1,12 @@
-import axios, { AxiosInstance } from "axios";
-import Cookies from "js-cookie";
+import axios from "axios";
 import type {
   CreateHomeworkInput,
+  HomeworkOverview,
   HomeworkSubject,
   HomeworkTask,
   UpdateHomeworkInput,
 } from "@/interfaces/homework.interface";
+import { authenticatedApiClient } from "./api.client";
 
 interface HomeworkApiRow {
   workload_id: number | string;
@@ -20,6 +21,12 @@ interface HomeworkApiRow {
   note?: string | null;
 }
 
+interface HomeworkOverviewResponse {
+  data?: HomeworkApiRow[];
+  has_current_term?: boolean | number;
+  has_workloads?: boolean | number;
+}
+
 const pad = (value: number) => value.toString().padStart(2, "0");
 
 const dateValue = (value: Date) =>
@@ -27,6 +34,9 @@ const dateValue = (value: Date) =>
 
 const timeValue = (value: Date) =>
   `${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`;
+
+const toBoolean = (value: boolean | number | undefined) =>
+  value === true || value === 1;
 
 const parseDeadline = (date: string | undefined, time: string | undefined) => {
   const datePart = (date ?? "").slice(0, 10);
@@ -48,28 +58,24 @@ const toTask = (row: HomeworkApiRow): HomeworkTask => ({
 });
 
 class HomeworkService {
-  private apiClient: AxiosInstance;
+  private readonly apiClient = authenticatedApiClient;
 
-  constructor() {
-    this.apiClient = axios.create({
-      baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000",
-      timeout: 10000,
-    });
-    this.apiClient.interceptors.request.use((config) => {
-      const accessToken = Cookies.get("accessToken");
-      if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
-      return config;
-    });
-  }
-
-  async getPendingHomework(): Promise<HomeworkTask[]> {
+  async getHomeworkOverview(): Promise<HomeworkOverview> {
     try {
-      const response = await this.apiClient.get<{ data?: HomeworkApiRow[] }>(
+      const response = await this.apiClient.get<HomeworkOverviewResponse>(
         "/user/workload/pending"
       );
-      return (response.data.data ?? []).map(toTask).sort(
+      const tasks = (response.data.data ?? []).map(toTask).sort(
         (left, right) => left.deadline.getTime() - right.deadline.getTime()
       );
+      return {
+        tasks,
+        hasCurrentTerm: toBoolean(response.data.has_current_term),
+        hasWorkloads:
+          response.data.has_workloads === undefined
+            ? tasks.length > 0
+            : toBoolean(response.data.has_workloads),
+      };
     } catch (error) {
       throw this.toError(error, "ไม่สามารถโหลดรายการงานได้");
     }

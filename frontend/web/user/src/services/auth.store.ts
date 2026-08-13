@@ -2,12 +2,10 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { AuthState, AuthUser } from "@/interfaces/auth.interface";
 import authService from "@/services/auth.service";
-import Cookies from "js-cookie";
 
 interface AuthStore extends AuthState {
   // Actions
   setUser: (user: AuthUser | null) => void;
-  setAccessToken: (token: string | null) => void;
   setError: (error: string | null) => void;
   setIsLoading: (loading: boolean) => void;
 
@@ -37,20 +35,25 @@ export const useAuthStore = create<AuthStore>()(
 
       // Setters
       setUser: (user) => set({ user }),
-      setAccessToken: (accessToken) =>
-        set({ accessToken, isAuthenticated: !!accessToken }),
       setError: (error) => set({ error }),
       setIsLoading: (isLoading) => set({ isLoading }),
 
       // Check auth status on initialization
       checkAuthStatus: () => {
-        const accessToken = Cookies.get("accessToken");
-        if (accessToken) {
-          set({
-            accessToken,
-            isAuthenticated: true,
-          });
-        }
+        const session = authService.getSession();
+        set((state) => ({
+          accessToken: session?.token ?? null,
+          isAuthenticated: Boolean(session),
+          user: session
+            ? {
+                ...session.user,
+                username:
+                  state.user?.userId === session.user.userId
+                    ? state.user.username
+                    : undefined,
+              }
+            : null,
+        }));
       },
 
       // Login
@@ -174,7 +177,12 @@ export const useAuthStore = create<AuthStore>()(
       name: "auth-store",
       partialize: (state) => ({
         user: state.user,
-        isAuthenticated: state.isAuthenticated,
+      }),
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        user: (persistedState as Partial<AuthStore>)?.user ?? null,
+        accessToken: null,
+        isAuthenticated: false,
       }),
     }
   )

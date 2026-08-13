@@ -17,6 +17,10 @@ abstract class ProfileRepository {
   Future<UserConstraint> getConstraints();
   Future<UserProfile> updateProfile(UpdateProfileInput input);
   Future<UserConstraint> updateConstraints(UpdateConstraintInput input);
+  Future<String> updateAvatar({
+    required List<int> bytes,
+    required String filename,
+  });
 }
 
 class ProfileService implements ProfileRepository {
@@ -82,6 +86,31 @@ class ProfileService implements ProfileRepository {
       );
     } on DioException catch (error) {
       throw _exception(error, 'ไม่สามารถแก้ไขข้อจำกัดได้');
+    }
+  }
+
+  @override
+  Future<String> updateAvatar({
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'avatar': MultipartFile.fromBytes(bytes, filename: filename),
+      });
+      final response = await _apiService.put(
+        '/user/profile/avatar',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+      final body = Map<String, dynamic>.from(response.data as Map);
+      final imageUrl = body['image_url']?.toString();
+      if (imageUrl == null || imageUrl.isEmpty) {
+        throw const ProfileException('ระบบไม่ได้ส่งที่อยู่รูปโปรไฟล์กลับมา');
+      }
+      return imageUrl;
+    } on DioException catch (error) {
+      throw _exception(error, 'ไม่สามารถอัปโหลดรูปโปรไฟล์ได้');
     }
   }
 

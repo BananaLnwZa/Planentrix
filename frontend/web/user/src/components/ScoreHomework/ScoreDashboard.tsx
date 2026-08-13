@@ -23,10 +23,21 @@ const getScoreSummary = (workloads: GradeWorkload[]) => {
   const scored = workloads.filter(
     (workload) => workload.actual_score !== null && workload.max_score !== null
   );
-  const actual = scored.reduce((sum, workload) => sum + Number(workload.actual_score), 0);
+  const actual = Math.min(
+    100,
+    Math.max(
+      0,
+      scored.reduce((sum, workload) => sum + Number(workload.actual_score), 0)
+    )
+  );
   const maximum = scored.reduce((sum, workload) => sum + Number(workload.max_score), 0);
-  return { actual, maximum, percent: maximum > 0 ? (actual / maximum) * 100 : 0 };
+  return { actual, maximum, percent: actual };
 };
+
+const formatScore = (value: number) =>
+  Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 
 const gradeFromPercent = (percent: number, hasScore: boolean) => {
   if (!hasScore) return "—";
@@ -272,9 +283,9 @@ export default function ScoreDashboard({
             </div>
           )}
           <div className="flex items-center justify-end gap-3 border-t border-[#EFC9D7] bg-[#FCE7EE] px-3 py-2 text-xs text-[#925B70]">
-            <span>คะแนนสะสม</span>
+            <span>คะแนนรวม</span>
             <strong className="rounded-full bg-white px-3 py-1 text-[#B05D79] shadow-sm">
-              {summary.actual}/{summary.maximum || "—"}
+              {formatScore(summary.actual)}/100
             </strong>
           </div>
         </div>

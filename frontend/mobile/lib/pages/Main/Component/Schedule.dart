@@ -583,34 +583,42 @@ class _ScheduleBlock extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(5, 4, 5, 3),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                item.subjectName,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  height: 1.05,
-                  fontWeight: FontWeight.w600,
-                  color: colors.$3,
-                ),
-              ),
-              if (item.classroom?.isNotEmpty == true)
-                Text(
-                  'ห้อง ${item.classroom}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 8, color: colors.$3),
-                ),
-              const Spacer(),
-              Text(
-                '${item.startTime}–${item.endTime}',
-                maxLines: 1,
-                style: TextStyle(fontSize: 7.5, color: colors.$3),
-              ),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final showTime = constraints.maxHeight >= 34;
+              final showClassroom = constraints.maxHeight >= 48;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.subjectName,
+                    maxLines: showTime ? 1 : 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10,
+                      height: 1.05,
+                      fontWeight: FontWeight.w600,
+                      color: colors.$3,
+                    ),
+                  ),
+                  if (showClassroom && item.classroom?.isNotEmpty == true)
+                    Text(
+                      'ห้อง ${item.classroom}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 8, color: colors.$3),
+                    ),
+                  if (showTime) ...[
+                    const Spacer(),
+                    Text(
+                      '${item.startTime}–${item.endTime}',
+                      maxLines: 1,
+                      style: TextStyle(fontSize: 7.5, color: colors.$3),
+                    ),
+                  ],
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -661,7 +669,7 @@ int _minutes(String value) {
   final startHour = math.max(0, earliestStart ~/ 60);
   final endHour = math.min(
     24,
-    math.max(startHour + 1, (latestEnd / 60).ceil()),
+    math.max(startHour + 10, (latestEnd / 60).ceil()),
   );
   return (startHour: startHour, endHour: endHour);
 }

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../common/AppDropdown.dart';
 import '../../../interfaces/time.interface.dart';
 import '../timer_utils.dart';
 
@@ -76,12 +77,9 @@ class TimerPanel extends StatelessWidget {
                 enabled: selectionEnabled,
                 items: subjects
                     .map(
-                      (subject) => DropdownMenuItem<int>(
+                      (subject) => AppDropdownItem<int>(
                         value: subject.scheduleTimeId,
-                        child: Text(
-                          subject.subjectName,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        label: subject.subjectName,
                       ),
                     )
                     .toList(),
@@ -95,13 +93,11 @@ class TimerPanel extends StatelessWidget {
                 enabled: selectionEnabled,
                 items: studyTypes
                     .map(
-                      (type) => DropdownMenuItem<int>(
+                      (type) => AppDropdownItem<int>(
                         value: type.studyTypeId,
-                        child: Text(
-                          studyTypeLabels[type.studyTypeName] ??
-                              type.studyTypeName,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        label:
+                            studyTypeLabels[type.studyTypeName] ??
+                            type.studyTypeName,
                       ),
                     )
                     .toList(),
@@ -245,7 +241,7 @@ class _TimerDropdown extends StatelessWidget {
   final String hint;
   final int? value;
   final bool enabled;
-  final List<DropdownMenuItem<int>> items;
+  final List<AppDropdownItem<int>> items;
   final ValueChanged<int?> onChanged;
 
   const _TimerDropdown({
@@ -274,36 +270,27 @@ class _TimerDropdown extends StatelessWidget {
             ),
           ),
         ),
-        Container(
-          height: 35,
+        AppDropdown<int>(
+          value: value,
+          items: items,
+          hintText: hint,
+          enabled: enabled,
+          onChanged: enabled ? onChanged : null,
+          fieldHeight: 35,
+          itemHeight: 38,
+          borderRadius: 18,
           padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: enabled ? const Color(0xFFFFFDFD) : const Color(0xFFF5F1EF),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFDCE5E9)),
+          borderColor: const Color(0xFFDCE5E9),
+          fillColor: const Color(0xFFFFFDFD),
+          textStyle: const TextStyle(
+            fontFamily: 'Sansation',
+            fontSize: 10.5,
+            color: Color(0xFF4C4548),
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<int>(
-              value: value,
-              isExpanded: true,
-              isDense: true,
-              hint: Text(
-                hint,
-                style: const TextStyle(fontSize: 10, color: Color(0xFFAAA0A4)),
-              ),
-              icon: const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 17,
-                color: Color(0xFFBCA9C7),
-              ),
-              style: const TextStyle(
-                fontFamily: 'Sansation',
-                fontSize: 10.5,
-                color: Color(0xFF4C4548),
-              ),
-              items: items,
-              onChanged: enabled ? onChanged : null,
-            ),
+          hintStyle: const TextStyle(
+            fontFamily: 'Sansation',
+            fontSize: 10,
+            color: Color(0xFFAAA0A4),
           ),
         ),
       ],

@@ -8,6 +8,8 @@ import type {
   SetStateAction,
 } from "react";
 import { createPortal } from "react-dom";
+import DaySelect from "@/components/common/DaySelect";
+import GenderSelect from "@/components/common/GenderSelect";
 import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
 import {
   BookOpen,
@@ -41,7 +43,6 @@ export type EditConstraintValues = {
   breakDuration: string;
   startTime: string;
   endTime: string;
-  timePreference: string;
   busyDays: BusyTime[];
 };
 
@@ -57,7 +58,6 @@ type StudentCardPopupProps = {
   editConstraintValues: EditConstraintValues;
   constraintRows: string[][];
   dayNames: Record<number, string>;
-  timePreferenceNames: Record<number, string>;
   avatarInputRef: RefObject<HTMLInputElement | null>;
   actionError: string;
   constraintError: string;
@@ -163,7 +163,6 @@ export default function StudentCardPopup({
   editConstraintValues,
   constraintRows,
   dayNames,
-  timePreferenceNames,
   avatarInputRef,
   actionError,
   constraintError,
@@ -378,21 +377,20 @@ export default function StudentCardPopup({
                   <label htmlFor="profile-gender" className="text-sm text-gray-800">
                     เพศ
                   </label>
-                  <select
+                  <GenderSelect
                     id="profile-gender"
                     value={editValues.gender}
-                    onChange={(event) =>
+                    onChange={(gender) =>
                       setEditValues((previous) => ({
                         ...previous,
-                        gender: event.target.value as ProfileGender | "",
+                        gender,
                       }))
                     }
-                    className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-4 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
-                  >
-                    <option value="male">ชาย</option>
-                    <option value="female">หญิง</option>
-                    <option value="other">อื่นๆ</option>
-                  </select>
+                    locale="th"
+                    label={null}
+                    compact
+                    className="mt-1"
+                  />
                 </div>
               </form>
             ) : (
@@ -423,24 +421,19 @@ export default function StudentCardPopup({
                 <label htmlFor="constraint-day-off" className="text-base text-gray-800">
                   วันหยุด
                 </label>
-                <select
+                <DaySelect
                   id="constraint-day-off"
-                  value={editConstraintValues.dayOff}
-                  onChange={(event) =>
+                  value={editConstraintValues.dayOff ? Number(editConstraintValues.dayOff) : null}
+                  onChange={(day) =>
                     setEditConstraintValues((previous) => ({
                       ...previous,
-                      dayOff: event.target.value,
+                      dayOff: day ? String(day) : "",
                     }))
                   }
-                  className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-5 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
-                >
-                  <option value="">ไม่ระบุ</option>
-                  {Object.entries(dayNames).map(([day, label]) => (
-                    <option key={day} value={day}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
+                  allowEmpty
+                  placeholder="ไม่ระบุ"
+                  className="mt-1"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -523,30 +516,6 @@ export default function StudentCardPopup({
               </fieldset>
 
               <div>
-                <label htmlFor="constraint-time-preference" className="text-base text-gray-800">
-                  เลือกช่วงเวลาทำงาน
-                </label>
-                <select
-                  id="constraint-time-preference"
-                  value={editConstraintValues.timePreference}
-                  onChange={(event) =>
-                    setEditConstraintValues((previous) => ({
-                      ...previous,
-                      timePreference: event.target.value,
-                    }))
-                  }
-                  className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-5 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
-                >
-                  <option value="">ไม่ระบุ</option>
-                  {Object.entries(timePreferenceNames).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-base text-gray-800">วันเวลาไม่ว่างประจำ</h3>
                   <button
@@ -554,7 +523,7 @@ export default function StudentCardPopup({
                     onClick={() =>
                       setEditConstraintValues((previous) => ({
                         ...previous,
-                        busyDays: [...previous.busyDays, { day: 1, start: "", end: "" }],
+                        busyDays: [{ day: 1, start: "", end: "" }, ...previous.busyDays],
                       }))
                     }
                     className="flex items-center gap-1 rounded-full bg-[#C7E8F8] px-3 py-1.5 text-sm text-[#314553] transition-colors hover:bg-[#B3DDF2]"
@@ -571,27 +540,22 @@ export default function StudentCardPopup({
                       className="rounded-2xl border border-gray-200 bg-white/80 p-3"
                     >
                       <div className="flex items-center gap-2">
-                        <select
-                          aria-label={`Busy day ${index + 1}`}
+                        <DaySelect
+                          ariaLabel={`Busy day ${index + 1}`}
                           value={busyTime.day}
-                          onChange={(event) =>
+                          onChange={(day) =>
                             setEditConstraintValues((previous) => ({
                               ...previous,
                               busyDays: previous.busyDays.map((item, itemIndex) =>
                                 itemIndex === index
-                                  ? { ...item, day: Number(event.target.value) }
+                                  ? { ...item, day: day ?? item.day }
                                   : item
                               ),
                             }))
                           }
-                          className="min-w-0 flex-1 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-[#9CC5F9]"
-                        >
-                          {Object.entries(dayNames).map(([day, label]) => (
-                            <option key={day} value={day}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
+                          compact
+                          className="min-w-0 flex-1"
+                        />
                         <button
                           type="button"
                           onClick={() =>

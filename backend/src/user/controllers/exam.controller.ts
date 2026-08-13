@@ -79,9 +79,8 @@ const findStudyTypeForPercentage = (
   studyTypes: StudyTypeRow[],
   percentage: number,
 ) => {
-  if (percentage >= 80) return undefined;
-  const preferredName =
-    percentage < 50 ? "practice" : percentage < 65 ? "review" : "reading";
+  if (percentage >= 50) return undefined;
+  const preferredName = "practice";
   return studyTypes.find(
     (type) => type.study_type_name.toLowerCase() === preferredName,
   );
@@ -222,7 +221,7 @@ export const getExamScoreHistory = async (req: Request, res: Response) => {
        INNER JOIN exam_part ep ON ep.exam_part_id = psh.exam_part_id
        WHERE st.user_id = ?
          AND ep.part_score > 0
-         AND (psh.part_score / ep.part_score) * 100 < 80
+         AND (psh.part_score / ep.part_score) * 100 < 50
        ORDER BY psh.exam_score_history_id DESC, percentage ASC`,
       [userId]
     );
@@ -502,15 +501,12 @@ export const submitExam = async (req: Request, res: Response) => {
           null,
       }));
     const weakTopicCount = topicResults.filter(
-      (topic) => topic.percentage < 80
-    ).length;
-    const veryWeakTopicCount = topicResults.filter(
       (topic) => topic.percentage < 50
     ).length;
     const overallPercent =
       normalizedMaximum <= 0 ? 0 : (normalizedScore / normalizedMaximum) * 100;
     const intervalWeeks =
-      veryWeakTopicCount > 0 || weakTopicCount >= 3
+      weakTopicCount >= 3
         ? 1
         : weakTopicCount > 0
           ? 2
@@ -677,9 +673,17 @@ export const getExamInsights = async (req: Request, res: Response) => {
       const key = `${row.schedule_time_id}:${row.exam_repository_id}:${row.exam_part_id}`;
       if (!latestTopics.has(key)) latestTopics.set(key, row);
     }
+    const weakTopicCountsBySubject = new Map<string, number>();
     const weakTopics = [...latestTopics.values()]
-      .filter((row) => Number(row.percentage) < 80)
+      .filter((row) => Number(row.percentage) < 50)
       .sort((left, right) => Number(left.percentage) - Number(right.percentage))
+      .filter((row) => {
+        const subjectKey = String(row.subject_id ?? row.subject_name);
+        const currentCount = weakTopicCountsBySubject.get(subjectKey) ?? 0;
+        if (currentCount >= 3) return false;
+        weakTopicCountsBySubject.set(subjectKey, currentCount + 1);
+        return true;
+      })
       .map((row) => {
         const percentage = Number(row.percentage) || 0;
         return {

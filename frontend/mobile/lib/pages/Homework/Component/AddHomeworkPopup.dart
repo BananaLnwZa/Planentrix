@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../common/AppDateTimePicker.dart';
+import '../../../common/AppDropdown.dart';
 import '../../../common/HomeworkTimeFormat.dart';
 import '../../../common/WorkloadTypePalette.dart';
 import '../../../interfaces/homework.interface.dart';
@@ -96,21 +97,15 @@ class _AddHomeworkPopupState extends State<_AddHomeworkPopup> {
             children: [
               _LabeledField(
                 label: 'วิชา :',
-                child: DropdownButtonFormField<int>(
+                child: AppDropdown<int>(
                   key: const Key('homework-subject-field'),
-                  initialValue: _subject?.scheduleTimeId,
-                  isExpanded: true,
-                  hint: const Text('เลือกวิชา'),
-                  decoration: _fieldDecoration(),
+                  value: _subject?.scheduleTimeId,
+                  hintText: 'เลือกวิชา',
                   items: widget.subjects
                       .map(
-                        (subject) => DropdownMenuItem(
+                        (subject) => AppDropdownItem(
                           value: subject.scheduleTimeId,
-                          child: Text(
-                            subject.subjectName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          label: subject.subjectName,
                         ),
                       )
                       .toList(),
@@ -122,6 +117,7 @@ class _AddHomeworkPopupState extends State<_AddHomeworkPopup> {
                       _validationMessage = null;
                     });
                   },
+                  fieldHeight: 42,
                 ),
               ),
               const SizedBox(height: 14),

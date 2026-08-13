@@ -4,6 +4,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'AppDropdown.dart';
+
 DateTime appDateWithYear({
   required DateTime value,
   required int year,
@@ -55,43 +57,31 @@ class AppYearSelector extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Container(
+        SizedBox(
           width: 108,
-          height: 38,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(13),
-            border: Border.all(color: accentColor.withValues(alpha: 0.45)),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<int>(
-              key: const Key('app-year-selector'),
-              value: value,
-              isExpanded: true,
-              menuMaxHeight: 280,
-              borderRadius: BorderRadius.circular(16),
-              iconEnabledColor: accentColor,
-              items: years
-                  .map(
-                    (year) => DropdownMenuItem<int>(
-                      value: year,
-                      child: Center(
-                        child: Text(
-                          year.toString(),
-                          style: const TextStyle(
-                            color: Color(0xFF405762),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(growable: false),
-              onChanged: (year) {
-                if (year != null) onChanged(year);
-              },
+          child: AppDropdown<int>(
+            key: const Key('app-year-selector'),
+            value: value,
+            items: years
+                .map(
+                  (year) =>
+                      AppDropdownItem<int>(value: year, label: year.toString()),
+                )
+                .toList(growable: false),
+            onChanged: (year) {
+              if (year != null) onChanged(year);
+            },
+            fieldHeight: 38,
+            itemHeight: 38,
+            maxMenuHeight: 280,
+            borderRadius: 13,
+            borderColor: accentColor.withValues(alpha: 0.45),
+            activeBorderColor: accentColor,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            textStyle: const TextStyle(
+              color: Color(0xFF405762),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),

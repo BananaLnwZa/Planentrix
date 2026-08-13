@@ -10,6 +10,7 @@ import type {
   StudyType,
   TimerSubject,
 } from "@/interfaces/time.interface";
+import CustomSelect from "@/components/common/CustomSelect";
 import { formatClock, studyTypeLabels } from "./timer.utils";
 
 export type TimerPhase = "idle" | "running" | "paused" | "interrupted";
@@ -72,50 +73,41 @@ export default function TimerPanel({
       </div>
 
       <div className="mx-auto grid max-w-[390px] grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] gap-2">
-        <label className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-[#746b6e]">
+        <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-[#746b6e]">
           <span className="shrink-0">วิชา :</span>
-          <select
+          <CustomSelect
             value={selectedScheduleId ?? ""}
             disabled={phase !== "idle" || busy || !online}
-            onChange={(event) =>
-              onSubjectChange(
-                event.target.value ? Number(event.target.value) : null
-              )
-            }
-            className="h-7 min-w-0 flex-1 rounded-full border border-[#e5dce0] bg-[#fffdfd] px-2 text-[11px] font-normal text-[#4c4548] outline-none transition focus:border-[#9acde8] focus:ring-2 focus:ring-[#e1f3fc] disabled:cursor-not-allowed disabled:bg-[#f5f1ef]"
-          >
-            <option value="">เลือกวิชา</option>
-            {subjects.map((subject) => (
-              <option
-                key={subject.schedule_time_id}
-                value={subject.schedule_time_id}
-              >
-                {subject.subject_name}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={onSubjectChange}
+            options={subjects.map((subject) => ({
+              value: subject.schedule_time_id,
+              label: subject.subject_name,
+            }))}
+            placeholder="เลือกวิชา"
+            compact
+            className="min-w-0 flex-1"
+            buttonClassName="!h-7 !px-2 !text-[11px]"
+            optionClassName="!text-[11px]"
+          />
+        </div>
 
-        <label className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-[#746b6e]">
+        <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-[#746b6e]">
           <span className="shrink-0">วิธีทบทวน :</span>
-          <select
+          <CustomSelect
             value={selectedStudyTypeId ?? ""}
             disabled={phase !== "idle" || busy || !online}
-            onChange={(event) =>
-              onStudyTypeChange(
-                event.target.value ? Number(event.target.value) : null
-              )
-            }
-            className="h-7 min-w-0 flex-1 rounded-full border border-[#d4e4ec] bg-[#fbfdff] px-2 text-[11px] font-normal text-[#4c4548] outline-none transition focus:border-[#83bedf] focus:ring-2 focus:ring-[#e1f3fc] disabled:cursor-not-allowed disabled:bg-[#f5f1ef]"
-          >
-            <option value="">เลือกวิธีทบทวน</option>
-            {studyTypes.map((type) => (
-              <option key={type.study_type_id} value={type.study_type_id}>
-                {studyTypeLabels[type.study_type_name] ?? type.study_type_name}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={onStudyTypeChange}
+            options={studyTypes.map((type) => ({
+              value: type.study_type_id,
+              label: studyTypeLabels[type.study_type_name] ?? type.study_type_name,
+            }))}
+            placeholder="เลือกวิธีทบทวน"
+            compact
+            className="min-w-0 flex-1"
+            buttonClassName="!h-7 !px-2 !text-[11px]"
+            optionClassName="!text-[11px]"
+          />
+        </div>
       </div>
 
       <div className="mt-2 text-center">

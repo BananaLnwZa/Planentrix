@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 
+import 'AppDropdown.dart';
+
 const appTimePickerColor = Color(0xFF74B88A);
 
 Future<TimeOfDay?> showAppTimePicker({
@@ -186,40 +188,23 @@ class _NumberSelector extends StatelessWidget {
           style: const TextStyle(fontSize: 11, color: Color(0xFF84959D)),
         ),
         const SizedBox(height: 5),
-        Container(
-          height: 48,
+        AppDropdown<int>(
+          value: value,
+          items: List.generate(
+            count,
+            (index) => AppDropdownItem(value: index, label: _pad(index)),
+          ),
+          onChanged: (next) {
+            if (next != null) onChanged(next);
+          },
+          fieldHeight: 48,
+          itemHeight: 40,
+          maxMenuHeight: 240,
+          borderRadius: 14,
+          borderColor: const Color(0xFFD5E5DA),
+          activeBorderColor: appTimePickerColor,
           padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFD5E5DA)),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<int>(
-              value: value,
-              isExpanded: true,
-              borderRadius: BorderRadius.circular(16),
-              iconEnabledColor: appTimePickerColor,
-              items: List.generate(
-                count,
-                (index) => DropdownMenuItem(
-                  value: index,
-                  child: Center(
-                    child: Text(
-                      _pad(index),
-                      style: const TextStyle(
-                        color: Color(0xFF385B44),
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              onChanged: (next) {
-                if (next != null) onChanged(next);
-              },
-            ),
-          ),
+          textStyle: const TextStyle(color: Color(0xFF385B44), fontSize: 16),
         ),
       ],
     );

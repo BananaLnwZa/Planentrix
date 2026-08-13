@@ -49,7 +49,6 @@ class UserConstraint {
   final int? breakDuration;
   final String? startTime;
   final String? endTime;
-  final int? timePreference;
   final List<BusyTime> busyDays;
 
   const UserConstraint({
@@ -60,7 +59,6 @@ class UserConstraint {
     this.breakDuration,
     this.startTime,
     this.endTime,
-    this.timePreference,
     this.busyDays = const [],
   });
 
@@ -76,7 +74,6 @@ class UserConstraint {
       breakDuration: _nullableInt(json['break']),
       startTime: json['start_time'] == null ? null : _time(json['start_time']),
       endTime: json['end_time'] == null ? null : _time(json['end_time']),
-      timePreference: _nullableInt(json['time_preference']),
       busyDays: rawBusyDays is List
           ? rawBusyDays
                 .whereType<Map>()
@@ -113,7 +110,6 @@ class UpdateConstraintInput {
   final int? breakDuration;
   final String? startTime;
   final String? endTime;
-  final int? timePreference;
   final List<BusyTime> busyDays;
 
   const UpdateConstraintInput({
@@ -122,7 +118,6 @@ class UpdateConstraintInput {
     this.breakDuration,
     this.startTime,
     this.endTime,
-    this.timePreference,
     this.busyDays = const [],
   });
 
@@ -132,7 +127,6 @@ class UpdateConstraintInput {
     'break': breakDuration,
     'start_time': startTime,
     'end_time': endTime,
-    'time_preference': timePreference,
     'busy_days': busyDays.map((item) => item.toJson()).toList(),
   };
 }

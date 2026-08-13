@@ -12,6 +12,10 @@ class ScoreException implements Exception {
   String toString() => message;
 }
 
+class NoCurrentTermScoreException extends ScoreException {
+  const NoCurrentTermScoreException() : super('ยังไม่มีเทอมปัจจุบัน');
+}
+
 abstract class ScoreRepository {
   Future<List<SubjectScore>> getCompletedSubjectScores();
   Future<OverallGradeSummary> getOverallGrade();
@@ -37,6 +41,9 @@ class ScoreService implements ScoreRepository {
           .map((item) => SubjectScore.fromJson(Map<String, dynamic>.from(item)))
           .toList();
     } on DioException catch (error) {
+      if (error.response?.statusCode == 404) {
+        throw const NoCurrentTermScoreException();
+      }
       throw _toScoreException(error, 'ไม่สามารถโหลดข้อมูลคะแนนได้');
     } on TypeError {
       throw const ScoreException('ข้อมูลคะแนนจากระบบไม่ถูกต้อง');
@@ -51,6 +58,9 @@ class ScoreService implements ScoreRepository {
         Map<String, dynamic>.from(response.data as Map),
       );
     } on DioException catch (error) {
+      if (error.response?.statusCode == 404) {
+        throw const NoCurrentTermScoreException();
+      }
       throw _toScoreException(error, 'ไม่สามารถโหลด GPA ได้');
     } on TypeError {
       throw const ScoreException('ข้อมูล GPA จากระบบไม่ถูกต้อง');

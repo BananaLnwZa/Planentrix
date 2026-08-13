@@ -244,7 +244,6 @@ void main() {
       'break': 45,
       'start_time': '18:00',
       'end_time': '20:00',
-      'time_preference': null,
       'busy_days': [
         {'day': 1, 'start': '09:00', 'end': '10:30'},
       ],
@@ -426,7 +425,7 @@ void main() {
     }
   });
 
-  testWidgets('Friday and Saturday dropdown colors are swapped', (
+  testWidgets('day dropdown shows every day with the web color order', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -438,22 +437,37 @@ void main() {
     await tester.tap(find.byType(CustomDayDropdown));
     await tester.pumpAndSettle();
 
+    for (final day in const [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ]) {
+      expect(find.byKey(Key('day-dropdown-option-$day')), findsOneWidget);
+    }
+
     final friday = find.byKey(const Key('day-dropdown-option-Friday'));
     final saturday = find.byKey(const Key('day-dropdown-option-Saturday'));
 
-    BoxDecoration decorationOf(Finder option) {
-      return tester.widget<Container>(option).decoration! as BoxDecoration;
+    Color? textColorOf(Finder option, String label) {
+      return tester
+          .widget<Text>(find.descendant(of: option, matching: find.text(label)))
+          .style
+          ?.color;
     }
 
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
     await mouse.moveTo(tester.getCenter(friday));
     await tester.pumpAndSettle();
-    expect(decorationOf(friday).border!.top.color, const Color(0xFF71B7E4));
+    expect(textColorOf(friday, 'Friday'), const Color(0xFFAE79C8));
 
     await mouse.moveTo(tester.getCenter(saturday));
     await tester.pumpAndSettle();
-    expect(decorationOf(saturday).border!.top.color, const Color(0xFFD8B8E8));
+    expect(textColorOf(saturday, 'Saturday'), const Color(0xFF4A9BCD));
     await mouse.removePointer();
   });
 

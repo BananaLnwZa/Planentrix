@@ -30,6 +30,12 @@ export interface HomeworkTask {
   note: string;
 }
 
+export interface HomeworkOverview {
+  tasks: HomeworkTask[];
+  hasCurrentTerm: boolean;
+  hasWorkloads: boolean;
+}
+
 export interface CreateHomeworkInput {
   schedule_time_id: number;
   workload_type_id: number;

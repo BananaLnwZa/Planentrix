@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import TimePicker24Hour from "./TimePicker24Hour";
+import TimePicker24Hour from "@/components/common/TimePicker24Hour";
 
 type EditItem = {
   id: string;

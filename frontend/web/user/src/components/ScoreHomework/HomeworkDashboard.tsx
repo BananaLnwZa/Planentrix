@@ -16,6 +16,7 @@ import type {
   UpdateHomeworkInput,
 } from "@/interfaces/homework.interface";
 import homeworkService from "@/services/homework.service";
+import CurrentTermRequiredState from "@/components/common/CurrentTermRequiredState";
 import AddHomeworkModal from "./AddHomeworkModal";
 import HomeworkDetailsModal from "./HomeworkDetailsModal";
 import {
@@ -31,6 +32,8 @@ export default function HomeworkDashboard({
   onHomeworkFinished: () => void;
 }) {
   const [tasks, setTasks] = useState<HomeworkTask[]>([]);
+  const [hasCurrentTerm, setHasCurrentTerm] = useState<boolean | null>(null);
+  const [hasWorkloads, setHasWorkloads] = useState(false);
   const [subjects, setSubjects] = useState<HomeworkSubject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -46,7 +49,10 @@ export default function HomeworkDashboard({
     setIsLoading(true);
     setLoadError(null);
     try {
-      setTasks(await homeworkService.getPendingHomework());
+      const overview = await homeworkService.getHomeworkOverview();
+      setTasks(overview.tasks);
+      setHasCurrentTerm(overview.hasCurrentTerm);
+      setHasWorkloads(overview.hasWorkloads);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "โหลดรายการงานไม่สำเร็จ");
     } finally {
@@ -57,8 +63,13 @@ export default function HomeworkDashboard({
   useEffect(() => {
     let active = true;
     homeworkService
-      .getPendingHomework()
-      .then((result) => active && setTasks(result))
+      .getHomeworkOverview()
+      .then((overview) => {
+        if (!active) return;
+        setTasks(overview.tasks);
+        setHasCurrentTerm(overview.hasCurrentTerm);
+        setHasWorkloads(overview.hasWorkloads);
+      })
       .catch((error: unknown) => {
         if (active) setLoadError(error instanceof Error ? error.message : "โหลดรายการงานไม่สำเร็จ");
       })
@@ -71,6 +82,7 @@ export default function HomeworkDashboard({
   const groups = useMemo(() => groupHomeworkTasks(tasks), [tasks]);
 
   const openAdd = async () => {
+    if (!hasCurrentTerm) return;
     setModalError(null);
     try {
       const result = await homeworkService.getSubjects();
@@ -88,6 +100,7 @@ export default function HomeworkDashboard({
     try {
       const created = await homeworkService.createHomework(input, subjects);
       setTasks((current) => [...current, created]);
+      setHasWorkloads(true);
       setIsAddOpen(false);
     } catch (error) {
       setModalError(error instanceof Error ? error.message : "เพิ่มงานไม่สำเร็จ");
@@ -119,10 +132,8 @@ export default function HomeworkDashboard({
     setModalError(null);
     try {
       await homeworkService.deleteHomework(selectedTask.workload_id);
-      setTasks((current) =>
-        current.filter((task) => task.workload_id !== selectedTask.workload_id)
-      );
       setSelectedTask(null);
+      await loadTasks();
     } catch (error) {
       setModalError(error instanceof Error ? error.message : "ลบงานไม่สำเร็จ");
     } finally {
@@ -148,13 +159,15 @@ export default function HomeworkDashboard({
   return (
     <section className="relative h-full min-h-[500px] w-full md:pl-1">
       <div className="px-2 pb-5 pt-1">
-        <button
-          type="button"
-          onClick={() => void openAdd()}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-full border-2 border-[#E29DC7] bg-white px-4 text-sm font-medium text-[#D97FB5] shadow-sm transition hover:bg-[#E29DC7] hover:text-white"
-        >
-          <Plus className="h-4 w-4" /> เพิ่มงาน
-        </button>
+        {!isLoading && !loadError && hasCurrentTerm && (
+          <button
+            type="button"
+            onClick={() => void openAdd()}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-full border-2 border-[#E29DC7] bg-white px-4 text-sm font-medium text-[#D97FB5] shadow-sm transition hover:bg-[#E29DC7] hover:text-white"
+          >
+            <Plus className="h-4 w-4" /> เพิ่มงาน
+          </button>
+        )}
 
         {isLoading ? (
           <HomeworkState>
@@ -173,12 +186,16 @@ export default function HomeworkDashboard({
               <RefreshCw className="h-3.5 w-3.5" /> ลองใหม่
             </button>
           </HomeworkState>
-        ) : groups.length === 0 ? (
+        ) : !hasCurrentTerm ? (
+          <div className="flex min-h-[430px] items-center justify-center">
+            <CurrentTermRequiredState detail="กรุณาสร้างเทอมและตารางเรียนก่อนเพิ่มงาน" />
+          </div>
+        ) : groups.length === 0 && hasWorkloads ? (
           <HomeworkState>
             <ClipboardCheck className="h-8 w-8 text-[#7FC29D]" />
             <p className="text-sm font-medium text-[#506F80]">ส่งงานครบแล้ว</p>
           </HomeworkState>
-        ) : (
+        ) : groups.length === 0 ? null : (
           <div className="mt-5 space-y-4">
             {groups.map((group) => {
               const colors = sectionColors[group.type];

@@ -323,7 +323,7 @@ export const getConstraints = async (req: Request, res: Response) => {
     // ดึงข้อมูล constraints
     const [constraints] = (await db.query(
       `SELECT constraint_id, user_id, day_off, continuous_working_duration, \`break\`, 
-              start_time, end_time, time_preference
+              start_time, end_time
        FROM \`constraint\` WHERE user_id = ?`,
       [userId]
     )) as any;
@@ -373,7 +373,6 @@ export const updateConstraints = async (req: Request, res: Response) => {
       break: breakTime,
       start_time,
       end_time,
-      time_preference,
       busy_days,
     } = req.body;
 
@@ -422,10 +421,6 @@ export const updateConstraints = async (req: Request, res: Response) => {
     if (breakTime !== undefined && breakTime !== null && isNaN(breakTime)) {
       errors.push("break must be a number");
     }
-    if (time_preference !== undefined && time_preference !== null && isNaN(time_preference)) {
-      errors.push("time_preference must be a number");
-    }
-
     if (errors.length > 0) {
       return res.status(400).json({
         message: "Validation failed",
@@ -462,11 +457,6 @@ export const updateConstraints = async (req: Request, res: Response) => {
       updateFields.push("end_time = ?");
       updateValues.push(end_time);
     }
-    if (time_preference !== undefined) {
-      updateFields.push("time_preference = ?");
-      updateValues.push(time_preference);
-    }
-
     if (updateFields.length === 0 && (!busy_days || !Array.isArray(busy_days))) {
       return res.status(400).json({ message: "No fields to update" });
     }
@@ -489,7 +479,6 @@ export const updateConstraints = async (req: Request, res: Response) => {
       breakTime !== undefined && (insertFields.push("`break`"), insertValues.push(breakTime));
       start_time !== undefined && (insertFields.push("start_time"), insertValues.push(start_time));
       end_time !== undefined && (insertFields.push("end_time"), insertValues.push(end_time));
-      time_preference !== undefined && (insertFields.push("time_preference"), insertValues.push(time_preference));
 
       if (insertFields.length > 1) { // More than just user_id
         const placeholders = insertFields.map(() => "?").join(", ");
@@ -516,7 +505,7 @@ export const updateConstraints = async (req: Request, res: Response) => {
     // ดึงข้อมูล constraint ที่อัปเดทแล้ว
     const [updatedConstraints] = (await db.query(
       `SELECT constraint_id, user_id, day_off, continuous_working_duration, \`break\`, 
-              start_time, end_time, time_preference
+              start_time, end_time
        FROM \`constraint\` WHERE user_id = ?`,
       [userId]
     )) as any;

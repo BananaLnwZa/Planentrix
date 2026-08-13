@@ -82,7 +82,12 @@ class EmptyScoreRepository implements ScoreRepository {
 
 class EmptyHomeworkRepository implements HomeworkRepository {
   @override
-  Future<List<HomeworkTaskData>> getPendingHomework() async => const [];
+  Future<HomeworkOverview> getHomeworkOverview() async =>
+      const HomeworkOverview(
+        tasks: [],
+        hasCurrentTerm: false,
+        hasWorkloads: false,
+      );
 
   @override
   Future<List<HomeworkSubject>> getSubjects() async => const [];

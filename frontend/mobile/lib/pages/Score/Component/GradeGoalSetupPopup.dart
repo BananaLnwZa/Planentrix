@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../common/AppDropdown.dart';
 import '../../../interfaces/score.interface.dart';
 
 class GradeGoalSetupPrompt extends StatelessWidget {
@@ -373,36 +374,16 @@ class _GradeGoalSetupPopupState extends State<_GradeGoalSetupPopup> {
                         ),
                         SizedBox(
                           width: 84,
-                          child: DropdownButtonFormField<String>(
+                          child: AppDropdown<String>(
                             key: Key('goal-grade-${subject.scheduleTimeId}'),
-                            initialValue:
-                                _selectedGrades[subject.scheduleTimeId],
-                            isExpanded: true,
-                            decoration: InputDecoration(
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 9,
-                                vertical: 8,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(18),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFB8B8B8),
-                                ),
-                              ),
-                              disabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(18),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFD0D0D0),
-                                ),
-                              ),
-                            ),
-                            hint: const Text('—'),
+                            value: _selectedGrades[subject.scheduleTimeId],
+                            enabled: !isLocked,
+                            hintText: '—',
                             items: gradeOptions
                                 .map(
-                                  (grade) => DropdownMenuItem(
+                                  (grade) => AppDropdownItem(
                                     value: grade,
-                                    child: Text(grade),
+                                    label: grade,
                                   ),
                                 )
                                 .toList(),
@@ -422,6 +403,10 @@ class _GradeGoalSetupPopupState extends State<_GradeGoalSetupPopup> {
                                       }
                                     });
                                   },
+                            fieldHeight: 38,
+                            itemHeight: 38,
+                            borderRadius: 18,
+                            padding: const EdgeInsets.symmetric(horizontal: 9),
                           ),
                         ),
                       ],

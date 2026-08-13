@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/services/auth.store";
+import authService from "@/services/auth.service";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
@@ -26,7 +27,13 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginForm() {
   const router = useRouter();
-  const { login, isLoading, error: authError, isAuthenticated } = useAuthStore();
+  const {
+    login,
+    isLoading,
+    error: authError,
+    isAuthenticated,
+    checkAuthStatus,
+  } = useAuthStore();
   const [formError, setFormError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -40,10 +47,23 @@ export default function LoginForm() {
     mode: "onBlur",
   });
 
-  // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/Main");
+    const syncSession = () => checkAuthStatus();
+
+    syncSession();
+    window.addEventListener("focus", syncSession);
+    window.addEventListener("storage", syncSession);
+
+    return () => {
+      window.removeEventListener("focus", syncSession);
+      window.removeEventListener("storage", syncSession);
+    };
+  }, [checkAuthStatus]);
+
+  // Redirect only when the persisted state is backed by a real token.
+  useEffect(() => {
+    if (isAuthenticated && authService.getAccessToken()) {
+      router.replace("/Main");
     }
   }, [isAuthenticated, router]);
 

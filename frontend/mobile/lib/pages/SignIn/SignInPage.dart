@@ -60,7 +60,6 @@ class _SigninPageState extends State<SigninPage> {
       breakTime: constraintData.breakTime,
       startTime: constraintData.startTime,
       endTime: constraintData.endTime,
-      timePreference: constraintData.timePreference,
       busyDays: constraintData.busyDays.isEmpty
           ? null
           : constraintData.busyDays,

@@ -2,11 +2,12 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronsUpDown, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import type { CurrentTerm } from "@/interfaces/term.interface";
 import termService from "@/services/term.service";
 import TermDetailsPopup from "@/components/Main/TermDetailsPopup";
 import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
+import CustomSelect from "@/components/common/CustomSelect";
 import { formatDisplayDate } from "@/utils/dateTime";
 
 export type TermFormValues = {
@@ -34,23 +35,6 @@ type TermProps = {
   onConfirm?: (values: TermFormValues) => void;
   onEndTerm?: () => void;
 };
-
-const selectClassName = `
-  h-10
-  w-full
-  appearance-none
-  rounded-full
-  border
-  border-[#C8C8C8]
-  bg-white
-  px-4
-  pr-9
-  text-sm
-  text-[#555555]
-  outline-none
-  transition-colors
-  focus:border-[#F080A7]
-`;
 
 function getNextDate(date: string) {
   if (!date) return undefined;
@@ -102,36 +86,27 @@ function SelectField({
   placeholder,
   value,
   onChange,
-  children,
+  options,
 }: {
   id: string;
   name: string;
   placeholder: string;
   value: string;
   onChange: (value: string) => void;
-  children: React.ReactNode;
+  options: Array<{ value: string; label: string }>;
 }) {
   return (
-    <div className="relative w-full">
-      <select
-        id={id}
-        name={name}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        required
-        className={selectClassName}
-      >
-        <option value="" disabled>
-          {placeholder}
-        </option>
-        {children}
-      </select>
-      <ChevronsUpDown
-        aria-hidden="true"
-        size={16}
-        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#8B8B8B]"
-      />
-    </div>
+    <CustomSelect
+      id={id}
+      name={name}
+      value={value}
+      onChange={onChange}
+      options={options}
+      placeholder={placeholder}
+      required
+      compact
+      buttonClassName="!h-10 !text-sm"
+    />
   );
 }
 
@@ -533,13 +508,11 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
                       onChange={(value) =>
                         updateTermFormValue("academicYear", value)
                       }
-                    >
-                      {[1, 2, 3, 4].map((year) => (
-                        <option key={year} value={year}>
-                          {year}
-                        </option>
-                      ))}
-                    </SelectField>
+                      options={[1, 2, 3, 4].map((year) => ({
+                        value: String(year),
+                        label: String(year),
+                      }))}
+                    />
                   </div>
                 </div>
 
@@ -578,10 +551,11 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
                       placeholder="select term"
                       value={termFormValues.term}
                       onChange={(value) => updateTermFormValue("term", value)}
-                    >
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                    </SelectField>
+                      options={[
+                        { value: "1", label: "1" },
+                        { value: "2", label: "2" },
+                      ]}
+                    />
                   </div>
                 </div>
 

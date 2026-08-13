@@ -78,9 +78,7 @@ class SubjectScore {
       workloads.fold(0, (sum, workload) => sum + (workload.maxScore ?? 0));
 
   double get progressPercent {
-    final maximum = totalMaximumScore;
-    if (maximum <= 0) return 0;
-    return (totalActualScore / maximum * 100).clamp(0, 100);
+    return totalActualScore.clamp(0, 100).toDouble();
   }
 
   String get actualGrade =>

@@ -1,11 +1,108 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:mobile/common/AppDropdown.dart';
 import 'package:mobile/common/AppDatePicker.dart';
 import 'package:mobile/common/AppDateTimePicker.dart';
 import 'package:mobile/common/AppTimePicker.dart';
 
 void main() {
+  testWidgets('custom dropdown stays attached while its page scrolls', (
+    tester,
+  ) async {
+    final scrollController = ScrollController();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListView(
+            controller: scrollController,
+            children: [
+              const SizedBox(height: 120),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: AppDropdown<int>(
+                  value: 1,
+                  items: const [
+                    AppDropdownItem(
+                      value: 1,
+                      label: 'One',
+                      optionKey: Key('scroll-dropdown-option'),
+                    ),
+                    AppDropdownItem(value: 2, label: 'Two'),
+                  ],
+                  onChanged: (_) {},
+                ),
+              ),
+              const SizedBox(height: 800),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(AppDropdown<int>));
+    await tester.pumpAndSettle();
+    final fieldBefore = tester.getTopLeft(find.byType(AppDropdown<int>)).dy;
+    final optionBefore = tester
+        .getTopLeft(find.byKey(const Key('scroll-dropdown-option')))
+        .dy;
+
+    scrollController.jumpTo(70);
+    await tester.pump();
+
+    final fieldAfter = tester.getTopLeft(find.byType(AppDropdown<int>)).dy;
+    final optionAfter = tester
+        .getTopLeft(find.byKey(const Key('scroll-dropdown-option')))
+        .dy;
+    expect(fieldBefore - fieldAfter, closeTo(70, 0.1));
+    expect(optionBefore - optionAfter, closeTo(70, 0.1));
+  });
+
+  testWidgets('long custom dropdown can scroll to every option', (
+    tester,
+  ) async {
+    var value = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: StatefulBuilder(
+              builder: (context, setState) => SizedBox(
+                width: 160,
+                child: AppDropdown<int>(
+                  value: value,
+                  items: List.generate(
+                    60,
+                    (index) => AppDropdownItem(
+                      value: index,
+                      label: index.toString().padLeft(2, '0'),
+                      optionKey: Key('long-option-$index'),
+                    ),
+                  ),
+                  onChanged: (next) => setState(() => value = next!),
+                  maxMenuHeight: 240,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(AppDropdown<int>));
+    await tester.pumpAndSettle();
+    final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(scrollable.position.pixels, greaterThan(0));
+    scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('long-option-59')));
+    await tester.pumpAndSettle();
+
+    expect(value, 59);
+  });
+
   testWidgets('custom date picker uses the pink themed calendar', (
     tester,
   ) async {
@@ -42,7 +139,7 @@ void main() {
       'ศ.',
       'ส.',
     ]);
-    final yearSelector = tester.widget<DropdownButton<int>>(
+    final yearSelector = tester.widget<AppDropdown<int>>(
       find.byKey(const Key('app-year-selector')),
     );
     expect(yearSelector.value, 2026);
@@ -80,7 +177,7 @@ void main() {
     expect(find.textContaining('PM'), findsNothing);
 
     final selectors = tester
-        .widgetList<DropdownButton<int>>(find.byType(DropdownButton<int>))
+        .widgetList<AppDropdown<int>>(find.byType(AppDropdown<int>))
         .toList();
     expect(selectors, hasLength(2));
     expect(selectors.first.items, hasLength(24));

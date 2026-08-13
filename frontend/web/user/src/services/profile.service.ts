@@ -1,5 +1,4 @@
-import axios, { AxiosInstance } from "axios";
-import Cookies from "js-cookie";
+import axios from "axios";
 import type {
   UpdateAvatarResponse,
   UpdateConstraintRequest,
@@ -10,24 +9,10 @@ import type {
   UserProfile,
 } from "@/interfaces/profile.interface";
 import type { CurrentTermResponse } from "@/interfaces/term.interface";
+import { authenticatedApiClient } from "./api.client";
 
 class ProfileService {
-  private apiClient: AxiosInstance;
-
-  constructor() {
-    this.apiClient = axios.create({
-      baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000",
-      timeout: 10000,
-    });
-
-    this.apiClient.interceptors.request.use((config) => {
-      const accessToken = Cookies.get("accessToken");
-      if (accessToken) {
-        config.headers.Authorization = `Bearer ${accessToken}`;
-      }
-      return config;
-    });
-  }
+  private readonly apiClient = authenticatedApiClient;
 
   async getProfile(): Promise<UserProfile> {
     try {

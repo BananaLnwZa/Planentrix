@@ -1,14 +1,40 @@
 // ignore_for_file: file_names
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../common/AppDatePicker.dart';
 import '../../../common/AppTimePicker.dart';
+import '../../../common/AppDropdown.dart';
 import '../../../common/DateTimeFormat.dart';
 
 import '../../../interfaces/profile.interface.dart';
 import '../../../services/profile.service.dart';
 
 typedef ProfileEditResult = ({UserProfile profile, UserConstraint constraint});
+
+enum _EditProfilePanel { profile, constraint }
+
+const _dayColors = <Color>[
+  Color(0xFFB99D00),
+  Color(0xFFD86F95),
+  Color(0xFF6FA844),
+  Color(0xFFD97D3E),
+  Color(0xFFAE79C8),
+  Color(0xFF4A9BCD),
+  Color(0xFFDF6259),
+];
+
+const _dayBorderColors = <Color>[
+  Color(0xFFF7E380),
+  Color(0xFFF5B5CB),
+  Color(0xFFB5E48C),
+  Color(0xFFFBC49C),
+  Color(0xFFD8B8E8),
+  Color(0xFF71B7E4),
+  Color(0xFFFB9A92),
+];
 
 Future<ProfileEditResult?> showEditProfilePopup(
   BuildContext context, {
@@ -49,12 +75,14 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
   DateTime? _birthdate;
   String? _gender;
   int? _dayOff;
-  int? _timePreference;
   String? _startTime;
   String? _endTime;
   late List<BusyTime> _busyDays;
   bool _saving = false;
   String? _error;
+  _EditProfilePanel _activePanel = _EditProfilePanel.profile;
+  Uint8List? _pendingPhotoBytes;
+  String? _pendingPhotoName;
 
   @override
   void initState() {
@@ -77,7 +105,6 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
     _birthdate = widget.profile.birthdate;
     _gender = widget.profile.gender;
     _dayOff = widget.constraint.dayOff;
-    _timePreference = widget.constraint.timePreference;
     _startTime = widget.constraint.startTime;
     _endTime = widget.constraint.endTime;
     _busyDays = [...widget.constraint.busyDays];
@@ -103,8 +130,34 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
     if (picked != null && mounted) setState(() => _birthdate = picked);
   }
 
+  Future<void> _pickProfilePhoto() async {
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 88,
+      );
+      if (file == null || !mounted) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      if (bytes.lengthInBytes > 5 * 1024 * 1024) {
+        setState(() => _error = 'รูปโปรไฟล์ต้องมีขนาดไม่เกิน 5 MB');
+        return;
+      }
+      setState(() {
+        _pendingPhotoBytes = bytes;
+        _pendingPhotoName = file.name;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = 'ไม่สามารถเลือกรูปได้: $error');
+    }
+  }
+
   Future<String?> _pickTime(String? current) async {
-    final parts = (current ?? '08:00').split(':').map(int.parse).toList();
+    final safeCurrent = current == null || current.isEmpty ? '08:00' : current;
+    final parts = safeCurrent.split(':').map(int.parse).toList();
     final picked = await showAppTimePicker(
       context: context,
       initialTime: TimeOfDay(hour: parts[0], minute: parts[1]),
@@ -114,33 +167,36 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
         '${picked.minute.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _addBusyTime() async {
-    final day = await showDialog<int>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('เลือกวันที่ไม่ว่าง'),
-        children: List.generate(
-          7,
-          (index) => SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, index + 1),
-            child: Text(_dayNames[index]),
-          ),
-        ),
-      ),
-    );
-    if (day == null || !mounted) return;
-    final start = await _pickTime('08:00');
-    if (start == null || !mounted) return;
-    final end = await _pickTime('09:00');
-    if (end == null || !mounted) return;
-    if (start.compareTo(end) >= 0) {
-      setState(() => _error = 'เวลาไม่ว่างต้องมีเวลาเริ่มก่อนเวลาสิ้นสุด');
-      return;
-    }
+  void _addBusyTime() {
     setState(() {
-      _busyDays.add(BusyTime(day: day, start: start, end: end));
+      _busyDays.insert(0, const BusyTime(day: 1, start: '', end: ''));
       _error = null;
     });
+  }
+
+  void _updateBusyTime(int index, BusyTime value) {
+    setState(() {
+      _busyDays[index] = value;
+      _error = null;
+    });
+  }
+
+  Future<void> _pickBusyTime(int index, {required bool isStart}) async {
+    final item = _busyDays[index];
+    final current = isStart ? item.start : item.end;
+    final picked = await _pickTime(
+      current.isEmpty ? (isStart ? '08:00' : '09:00') : current,
+    );
+    if (picked == null || !mounted || index >= _busyDays.length) return;
+    final latest = _busyDays[index];
+    _updateBusyTime(
+      index,
+      BusyTime(
+        day: latest.day,
+        start: isStart ? picked : latest.start,
+        end: isStart ? latest.end : picked,
+      ),
+    );
   }
 
   String? get _workingTimeError {
@@ -190,6 +246,20 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
       setState(() => _error = _workingTimeError);
       return;
     }
+    final invalidBusyTimeIndex = _busyDays.indexWhere(
+      (item) =>
+          item.start.isEmpty ||
+          item.end.isEmpty ||
+          item.start.compareTo(item.end) >= 0,
+    );
+    if (invalidBusyTimeIndex >= 0) {
+      setState(() {
+        _activePanel = _EditProfilePanel.constraint;
+        _error =
+            'กรุณาเลือกเวลาเริ่มและเวลาสิ้นสุดของรายการที่ ${invalidBusyTimeIndex + 1} ให้ครบ โดยเวลาเริ่มต้องน้อยกว่าเวลาสิ้นสุด';
+      });
+      return;
+    }
     final workingDuration = _durationValue(_workingHours, _workingMinutes);
     final breakDuration = _durationValue(_breakHours, _breakMinutes);
     if (!workingDuration.valid || !breakDuration.valid) {
@@ -218,14 +288,31 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
             breakDuration: breakDuration.value,
             startTime: _startTime,
             endTime: _endTime,
-            timePreference: _timePreference,
             busyDays: _busyDays,
           ),
         ),
+        if (_pendingPhotoBytes != null && _pendingPhotoName != null)
+          widget.repository.updateAvatar(
+            bytes: _pendingPhotoBytes!,
+            filename: _pendingPhotoName!,
+          )
+        else
+          Future<String?>.value(null),
       ]);
       if (!mounted) return;
+      final updatedProfile = results[0] as UserProfile;
+      final imageUrl = results[2] as String?;
       Navigator.pop(context, (
-        profile: results[0] as UserProfile,
+        profile: imageUrl == null
+            ? updatedProfile
+            : UserProfile(
+                userId: updatedProfile.userId,
+                userName: updatedProfile.userName,
+                userPicUrl: imageUrl,
+                birthdate: updatedProfile.birthdate,
+                gender: updatedProfile.gender,
+                academicYear: updatedProfile.academicYear,
+              ),
         constraint: results[1] as UserConstraint,
       ));
     } catch (error) {
@@ -253,23 +340,18 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
-            Container(
-              color: const Color(0xFFC7E8F8),
-              padding: const EdgeInsets.fromLTRB(18, 14, 10, 12),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'แก้ไขโปรไฟล์และข้อจำกัด',
-                      style: TextStyle(fontSize: 18, color: Color(0xFF314553)),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: _saving ? null : () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
+            _EditHeader(
+              name: widget.profile.userName,
+              photoUrl: widget.profile.userPicUrl,
+              pendingPhotoBytes: _pendingPhotoBytes,
+              saving: _saving,
+              onPickPhoto: _pickProfilePhoto,
+              onSave: _save,
+              onCancel: () => Navigator.pop(context),
+            ),
+            _EditTabs(
+              activePanel: _activePanel,
+              onChanged: (panel) => setState(() => _activePanel = panel),
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -277,167 +359,204 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const _SectionTitle('ข้อมูลส่วนตัว'),
-                    _TextField(
-                      key: const Key('edit-profile-name'),
-                      label: 'Username',
-                      controller: _name,
-                    ),
-                    const SizedBox(height: 10),
-                    _SelectField<String>(
-                      label: 'เพศ',
-                      value: _gender,
-                      items: const [
-                        DropdownMenuItem(value: 'male', child: Text('Male')),
-                        DropdownMenuItem(
-                          value: 'female',
-                          child: Text('Female'),
-                        ),
-                        DropdownMenuItem(value: 'other', child: Text('Other')),
-                      ],
-                      onChanged: (value) => setState(() => _gender = value),
-                    ),
-                    const SizedBox(height: 10),
-                    _ValueButton(
-                      label: 'วันเกิด',
-                      value: _birthdate == null
-                          ? 'ไม่ระบุ'
-                          : _formatDate(_birthdate!),
-                      onTap: _pickBirthdate,
-                      icon: Icons.calendar_month_rounded,
-                      iconColor: const Color(0xFFF080A7),
-                    ),
-                    const SizedBox(height: 18),
-                    const _SectionTitle('ข้อจำกัดการจัดตาราง'),
-                    _SelectField<int>(
-                      label: 'วันหยุด',
-                      value: _dayOff,
-                      items: List.generate(
-                        7,
-                        (index) => DropdownMenuItem(
-                          value: index + 1,
-                          child: Text(_dayNames[index]),
-                        ),
+                    if (_activePanel == _EditProfilePanel.profile) ...[
+                      const _SectionTitle('ข้อมูลส่วนตัว'),
+                      _TextField(
+                        key: const Key('edit-profile-name'),
+                        label: 'Username',
+                        controller: _name,
                       ),
-                      onChanged: (value) => setState(() => _dayOff = value),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _DurationFields(
-                            label: 'ระยะเวลาทำงาน',
-                            hoursController: _workingHours,
-                            minutesController: _workingMinutes,
+                      const SizedBox(height: 10),
+                      _SelectField<String>(
+                        label: 'เพศ',
+                        value: _gender,
+                        items: const [
+                          AppDropdownItem(
+                            value: 'male',
+                            label: 'Male',
+                            accentColor: Color(0xFF73B6DD),
+                            borderColor: Color(0xFFBBDEF4),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _DurationFields(
-                            label: 'ระยะเวลาพัก',
-                            hoursController: _breakHours,
-                            minutesController: _breakMinutes,
+                          AppDropdownItem(
+                            value: 'female',
+                            label: 'Female',
+                            accentColor: Color(0xFFDE7898),
+                            borderColor: Color(0xFFF5B8CA),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _ValueButton(
-                            label: 'เวลาเริ่มทำงาน',
-                            value: _startTime ?? 'ไม่ระบุ',
-                            onTap: () async {
-                              final value = await _pickTime(_startTime);
-                              if (value != null && mounted) {
-                                setState(() {
-                                  _startTime = value;
-                                  _error = null;
-                                });
-                              }
-                            },
-                            icon: Icons.access_time_rounded,
-                            iconColor: const Color(0xFF74B88A),
+                          AppDropdownItem(
+                            value: 'other',
+                            label: 'Other',
+                            accentColor: Color(0xFFAE79C8),
+                            borderColor: Color(0xFFD8B8E8),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _ValueButton(
-                            label: 'เวลาสิ้นสุด',
-                            value: _endTime ?? 'ไม่ระบุ',
-                            onTap: () async {
-                              final value = await _pickTime(_endTime);
-                              if (value != null && mounted) {
-                                setState(() {
-                                  _endTime = value;
-                                  _error = null;
-                                });
-                              }
-                            },
-                            icon: Icons.access_time_rounded,
-                            iconColor: const Color(0xFF74B88A),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (workingTimeError != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        workingTimeError,
-                        key: const Key('profile-working-time-error'),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFFD65D69),
-                        ),
+                        ],
+                        onChanged: (value) => setState(() => _gender = value),
                       ),
-                    ],
-                    const SizedBox(height: 10),
-                    _SelectField<int>(
-                      label: 'ช่วงเวลาที่ชอบ',
-                      value: _timePreference,
-                      items: const [
-                        DropdownMenuItem(value: 1, child: Text('เช้า')),
-                        DropdownMenuItem(value: 2, child: Text('กลางวัน')),
-                        DropdownMenuItem(value: 3, child: Text('เย็น')),
-                      ],
-                      onChanged: (value) =>
-                          setState(() => _timePreference = value),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'วันเวลาไม่ว่างประจำ',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF4B5563),
+                      const SizedBox(height: 10),
+                      _ValueButton(
+                        label: 'วันเกิด',
+                        value: _birthdate == null
+                            ? 'ไม่ระบุ'
+                            : _formatDate(_birthdate!),
+                        onTap: _pickBirthdate,
+                        icon: Icons.calendar_month_rounded,
+                        iconColor: const Color(0xFFF080A7),
+                      ),
+                      const SizedBox(height: 18),
+                    ] else ...[
+                      const _SectionTitle('ข้อจำกัดการจัดตาราง'),
+                      _SelectField<int>(
+                        label: 'วันหยุด',
+                        value: _dayOff,
+                        items: List.generate(
+                          7,
+                          (index) => AppDropdownItem(
+                            value: index + 1,
+                            label: _dayNames[index],
+                            accentColor: _dayColors[index],
+                            borderColor: _dayBorderColors[index],
+                          ),
+                        ),
+                        onChanged: (value) => setState(() => _dayOff = value),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _DurationFields(
+                              label: 'ระยะเวลาทำงาน',
+                              hoursController: _workingHours,
+                              minutesController: _workingMinutes,
                             ),
                           ),
-                        ),
-                        IconButton.filledTonal(
-                          key: const Key('add-profile-busy-time'),
-                          onPressed: _addBusyTime,
-                          icon: const Icon(Icons.add_rounded, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _DurationFields(
+                              label: 'ระยะเวลาพัก',
+                              hoursController: _breakHours,
+                              minutesController: _breakMinutes,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ValueButton(
+                              label: 'เวลาเริ่มทำงาน',
+                              value: _startTime ?? 'ไม่ระบุ',
+                              onTap: () async {
+                                final value = await _pickTime(_startTime);
+                                if (value != null && mounted) {
+                                  setState(() {
+                                    _startTime = value;
+                                    _error = null;
+                                  });
+                                }
+                              },
+                              icon: Icons.access_time_rounded,
+                              iconColor: const Color(0xFF74B88A),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _ValueButton(
+                              label: 'เวลาสิ้นสุด',
+                              value: _endTime ?? 'ไม่ระบุ',
+                              onTap: () async {
+                                final value = await _pickTime(_endTime);
+                                if (value != null && mounted) {
+                                  setState(() {
+                                    _endTime = value;
+                                    _error = null;
+                                  });
+                                }
+                              },
+                              icon: Icons.access_time_rounded,
+                              iconColor: const Color(0xFF74B88A),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (workingTimeError != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          workingTimeError,
+                          key: const Key('profile-working-time-error'),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFD65D69),
+                          ),
                         ),
                       ],
-                    ),
-                    for (var index = 0; index < _busyDays.length; index++)
-                      ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          '${_dayNames[_busyDays[index].day - 1]}  '
-                          '${_busyDays[index].start} – ${_busyDays[index].end}',
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                        trailing: IconButton(
-                          onPressed: () =>
-                              setState(() => _busyDays.removeAt(index)),
-                          icon: const Icon(Icons.close_rounded, size: 18),
-                        ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'วันเวลาไม่ว่างประจำ',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF4B5563),
+                              ),
+                            ),
+                          ),
+                          FilledButton.icon(
+                            key: const Key('add-profile-busy-time'),
+                            onPressed: _addBusyTime,
+                            icon: const Icon(Icons.add_rounded, size: 16),
+                            label: const Text('Add'),
+                            style: FilledButton.styleFrom(
+                              foregroundColor: const Color(0xFF314553),
+                              backgroundColor: const Color(0xFFC7E8F8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 7,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              shape: const StadiumBorder(),
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 8),
+                      if (_busyDays.isEmpty)
+                        const Text(
+                          'ไม่มีวันเวลาไม่ว่างประจำ',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                      for (
+                        var index = 0;
+                        index < _busyDays.length;
+                        index++
+                      ) ...[
+                        _BusyTimeEditor(
+                          key: ValueKey('profile-busy-time-$index'),
+                          item: _busyDays[index],
+                          index: index,
+                          onDayChanged: (day) {
+                            final item = _busyDays[index];
+                            _updateBusyTime(
+                              index,
+                              BusyTime(
+                                day: day,
+                                start: item.start,
+                                end: item.end,
+                              ),
+                            );
+                          },
+                          onStartTap: () => _pickBusyTime(index, isStart: true),
+                          onEndTap: () => _pickBusyTime(index, isStart: false),
+                          onDelete: () =>
+                              setState(() => _busyDays.removeAt(index)),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    ],
                     if (_error != null) ...[
                       const SizedBox(height: 8),
                       Text(
@@ -453,32 +572,401 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
                 ),
               ),
             ),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(13),
-              color: Colors.white70,
-              child: FilledButton.icon(
-                key: const Key('save-profile-button'),
-                onPressed: _saving ? null : _save,
-                icon: _saving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditHeader extends StatelessWidget {
+  final String name;
+  final String? photoUrl;
+  final Uint8List? pendingPhotoBytes;
+  final bool saving;
+  final VoidCallback onPickPhoto;
+  final VoidCallback onSave;
+  final VoidCallback onCancel;
+
+  const _EditHeader({
+    required this.name,
+    required this.photoUrl,
+    required this.pendingPhotoBytes,
+    required this.saving,
+    required this.onPickPhoto,
+    required this.onSave,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+    color: const Color(0xFFC7E8F8),
+    padding: const EdgeInsets.fromLTRB(20, 22, 10, 18),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 92,
+          height: 92,
+          child: Stack(
+            children: [
+              Container(
+                width: 84,
+                height: 84,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 3),
+                  gradient:
+                      pendingPhotoBytes == null &&
+                          (photoUrl == null || photoUrl!.isEmpty)
+                      ? const LinearGradient(
+                          colors: [Color(0xFFFFD6E5), Color(0xFFB9DDF6)],
+                        )
+                      : null,
+                  image: pendingPhotoBytes != null
+                      ? DecorationImage(
+                          image: MemoryImage(pendingPhotoBytes!),
+                          fit: BoxFit.cover,
+                        )
+                      : photoUrl == null || photoUrl!.isEmpty
+                      ? null
+                      : DecorationImage(
+                          image: NetworkImage(photoUrl!),
+                          fit: BoxFit.cover,
+                        ),
+                ),
+                child:
+                    pendingPhotoBytes == null &&
+                        (photoUrl == null || photoUrl!.isEmpty)
+                    ? const Icon(
+                        Icons.person_outline_rounded,
+                        color: Colors.white,
+                        size: 46,
                       )
-                    : const Icon(Icons.save_outlined, size: 18),
-                label: Text(_saving ? 'กำลังบันทึก...' : 'บันทึก'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF8FC8AA),
-                  shape: const StadiumBorder(),
+                    : null,
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: IconButton.filled(
+                  key: const Key('edit-profile-photo-button'),
+                  tooltip: 'เปลี่ยนรูปโปรไฟล์',
+                  onPressed: saving ? null : onPickPhoto,
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFF314553),
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white, width: 2),
+                  ),
+                  icon: const Icon(Icons.camera_alt_outlined, size: 18),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'Sansation',
+                  fontSize: 26,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _EditHeaderAction(
+                key: const Key('save-profile-button'),
+                icon: Icons.save_outlined,
+                label: saving ? 'Saving...' : 'Save Changes',
+                onPressed: saving ? null : onSave,
+              ),
+              _EditHeaderAction(
+                icon: Icons.close_rounded,
+                label: 'Cancel',
+                onPressed: saving ? null : onCancel,
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          onPressed: saving ? null : onCancel,
+          icon: const Icon(Icons.close_rounded, size: 28),
+          color: const Color(0xFF314553),
+        ),
+      ],
+    ),
+  );
+}
+
+class _EditHeaderAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  const _EditHeaderAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onPressed,
+    borderRadius: BorderRadius.circular(18),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 19, color: const Color(0xFF314553)),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF314553)),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _EditTabs extends StatelessWidget {
+  final _EditProfilePanel activePanel;
+  final ValueChanged<_EditProfilePanel> onChanged;
+
+  const _EditTabs({required this.activePanel, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    color: const Color(0xFFC7E8F8),
+    child: Row(
+      children: [
+        Expanded(
+          child: _EditTab(
+            key: const Key('edit-profile-tab'),
+            icon: Icons.person_outline_rounded,
+            label: 'Profile',
+            selected: activePanel == _EditProfilePanel.profile,
+            onTap: () => onChanged(_EditProfilePanel.profile),
+          ),
+        ),
+        Expanded(
+          child: _EditTab(
+            key: const Key('edit-constraint-tab'),
+            icon: Icons.menu_book_outlined,
+            label: 'Constraint',
+            selected: activePanel == _EditProfilePanel.constraint,
+            onTap: () => onChanged(_EditProfilePanel.constraint),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _EditTab extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _EditTab({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: selected ? const Color(0xFFF3FBFF) : const Color(0xFFE5E7EB),
+    borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+      child: SizedBox(
+        height: 44,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20, color: const Color(0xFF314553)),
+            const SizedBox(width: 6),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF314553),
+                  ),
                 ),
               ),
             ),
           ],
         ),
       ),
+    ),
+  );
+}
+
+class _BusyTimeEditor extends StatelessWidget {
+  final BusyTime item;
+  final int index;
+  final ValueChanged<int> onDayChanged;
+  final VoidCallback onStartTap;
+  final VoidCallback onEndTap;
+  final VoidCallback onDelete;
+
+  const _BusyTimeEditor({
+    super.key,
+    required this.item,
+    required this.index,
+    required this.onDayChanged,
+    required this.onStartTap,
+    required this.onEndTap,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final invalid =
+        item.start.isNotEmpty &&
+        item.end.isNotEmpty &&
+        item.start.compareTo(item.end) >= 0;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xCCFFFFFF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: invalid ? const Color(0xFFE97A8D) : const Color(0xFFE5E7EB),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: AppDropdown<int>(
+                  value: item.day,
+                  items: List.generate(
+                    7,
+                    (dayIndex) => AppDropdownItem(
+                      value: dayIndex + 1,
+                      label: _dayNames[dayIndex],
+                      accentColor: _dayColors[dayIndex],
+                      borderColor: _dayBorderColors[dayIndex],
+                    ),
+                  ),
+                  onChanged: (day) {
+                    if (day != null) onDayChanged(day);
+                  },
+                  fieldHeight: 38,
+                  itemHeight: 40,
+                  maxMenuHeight: 320,
+                  borderRadius: 19,
+                ),
+              ),
+              IconButton(
+                tooltip: 'ลบรายการที่ ${index + 1}',
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline_rounded, size: 19),
+                color: const Color(0xFFE65D84),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _BusyTimeButton(
+                  key: Key('profile-busy-start-$index'),
+                  value: item.start,
+                  hint: 'เริ่ม',
+                  onTap: onStartTap,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _BusyTimeButton(
+                  key: Key('profile-busy-end-$index'),
+                  value: item.end,
+                  hint: 'สิ้นสุด',
+                  onTap: onEndTap,
+                ),
+              ),
+            ],
+          ),
+          if (invalid) ...[
+            const SizedBox(height: 6),
+            const Text(
+              'เวลาเริ่มต้องน้อยกว่าเวลาสิ้นสุด',
+              style: TextStyle(fontSize: 11, color: Color(0xFFD65D69)),
+            ),
+          ],
+        ],
+      ),
     );
   }
+}
+
+class _BusyTimeButton extends StatelessWidget {
+  final String value;
+  final String hint;
+  final VoidCallback onTap;
+
+  const _BusyTimeButton({
+    super.key,
+    required this.value,
+    required this.hint,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(18),
+    child: Container(
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFD1D5DB)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              value.isEmpty ? hint : value,
+              style: TextStyle(
+                fontSize: 12,
+                color: value.isEmpty
+                    ? const Color(0xFF9CA3AF)
+                    : const Color(0xFF374151),
+              ),
+            ),
+          ),
+          const Icon(
+            Icons.access_time_rounded,
+            size: 17,
+            color: Color(0xFF74B88A),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _SectionTitle extends StatelessWidget {
@@ -566,7 +1054,7 @@ class _TextField extends StatelessWidget {
 class _SelectField<T> extends StatelessWidget {
   final String label;
   final T? value;
-  final List<DropdownMenuItem<T>> items;
+  final List<AppDropdownItem<T>> items;
   final ValueChanged<T?> onChanged;
 
   const _SelectField({
@@ -577,11 +1065,13 @@ class _SelectField<T> extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => DropdownButtonFormField<T>(
-    initialValue: value,
+  Widget build(BuildContext context) => AppDropdown<T>(
+    value: value,
     items: items,
     onChanged: onChanged,
-    decoration: _decoration(label),
+    labelText: label,
+    hintText: 'เลือก$label',
+    maxMenuHeight: items.length == 7 ? 340 : 280,
   );
 }
 

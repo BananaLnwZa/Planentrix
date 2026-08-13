@@ -36,7 +36,7 @@ export function getScheduleHourRange(items: ScheduleItem[]) {
   const earliestStart = Math.min(...validRanges.map(({ start }) => start));
   const latestEnd = Math.max(...validRanges.map(({ end }) => end));
   const startHour = Math.max(0, Math.floor(earliestStart / 60));
-  const endHour = Math.min(24, Math.max(startHour + 1, Math.ceil(latestEnd / 60)));
+  const endHour = Math.min(24, Math.max(startHour + 10, Math.ceil(latestEnd / 60)));
 
   return { startHour, endHour };
 }

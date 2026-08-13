@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../common/AppTimePicker.dart';
+import '../../../common/AppDropdown.dart';
 import '../../../interfaces/table.interface.dart';
 
 Future<AddScheduleInput?> showAddSchedulePopup(
@@ -166,12 +167,9 @@ class _AddSchedulePopupState extends State<_AddSchedulePopup> {
                 hint: widget.subjects.isEmpty ? 'ไม่พบรายวิชา' : 'เลือกวิชา',
                 items: widget.subjects
                     .map(
-                      (subject) => DropdownMenuItem(
+                      (subject) => AppDropdownItem(
                         value: subject.subjectId,
-                        child: Text(
-                          subject.subjectName,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        label: subject.subjectName,
                       ),
                     )
                     .toList(),
@@ -188,9 +186,11 @@ class _AddSchedulePopupState extends State<_AddSchedulePopup> {
                 hint: 'เลือกวัน',
                 items: List.generate(
                   7,
-                  (index) => DropdownMenuItem(
+                  (index) => AppDropdownItem(
                     value: index + 1,
-                    child: Text(_dayNames[index]),
+                    label: _dayNames[index],
+                    accentColor: _dayColors[index],
+                    borderColor: _dayBorderColors[index],
                   ),
                 ),
                 onChanged: (value) => setState(() => _day = value ?? 1),
@@ -267,6 +267,25 @@ const _dayNames = [
   'เสาร์',
   'อาทิตย์',
 ];
+const _dayColors = <Color>[
+  Color(0xFFB99D00),
+  Color(0xFFD86F95),
+  Color(0xFF6FA844),
+  Color(0xFFD97D3E),
+  Color(0xFFAE79C8),
+  Color(0xFF4A9BCD),
+  Color(0xFFDF6259),
+];
+
+const _dayBorderColors = <Color>[
+  Color(0xFFF7E380),
+  Color(0xFFF5B5CB),
+  Color(0xFFB5E48C),
+  Color(0xFFFBC49C),
+  Color(0xFFD8B8E8),
+  Color(0xFF71B7E4),
+  Color(0xFFFB9A92),
+];
 
 class _TypeButton extends StatelessWidget {
   final bool selected;
@@ -306,7 +325,7 @@ class _TypeButton extends StatelessWidget {
 class _SelectField<T> extends StatelessWidget {
   final T? value;
   final String hint;
-  final List<DropdownMenuItem<T>> items;
+  final List<AppDropdownItem<T>> items;
   final ValueChanged<T?>? onChanged;
 
   const _SelectField({
@@ -318,27 +337,18 @@ class _SelectField<T> extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Container(
-    height: 40,
-    padding: const EdgeInsets.symmetric(horizontal: 12),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFFC8C8C8)),
-    ),
-    child: DropdownButtonHideUnderline(
-      child: DropdownButton<T>(
-        value: value,
-        hint: Text(hint, style: const TextStyle(fontSize: 11)),
-        isExpanded: true,
-        items: items,
-        onChanged: onChanged,
-        style: const TextStyle(
-          fontFamily: 'Sansation',
-          fontSize: 12,
-          color: Color(0xFF555555),
-        ),
-      ),
+  Widget build(BuildContext context) => AppDropdown<T>(
+    value: value,
+    hintText: hint,
+    items: items,
+    onChanged: onChanged,
+    fieldHeight: 40,
+    itemHeight: 40,
+    maxMenuHeight: items.length == 7 ? 320 : 280,
+    textStyle: const TextStyle(
+      fontFamily: 'Sansation',
+      fontSize: 12,
+      color: Color(0xFF555555),
     ),
   );
 }

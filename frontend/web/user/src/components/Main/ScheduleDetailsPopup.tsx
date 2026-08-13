@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Pencil, Save, Trash2, X } from "lucide-react";
+import DaySelect from "@/components/common/DaySelect";
 import type {
   ScheduleItem,
   UpdateScheduleRequest,
@@ -165,17 +166,11 @@ export default function ScheduleDetailsPopup({
 
           <DetailRow label="วันที่เรียน">
             {isEditing ? (
-              <select
+              <DaySelect
                 value={scheduleDay}
-                onChange={(event) => setScheduleDay(Number(event.target.value))}
-                className="h-9 w-full rounded-lg border border-[#A9C8D6] bg-white px-2 outline-none focus:border-[#5F9DBA]"
-              >
-                {thaiDays.map((day, index) => (
-                  <option key={day} value={index + 1}>
-                    {day}
-                  </option>
-                ))}
-              </select>
+                onChange={(day) => day && setScheduleDay(day)}
+                compact
+              />
             ) : (
               <ValuePill>{thaiDays[item.schedule_day - 1] ?? "-"}</ValuePill>
             )}

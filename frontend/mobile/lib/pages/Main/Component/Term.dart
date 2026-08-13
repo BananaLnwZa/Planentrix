@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../common/AppDatePicker.dart';
+import '../../../common/AppDropdown.dart';
 import 'package:flutter/services.dart';
 
 import '../../../interfaces/term.interface.dart';
@@ -539,21 +540,19 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
                 const SizedBox(height: 16),
                 _FormRow(
                   label: 'ชั้นปีที่',
-                  child: DropdownButtonFormField<String>(
+                  child: AppDropdown<String>(
                     key: const Key('year-level-field'),
-                    isExpanded: true,
-                    initialValue: _yearLevel,
-                    decoration: _decoration('เลือกชั้นปี'),
+                    value: _yearLevel,
+                    hintText: 'เลือกชั้นปี',
                     items: List.generate(
                       4,
-                      (index) => DropdownMenuItem(
+                      (index) => AppDropdownItem(
                         value: '${index + 1}',
-                        child: Text('${index + 1}'),
+                        label: '${index + 1}',
                       ),
                     ),
                     onChanged: (value) => setState(() => _yearLevel = value),
-                    validator: (value) =>
-                        value == null ? 'กรุณาเลือกชั้นปี' : null,
+                    fieldHeight: 42,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -577,18 +576,16 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
                 const SizedBox(height: 10),
                 _FormRow(
                   label: 'เทอม',
-                  child: DropdownButtonFormField<String>(
+                  child: AppDropdown<String>(
                     key: const Key('term-number-field'),
-                    isExpanded: true,
-                    initialValue: _term,
-                    decoration: _decoration('เลือกเทอม'),
+                    value: _term,
+                    hintText: 'เลือกเทอม',
                     items: const [
-                      DropdownMenuItem(value: '1', child: Text('1')),
-                      DropdownMenuItem(value: '2', child: Text('2')),
+                      AppDropdownItem(value: '1', label: '1'),
+                      AppDropdownItem(value: '2', label: '2'),
                     ],
                     onChanged: (value) => setState(() => _term = value),
-                    validator: (value) =>
-                        value == null ? 'กรุณาเลือกเทอม' : null,
+                    fieldHeight: 42,
                   ),
                 ),
                 const SizedBox(height: 14),

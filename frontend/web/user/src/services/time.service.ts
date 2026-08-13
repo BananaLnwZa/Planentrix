@@ -1,5 +1,4 @@
-import axios, { AxiosInstance } from "axios";
-import Cookies from "js-cookie";
+import axios from "axios";
 import type {
   ActiveSessionResponse,
   RecoverStudySessionRequest,
@@ -11,6 +10,7 @@ import type {
   TimeApiErrorPayload,
   TimerSetupResponse,
 } from "@/interfaces/time.interface";
+import { authenticatedApiClient } from "./api.client";
 
 const thaiErrorMessages: Record<string, string> = {
   NO_CURRENT_TERM: "ยังไม่มีเทอมปัจจุบัน กรุณาสร้างเทอมก่อนเริ่มจับเวลา",
@@ -47,22 +47,7 @@ export class TimeApiError extends Error {
 }
 
 class TimeService {
-  private apiClient: AxiosInstance;
-
-  constructor() {
-    this.apiClient = axios.create({
-      baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000",
-      timeout: 10000,
-    });
-
-    this.apiClient.interceptors.request.use((config) => {
-      const accessToken = Cookies.get("accessToken");
-      if (accessToken) {
-        config.headers.Authorization = `Bearer ${accessToken}`;
-      }
-      return config;
-    });
-  }
+  private readonly apiClient = authenticatedApiClient;
 
   async getSetup(): Promise<TimerSetupResponse> {
     try {

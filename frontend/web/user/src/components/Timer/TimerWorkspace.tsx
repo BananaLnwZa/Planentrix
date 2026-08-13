@@ -23,6 +23,9 @@ import SessionRecoveryModal from "./SessionRecoveryModal";
 import StudyHistory from "./StudyHistory";
 import StudyStatistics from "./StudyStatistics";
 import TimerPanel, { type TimerPhase } from "./TimerPanel";
+import {
+  CurrentTermRequiredNotebookLayout,
+} from "@/components/common/CurrentTermRequiredState";
 
 const HEARTBEAT_INTERVAL_MS = 60_000;
 
@@ -416,25 +419,30 @@ export default function TimerWorkspace() {
 
   if (pageError || !term || !dashboard) {
     const noTerm = pageErrorCode === "NO_CURRENT_TERM";
+    if (noTerm) {
+      return (
+        <CurrentTermRequiredNotebookLayout leftDetail="กรุณาสร้างเทอมและตารางเรียนก่อนเริ่มจับเวลา" />
+      );
+    }
     return (
       <div className="flex h-full min-h-[430px] items-center justify-center">
-        <div className="max-w-sm rounded-[22px] border border-[#eaded4] bg-white/90 p-7 text-center shadow-lg">
-          <AlertCircle className="mx-auto text-[#d5969d]" size={34} />
-          <h1 className="mt-3 text-lg font-bold text-[#5d5055]">
-            {noTerm ? "ยังไม่มีเทอมปัจจุบัน" : "โหลดข้อมูลไม่สำเร็จ"}
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-[#95868b]">
-            {noTerm
-              ? "กรุณาสร้างเทอมและตารางเรียนในหน้า Main ก่อนเริ่มจับเวลาทบทวน"
-              : pageError}
-          </p>
-          <button
-            type="button"
-            onClick={() => void loadTimerPage()}
-            className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#8fc8ea] px-4 py-2 text-sm font-semibold text-white"
-          >
-            <RefreshCw size={15} /> ลองอีกครั้ง
-          </button>
+        <div>
+          <div className="max-w-sm rounded-[22px] border border-[#eaded4] bg-white/90 p-7 text-center shadow-lg">
+            <AlertCircle className="mx-auto text-[#d5969d]" size={34} />
+            <h1 className="mt-3 text-lg font-bold text-[#5d5055]">
+              โหลดข้อมูลไม่สำเร็จ
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-[#95868b]">
+              {pageError}
+            </p>
+            <button
+              type="button"
+              onClick={() => void loadTimerPage()}
+              className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#8fc8ea] px-4 py-2 text-sm font-semibold text-white"
+            >
+              <RefreshCw size={15} /> ลองอีกครั้ง
+            </button>
+          </div>
         </div>
       </div>
     );

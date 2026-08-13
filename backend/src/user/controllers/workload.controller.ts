@@ -15,6 +15,11 @@ interface ScoreTotalRow extends RowDataPacket {
   total_max_score: number | string;
 }
 
+interface WorkloadOverviewRow extends RowDataPacket {
+  has_current_term: number | string | boolean;
+  has_workloads: number | string | boolean;
+}
+
 // ==========================================================================
 // ดึงรายชื่อวิชาสำหรับเลือกตอน "เพิ่มภาระงาน"
 // ==========================================================================
@@ -363,6 +368,29 @@ export const getPendingWorkloads = async (req: Request, res: Response) => {
     }
     const userId = authUser.id;
 
+    const [overviewRows] = await db.query<WorkloadOverviewRow[]>(
+      `SELECT
+         EXISTS(
+           SELECT 1
+           FROM terms current_term
+           WHERE current_term.user_id = ?
+             AND current_term.term_status = 1
+         ) AS has_current_term,
+         EXISTS(
+           SELECT 1
+           FROM workloads existing_workload
+           JOIN schedule_time existing_schedule
+             ON existing_workload.schedule_time_id = existing_schedule.schedule_time_id
+           JOIN terms existing_term
+             ON existing_schedule.term_id = existing_term.term_id
+           WHERE existing_schedule.user_id = ?
+             AND existing_term.user_id = ?
+             AND existing_term.term_status = 1
+             AND existing_schedule.schedule_type_id = 1
+         ) AS has_workloads`,
+      [userId, userId, userId]
+    );
+
     const [rows]: any = await db.query(
       `SELECT
          w.workload_id,
@@ -395,6 +423,8 @@ export const getPendingWorkloads = async (req: Request, res: Response) => {
       message: "Pending workloads retrieved successfully",
       user_id: userId,
       total: rows.length,
+      has_current_term: Boolean(Number(overviewRows[0]?.has_current_term)),
+      has_workloads: Boolean(Number(overviewRows[0]?.has_workloads)),
       data: rows,
     });
   } catch (err) {

@@ -108,6 +108,13 @@ class MissingGoalScoreRepository extends FakeScoreRepository {
   ];
 }
 
+class NoCurrentTermScoreRepository extends FakeScoreRepository {
+  @override
+  Future<List<SubjectScore>> getCompletedSubjectScores() async {
+    throw const NoCurrentTermScoreException();
+  }
+}
+
 void setPhoneSize(WidgetTester tester, Size size) {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -176,8 +183,8 @@ void main() {
     });
 
     expect(subject.workloads, hasLength(1));
-    expect(subject.progressPercent, 80);
-    expect(subject.actualGrade, 'A');
+    expect(subject.progressPercent, 8);
+    expect(subject.actualGrade, 'F');
     expect(subject.targetGrade, 'A');
   });
 
@@ -266,8 +273,8 @@ void main() {
           entry.value,
         );
       }
-      expect(find.text('25%'), findsOneWidget);
-      expect(find.text('5/20'), findsOneWidget);
+      expect(find.text('5%'), findsOneWidget);
+      expect(find.text('5/100'), findsOneWidget);
       expect(
         tester.getTopLeft(find.byKey(const Key('subject-tab-0'))).dx,
         closeTo(
@@ -312,7 +319,7 @@ void main() {
       expect(repository.savedScore?.actualScore, 8);
       expect(repository.savedScore?.maximumScore, 10);
       expect(find.text('8/10'), findsOneWidget);
-      expect(find.text('13/30'), findsOneWidget);
+      expect(find.text('13/100'), findsOneWidget);
       expect(find.text('3.00'), findsOneWidget);
       expect(find.text('จากเป้าหมาย 3.75'), findsOneWidget);
       expect(find.byKey(const Key('target-grade-value')), findsOneWidget);
@@ -380,5 +387,32 @@ void main() {
     expect(find.byKey(const Key('subject-score-section')), findsOneWidget);
     expect(find.byKey(const Key('gpa-card')), findsOneWidget);
     expect(find.byKey(const Key('target-grade-value')), findsOneWidget);
+  });
+
+  testWidgets('shows the web no-term state instead of a connection error', (
+    tester,
+  ) async {
+    setPhoneSize(tester, const Size(360, 640));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(fontFamily: 'Sansation'),
+        home: ScorePage(repository: NoCurrentTermScoreRepository()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('score-no-term')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('score-no-term'))),
+      const Size(280, 250),
+    );
+    expect(find.text('ยังไม่มีเทอมปัจจุบัน'), findsOneWidget);
+    expect(
+      find.text('กรุณาสร้างเทอมและตารางเรียนก่อนตั้งเป้าหมายเกรด'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('subject-score-error')), findsNothing);
+    expect(find.byKey(const Key('gpa-card')), findsNothing);
   });
 }

@@ -9,6 +9,7 @@ import {
 } from "@/interfaces/homework.interface";
 import { getWorkloadPalette } from "./homeworkUtils";
 import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
+import CustomSelect from "@/components/common/CustomSelect";
 
 export default function AddHomeworkModal({
   subjects,
@@ -76,21 +77,20 @@ export default function AddHomeworkModal({
 
         <div className="mt-4 space-y-3.5">
           <LabeledField label="วิชา">
-            <select
+            <CustomSelect
               value={subjectId}
-              onChange={(event) => {
-                setSubjectId(event.target.value);
+              onChange={(value) => {
+                setSubjectId(value);
                 setValidation(null);
               }}
-              className="h-10 w-full rounded-full border border-[#AEB9BE] bg-white px-3 text-sm font-medium text-[#374957] opacity-100 outline-none focus:border-[#5EACD1]"
-            >
-              <option value="">เลือกวิชา</option>
-              {subjects.map((subject) => (
-                <option key={subject.schedule_time_id} value={subject.schedule_time_id}>
-                  {subject.subject_id} {subject.subject_name}
-                </option>
-              ))}
-            </select>
+              options={subjects.map((subject) => ({
+                value: String(subject.schedule_time_id),
+                label: `${subject.subject_id} ${subject.subject_name}`,
+              }))}
+              placeholder="เลือกวิชา"
+              compact
+              buttonClassName="!h-10 !text-sm"
+            />
           </LabeledField>
 
           <LabeledField label="ประเภท" alignStart>

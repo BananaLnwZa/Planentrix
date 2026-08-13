@@ -2,10 +2,9 @@
 
 import { useRef, useState, forwardRef, useImperativeHandle } from "react";
 
-import Worktime from "./Worktime";
 import BusyDay, { type BusyDayHandle } from "./BusyDay";
-import CustomDayDropdown from "./CustomDayDropdown";
-import TimePicker24Hour from "./TimePicker24Hour";
+import DaySelect from "@/components/common/DaySelect";
+import TimePicker24Hour from "@/components/common/TimePicker24Hour";
 
 interface ConstraintFormData {
   day_off: number | null;
@@ -13,7 +12,6 @@ interface ConstraintFormData {
   break: number | null;
   start_time: string | null;
   end_time: string | null;
-  time_preference: number | null;
 }
 
 interface BusyDayData {
@@ -31,7 +29,6 @@ export interface ConstraintFormHandle {
 
 const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(_, ref) {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  const [timePreference, setTimePreference] = useState<number | null>(null);
   const [timeError, setTimeError] = useState<string | null>(null);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
@@ -107,7 +104,6 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
         break: breakDurationMinutes || null,
         start_time: startTime || null,
         end_time: endTime || null,
-        time_preference: timePreference,
       };
 
       const busyDays = await busyDayRef.current?.getFormData?.() || [];
@@ -160,9 +156,12 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
             วันหยุด
           </label>
 
-          <CustomDayDropdown
+          <DaySelect
             value={selectedDay}
             onChange={setSelectedDay}
+            locale="en"
+            placeholder="เลือกวันที่ต้องการหยุด"
+            className="max-w-[240px]"
           />
         </div>
 
@@ -408,8 +407,6 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
             </p>
           )}
         </div>
-
-        <Worktime onChange={setTimePreference} />
 
         <BusyDay ref={busyDayRef} />
       </div>

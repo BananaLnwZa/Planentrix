@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../common/CurrentTermRequiredState.dart';
 import '../../common/NotebookSectionPage.dart';
 import '../../common/NotebookTabs.dart';
 import '../../common/HomeworkTimeFormat.dart';
@@ -31,6 +32,8 @@ class HomeworkPage extends StatefulWidget {
 class _HomeworkPageState extends State<HomeworkPage> {
   late final HomeworkRepository _repository;
   List<HomeworkTaskData> _tasks = const [];
+  bool? _hasCurrentTerm;
+  bool _hasWorkloads = false;
   bool _isLoading = true;
   int? _submittingWorkloadId;
   bool _isAdding = false;
@@ -49,10 +52,12 @@ class _HomeworkPageState extends State<HomeworkPage> {
       _error = null;
     });
     try {
-      final tasks = await _repository.getPendingHomework();
+      final overview = await _repository.getHomeworkOverview();
       if (!mounted) return;
       setState(() {
-        _tasks = tasks;
+        _tasks = overview.tasks;
+        _hasCurrentTerm = overview.hasCurrentTerm;
+        _hasWorkloads = overview.hasWorkloads;
         _isLoading = false;
       });
     } catch (error) {
@@ -111,7 +116,10 @@ class _HomeworkPageState extends State<HomeworkPage> {
       if (input == null || !mounted) return;
       final created = await _repository.createHomework(input);
       if (!mounted) return;
-      setState(() => _tasks = [..._tasks, created]);
+      setState(() {
+        _tasks = [..._tasks, created];
+        _hasWorkloads = true;
+      });
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -136,10 +144,12 @@ class _HomeworkPageState extends State<HomeworkPage> {
       onDelete: () async {
         await _repository.deleteHomework(task.workloadId);
         if (!mounted) return;
+        final overview = await _repository.getHomeworkOverview();
+        if (!mounted) return;
         setState(() {
-          _tasks = _tasks
-              .where((item) => item.workloadId != task.workloadId)
-              .toList();
+          _tasks = overview.tasks;
+          _hasCurrentTerm = overview.hasCurrentTerm;
+          _hasWorkloads = overview.hasWorkloads;
         });
       },
     );
@@ -160,6 +170,8 @@ class _HomeworkPageState extends State<HomeworkPage> {
       centerContent: false,
       child: _HomeworkContent(
         groups: groupHomeworkTasks(_tasks, now),
+        hasCurrentTerm: _hasCurrentTerm,
+        hasWorkloads: _hasWorkloads,
         isLoading: _isLoading,
         error: _error,
         submittingWorkloadId: _submittingWorkloadId,
@@ -174,6 +186,8 @@ class _HomeworkPageState extends State<HomeworkPage> {
 
 class _HomeworkContent extends StatelessWidget {
   final List<HomeworkSectionData> groups;
+  final bool? hasCurrentTerm;
+  final bool hasWorkloads;
   final bool isLoading;
   final String? error;
   final int? submittingWorkloadId;
@@ -184,6 +198,8 @@ class _HomeworkContent extends StatelessWidget {
 
   const _HomeworkContent({
     required this.groups,
+    required this.hasCurrentTerm,
+    required this.hasWorkloads,
     required this.isLoading,
     required this.error,
     required this.submittingWorkloadId,
@@ -203,17 +219,19 @@ class _HomeworkContent extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: EdgeInsets.only(left: 23 * scale),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: AddHomeworkButton(
-                    scale: scale,
-                    onPressed: onAddHomework,
+              if (!isLoading && error == null && hasCurrentTerm == true) ...[
+                Padding(
+                  padding: EdgeInsets.only(left: 23 * scale),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: AddHomeworkButton(
+                      scale: scale,
+                      onPressed: onAddHomework,
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(height: 23 * scale),
+                SizedBox(height: 23 * scale),
+              ],
               if (isLoading)
                 const _HomeworkState(
                   key: Key('homework-loading'),
@@ -246,7 +264,15 @@ class _HomeworkContent extends StatelessWidget {
                     ],
                   ),
                 )
-              else if (groups.isEmpty)
+              else if (hasCurrentTerm != true)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: CurrentTermRequiredState(
+                    key: Key('homework-no-term'),
+                    detail: 'กรุณาสร้างเทอมและตารางเรียนก่อนเพิ่มงาน',
+                  ),
+                )
+              else if (groups.isEmpty && hasWorkloads)
                 const _HomeworkState(
                   key: Key('homework-empty'),
                   child: Column(

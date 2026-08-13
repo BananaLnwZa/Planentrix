@@ -14,7 +14,7 @@ class HomeworkException implements Exception {
 }
 
 abstract class HomeworkRepository {
-  Future<List<HomeworkTaskData>> getPendingHomework();
+  Future<HomeworkOverview> getHomeworkOverview();
   Future<List<HomeworkSubject>> getSubjects();
   Future<HomeworkTaskData> createHomework(CreateHomeworkInput input);
   Future<HomeworkTaskData> updateHomework(
@@ -32,20 +32,30 @@ class HomeworkService implements HomeworkRepository {
     : _apiService = apiService ?? ApiService();
 
   @override
-  Future<List<HomeworkTaskData>> getPendingHomework() async {
+  Future<HomeworkOverview> getHomeworkOverview() async {
     try {
       final response = await _apiService.get('/user/workload/pending');
       final body = Map<String, dynamic>.from(response.data as Map);
       final data = body['data'];
-      if (data is! List) return const [];
-      return data
-          .whereType<Map>()
-          .map(
-            (item) =>
-                HomeworkTaskData.fromJson(Map<String, dynamic>.from(item)),
-          )
-          .toList()
-        ..sort((left, right) => left.deadline.compareTo(right.deadline));
+      final tasks =
+          data is! List
+                ? <HomeworkTaskData>[]
+                : data
+                      .whereType<Map>()
+                      .map(
+                        (item) => HomeworkTaskData.fromJson(
+                          Map<String, dynamic>.from(item),
+                        ),
+                      )
+                      .toList()
+            ..sort((left, right) => left.deadline.compareTo(right.deadline));
+      return HomeworkOverview(
+        tasks: tasks,
+        hasCurrentTerm: _asBool(body['has_current_term']),
+        hasWorkloads: body.containsKey('has_workloads')
+            ? _asBool(body['has_workloads'])
+            : tasks.isNotEmpty,
+      );
     } on DioException catch (error) {
       throw _toHomeworkException(error, 'ไม่สามารถโหลดรายการงานได้');
     } on TypeError {
@@ -171,4 +181,10 @@ String _dateValue(DateTime value) =>
 int _asInt(dynamic value) {
   if (value is int) return value;
   return int.tryParse('$value') ?? 0;
+}
+
+bool _asBool(dynamic value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  return '$value'.toLowerCase() == 'true';
 }

@@ -14,7 +14,6 @@ Future<void> showStudentCardPopup(
   String workingDuration = '—',
   String breakDuration = '—',
   String workingTime = '—',
-  String timePreference = '—',
   List<String> busyTimes = const <String>[],
   ImageProvider<Object>? photo,
   VoidCallback? onEditProfile,
@@ -36,7 +35,6 @@ Future<void> showStudentCardPopup(
         workingDuration: workingDuration,
         breakDuration: breakDuration,
         workingTime: workingTime,
-        timePreference: timePreference,
         busyTimes: busyTimes,
         photo: photo,
         onEditProfile: onEditProfile,
@@ -58,7 +56,6 @@ class StudentCardPopup extends StatefulWidget {
   final String workingDuration;
   final String breakDuration;
   final String workingTime;
-  final String timePreference;
   final List<String> busyTimes;
   final ImageProvider<Object>? photo;
   final VoidCallback? onEditProfile;
@@ -77,7 +74,6 @@ class StudentCardPopup extends StatefulWidget {
     this.workingDuration = '—',
     this.breakDuration = '—',
     this.workingTime = '—',
-    this.timePreference = '—',
     this.busyTimes = const <String>[],
     this.photo,
     this.onEditProfile,
@@ -159,7 +155,6 @@ class _StudentCardPopupState extends State<StudentCardPopup> {
                           workingDuration: widget.workingDuration,
                           breakDuration: widget.breakDuration,
                           workingTime: widget.workingTime,
-                          timePreference: widget.timePreference,
                           busyTimes: widget.busyTimes,
                         ),
                 ),
@@ -492,7 +487,6 @@ class _ConstraintPanel extends StatelessWidget {
   final String workingDuration;
   final String breakDuration;
   final String workingTime;
-  final String timePreference;
   final List<String> busyTimes;
 
   const _ConstraintPanel({
@@ -500,7 +494,6 @@ class _ConstraintPanel extends StatelessWidget {
     required this.workingDuration,
     required this.breakDuration,
     required this.workingTime,
-    required this.timePreference,
     required this.busyTimes,
   });
 
@@ -514,7 +507,6 @@ class _ConstraintPanel extends StatelessWidget {
         _ConstraintRow(label: 'ระยะเวลาทำงาน', value: workingDuration),
         _ConstraintRow(label: 'ระยะเวลาพัก', value: breakDuration),
         _ConstraintRow(label: 'เวลาทำงาน', value: workingTime),
-        _ConstraintRow(label: 'ช่วงเวลาทำงาน', value: timePreference),
         const SizedBox(height: 12),
         const Text(
           'วันเวลาไม่ว่างประจำ',

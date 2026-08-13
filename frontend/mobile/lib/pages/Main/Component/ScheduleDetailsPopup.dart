@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../common/AppTimePicker.dart';
+import '../../../common/AppDropdown.dart';
 import '../../../interfaces/table.interface.dart';
 
 Future<void> showScheduleDetailsPopup(
@@ -230,18 +231,22 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
               _DetailRow(
                 label: 'วัน',
                 child: _editing
-                    ? DropdownButton<int>(
+                    ? AppDropdown<int>(
                         value: _day,
-                        isExpanded: true,
                         items: List.generate(
                           7,
-                          (index) => DropdownMenuItem(
+                          (index) => AppDropdownItem(
                             value: index + 1,
-                            child: Text(_dayNames[index]),
+                            label: _dayNames[index],
+                            accentColor: _dayColors[index],
+                            borderColor: _dayBorderColors[index],
                           ),
                         ),
                         onChanged: (value) =>
                             setState(() => _day = value ?? _day),
+                        fieldHeight: 38,
+                        itemHeight: 40,
+                        maxMenuHeight: 320,
                       )
                     : _ValuePill(_dayNames[_item.scheduleDay - 1]),
               ),
@@ -477,4 +482,23 @@ const _dayNames = [
   'ศุกร์',
   'เสาร์',
   'อาทิตย์',
+];
+const _dayColors = <Color>[
+  Color(0xFFB99D00),
+  Color(0xFFD86F95),
+  Color(0xFF6FA844),
+  Color(0xFFD97D3E),
+  Color(0xFFAE79C8),
+  Color(0xFF4A9BCD),
+  Color(0xFFDF6259),
+];
+
+const _dayBorderColors = <Color>[
+  Color(0xFFF7E380),
+  Color(0xFFF5B5CB),
+  Color(0xFFB5E48C),
+  Color(0xFFFBC49C),
+  Color(0xFFD8B8E8),
+  Color(0xFF71B7E4),
+  Color(0xFFFB9A92),
 ];

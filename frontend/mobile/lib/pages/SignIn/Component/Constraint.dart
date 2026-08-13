@@ -13,7 +13,6 @@ class ConstraintFormData {
   final int? breakTime;
   final String? startTime;
   final String? endTime;
-  final int? timePreference;
   final List<auth.BusyDay> busyDays;
 
   const ConstraintFormData({
@@ -22,7 +21,6 @@ class ConstraintFormData {
     required this.breakTime,
     required this.startTime,
     required this.endTime,
-    required this.timePreference,
     required this.busyDays,
   });
 }
@@ -204,7 +202,6 @@ class ConstraintState extends State<Constraint> {
       breakTime: breakDuration == 0 ? null : breakDuration,
       startTime: startTime,
       endTime: endTime,
-      timePreference: null,
       busyDays: busyDays,
     );
   }

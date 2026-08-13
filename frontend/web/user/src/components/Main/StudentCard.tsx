@@ -42,7 +42,6 @@ const emptyConstraintValues: EditConstraintValues = {
   breakDuration: "",
   startTime: "",
   endTime: "",
-  timePreference: "",
   busyDays: [],
 };
 
@@ -54,12 +53,6 @@ const dayNames: Record<number, string> = {
   5: "Friday",
   6: "Saturday",
   7: "Sunday",
-};
-
-const timePreferenceNames: Record<number, string> = {
-  1: "เช้า",
-  2: "กลางวัน",
-  3: "เย็น",
 };
 
 function formatGender(value?: string | null) {
@@ -87,7 +80,6 @@ function createEditConstraintValues(
     breakDuration: value.break?.toString() || "",
     startTime: value.start_time?.slice(0, 5) || "",
     endTime: value.end_time?.slice(0, 5) || "",
-    timePreference: value.time_preference?.toString() || "",
     busyDays: (value.busy_days || []).map((busyTime) => ({
       day: busyTime.day,
       start: busyTime.start.slice(0, 5),
@@ -331,9 +323,6 @@ export default function StudentCard({
           break: breakDuration,
           start_time: editConstraintValues.startTime || null,
           end_time: editConstraintValues.endTime || null,
-          time_preference: editConstraintValues.timePreference
-            ? Number(editConstraintValues.timePreference)
-            : null,
           busy_days: editConstraintValues.busyDays,
         }),
         pendingAvatarFile
@@ -475,10 +464,6 @@ export default function StudentCard({
           "เวลาทำงาน",
           `${formatTime(constraint.start_time)} – ${formatTime(constraint.end_time)}`,
         ],
-        [
-          "เลือกช่วงเวลาทำงาน",
-          timePreferenceNames[constraint.time_preference || 0] || "—",
-        ],
       ]
     : [];
 
@@ -566,7 +551,6 @@ export default function StudentCard({
           editConstraintValues={editConstraintValues}
           constraintRows={constraintRows}
           dayNames={dayNames}
-          timePreferenceNames={timePreferenceNames}
           avatarInputRef={avatarInputRef}
           actionError={actionError}
           constraintError={constraintError}

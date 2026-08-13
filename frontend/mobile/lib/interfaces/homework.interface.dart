@@ -137,6 +137,18 @@ class HomeworkTaskData {
   }
 }
 
+class HomeworkOverview {
+  final List<HomeworkTaskData> tasks;
+  final bool hasCurrentTerm;
+  final bool hasWorkloads;
+
+  const HomeworkOverview({
+    required this.tasks,
+    required this.hasCurrentTerm,
+    required this.hasWorkloads,
+  });
+}
+
 class HomeworkSectionData {
   final String title;
   final HomeworkSectionType type;

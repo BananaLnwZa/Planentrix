@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 
 import 'AppCalendarLocalizations.dart';
+import 'AppDropdown.dart';
 import 'AppTimePicker.dart';
 import 'AppYearSelector.dart';
 import 'DateTimeFormat.dart';
@@ -261,40 +262,26 @@ class _DateTimeNumberSelector extends StatelessWidget {
           style: const TextStyle(fontSize: 10, color: Color(0xFF84959D)),
         ),
         const SizedBox(height: 4),
-        Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(13),
-            border: Border.all(color: const Color(0xFFD5E5DA)),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<int>(
-              value: value,
-              isExpanded: true,
-              borderRadius: BorderRadius.circular(16),
-              iconEnabledColor: appDateTimePickerColor,
-              items: List.generate(
-                count,
-                (index) => DropdownMenuItem(
-                  value: index,
-                  child: Center(
-                    child: Text(
-                      index.toString().padLeft(2, '0'),
-                      style: const TextStyle(
-                        color: Color(0xFF385B44),
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              onChanged: (next) {
-                if (next != null) onChanged(next);
-              },
+        AppDropdown<int>(
+          value: value,
+          items: List.generate(
+            count,
+            (index) => AppDropdownItem(
+              value: index,
+              label: index.toString().padLeft(2, '0'),
             ),
           ),
+          onChanged: (next) {
+            if (next != null) onChanged(next);
+          },
+          fieldHeight: 44,
+          itemHeight: 40,
+          maxMenuHeight: 240,
+          borderRadius: 13,
+          borderColor: const Color(0xFFD5E5DA),
+          activeBorderColor: appDateTimePickerColor,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          textStyle: const TextStyle(color: Color(0xFF385B44), fontSize: 15),
         ),
       ],
     );

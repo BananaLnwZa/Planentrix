@@ -40,7 +40,6 @@ export interface UserConstraint {
   break: number | null;
   start_time: string | null;
   end_time: string | null;
-  time_preference: number | null;
   busy_days: BusyTime[];
 }
 
@@ -50,7 +49,6 @@ export interface UpdateConstraintRequest {
   break: number | null;
   start_time: string | null;
   end_time: string | null;
-  time_preference: number | null;
   busy_days: BusyTime[];
 }
 

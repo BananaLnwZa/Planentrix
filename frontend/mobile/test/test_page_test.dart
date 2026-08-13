@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mobile/interfaces/exam.interface.dart';
+import 'package:mobile/interfaces/term.interface.dart';
 import 'package:mobile/pages/Test/Test.dart';
 import 'package:mobile/services/exam.service.dart';
+import 'package:mobile/services/term.service.dart';
 
 class FakeExamRepository implements ExamRepository {
   int? submittedExamId;
@@ -172,6 +174,18 @@ class FakeExamRepository implements ExamRepository {
   }
 }
 
+class NoCurrentTermRepository implements TermRepository {
+  @override
+  Future<CurrentTerm?> getCurrentTerm() async => null;
+
+  @override
+  Future<CurrentTerm> createTerm(CreateTermRequest request) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> endCurrentTerm() async => throw UnimplementedError();
+}
+
 void setPhoneSize(WidgetTester tester, [Size size = const Size(360, 640)]) {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -182,6 +196,32 @@ void setPhoneSize(WidgetTester tester, [Size size = const Size(360, 640)]) {
 }
 
 void main() {
+  testWidgets('test page uses the shared no-term state', (tester) async {
+    setPhoneSize(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TestPage(
+          repository: FakeExamRepository(),
+          termRepository: NoCurrentTermRepository(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('test-no-term')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('test-no-term'))),
+      const Size(280, 250),
+    );
+    expect(find.text('ยังไม่มีเทอมปัจจุบัน'), findsOneWidget);
+    expect(
+      find.text('กรุณาสร้างเทอมและตารางเรียนก่อนทำแบบทดสอบ'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('test-error')), findsNothing);
+    expect(find.byKey(const Key('test-home-content')), findsNothing);
+  });
+
   testWidgets('test page shows subjects, exams, and score history', (
     tester,
   ) async {

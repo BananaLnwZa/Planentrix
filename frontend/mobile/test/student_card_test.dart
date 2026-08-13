@@ -48,6 +48,12 @@ class EmptyTableRepository implements TableRepository {
 
 class FakeProfileRepository implements ProfileRepository {
   @override
+  Future<String> updateAvatar({
+    required List<int> bytes,
+    required String filename,
+  }) async => 'http://localhost:4000/uploads/$filename';
+
+  @override
   Future<UserProfile> getProfile() async => UserProfile(
     userId: 42,
     userName: 'NichaAPI',
@@ -64,7 +70,6 @@ class FakeProfileRepository implements ProfileRepository {
     breakDuration: 10,
     startTime: '08:00',
     endTime: '18:00',
-    timePreference: 1,
     busyDays: [BusyTime(day: 1, start: '12:00', end: '13:00')],
   );
 
@@ -87,7 +92,6 @@ class FakeProfileRepository implements ProfileRepository {
         breakDuration: input.breakDuration,
         startTime: input.startTime,
         endTime: input.endTime,
-        timePreference: input.timePreference,
         busyDays: input.busyDays,
       );
 }
@@ -288,5 +292,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('edit-profile-popup')), findsOneWidget);
     expect(find.byKey(const Key('save-profile-button')), findsOneWidget);
+    expect(find.byKey(const Key('edit-profile-photo-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('edit-constraint-tab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('add-profile-busy-time')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('add-profile-busy-time')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('profile-busy-time-0')), findsOneWidget);
+    expect(find.byKey(const Key('profile-busy-start-0')), findsOneWidget);
+    expect(find.byKey(const Key('profile-busy-end-0')), findsOneWidget);
   });
 }

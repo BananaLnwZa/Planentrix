@@ -12,6 +12,9 @@ import GradeGoalModal from "./GradeGoalModal";
 import GradeGoalPrompt from "./GradeGoalPrompt";
 import HomeworkDashboard from "./HomeworkDashboard";
 import ScoreDashboard from "./ScoreDashboard";
+import {
+  CurrentTermRequiredNotebookLayout,
+} from "@/components/common/CurrentTermRequiredState";
 
 export default function ScoreHomeworkContent() {
   const [data, setData] = useState<SubjectGoalsResponse | null>(null);
@@ -82,6 +85,15 @@ export default function ScoreHomeworkContent() {
     }
   };
 
+  if (!isLoading && !loadError && !data) {
+    return (
+      <CurrentTermRequiredNotebookLayout
+        leftDetail="กรุณาสร้างเทอมและตารางเรียนก่อนตั้งเป้าหมายเกรด"
+        rightDetail="กรุณาสร้างเทอมและตารางเรียนก่อนเพิ่มงาน"
+      />
+    );
+  }
+
   return (
     <div className="grid h-full w-full grid-cols-1 gap-10 md:grid-cols-[calc(50%-26px)_calc(50%-26px)] md:justify-between md:gap-[52px]">
     <div className="relative h-full min-h-[500px] w-full md:-left-4 md:pr-1 xl:-left-5">
@@ -99,11 +111,7 @@ export default function ScoreHomeworkContent() {
           onAction={() => void loadGoals()}
         />
       ) : !data ? (
-        <StateMessage
-          icon={<BookX className="h-7 w-7" />}
-          title="ยังไม่มีเทอมปัจจุบัน"
-          detail="กรุณาสร้างเทอมและตารางเรียนก่อนตั้งเป้าหมายเกรด"
-        />
+        <div />
       ) : data.data.length === 0 ? (
         <StateMessage
           icon={<BookX className="h-7 w-7" />}

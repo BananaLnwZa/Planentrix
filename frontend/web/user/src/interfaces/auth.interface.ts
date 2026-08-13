@@ -15,7 +15,6 @@ export interface RegisterRequest {
   break?: number | null;
   start_time?: string | null;
   end_time?: string | null;
-  time_preference?: number | null;
   busy_days?: {
     day: number;
     start: string;

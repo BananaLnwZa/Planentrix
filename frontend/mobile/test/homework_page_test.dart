@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:mobile/common/CurrentTermRequiredState.dart';
 import 'package:mobile/common/HomeworkTimeFormat.dart';
 import 'package:mobile/interfaces/homework.interface.dart';
 import 'package:mobile/interfaces/score.interface.dart';
@@ -79,14 +80,24 @@ List<HomeworkTaskData> sampleTasks() => [
 
 class FakeHomeworkRepository implements HomeworkRepository {
   final List<HomeworkTaskData> tasks;
+  final bool hasCurrentTerm;
+  final bool? hasWorkloadsOverride;
   final List<int> finishedIds = [];
   final List<int> updatedIds = [];
   final List<int> deletedIds = [];
 
-  FakeHomeworkRepository([List<HomeworkTaskData>? tasks]) : tasks = [...?tasks];
+  FakeHomeworkRepository([
+    List<HomeworkTaskData>? tasks,
+    this.hasCurrentTerm = true,
+    this.hasWorkloadsOverride,
+  ]) : tasks = [...?tasks];
 
   @override
-  Future<List<HomeworkTaskData>> getPendingHomework() async => [...tasks];
+  Future<HomeworkOverview> getHomeworkOverview() async => HomeworkOverview(
+    tasks: [...tasks],
+    hasCurrentTerm: hasCurrentTerm,
+    hasWorkloads: hasWorkloadsOverride ?? tasks.isNotEmpty,
+  );
 
   @override
   Future<List<HomeworkSubject>> getSubjects() async => const [
@@ -165,8 +176,11 @@ class SharedHomeworkScoreRepository
   );
 
   @override
-  Future<List<HomeworkTaskData>> getPendingHomework() async =>
-      isFinished ? [] : [task];
+  Future<HomeworkOverview> getHomeworkOverview() async => HomeworkOverview(
+    tasks: isFinished ? const [] : [task],
+    hasCurrentTerm: true,
+    hasWorkloads: true,
+  );
 
   @override
   Future<List<HomeworkSubject>> getSubjects() async => const [];
@@ -279,6 +293,72 @@ void main() {
         'project': 5,
       },
     );
+  });
+
+  testWidgets('homework hides add action when there is no current term', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeworkPage(
+          repository: FakeHomeworkRepository(const [], false, false),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('homework-no-term')), findsOneWidget);
+    expect(find.byType(CurrentTermRequiredState), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('homework-no-term'))),
+      const Size(280, 250),
+    );
+    expect(
+      find.text('กรุณาสร้างเทอมและตารางเรียนก่อนเพิ่มงาน'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('homework-add-button')), findsNothing);
+    expect(find.text('ส่งงานครบแล้ว'), findsNothing);
+  });
+
+  testWidgets('new term with no workloads shows only the add action', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeworkPage(
+          repository: FakeHomeworkRepository(const [], true, false),
+          onAddHomework: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('homework-add-button')), findsOneWidget);
+    expect(find.byKey(const Key('homework-no-term')), findsNothing);
+    expect(find.text('ส่งงานครบแล้ว'), findsNothing);
+  });
+
+  testWidgets('term with completed workloads shows completion state', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeworkPage(
+          repository: FakeHomeworkRepository(const [], true, true),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('homework-add-button')), findsOneWidget);
+    expect(find.text('ส่งงานครบแล้ว'), findsOneWidget);
   });
 
   testWidgets('homework page matches the grouped Figma layout', (tester) async {
@@ -638,7 +718,10 @@ void main() {
     await tester.tap(find.byKey(const Key('homework-deadline-field')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('app-date-time-picker-dialog')), findsOneWidget);
+    expect(
+      find.byKey(const Key('app-date-time-picker-dialog')),
+      findsOneWidget,
+    );
     final picker = tester.widget<CalendarDatePicker>(
       find.byType(CalendarDatePicker),
     );

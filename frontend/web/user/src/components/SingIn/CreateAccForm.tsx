@@ -2,7 +2,7 @@
 
 import { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import SelectGender from "./SelectGender";
+import GenderSelect from "@/components/common/GenderSelect";
 import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
 
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*[\W_]).{8,}$/;
@@ -359,7 +359,7 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
 
         {/* Select Gender */}
         <div className="w-full sm:w-1/2">
-          <SelectGender
+          <GenderSelect
             value={selectedGender}
             onChange={setSelectedGender}
           />

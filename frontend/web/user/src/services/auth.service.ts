@@ -1,5 +1,4 @@
-import axios, { AxiosInstance } from "axios";
-import Cookies from "js-cookie";
+import axios from "axios";
 import {
   RegisterRequest,
   LoginRequest,
@@ -7,66 +6,30 @@ import {
   LogoutResponse,
   DeleteAccountResponse,
   ApiResponse,
-  ApiErrorResponse,
   UpdateConstraintRequest,
   UpdateConstraintResponse,
 } from "@/interfaces/auth.interface";
+import { authenticatedApiClient, publicApiClient } from "./api.client";
+import {
+  clearStoredAuth,
+  getStoredAuthSession,
+  storeAccessToken,
+  type AuthSession,
+} from "./auth.session";
 
 /**
  * Auth Service
  * Handles all authentication-related API calls
  */
 class AuthService {
-  private apiClient: AxiosInstance;
-  private readonly baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
   private readonly authEndpoint = "/user/auth";
-
-  constructor() {
-    this.apiClient = axios.create({
-      baseURL: this.baseURL,
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    // Add request interceptor to include access token
-    this.apiClient.interceptors.request.use(
-      (config) => {
-        const accessToken = Cookies.get("accessToken");
-        if (accessToken) {
-          config.headers.Authorization = `Bearer ${accessToken}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
-
-    // Web sessions do not use refresh tokens. Expired sessions must log in again.
-    this.apiClient.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          Cookies.remove("accessToken");
-
-          if (
-            typeof window !== "undefined" &&
-            window.location.pathname !== "/LogIn"
-          ) {
-            window.location.href = "/LogIn";
-          }
-        }
-
-        return Promise.reject(error);
-      }
-    );
-  }
 
   /**
    * Register a new user
    */
   async register(data: RegisterRequest): Promise<ApiResponse> {
     try {
-      const response = await this.apiClient.post<ApiResponse>(
+      const response = await publicApiClient.post<ApiResponse>(
         `${this.authEndpoint}/register`,
         data
       );
@@ -81,19 +44,13 @@ class AuthService {
    */
   async login(data: LoginRequest): Promise<LoginResponse> {
     try {
-      const response = await this.apiClient.post<LoginResponse>(
+      const response = await publicApiClient.post<LoginResponse>(
         `${this.authEndpoint}/login`,
         { ...data, platform: "web" }
       );
 
-      // Save the web access token to a cookie.
       const { accessToken } = response.data;
-      
-      Cookies.set("accessToken", accessToken, {
-        expires: 1, // 1 day for web
-        secure: true,
-        sameSite: "Strict",
-      });
+      storeAccessToken(accessToken);
 
       return response.data;
     } catch (error) {
@@ -106,17 +63,15 @@ class AuthService {
    */
   async logout(): Promise<LogoutResponse> {
     try {
-      const response = await this.apiClient.post<LogoutResponse>(
+      const response = await authenticatedApiClient.post<LogoutResponse>(
         `${this.authEndpoint}/logout`
       );
 
-      // Clear the web access token from cookies
-      Cookies.remove("accessToken");
+      clearStoredAuth();
 
       return response.data;
     } catch (error) {
-      // Clear the token even if the request fails
-      Cookies.remove("accessToken");
+      clearStoredAuth();
       throw this.handleError(error);
     }
   }
@@ -126,12 +81,11 @@ class AuthService {
    */
   async deleteAccount(): Promise<DeleteAccountResponse> {
     try {
-      const response = await this.apiClient.delete<DeleteAccountResponse>(
+      const response = await authenticatedApiClient.delete<DeleteAccountResponse>(
         `${this.authEndpoint}/me`
       );
 
-      // Clear the web access token from cookies
-      Cookies.remove("accessToken");
+      clearStoredAuth();
 
       return response.data;
     } catch (error) {
@@ -143,7 +97,11 @@ class AuthService {
    * Get access token from cookies
    */
   getAccessToken(): string | undefined {
-    return Cookies.get("accessToken");
+    return getStoredAuthSession()?.token;
+  }
+
+  getSession(): AuthSession | null {
+    return getStoredAuthSession();
   }
 
   /**
@@ -158,7 +116,7 @@ class AuthService {
    */
   async updateConstraints(data: UpdateConstraintRequest): Promise<UpdateConstraintResponse> {
     try {
-      const response = await this.apiClient.patch<UpdateConstraintResponse>(
+      const response = await authenticatedApiClient.patch<UpdateConstraintResponse>(
         `${this.authEndpoint}/constraints`,
         data
       );
@@ -172,28 +130,25 @@ class AuthService {
    * Clear all auth data
    */
   clearAuth(): void {
-    Cookies.remove("accessToken");
+    clearStoredAuth();
   }
 
   /**
    * Handle API errors
    */
-  private handleError(error: any): ApiErrorResponse {
+  private handleError(error: unknown): Error {
     if (axios.isAxiosError(error)) {
       const message =
         error.response?.data?.message ||
         error.message ||
         "An unexpected error occurred";
       
-      return {
-        message,
-        statusCode: error.response?.status,
-      };
+      return new Error(message);
     }
     
-    return {
-      message: "An unexpected error occurred",
-    };
+    return error instanceof Error
+      ? error
+      : new Error("An unexpected error occurred");
   }
 }
 

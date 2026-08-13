@@ -149,13 +149,6 @@ class _MainPageState extends State<MainPage> {
           'Sunday',
         ][day - 1];
 
-  String _timePreference(int? value) => switch (value) {
-    1 => 'เช้า',
-    2 => 'กลางวัน',
-    3 => 'เย็น',
-    _ => '—',
-  };
-
   Future<void> _openStudentCard() async {
     final constraint = _constraint;
     await showStudentCardPopup(
@@ -171,7 +164,6 @@ class _MainPageState extends State<MainPage> {
       workingTime: constraint?.startTime == null || constraint?.endTime == null
           ? '—'
           : '${constraint!.startTime} – ${constraint.endTime}',
-      timePreference: _timePreference(constraint?.timePreference),
       busyTimes:
           constraint?.busyDays
               .map(

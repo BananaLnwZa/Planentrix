@@ -143,10 +143,10 @@ export const calculateWeightedGradeSummary = (
     const maximumScore = Number.isFinite(subject.maximumScore)
       ? Math.max(subject.maximumScore, 0)
       : 0;
-    const percent =
-      maximumScore > 0
-        ? Math.min((actualScore / maximumScore) * 100, 100)
-        : 0;
+    // Each subject is accumulated directly on a 100-point scale. The sum of
+    // max_score is only used to limit score entry; it must not make an early
+    // 8/10 look like 80/100 before the remaining coursework is graded.
+    const percent = Math.min(actualScore, 100);
     const grade = percentToGrade(percent);
 
     totalCredits += credits;

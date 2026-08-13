@@ -1,5 +1,4 @@
-import axios, { AxiosInstance } from "axios";
-import Cookies from "js-cookie";
+import axios from "axios";
 import type {
   CreateTermRequest,
   CreateTermResponse,
@@ -7,24 +6,10 @@ import type {
   CurrentTermResponse,
   EndTermResponse,
 } from "@/interfaces/term.interface";
+import { authenticatedApiClient } from "./api.client";
 
 class TermService {
-  private apiClient: AxiosInstance;
-
-  constructor() {
-    this.apiClient = axios.create({
-      baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000",
-      timeout: 10000,
-    });
-
-    this.apiClient.interceptors.request.use((config) => {
-      const accessToken = Cookies.get("accessToken");
-      if (accessToken) {
-        config.headers.Authorization = `Bearer ${accessToken}`;
-      }
-      return config;
-    });
-  }
+  private readonly apiClient = authenticatedApiClient;
 
   async getCurrentTerm(): Promise<CurrentTerm | null> {
     try {

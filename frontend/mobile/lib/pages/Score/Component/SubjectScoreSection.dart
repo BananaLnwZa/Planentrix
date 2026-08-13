@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../common/CurrentTermRequiredState.dart';
 import '../../../interfaces/score.interface.dart';
 import '../../../services/score.service.dart';
 import 'GradeGoalSetupPopup.dart';
@@ -29,6 +30,7 @@ class _SubjectScoreSectionState extends State<SubjectScoreSection> {
   int? _savingWorkloadId;
   bool _isLoading = true;
   bool _isSavingGoals = false;
+  bool _hasCurrentTerm = true;
   String? _error;
 
   @override
@@ -40,6 +42,7 @@ class _SubjectScoreSectionState extends State<SubjectScoreSection> {
   Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
+      _hasCurrentTerm = true;
       _error = null;
     });
     try {
@@ -62,6 +65,15 @@ class _SubjectScoreSectionState extends State<SubjectScoreSection> {
         subjects.isNotEmpty &&
             subjects.every((subject) => subject.targetScore != null),
       );
+    } on NoCurrentTermScoreException {
+      if (!mounted) return;
+      setState(() {
+        _subjects = const [];
+        _selectedIndex = 0;
+        _hasCurrentTerm = false;
+        _isLoading = false;
+      });
+      widget.onGoalStateChanged(false);
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -199,6 +211,13 @@ class _SubjectScoreSectionState extends State<SubjectScoreSection> {
             ),
           ],
         ),
+      );
+    }
+
+    if (!_hasCurrentTerm) {
+      return const CurrentTermRequiredState(
+        key: Key('score-no-term'),
+        detail: 'กรุณาสร้างเทอมและตารางเรียนก่อนตั้งเป้าหมายเกรด',
       );
     }
 

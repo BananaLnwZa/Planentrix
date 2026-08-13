@@ -45,7 +45,6 @@ export const register = async (req: Request, res: Response) => {
       break: breakTime,
       start_time,
       end_time,
-      time_preference,
       busy_days,
     } = req.body;
 
@@ -53,7 +52,6 @@ export const register = async (req: Request, res: Response) => {
       ["day_off", day_off],
       ["continuous_working_duration", continuous_working_duration],
       ["break", breakTime],
-      ["time_preference", time_preference],
     ];
 
     for (const [field, value] of integerFields) {
@@ -130,8 +128,8 @@ export const register = async (req: Request, res: Response) => {
 
     const [constraintResult]: any = await db.query(
       `INSERT INTO \`constraint\`
-        (user_id, day_off, continuous_working_duration, \`break\`, start_time, end_time, time_preference)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        (user_id, day_off, continuous_working_duration, \`break\`, start_time, end_time)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         userId,
         day_off ?? null,
@@ -139,7 +137,6 @@ export const register = async (req: Request, res: Response) => {
         breakTime ?? null,
         start_time || null,
         end_time || null,
-        time_preference ?? null,
       ]
     );
 

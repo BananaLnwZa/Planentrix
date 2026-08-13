@@ -193,4 +193,35 @@ void main() {
     expect(find.text('24:00'), findsOneWidget);
     expect(find.byKey(const Key('schedule-block-3')), findsOneWidget);
   });
+
+  testWidgets(
+    'short schedules keep their first block time and show ten hours',
+    (tester) async {
+      setPhoneSize(tester);
+      final repository = FakeTableRepository()
+        ..items = const [
+          ScheduleItem(
+            scheduleTimeId: 4,
+            scheduleTypeId: 1,
+            scheduleTypeName: 'Class',
+            subjectId: 'BI101',
+            subjectName: 'Business Intelligence',
+            scheduleDay: 1,
+            startTime: '09:30',
+            endTime: '10:30',
+          ),
+        ];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: Schedule(repository: repository)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('08:00'), findsNothing);
+      expect(find.text('09:00'), findsOneWidget);
+      expect(find.text('19:00'), findsOneWidget);
+      expect(find.byKey(const Key('schedule-block-4')), findsOneWidget);
+    },
+  );
 }

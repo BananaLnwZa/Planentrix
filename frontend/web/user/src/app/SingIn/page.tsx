@@ -18,7 +18,6 @@ interface ConstraintFormData {
   break: number | null;
   start_time: string | null;
   end_time: string | null;
-  time_preference: number | null;
 }
 
 // Interface for busy day data
@@ -82,7 +81,6 @@ export default function LoginPage() {
         break: constraintData.constraints.break,
         start_time: constraintData.constraints.start_time,
         end_time: constraintData.constraints.end_time,
-        time_preference: constraintData.constraints.time_preference,
       };
 
       if (constraintData.busyDays && constraintData.busyDays.length > 0) {

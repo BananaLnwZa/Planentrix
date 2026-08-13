@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../common/CurrentTermRequiredState.dart';
 import '../../common/NotebookSectionPage.dart';
 import '../../common/NotebookTabs.dart';
 import '../../interfaces/time.interface.dart';
@@ -426,8 +427,16 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
         ),
       );
     }
+    if (_pageErrorCode == 'NO_CURRENT_TERM') {
+      return const Align(
+        alignment: Alignment.topCenter,
+        child: CurrentTermRequiredState(
+          key: Key('timer-no-term'),
+          detail: 'กรุณาสร้างเทอมและตารางเรียนก่อนเริ่มจับเวลา',
+        ),
+      );
+    }
     if (_pageError != null || _setup == null || _dashboard == null) {
-      final noTerm = _pageErrorCode == 'NO_CURRENT_TERM';
       return _TimerState(
         key: const Key('timer-error'),
         child: Column(
@@ -440,7 +449,7 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 8),
             Text(
-              noTerm ? 'ยังไม่มีเทอมปัจจุบัน' : 'โหลดข้อมูลไม่สำเร็จ',
+              'โหลดข้อมูลไม่สำเร็จ',
               style: const TextStyle(
                 fontSize: 15,
                 color: Color(0xFF5D5055),
@@ -449,9 +458,7 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 5),
             Text(
-              noTerm
-                  ? 'กรุณาสร้างเทอมและตารางเรียนในหน้า Main ก่อนเริ่มจับเวลา'
-                  : _pageError ?? 'ไม่สามารถโหลดหน้าจับเวลาได้',
+              _pageError ?? 'ไม่สามารถโหลดหน้าจับเวลาได้',
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 10.5, color: Color(0xFF95868B)),
             ),

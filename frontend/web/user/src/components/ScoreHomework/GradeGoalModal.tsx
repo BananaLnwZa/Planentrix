@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BookOpenCheck, LockKeyhole, X } from "lucide-react";
+import CustomSelect from "@/components/common/CustomSelect";
 import type {
   GradeLetter,
   SaveGradeGoalItem,
@@ -103,7 +104,7 @@ export default function GradeGoalModal({
             {subjects.map((subject, index) => {
               const isPreviouslySaved = subject.target_score !== null;
               return (
-                <label
+                <div
                   key={subject.schedule_time_id}
                   className="grid grid-cols-[minmax(0,1fr)_104px] items-center gap-2.5 rounded-xl border border-[#DCECF5] bg-white px-3 py-2.5 shadow-[0_3px_9px_rgba(80,139,172,0.05)]"
                 >
@@ -118,26 +119,25 @@ export default function GradeGoalModal({
                       )}
                     </span>
                   </span>
-                  <select
-                    aria-label={`เกรดเป้าหมายวิชา ${subject.subject_name}`}
+                  <CustomSelect
+                    ariaLabel={`เกรดเป้าหมายวิชา ${subject.subject_name}`}
                     value={selections[subject.schedule_time_id]}
                     disabled={isPreviouslySaved}
-                    onChange={(event) =>
+                    onChange={(grade) =>
                       setSelections((current) => ({
                         ...current,
-                        [subject.schedule_time_id]: event.target.value as GradeLetter,
+                        [subject.schedule_time_id]: grade,
                       }))
                     }
-                    className="min-h-9 w-full rounded-lg border border-[#9FC5D9] bg-[#F8FCFF] px-2.5 text-xs font-semibold text-[#2F657F] opacity-100 outline-none transition focus:border-[#4A9ECB] focus:ring-2 focus:ring-[#D9F0FC] disabled:cursor-not-allowed disabled:bg-[#EDF5F9] disabled:text-[#536D7A]"
-                  >
-                    <option value="">เลือกเกรด</option>
-                    {GRADE_OPTIONS.map((option) => (
-                      <option key={option.grade} value={option.grade}>
-                        {option.grade} · {option.scoreRange}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    options={GRADE_OPTIONS.map((option) => ({
+                      value: option.grade,
+                      label: `${option.grade} · ${option.scoreRange}`,
+                    }))}
+                    placeholder="เลือกเกรด"
+                    compact
+                    className="w-full"
+                  />
+                </div>
               );
             })}
           </div>

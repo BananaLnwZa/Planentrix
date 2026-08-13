@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../common/CurrentTermRequiredState.dart';
 import '../../common/NotebookSectionPage.dart';
 import '../../common/NotebookTabs.dart';
 import '../../interfaces/exam.interface.dart';
 import '../../services/exam.service.dart';
+import '../../services/term.service.dart';
 import 'Component/ExamDetailsPopup.dart';
 import 'Component/ExamHistorySection.dart';
 import 'Component/ExamList.dart';
@@ -19,8 +21,9 @@ import 'Component/TestSubjectTabs.dart';
 
 class TestPage extends StatefulWidget {
   final ExamRepository? repository;
+  final TermRepository? termRepository;
 
-  const TestPage({super.key, this.repository});
+  const TestPage({super.key, this.repository, this.termRepository});
 
   @override
   State<TestPage> createState() => _TestPageState();
@@ -28,6 +31,7 @@ class TestPage extends StatefulWidget {
 
 class _TestPageState extends State<TestPage> {
   late final ExamRepository _repository;
+  late final TermRepository? _termRepository;
   List<ExamSummary> _exams = const [];
   List<ExamHistoryItem> _history = const [];
   ExamInsights _insights = const ExamInsights();
@@ -37,6 +41,7 @@ class _TestPageState extends State<TestPage> {
   int _currentQuestionIndex = 0;
   int? _openingExamId;
   bool _isLoading = true;
+  bool _hasCurrentTerm = true;
   bool _isSubmitting = false;
   bool _showAnswerWarning = false;
   String? _error;
@@ -47,6 +52,9 @@ class _TestPageState extends State<TestPage> {
   void initState() {
     super.initState();
     _repository = widget.repository ?? ExamService();
+    _termRepository =
+        widget.termRepository ??
+        (widget.repository == null ? TermService() : null);
     _loadData();
   }
 
@@ -59,9 +67,26 @@ class _TestPageState extends State<TestPage> {
   Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
+      _hasCurrentTerm = true;
       _error = null;
     });
     try {
+      final termRepository = _termRepository;
+      if (termRepository != null) {
+        final currentTerm = await termRepository.getCurrentTerm();
+        if (!mounted) return;
+        if (currentTerm == null) {
+          setState(() {
+            _exams = const [];
+            _history = const [];
+            _insights = const ExamInsights();
+            _selectedSubjectId = null;
+            _hasCurrentTerm = false;
+            _isLoading = false;
+          });
+          return;
+        }
+      }
       final results = await Future.wait<dynamic>([
         _repository.getExams(),
         _repository.getHistory(),
@@ -213,7 +238,7 @@ class _TestPageState extends State<TestPage> {
     return NotebookSectionPage(
       activeTab: NotebookTabId.test,
       contentKey: const Key('test-page'),
-      contentPadding: const EdgeInsets.fromLTRB(13, 22, 13, 26),
+      contentPadding: const EdgeInsets.fromLTRB(12, 22, 12, 26),
       centerContent: false,
       child: _activeExam == null ? _buildExamHome() : _buildExamRunner(),
     );
@@ -238,6 +263,15 @@ class _TestPageState extends State<TestPage> {
             const SizedBox(height: 10),
             OutlinedButton(onPressed: _loadData, child: const Text('ลองใหม่')),
           ],
+        ),
+      );
+    }
+    if (!_hasCurrentTerm) {
+      return const Align(
+        alignment: Alignment.topCenter,
+        child: CurrentTermRequiredState(
+          key: Key('test-no-term'),
+          detail: 'กรุณาสร้างเทอมและตารางเรียนก่อนทำแบบทดสอบ',
         ),
       );
     }

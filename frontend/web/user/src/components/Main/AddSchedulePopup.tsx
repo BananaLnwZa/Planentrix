@@ -3,22 +3,14 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { BookOpen, ClipboardPenLine, Plus, X } from "lucide-react";
+import CustomSelect from "@/components/common/CustomSelect";
+import DaySelect from "@/components/common/DaySelect";
 import type {
   AddScheduleRequest,
   ScheduleItem,
   ScheduleSubject,
 } from "@/interfaces/table.interface";
 import ScheduleTimePicker24Hour from "./ScheduleTimePicker24Hour";
-
-const thaiDays = [
-  "จันทร์",
-  "อังคาร",
-  "พุธ",
-  "พฤหัสบดี",
-  "ศุกร์",
-  "เสาร์",
-  "อาทิตย์",
-];
 
 type AddSchedulePopupProps = {
   subjects: ScheduleSubject[];
@@ -159,55 +151,47 @@ export default function AddSchedulePopup({
             </div>
           </fieldset>
 
-          <label className="block">
+          <div className="block">
             <span className="mb-1.5 block text-sm text-[#536D79]">รายวิชา</span>
-            <select
+            <CustomSelect
               required
               value={subjectId}
               disabled={isLoadingSubjects || subjects.length === 0}
-              onChange={(event) => {
-                setSubjectId(event.target.value);
+              onChange={(value) => {
+                setSubjectId(value);
                 clearSubmitError();
               }}
-              className="h-10 w-full rounded-xl border border-[#A9C8D6] bg-white px-3 text-sm text-[#4D6570] outline-none focus:border-[#6AAAC7] disabled:cursor-not-allowed disabled:bg-[#F3F6F7]"
-            >
-              <option value="">
-                {isLoadingSubjects
+              options={subjects.map((subject) => ({
+                value: subject.subject_id,
+                label: `${subject.subject_id} — ${subject.subject_name}`,
+              }))}
+              placeholder={
+                isLoadingSubjects
                   ? "กำลังโหลดรายวิชา..."
                   : subjects.length
                     ? "เลือกรายวิชา"
-                    : "ไม่พบรายวิชาในเทอมปัจจุบัน"}
-              </option>
-              {subjects.map((subject) => (
-                <option key={subject.subject_id} value={subject.subject_id}>
-                  {subject.subject_id} — {subject.subject_name}
-                </option>
-              ))}
-            </select>
+                    : "ไม่พบรายวิชาในเทอมปัจจุบัน"
+              }
+              compact
+            />
             {subjectsError && (
               <span className="mt-1.5 block text-xs text-red-500" role="alert">
                 {subjectsError}
               </span>
             )}
-          </label>
+          </div>
 
-          <label className="block">
+          <div className="block">
             <span className="mb-1.5 block text-sm text-[#536D79]">วัน</span>
-            <select
+            <DaySelect
               value={scheduleDay}
-              onChange={(event) => {
-                setScheduleDay(Number(event.target.value));
+              onChange={(day) => {
+                if (day) setScheduleDay(day);
                 clearSubmitError();
               }}
-              className="h-10 w-full rounded-xl border border-[#A9C8D6] bg-white px-3 text-sm text-[#4D6570] outline-none focus:border-[#6AAAC7]"
-            >
-              {thaiDays.map((day, index) => (
-                <option key={day} value={index + 1}>
-                  {day}
-                </option>
-              ))}
-            </select>
-          </label>
+              compact
+            />
+          </div>
 
           <div>
             <p className="mb-1.5 text-sm text-[#536D79]">ระยะเวลา</p>

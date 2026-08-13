@@ -17,6 +17,7 @@ import {
   Clock3,
   X,
 } from "lucide-react";
+import CustomSelect from "./CustomSelect";
 
 export type PickerType = "date" | "time" | "datetime-local";
 
@@ -340,17 +341,15 @@ function CalendarPanel({
         <button type="button" disabled={!canGoNext} onClick={() => onMonthChange(nextMonth)} className="rounded-full p-1.5 text-[#637985] hover:bg-[#EEF5F7] disabled:cursor-not-allowed disabled:opacity-25" aria-label="เดือนถัดไป">
           <ChevronRight size={18} />
         </button>
-        <label>
-          <span className="sr-only">เลือกปี</span>
-          <select
-            aria-label="เลือกปี"
-            value={visibleMonth.getFullYear()}
-            onChange={(event) => selectYear(Number(event.target.value))}
-            className="h-8 w-full rounded-xl border border-[#D7E5EA] bg-white px-2 text-xs font-semibold text-[#405762] outline-none focus:border-[#82C9EA]"
-          >
-            {years.map((year) => <option key={year} value={year}>ปี {year}</option>)}
-          </select>
-        </label>
+        <CustomSelect
+          ariaLabel="เลือกปี"
+          value={visibleMonth.getFullYear()}
+          onChange={selectYear}
+          options={years.map((year) => ({ value: year, label: `ปี ${year}` }))}
+          compact
+          buttonClassName="!h-8 !rounded-xl !px-2 !text-xs !font-semibold"
+          optionClassName="!text-xs"
+        />
       </div>
       <div className="grid grid-cols-7 gap-1 text-center">
         {dayNames.map((day) => <span key={day} className="py-1 text-[10px] font-semibold text-[#91A0A7]">{day}</span>)}

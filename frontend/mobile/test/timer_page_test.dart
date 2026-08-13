@@ -130,6 +130,14 @@ class FakeTimeRepository implements TimeRepository {
   }
 }
 
+class NoCurrentTermTimeRepository extends FakeTimeRepository {
+  @override
+  Future<TimerSetup> getSetup() async => throw const TimeException(
+    'ยังไม่มีเทอมปัจจุบัน',
+    code: 'NO_CURRENT_TERM',
+  );
+}
+
 void setPhoneSize(WidgetTester tester, [Size size = const Size(360, 640)]) {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -140,6 +148,27 @@ void setPhoneSize(WidgetTester tester, [Size size = const Size(360, 640)]) {
 }
 
 void main() {
+  testWidgets('timer uses the shared no-term state', (tester) async {
+    setPhoneSize(tester);
+    await tester.pumpWidget(
+      MaterialApp(home: TimerPage(repository: NoCurrentTermTimeRepository())),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('timer-no-term')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('timer-no-term'))),
+      const Size(280, 250),
+    );
+    expect(find.text('ยังไม่มีเทอมปัจจุบัน'), findsOneWidget);
+    expect(
+      find.text('กรุณาสร้างเทอมและตารางเรียนก่อนเริ่มจับเวลา'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('timer-error')), findsNothing);
+    expect(find.text('ลองอีกครั้ง'), findsNothing);
+  });
+
   testWidgets('timer page shows timer, statistics, and study history', (
     tester,
   ) async {

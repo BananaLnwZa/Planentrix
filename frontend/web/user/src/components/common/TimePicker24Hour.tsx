@@ -1,18 +1,6 @@
 "use client";
 
-import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
-
-type TimePicker24HourProps = {
-  id: string;
-  value: string;
-  onChange: (value: string) => void;
-  ariaLabel: string;
-  ariaInvalid?: boolean;
-  ariaDescribedBy?: string;
-  className?: string;
-  iconClassName?: string;
-  iconSize?: number;
-};
+import LocalizedDateTimeInput from "./LocalizedDateTimeInput";
 
 export default function TimePicker24Hour({
   id,
@@ -24,7 +12,17 @@ export default function TimePicker24Hour({
   className = "",
   iconClassName,
   iconSize,
-}: TimePicker24HourProps) {
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  ariaLabel: string;
+  ariaInvalid?: boolean;
+  ariaDescribedBy?: string;
+  className?: string;
+  iconClassName?: string;
+  iconSize?: number;
+}) {
   return (
     <LocalizedDateTimeInput
       id={id}

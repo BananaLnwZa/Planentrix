@@ -32,7 +32,6 @@ class RegisterRequest {
   final int? breakTime; // In minutes
   final String? startTime; // HH:mm
   final String? endTime; // HH:mm
-  final int? timePreference; // e.g. Morning (1), Afternoon (2), etc.
   final List<BusyDay>? busyDays;
 
   RegisterRequest({
@@ -45,7 +44,6 @@ class RegisterRequest {
     this.breakTime,
     this.startTime,
     this.endTime,
-    this.timePreference,
     this.busyDays,
   });
 
@@ -60,7 +58,6 @@ class RegisterRequest {
       'break': breakTime,
       'start_time': startTime,
       'end_time': endTime,
-      'time_preference': timePreference,
     };
 
     if (busyDays != null) {
