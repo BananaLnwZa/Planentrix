@@ -26,7 +26,9 @@ export default function TaskCompletionCard({
     >
       <DonutChart
         segments={distribution}
-        centerValue={`${completed}%`}
+        centerValue={`${completed.toLocaleString("th-TH", {
+          maximumFractionDigits: 1,
+        })}%`}
         centerLabel="อัตราสำเร็จ"
       />
     </DashboardCard>

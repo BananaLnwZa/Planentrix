@@ -37,7 +37,7 @@ export default function MetricCard({
   accent,
 }: MetricCardProps) {
   const styles = accentStyles[accent];
-  const max = Math.max(...trend);
+  const max = Math.max(...trend, 1);
 
   return (
     <section className="rounded-[24px] border border-[#dcebf0] bg-white p-5 shadow-[0_14px_38px_rgba(72,112,130,0.08)] sm:p-6">

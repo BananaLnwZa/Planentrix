@@ -18,7 +18,7 @@ export default function DashboardHeader() {
       <div className="flex flex-wrap gap-2 text-xs text-[#5f747e]">
         <span className="inline-flex items-center gap-2 rounded-full border border-[#d7e8ee] bg-white px-3.5 py-2">
           <CalendarDays aria-hidden="true" size={15} />
-          ภาคเรียน 1/2569
+          ข้อมูลจากเทอมปัจจุบันของผู้ใช้
         </span>
         <span className="inline-flex items-center gap-2 rounded-full border border-[#d7e8ee] bg-white px-3.5 py-2">
           <Clock3 aria-hidden="true" size={15} />

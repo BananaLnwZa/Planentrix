@@ -4,21 +4,25 @@ import DashboardCard from "./DashboardCard";
 interface ExamPart {
   label: string;
   score: number;
+  userCount?: number;
 }
 
 interface ExamPartRankingCardProps {
   best: readonly ExamPart[];
   weakest: readonly ExamPart[];
+  emptyMessage?: string;
 }
 
 function RankingList({
   title,
   items,
   tone,
+  emptyMessage,
 }: {
   title: string;
   items: readonly ExamPart[];
   tone: "good" | "weak";
+  emptyMessage: string;
 }) {
   return (
     <div>
@@ -30,6 +34,11 @@ function RankingList({
         {title}
       </p>
       <ol className="space-y-2.5">
+        {items.length === 0 && (
+          <li className="rounded-xl border border-dashed border-[#d9e5e9] bg-[#f9fcfd] px-3 py-4 text-center text-xs text-[#87979e]">
+            {emptyMessage}
+          </li>
+        )}
         {items.map((item, index) => (
           <li
             key={item.label}
@@ -44,8 +53,13 @@ function RankingList({
             >
               {index + 1}
             </span>
-            <span className="min-w-0 flex-1 truncate text-xs text-[#5d6d74]">
-              {item.label}
+            <span className="min-w-0 flex-1 text-xs text-[#5d6d74]">
+              <span className="block truncate">{item.label}</span>
+              {item.userCount !== undefined && (
+                <span className="mt-0.5 block text-[10px] text-[#94a2a8]">
+                  จากผู้ใช้ {item.userCount.toLocaleString("th-TH")} คน
+                </span>
+              )}
             </span>
             <span className="text-xs font-medium text-[#33474f]">
               {item.score}%
@@ -60,6 +74,7 @@ function RankingList({
 export default function ExamPartRankingCard({
   best,
   weakest,
+  emptyMessage = "ยังไม่มีผลการทำข้อสอบสำหรับจัดอันดับ",
 }: ExamPartRankingCardProps) {
   return (
     <DashboardCard
@@ -68,8 +83,8 @@ export default function ExamPartRankingCard({
       icon={Award}
     >
       <div className="grid gap-5">
-        <RankingList title="ทำได้ดี" items={best} tone="good" />
-        <RankingList title="ควรปรับปรุง" items={weakest} tone="weak" />
+        <RankingList title="ทำได้ดี" items={best} tone="good" emptyMessage={emptyMessage} />
+        <RankingList title="ควรปรับปรุง" items={weakest} tone="weak" emptyMessage={emptyMessage} />
       </div>
     </DashboardCard>
   );

@@ -6,6 +6,7 @@ import adminUserRouter from "./routes/user.route";
 import adminSubjectRouter from "./routes/subject.route";
 import adminSubjectTypeRouter from "./routes/subject-type.route";
 import adminExamRouter from "./routes/exam.route";
+import adminDashboardRouter from "./routes/dashboard.route";
 import { errorHandler } from "../middlewares/errorHandler";
 
 dotenv.config();
@@ -20,6 +21,7 @@ app.use("/admin/users", adminUserRouter);
 app.use("/admin/subjects", adminSubjectRouter);
 app.use("/admin/subject-types", adminSubjectTypeRouter);
 app.use("/admin/exams", adminExamRouter);
+app.use("/admin/dashboard", adminDashboardRouter);
 
 app.get("/", (req, res) => {
   res.json({ message: "Admin backend is running" });

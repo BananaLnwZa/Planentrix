@@ -12,6 +12,10 @@ interface DonutChartProps {
 }
 
 function createConicGradient(segments: readonly DonutSegment[]) {
+  if (segments.length === 0 || segments.every((segment) => segment.percent <= 0)) {
+    return "conic-gradient(#e8eff2 0% 100%)";
+  }
+
   let start = 0;
 
   const stops = segments.map((segment) => {
@@ -66,7 +70,9 @@ export default function DonutChart({
             <span className="font-medium text-[#344850]">
               {segment.value.toLocaleString("th-TH")}
               <span className="ml-1 text-xs font-normal text-[#8a979c]">
-                ({segment.percent}%)
+                ({segment.percent.toLocaleString("th-TH", {
+                  maximumFractionDigits: 1,
+                })}%)
               </span>
             </span>
           </li>

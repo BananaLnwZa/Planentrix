@@ -27,12 +27,17 @@ export default function PopularConstraintsCard({
               <span className="truncate text-[#65767e]">{item.label}</span>
               <span className="shrink-0 font-medium text-[#354950]">
                 {item.value}
+                <span className="ml-1.5 text-[10px] font-normal text-[#7f929a]">
+                  {item.percent.toLocaleString("th-TH", {
+                    maximumFractionDigits: 1,
+                  })}%
+                </span>
               </span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-[#edf3f5]">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-[#77bdd6] to-[#aad9e8]"
-                style={{ width: `${item.percent}%` }}
+                style={{ width: `${Math.min(100, Math.max(0, item.percent))}%` }}
               />
             </div>
           </div>
