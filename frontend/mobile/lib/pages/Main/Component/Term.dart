@@ -530,7 +530,11 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
                 ),
                 const Text(
                   'สร้างเทอมใหม่',
-                  style: TextStyle(fontSize: 20, color: Color(0xFF5C7C8B)),
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Color(0xFF5C7C8B),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 const Text(

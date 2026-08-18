@@ -132,7 +132,11 @@ class _ScoreEntryPopupState extends State<_ScoreEntryPopup> {
                 ),
                 const Text(
                   'กรอกคะแนน',
-                  style: TextStyle(fontSize: 20, color: Color(0xFF3A4E58)),
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Color(0xFF3A4E58),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(

@@ -1,4 +1,11 @@
-import { LoaderCircle, Play } from "lucide-react";
+import {
+  ChevronRight,
+  CircleHelp,
+  Clock3,
+  LoaderCircle,
+  Medal,
+  NotebookTabs,
+} from "lucide-react";
 import type { ExamSummary } from "@/interfaces/exam.interface";
 
 export default function ExamListPanel({
@@ -12,7 +19,7 @@ export default function ExamListPanel({
 }) {
   if (!exams.length) {
     return (
-      <div className="flex min-h-28 items-center justify-center rounded-2xl border border-[#DCE7D2] bg-[#F5FAEF] px-5 text-center text-xs text-[#78906A]">
+      <div className="flex min-h-28 items-center justify-center rounded-2xl border border-[#DCE7D2] bg-[#F5FAEF] px-5 text-center text-sm text-[#78906A]">
         ยังไม่มีแบบทดสอบที่ถึงรอบ Checkpoint
       </div>
     );
@@ -21,33 +28,45 @@ export default function ExamListPanel({
   return (
     <div className="space-y-3">
       {exams.map((exam) => (
-        <article
+        <button
           key={exam.examRepositoryId}
-          className="flex min-h-[58px] items-center gap-3 rounded-lg border border-[#DDD8CE] bg-white px-4 py-2.5 shadow-[0_2px_3px_rgba(70,58,44,0.20)]"
+          type="button"
+          onClick={() => onOpen(exam)}
+          disabled={openingExamId !== null}
+          className="flex min-h-[72px] w-full items-center gap-3 rounded-2xl border border-[#E4DCD0] bg-white px-3.5 py-3 text-left shadow-[0_2px_5px_rgba(107,101,87,0.18)] transition hover:-translate-y-0.5 hover:border-[#C9DBE2] hover:shadow-[0_5px_12px_rgba(82,107,118,0.15)] disabled:cursor-wait disabled:opacity-65"
         >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#DDF3C8] text-[#759B58]">
+            <NotebookTabs className="h-[21px] w-[21px]" aria-hidden="true" />
+          </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-[#405B69]">
+            <p className="line-clamp-2 text-sm font-semibold leading-5 text-[#405B69]">
               {exam.examName || exam.subjectName}
             </p>
-            <p className="mt-1 truncate text-[10px] text-[#82949C]">
-              {exam.subjectName} · {exam.totalQuestion} ข้อ · {exam.timeLimitMinutes} นาที
-            </p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#71858E]">
+              <ExamMeta icon={<CircleHelp />} text={`${exam.totalQuestion} ข้อ`} />
+              <ExamMeta icon={<Clock3 />} text={`${exam.timeLimitMinutes} นาที`} />
+              <ExamMeta icon={<Medal />} text={`${formatScore(exam.totalScore)} คะแนน`} />
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => onOpen(exam)}
-            disabled={openingExamId !== null}
-            className="inline-flex h-8 min-w-[58px] items-center justify-center gap-1 rounded-full border border-[#8FC5DC] bg-[#C7ECFC] px-3 text-[11px] text-[#628A9D] transition hover:bg-[#91D3EF] hover:text-white disabled:opacity-60"
-          >
-            {openingExamId === exam.examRepositoryId ? (
-              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Play className="h-3 w-3 fill-current" />
-            )}
-            เริ่ม
-          </button>
-        </article>
+          {openingExamId === exam.examRepositoryId ? (
+            <LoaderCircle className="h-5 w-5 shrink-0 animate-spin text-[#7CA9BA]" />
+          ) : (
+            <ChevronRight className="h-5 w-5 shrink-0 text-[#91A9B3]" />
+          )}
+        </button>
       ))}
     </div>
   );
 }
+
+function ExamMeta({ icon, text }: { icon: React.ReactNode; text: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="[&>svg]:h-3 [&>svg]:w-3 text-[#94A7AE]">{icon}</span>
+      {text}
+    </span>
+  );
+}
+
+const formatScore = (value: number) =>
+  Number.isInteger(value) ? String(value) : value.toFixed(1);

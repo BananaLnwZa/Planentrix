@@ -484,7 +484,7 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
 
               <div className="mb-5 pr-8">
                 <p
-                  className="text-xl text-[#5C7C8B]"
+                  className="text-lg font-semibold text-[#5C7C8B]"
                   style={{ fontFamily: "var(--font-sansation)" }}
                 >
                   สร้างเทอมใหม่
@@ -496,7 +496,7 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
 
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div className="grid grid-cols-[104px_1fr] items-center gap-2">
-                  <label htmlFor="academic-year" className="text-[17px] text-[#353535]">
+                  <label htmlFor="academic-year" className="text-sm text-[#353535]">
                     ชั้นปีที่
                   </label>
                   <div className="max-w-[142px]">
@@ -517,7 +517,7 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
                 </div>
 
                 <div className="grid grid-cols-[104px_1fr] items-center gap-2">
-                  <label htmlFor="semester" className="text-[17px] text-[#353535]">
+                  <label htmlFor="semester" className="text-sm text-[#353535]">
                     ปีการศึกษา
                   </label>
                   <input
@@ -541,7 +541,7 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
                 </div>
 
                 <div className="grid grid-cols-[104px_1fr] items-center gap-2">
-                  <label htmlFor="term-number" className="text-[17px] text-[#353535]">
+                  <label htmlFor="term-number" className="text-sm text-[#353535]">
                     เทอม
                   </label>
                   <div className="max-w-[142px]">

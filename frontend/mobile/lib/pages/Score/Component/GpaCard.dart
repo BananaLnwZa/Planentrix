@@ -65,7 +65,7 @@ class GpaCard extends StatelessWidget {
                           key: Key('gpa-title'),
                           style: TextStyle(
                             color: Color(0xFF31566C),
-                            fontSize: 20,
+                            fontSize: 18,
                             fontWeight: FontWeight.w600,
                           ),
                         ),

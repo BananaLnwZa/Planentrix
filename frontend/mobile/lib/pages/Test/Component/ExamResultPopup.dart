@@ -22,7 +22,10 @@ Future<void> showExamResultPopup(
             color: Color(0xFFF0A0BA),
           ),
           const SizedBox(height: 10),
-          const Text('ส่งข้อสอบแล้ว', style: TextStyle(fontSize: 20)),
+          const Text(
+            'ส่งข้อสอบแล้ว',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 15),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),

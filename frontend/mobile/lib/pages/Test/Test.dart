@@ -293,7 +293,7 @@ class _TestPageState extends State<TestPage> {
         const Text(
           'แบบทดสอบ',
           style: TextStyle(
-            fontSize: 22,
+            fontSize: 19,
             color: Color(0xFF405B69),
             fontWeight: FontWeight.w600,
           ),
@@ -312,11 +312,33 @@ class _TestPageState extends State<TestPage> {
             selectedSubjectId: _selectedSubjectId!,
             onSelected: (value) => setState(() => _selectedSubjectId = value),
           ),
-          const SizedBox(height: 14),
-          ExamList(
-            exams: visibleExams,
-            loadingExamId: _openingExamId,
-            onSelected: _openExam,
+          Transform.translate(
+            offset: const Offset(0, -3),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(20),
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+                border: Border.all(color: const Color(0xFFDCE8ED)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x1F375D70),
+                    blurRadius: 18,
+                    offset: Offset(0, 7),
+                  ),
+                ],
+              ),
+              child: ExamList(
+                exams: visibleExams,
+                loadingExamId: _openingExamId,
+                onSelected: _openExam,
+              ),
+            ),
           ),
         ],
         if (feedbackSubjectIds.isNotEmpty) ...[

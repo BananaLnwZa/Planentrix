@@ -50,7 +50,7 @@ export default function RootLayout({
       lang="en"
       className={`${sansation.variable} ${fcDaisy.variable} ${pacifico.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="app-typography min-h-full flex flex-col">{children}</body>
     </html>
   );
 }

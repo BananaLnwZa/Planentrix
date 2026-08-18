@@ -100,7 +100,7 @@ export default function ExamModal({
         {result ? (
           <div className="py-8 text-center">
             <CheckCircle2 className="mx-auto h-14 w-14 text-[#88BF69]" />
-            <h2 className="mt-4 text-2xl font-semibold text-[#405B69]">ส่งข้อสอบแล้ว</h2>
+            <h2 className="mt-4 text-lg font-semibold text-[#405B69]">ส่งข้อสอบแล้ว</h2>
             <p className="mt-3 text-3xl text-[#E78CA8]">
               {scoreText(result.actualScore)}/{scoreText(result.maximumScore)}
             </p>
@@ -117,7 +117,7 @@ export default function ExamModal({
           </div>
         ) : !started ? (
           <div className="py-4">
-            <h2 className="pr-8 text-2xl font-semibold text-[#405B69]">{exam.summary.examName}</h2>
+            <h2 className="pr-8 text-lg font-semibold text-[#405B69]">{exam.summary.examName}</h2>
             <p className="mt-1 text-sm text-[#738892]">{exam.summary.subjectName}</p>
             <div className="mt-6 grid grid-cols-3 gap-3 text-center text-xs text-[#59707B]">
               <div className="rounded-2xl bg-[#EAF6FB] p-3">{exam.questions.length}<br />ข้อ</div>

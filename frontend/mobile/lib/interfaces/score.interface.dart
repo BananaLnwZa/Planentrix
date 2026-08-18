@@ -77,12 +77,19 @@ class SubjectScore {
   double get totalMaximumScore =>
       workloads.fold(0, (sum, workload) => sum + (workload.maxScore ?? 0));
 
+  double get actualPercent => totalActualScore.clamp(0, 100).toDouble();
+
   double get progressPercent {
-    return totalActualScore.clamp(0, 100).toDouble();
+    if (targetScore == null) return actualPercent;
+    final targetMinimumScore = minimumScoreFromTargetGpa(targetScore!);
+    if (targetMinimumScore == 0) return 100;
+    return ((actualPercent / targetMinimumScore) * 100)
+        .clamp(0, 100)
+        .toDouble();
   }
 
   String get actualGrade =>
-      totalMaximumScore <= 0 ? '—' : gradeFromPercent(progressPercent);
+      totalMaximumScore <= 0 ? '—' : gradeFromPercent(actualPercent);
 
   String get targetGrade =>
       targetScore == null ? '—' : gradeFromGpa(targetScore!);
@@ -201,6 +208,17 @@ String gradeFromPercent(double percent) {
   if (percent >= 55) return 'D+';
   if (percent >= 50) return 'D';
   return 'F';
+}
+
+double minimumScoreFromTargetGpa(double targetGpa) {
+  if (targetGpa >= 4) return 80;
+  if (targetGpa >= 3.5) return 75;
+  if (targetGpa >= 3) return 70;
+  if (targetGpa >= 2.5) return 65;
+  if (targetGpa >= 2) return 60;
+  if (targetGpa >= 1.5) return 55;
+  if (targetGpa >= 1) return 50;
+  return 0;
 }
 
 int _asInt(dynamic value, {int fallback = 0}) {

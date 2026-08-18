@@ -183,10 +183,39 @@ void main() {
     });
 
     expect(subject.workloads, hasLength(1));
-    expect(subject.progressPercent, 8);
+    expect(subject.progressPercent, 10);
     expect(subject.actualGrade, 'F');
     expect(subject.targetGrade, 'A');
   });
+
+  test(
+    'subject progress uses the target grade score and caps at 100 percent',
+    () {
+      const subject = SubjectScore(
+        scheduleTimeId: 1,
+        subjectId: 'CS101',
+        subjectName: 'Programming',
+        credits: 3,
+        teacherName: 'Teacher',
+        targetScore: 3,
+        workloads: [
+          WorkloadScore(
+            workloadId: 1,
+            workloadName: 'Quiz',
+            workloadTypeId: 4,
+            workloadTypeName: 'quiz',
+            workloadStatus: 1,
+            actualScore: 80,
+            maxScore: 100,
+          ),
+        ],
+      );
+
+      expect(minimumScoreFromTargetGpa(subject.targetScore!), 70);
+      expect(subject.progressPercent, 100);
+      expect(subject.actualGrade, 'A');
+    },
+  );
 
   testWidgets('GPA card matches the Figma size and position', (tester) async {
     setPhoneSize(tester, const Size(360, 640));
@@ -258,8 +287,8 @@ void main() {
       expect(find.byKey(const Key('workload-score-table')), findsOneWidget);
       const expectedTypeColors = {
         1: Color(0xFFC5DBAA),
-        2: Color(0xE6FA86A3),
-        3: Color(0xE6EECDF9),
+        2: Color(0xFFFA86A3),
+        3: Color(0xFFEECDF9),
       };
       for (final entry in expectedTypeColors.entries) {
         final chip = find.byKey(Key('score-workload-type-${entry.key}'));
@@ -273,7 +302,7 @@ void main() {
           entry.value,
         );
       }
-      expect(find.text('5%'), findsOneWidget);
+      expect(find.text('6%'), findsOneWidget);
       expect(find.text('5/100'), findsOneWidget);
       expect(
         tester.getTopLeft(find.byKey(const Key('subject-tab-0'))).dx,
@@ -320,6 +349,7 @@ void main() {
       expect(repository.savedScore?.maximumScore, 10);
       expect(find.text('8/10'), findsOneWidget);
       expect(find.text('13/100'), findsOneWidget);
+      expect(find.text('16%'), findsOneWidget);
       expect(find.text('3.00'), findsOneWidget);
       expect(find.text('จากเป้าหมาย 3.75'), findsOneWidget);
       expect(find.byKey(const Key('target-grade-value')), findsOneWidget);

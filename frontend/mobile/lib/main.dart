@@ -62,6 +62,51 @@ class InstantMaterialPageRoute<T> extends MaterialPageRoute<T> {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  ThemeData _buildTheme() {
+    final baseTheme = ThemeData(fontFamily: 'Sansation');
+    final textTheme = baseTheme.textTheme;
+    return baseTheme.copyWith(
+      textTheme: textTheme.copyWith(
+        headlineLarge: textTheme.headlineLarge?.copyWith(
+          fontSize: 19,
+          fontWeight: FontWeight.w600,
+        ),
+        headlineMedium: textTheme.headlineMedium?.copyWith(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+        headlineSmall: textTheme.headlineSmall?.copyWith(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+        titleLarge: textTheme.titleLarge?.copyWith(
+          fontSize: 19,
+          fontWeight: FontWeight.w600,
+        ),
+        titleMedium: textTheme.titleMedium?.copyWith(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+        titleSmall: textTheme.titleSmall?.copyWith(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        bodyLarge: textTheme.bodyLarge?.copyWith(fontSize: 14),
+        bodyMedium: textTheme.bodyMedium?.copyWith(fontSize: 12),
+        bodySmall: textTheme.bodySmall?.copyWith(fontSize: 10),
+        labelLarge: textTheme.labelLarge?.copyWith(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        labelMedium: textTheme.labelMedium?.copyWith(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w500,
+        ),
+        labelSmall: textTheme.labelSmall?.copyWith(fontSize: 9),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -69,7 +114,7 @@ class MyApp extends StatelessWidget {
       locale: const Locale('en', 'GB'),
       supportedLocales: const [Locale('en', 'GB')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: ThemeData(fontFamily: 'Sansation'),
+      theme: _buildTheme(),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
         child: child!,

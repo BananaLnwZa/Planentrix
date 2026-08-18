@@ -11,13 +11,7 @@ import type {
 import gradeService from "@/services/grade.service";
 import GpaGauge from "./GpaGauge";
 import ScoreEntryModal from "./ScoreEntryModal";
-
-const workloadColors = [
-  "bg-[#F9D2DF] text-[#9D506A]",
-  "bg-[#F6C4D5] text-[#95435F]",
-  "bg-[#FCE1E9] text-[#A85D76]",
-  "bg-[#EFB6CA] text-[#873D57]",
-];
+import { getWorkloadPalette } from "./homeworkUtils";
 
 const getScoreSummary = (workloads: GradeWorkload[]) => {
   const scored = workloads.filter(
@@ -60,6 +54,25 @@ const gpaFromPercent = (percent: number) => {
   if (percent >= 55) return 1.5;
   if (percent >= 50) return 1;
   return 0;
+};
+
+const minimumScoreFromTargetGpa = (targetGpa: number | null) => {
+  if (targetGpa === null) return null;
+  if (targetGpa >= 4) return 80;
+  if (targetGpa >= 3.5) return 75;
+  if (targetGpa >= 3) return 70;
+  if (targetGpa >= 2.5) return 65;
+  if (targetGpa >= 2) return 60;
+  if (targetGpa >= 1.5) return 55;
+  if (targetGpa >= 1) return 50;
+  return 0;
+};
+
+const getGoalProgressPercent = (actualScore: number, targetGpa: number | null) => {
+  const targetScore = minimumScoreFromTargetGpa(targetGpa);
+  if (targetScore === null) return actualScore;
+  if (targetScore === 0) return 100;
+  return Math.min(100, Math.max(0, (actualScore / targetScore) * 100));
 };
 
 const isCompleted = (status: GradeWorkload["workload_status"]) => {
@@ -124,7 +137,7 @@ export default function ScoreDashboard({
     isCompleted(workload.workload_status)
   );
   const summary = getScoreSummary(completedWorkloads);
-  const progressPercent = Math.min(100, Math.max(0, summary.percent));
+  const progressPercent = getGoalProgressPercent(summary.actual, selected.target_score);
   const currentGrade = gradeFromPercent(summary.percent, summary.maximum > 0);
 
   const openScoreEntry = (workload: GradeWorkload) => {
@@ -254,32 +267,34 @@ export default function ScoreDashboard({
             </div>
           ) : (
             <div className="max-h-[180px] overflow-y-auto">
-              {completedWorkloads.map((workload, index) => (
-                <div
-                  key={workload.workload_id}
-                  className="grid grid-cols-[34px_minmax(0,1fr)_88px_62px] items-center border-t border-[#F5E1E8] bg-[#FFFBFC] px-2 py-2 text-[11px] text-[#765E67] first:border-t-0"
-                >
-                  <span className="font-medium text-[#667D89]">{index + 1}</span>
-                  <span className="truncate pr-2">{workload.workload_name}</span>
-                  <span
-                    className={`mx-auto max-w-[80px] truncate rounded-full px-2 py-1 text-center ${
-                      workloadColors[index % workloadColors.length]
-                    }`}
+              {completedWorkloads.map((workload, index) => {
+                const palette = getWorkloadPalette(workload.workload_type_name);
+                return (
+                  <div
+                    key={workload.workload_id}
+                    className="grid grid-cols-[34px_minmax(0,1fr)_88px_62px] items-center border-t border-[#F5E1E8] bg-[#FFFBFC] px-2 py-2 text-[11px] text-[#765E67] first:border-t-0"
                   >
-                    {workload.workload_type_name}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => openScoreEntry(workload)}
-                    className="justify-self-end rounded-full px-2 py-1 text-right font-medium text-[#A85370] transition hover:bg-[#F9DFE8]"
-                    aria-label={`กรอกคะแนน ${workload.workload_name}`}
-                  >
-                    {workload.actual_score !== null && workload.max_score !== null
-                      ? `${workload.actual_score}/${workload.max_score}`
-                      : "กรอก"}
-                  </button>
-                </div>
-              ))}
+                    <span className="font-medium text-[#667D89]">{index + 1}</span>
+                    <span className="truncate pr-2">{workload.workload_name}</span>
+                    <span
+                      className="mx-auto max-w-[80px] truncate rounded-full border border-black/30 px-2 py-1 text-center text-black/60"
+                      style={{ backgroundColor: palette.normal }}
+                    >
+                      {workload.workload_type_name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openScoreEntry(workload)}
+                      className="justify-self-end rounded-full px-2 py-1 text-right font-medium text-[#A85370] transition hover:bg-[#F9DFE8]"
+                      aria-label={`กรอกคะแนน ${workload.workload_name}`}
+                    >
+                      {workload.actual_score !== null && workload.max_score !== null
+                        ? `${workload.actual_score}/${workload.max_score}`
+                        : "กรอก"}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
           <div className="flex items-center justify-end gap-3 border-t border-[#EFC9D7] bg-[#FCE7EE] px-3 py-2 text-xs text-[#925B70]">

@@ -57,7 +57,7 @@ class _ExamHistorySectionState extends State<ExamHistorySection> {
             onSelected: (index) => setState(() => _selectedIndex = index),
           ),
           Transform.translate(
-            offset: const Offset(0, -1),
+            offset: const Offset(0, -3),
             child: _SubjectHistoryPanel(subject: subjects[_selectedIndex]),
           ),
         ],
@@ -79,13 +79,17 @@ class _SubjectHistoryPanel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(7, 8, 7, 7),
       decoration: BoxDecoration(
         color: const Color(0xFFFFFEFB),
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: const Color(0xFFD7E3E8)),
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(20),
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+        border: Border.all(color: const Color(0xFFDCE8ED)),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x1C000000),
-            blurRadius: 5,
-            offset: Offset(0, 3),
+            color: Color(0x1F375D70),
+            blurRadius: 18,
+            offset: Offset(0, 7),
           ),
         ],
       ),

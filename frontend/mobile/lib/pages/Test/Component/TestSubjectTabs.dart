@@ -16,64 +16,101 @@ class TestSubjectTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selectedIndex = subjects.indexWhere(
+      (subject) => subject.subjectId == selectedSubjectId,
+    );
+    final resolvedSelectedIndex = selectedIndex < 0 ? 0 : selectedIndex;
+    final order = <int>[
+      resolvedSelectedIndex,
+      for (var index = 0; index < subjects.length; index++)
+        if (index != resolvedSelectedIndex) index,
+    ];
+    final contentWidth = subjects.isEmpty
+        ? 0.0
+        : 104.0 + (52.0 * (subjects.length - 1));
+
     return SizedBox(
       key: const Key('test-subject-tabs'),
-      height: 42,
-      child: ListView.separated(
+      width: double.infinity,
+      height: 44,
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        itemCount: subjects.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 7),
-        itemBuilder: (context, index) {
-          final subject = subjects[index];
-          final selected = subject.subjectId == selectedSubjectId;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            decoration: BoxDecoration(
-              color: selected
-                  ? const Color(0xFF8CCBE8)
-                  : const Color(0xFFDDF1FA),
-              borderRadius: BorderRadius.circular(17),
-              border: Border.all(color: const Color(0xFFB7D9E8)),
-              boxShadow: selected
-                  ? const [
-                      BoxShadow(
-                        color: Color(0x2482B6CF),
-                        blurRadius: 5,
-                        offset: Offset(0, 2),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                key: Key('test-subject-tab-${subject.subjectId}'),
-                onTap: () => onSelected(subject.subjectId),
-                borderRadius: BorderRadius.circular(17),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 15),
-                  child: Center(
-                    child: Text(
-                      subject.subjectName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: selected
-                            ? Colors.white
-                            : const Color(0xFF587587),
-                        fontSize: 12,
-                        fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                      ),
-                    ),
+        child: SizedBox(
+          width: contentWidth,
+          height: 44,
+          child: Stack(
+            children: [
+              for (
+                var visualIndex = order.length - 1;
+                visualIndex >= 0;
+                visualIndex--
+              )
+                Positioned(
+                  left: visualIndex * 52,
+                  top: order[visualIndex] == resolvedSelectedIndex ? 0 : 4,
+                  child: _TestSubjectTab(
+                    subject: subjects[order[visualIndex]],
+                    selected: order[visualIndex] == resolvedSelectedIndex,
+                    onPressed: () =>
+                        onSelected(subjects[order[visualIndex]].subjectId),
                   ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TestSubjectTab extends StatelessWidget {
+  final ExamSummary subject;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  const _TestSubjectTab({
+    required this.subject,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? const Color(0xFF78C0E4) : const Color(0xFFDDEEF6),
+      elevation: selected ? 3 : 1,
+      shadowColor: const Color(0x2E458CAF),
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+        side: BorderSide(
+          color: selected ? const Color(0xFF68B1D6) : const Color(0xFFBDD7E4),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: Key('test-subject-tab-${subject.subjectId}'),
+        onTap: onPressed,
+        child: SizedBox(
+          width: 104,
+          height: selected ? 42 : 38,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            child: Center(
+              child: Text(
+                subject.subjectName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: selected ? Colors.white : const Color(0xFF7392A2),
+                  fontSize: 10,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  height: 1.15,
                 ),
               ),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }

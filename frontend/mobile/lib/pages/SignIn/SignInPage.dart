@@ -145,7 +145,7 @@ class _SigninPageState extends State<SigninPage> {
               const Text(
                 'สร้างบัญชีไม่สำเร็จ',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w400),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               Text(
@@ -195,7 +195,7 @@ class _SigninPageState extends State<SigninPage> {
               const Text(
                 'สร้างบัญชีสำเร็จ',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w400),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               const Text(

@@ -67,7 +67,7 @@ class GradeGoalSetupPrompt extends StatelessWidget {
             'ตั้งเป้าหมายเกรดก่อนนะ',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 19,
               color: Color(0xFF244B63),
               fontWeight: FontWeight.w600,
             ),
@@ -275,7 +275,11 @@ class _GradeGoalSetupPopupState extends State<_GradeGoalSetupPopup> {
                   const Expanded(
                     child: Text(
                       'เลือกเป้าหมายเกรด',
-                      style: TextStyle(fontSize: 20, color: Color(0xFF415660)),
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Color(0xFF415660),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   IconButton(

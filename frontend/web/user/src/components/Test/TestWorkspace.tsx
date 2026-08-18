@@ -28,6 +28,7 @@ export default function TestWorkspace() {
   const [insights, setInsights] = useState<ExamInsights>(emptyInsights);
   const [activeExam, setActiveExam] = useState<ExamDetail | null>(null);
   const [openingExamId, setOpeningExamId] = useState<number | null>(null);
+  const [examSubjectId, setExamSubjectId] = useState<string | null>(null);
   const [historySubjectId, setHistorySubjectId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasCurrentTerm, setHasCurrentTerm] = useState<boolean | null>(null);
@@ -45,6 +46,7 @@ export default function TestWorkspace() {
         setExams([]);
         setHistory([]);
         setInsights(emptyInsights);
+        setExamSubjectId(null);
         setHistorySubjectId(null);
         setHasCurrentTerm(false);
         return;
@@ -58,6 +60,11 @@ export default function TestWorkspace() {
       setExams(examData);
       setHistory(historyData);
       setInsights(insightData);
+      setExamSubjectId((current) =>
+        examData.some((exam) => exam.subjectId === current)
+          ? current
+          : examData[0]?.subjectId ?? null
+      );
       setHistorySubjectId((current) => {
         if (historyData.some((item) => (item.subjectId || item.subjectName) === current)) {
           return current;
@@ -93,6 +100,7 @@ export default function TestWorkspace() {
         setExams(examData);
         setHistory(historyData);
         setInsights(insightData);
+        setExamSubjectId(examData[0]?.subjectId ?? null);
         const first = historyData[0];
         setHistorySubjectId(first ? first.subjectId || first.subjectName : null);
       })
@@ -123,6 +131,19 @@ export default function TestWorkspace() {
     }
     return Array.from(subjects, ([id, name]) => ({ id, name }));
   }, [insights]);
+
+  const examSubjects = useMemo(
+    () =>
+      Array.from(
+        new Map(exams.map((exam) => [exam.subjectId, exam])).values()
+      ),
+    [exams]
+  );
+
+  const visibleExams = useMemo(
+    () => exams.filter((exam) => exam.subjectId === examSubjectId),
+    [examSubjectId, exams]
+  );
 
   const openExam = async (summary: ExamSummary) => {
     if (openingExamId !== null) return;
@@ -186,37 +207,62 @@ export default function TestWorkspace() {
   }
 
   return (
-    <div className="h-full overflow-y-auto rounded-[18px] md:-my-12 md:-mx-[52px] md:h-[calc(100%+6rem)] md:w-[calc(100%+6.5rem)] md:overflow-hidden md:pt-5">
+    <div className="relative h-full w-full overflow-y-auto md:overflow-hidden">
       {loadError && (
         <div className="absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full bg-red-50 px-4 py-1.5 text-xs text-red-600 shadow">
           {loadError}
         </div>
       )}
 
-      <div className="grid min-h-full grid-cols-1 md:h-full md:grid-cols-2 md:gap-3">
-        <div className="flex min-h-[700px] flex-col border-[#D9B7BF] md:min-h-0 md:border-r">
-          <section className="flex min-h-0 flex-[1.5] flex-col">
-            <PageHeading>Test</PageHeading>
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 md:px-8">
-              <ExamListPanel exams={exams} openingExamId={openingExamId} onOpen={(exam) => void openExam(exam)} />
-            </div>
-          </section>
+      <div className="grid min-h-full grid-cols-1 gap-10 md:h-full md:grid-cols-[calc(50%-36px)_calc(50%-36px)] md:justify-between md:gap-[72px]">
+        <section className="min-h-0 space-y-6 overflow-y-auto px-1 pb-4 pr-2 md:-ml-4 md:pl-4">
+          <div>
+            <SectionHeading
+              title="แบบทดสอบ"
+              detail="แบบทดสอบที่ถึงรอบ Checkpoint"
+            />
 
-          <section className="flex min-h-0 flex-1 flex-col border-t border-[#D9AAB5]">
-            <PageHeading>History</PageHeading>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 md:px-6">
-              <ExamHistoryPanel
-                history={history}
-                selectedSubjectId={historySubjectId}
-                onSubjectChange={setHistorySubjectId}
+            {examSubjects.length > 0 && examSubjectId && (
+              <>
+                <ExamSubjectTabs
+                  subjects={examSubjects}
+                  selectedSubjectId={examSubjectId}
+                  onSubjectChange={setExamSubjectId}
+                />
+                <div className="relative z-30 -mt-[2px] rounded-b-[20px] rounded-tr-[20px] border border-[#DCE8ED] bg-white p-3 shadow-[0_7px_18px_rgba(55,93,112,0.12)]">
+                  <ExamListPanel
+                    exams={visibleExams}
+                    openingExamId={openingExamId}
+                    onOpen={(exam) => void openExam(exam)}
+                  />
+                </div>
+              </>
+            )}
+
+            {examSubjects.length === 0 && (
+              <div className="mt-3.5">
+              <ExamListPanel
+                exams={visibleExams}
+                openingExamId={openingExamId}
+                onOpen={(exam) => void openExam(exam)}
               />
-            </div>
-          </section>
-        </div>
+              </div>
+            )}
+          </div>
 
-        <section className="flex min-h-[700px] flex-col md:min-h-0">
-          <PageHeading>Feedback</PageHeading>
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-5 md:px-8">
+          <ExamHistoryPanel
+            history={history}
+            selectedSubjectId={historySubjectId}
+            onSubjectChange={setHistorySubjectId}
+          />
+        </section>
+
+        <section className="flex min-h-[620px] flex-col md:min-h-0">
+          <SectionHeading
+            title="Feedback"
+            detail="คำแนะนำและแผนทบทวนหลังทำแบบทดสอบ"
+          />
+          <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto px-1 pb-4 pr-2">
             {feedbackSubjects.length ? (
               feedbackSubjects.map((subject) => (
                 <FeedbackPanel
@@ -227,7 +273,7 @@ export default function TestWorkspace() {
                 />
               ))
             ) : (
-              <div className="flex min-h-40 items-center justify-center rounded-2xl border border-[#DCE7EB] bg-white/80 px-5 text-center text-xs text-[#8A9CA4]">
+              <div className="flex min-h-40 items-center justify-center rounded-2xl border border-[#DCE7EB] bg-white/80 px-5 text-center text-sm text-[#8A9CA4]">
                 ยังไม่มี Feedback จากการทำแบบทดสอบ
               </div>
             )}
@@ -248,10 +294,63 @@ export default function TestWorkspace() {
   );
 }
 
-function PageHeading({ children }: { children: React.ReactNode }) {
+function SectionHeading({ title, detail }: { title: string; detail: string }) {
   return (
-    <h1 className="flex h-12 shrink-0 items-center justify-center border-y border-[#D9AAB5] bg-[#F8C5D0] text-[clamp(24px,3vw,32px)] font-medium text-[#4A3E41] first:border-t-0">
-      {children}
-    </h1>
+    <header className="mb-3">
+      <h1 className="text-lg font-semibold leading-tight text-[#405B69]">
+        {title}
+      </h1>
+      <p className="mt-1 text-xs text-[#82969F]">{detail}</p>
+    </header>
+  );
+}
+
+function ExamSubjectTabs({
+  subjects,
+  selectedSubjectId,
+  onSubjectChange,
+}: {
+  subjects: ExamSummary[];
+  selectedSubjectId: string;
+  onSubjectChange: (subjectId: string) => void;
+}) {
+  const selectedSubject =
+    subjects.find((subject) => subject.subjectId === selectedSubjectId) ??
+    subjects[0];
+  const orderedSubjects = [
+    selectedSubject,
+    ...subjects.filter(
+      (subject) => subject.subjectId !== selectedSubject.subjectId
+    ),
+  ];
+
+  return (
+    <div className="relative z-40 -mb-px h-11 max-w-full overflow-x-auto bg-transparent">
+      <div className="flex min-w-max items-end pr-2">
+        {orderedSubjects.map((subject, index) => {
+          const selected = subject.subjectId === selectedSubjectId;
+          return (
+            <button
+              key={subject.subjectId}
+              type="button"
+              onClick={() => onSubjectChange(subject.subjectId)}
+              style={{
+                zIndex: selected
+                  ? orderedSubjects.length + 1
+                  : orderedSubjects.length - index,
+              }}
+              className={`relative -ml-[52px] w-[104px] rounded-t-[9px] border border-b-0 px-2 py-1 text-center text-[10px] leading-[12px] shadow-[0_-2px_6px_rgba(69,117,143,0.08)] transition-all first:ml-0 ${
+                selected
+                  ? "h-[42px] border-[#68B1D6] bg-[#78C0E4] font-semibold text-white shadow-[0_-3px_9px_rgba(69,140,177,0.18)]"
+                  : "mt-1 h-[38px] border-[#BDD7E4] bg-[#DDEEF6] font-medium text-[#527184] hover:-translate-y-0.5 hover:bg-[#D1E9F4]"
+              }`}
+              title={subject.subjectName}
+            >
+              <span className="line-clamp-2">{subject.subjectName}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

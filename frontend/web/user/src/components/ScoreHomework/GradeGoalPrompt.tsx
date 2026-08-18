@@ -20,7 +20,7 @@ export default function GradeGoalPrompt({
         <p className="mb-1 text-sm font-medium tracking-wide text-[#5594B9]">
           เริ่มต้นวางแผนเทอมนี้
         </p>
-        <h1 className="text-2xl font-semibold text-[#244B63]">
+        <h1 className="text-lg font-semibold text-[#244B63]">
           ตั้งเป้าหมายเกรดก่อนนะ
         </h1>
         <p className="mx-auto mt-3 max-w-[330px] text-sm leading-6 text-[#68889A]">

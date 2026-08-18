@@ -478,6 +478,7 @@ export default function StudentCard({
         >
           <div className="flex items-center justify-between bg-[#C7E8F8] px-4 py-2.5">
             <span
+              data-preserve-typography
               className="text-[29px] leading-none text-white"
               style={{
                 fontFamily: "var(--font-pacifico)",

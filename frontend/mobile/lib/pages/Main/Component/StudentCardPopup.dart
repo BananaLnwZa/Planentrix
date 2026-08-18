@@ -214,8 +214,8 @@ class _PopupHeader extends StatelessWidget {
                         style: const TextStyle(
                           color: Colors.black,
                           fontFamily: 'Sansation',
-                          fontSize: 30,
-                          fontWeight: FontWeight.w400,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w600,
                           height: 1.05,
                         ),
                       ),

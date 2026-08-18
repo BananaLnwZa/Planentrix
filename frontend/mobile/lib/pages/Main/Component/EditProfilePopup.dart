@@ -674,7 +674,8 @@ class _EditHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontFamily: 'Sansation',
-                  fontSize: 26,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w600,
                   color: Colors.black,
                 ),
               ),

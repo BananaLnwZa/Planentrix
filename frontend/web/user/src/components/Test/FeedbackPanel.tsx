@@ -3,6 +3,7 @@ import type {
   ExamCheckpointInsight,
   WeakTopicInsight,
 } from "@/interfaces/exam.interface";
+import { formatDisplayDate } from "@/utils/dateTime";
 
 const studyTypeLabel = (value: string) => {
   switch (value.trim().toLowerCase()) {
@@ -19,6 +20,11 @@ const weeksUntil = (value: Date) => {
   return days <= 0 ? 0 : Math.ceil(days / 7);
 };
 
+const reviewTimeText = (minutes: number) =>
+  minutes > 0
+    ? `เพิ่มเวลาทบทวน ${minutes} นาที`
+    : `ลดเวลาทบทวน ${Math.abs(minutes)} นาที`;
+
 function FeedbackSection({
   icon,
   title,
@@ -31,11 +37,11 @@ function FeedbackSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className={`rounded-xl p-3 ${color}`}>
-      <h4 className="flex items-center gap-1.5 text-[11px] font-semibold text-[#536A74]">
+    <section className={`rounded-[13px] p-3 ${color}`}>
+      <h4 className="flex items-center gap-1.5 text-xs font-semibold text-[#536A74]">
         {icon}{title}
       </h4>
-      <div className="mt-2 text-[10px] leading-4 text-[#62727A]">{children}</div>
+      <div className="mt-2 text-[11px] leading-[17px] text-[#62727A]">{children}</div>
     </section>
   );
 }
@@ -50,22 +56,20 @@ export default function FeedbackPanel({
   checkpoints: ExamCheckpointInsight[];
 }) {
   const sortedTopics = [...topics]
-    .filter((topic) => topic.percentage < 50)
-    .sort((left, right) => left.percentage - right.percentage)
-    .slice(0, 3);
+    .sort((left, right) => left.percentage - right.percentage);
   const sortedCheckpoints = [...checkpoints].sort(
     (left, right) => left.nextCheckpointAt.getTime() - right.nextCheckpointAt.getTime()
   );
 
   return (
-    <article className="rounded-xl border border-[#DDD8CE] bg-white p-3.5 shadow-[0_2px_4px_rgba(70,58,44,0.20)]">
+    <article className="rounded-[19px] border border-[#DCE7EB] bg-white p-3.5 shadow-[0_3px_8px_rgba(0,0,0,0.09)]">
       <header className="mb-3 flex items-center gap-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#E3F2F9] text-[#6292A8]">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E4F3FA] text-[#6091A7]">
           <BookOpen className="h-4 w-4" />
         </span>
         <div className="min-w-0">
-          <h3 className="truncate text-xs font-semibold text-[#405B69]">{subjectName}</h3>
-          <p className="text-[9px] text-[#91A0A7]">คำแนะนำหลังทำแบบทดสอบ</p>
+          <h3 className="truncate text-[15px] font-semibold text-[#405B69]">{subjectName}</h3>
+          <p className="text-[11px] text-[#91A0A7]">คำแนะนำหลังทำแบบทดสอบ</p>
         </div>
       </header>
 
@@ -79,7 +83,7 @@ export default function FeedbackPanel({
             <ol className="space-y-1.5">
               {sortedTopics.map((topic, index) => (
                 <li key={topic.examPartId} className="flex items-center gap-2">
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white text-[8px] text-[#B05E78]">{index + 1}</span>
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[9px] text-[#B05E78]">{index + 1}</span>
                   <span className="min-w-0 flex-1 truncate">{topic.topicName}</span>
                   <span className="font-semibold text-[#C25373]">{topic.percentage.toFixed(0)}%</span>
                 </li>
@@ -115,10 +119,22 @@ export default function FeedbackPanel({
               {sortedCheckpoints.map((checkpoint) => {
                 const weeks = weeksUntil(checkpoint.nextCheckpointAt);
                 return (
-                  <li key={`${checkpoint.examRepositoryId}-${checkpoint.nextCheckpointAt.toISOString()}`} className="flex justify-between gap-2">
-                    <span className="truncate">{checkpoint.examName}</span>
-                    <span className="shrink-0 font-semibold text-[#9A7527]">
-                      {weeks <= 0 ? "ถึงรอบแล้ว" : `อีก ${weeks} สัปดาห์`}
+                  <li key={`${checkpoint.examRepositoryId}-${checkpoint.nextCheckpointAt.toISOString()}`} className="flex justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className="block truncate text-[#665C3D]">{checkpoint.examName}</span>
+                      <span className="mt-0.5 block text-[10px] text-[#907D54]">
+                        {formatDisplayDate(checkpoint.nextCheckpointAt)}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <strong className="block font-semibold text-[#9A7527]">
+                        {weeks <= 0 ? "ถึงรอบแล้ว" : `อีก ${weeks} สัปดาห์`}
+                      </strong>
+                      {checkpoint.reviewMinutesDelta !== 0 && (
+                        <span className="mt-0.5 block text-[10px] text-[#66894E]">
+                          {reviewTimeText(checkpoint.reviewMinutesDelta)}
+                        </span>
+                      )}
                     </span>
                   </li>
                 );
