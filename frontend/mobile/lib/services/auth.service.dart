@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import '../interfaces/auth.interface.dart';
 import 'api.service.dart';
 import 'storage.service.dart';
+import 'homework_reminder.service.dart';
 
 class AuthException implements Exception {
   final String message;
@@ -146,6 +147,7 @@ class AuthService {
       // Even if the backend call fails, still clear local session
     } finally {
       await _storageService.clearSession();
+      await _cancelHomeworkReminders();
     }
   }
 
@@ -157,6 +159,7 @@ class AuthService {
   Future<void> deleteAccount() async {
     await _apiService.delete('/user/auth/me');
     await _storageService.clearSession();
+    await _cancelHomeworkReminders();
   }
 
   // ==============================
@@ -219,6 +222,14 @@ class AuthService {
         );
       default:
         return AuthException(fallbackMessage);
+    }
+  }
+
+  Future<void> _cancelHomeworkReminders() async {
+    try {
+      await HomeworkReminderService.instance.cancelAllHomeworkReminders();
+    } catch (_) {
+      // Logout/account deletion must still complete if notifications fail.
     }
   }
 }

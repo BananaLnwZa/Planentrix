@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../services/auth.service.dart';
+import '../../../services/homework_reminder.service.dart';
 
 typedef LoginAction = Future<void> Function(String username, String password);
 
@@ -56,6 +57,7 @@ class _LoginFormState extends State<LoginForm> {
           usernameController.text.trim(),
           passwordController.text,
         );
+        await HomeworkReminderService.instance.requestPermissions();
       }
 
       if (!mounted) return;

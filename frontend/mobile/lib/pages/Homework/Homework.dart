@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../common/CurrentTermRequiredState.dart';
@@ -6,6 +8,7 @@ import '../../common/NotebookTabs.dart';
 import '../../common/HomeworkTimeFormat.dart';
 import '../../interfaces/homework.interface.dart';
 import '../../services/homework.service.dart';
+import '../../services/homework_reminder.service.dart';
 import 'Component/AddHomeworkPopup.dart';
 import 'Component/AddHomeworkButton.dart';
 import 'Component/HomeworkSection.dart';
@@ -16,6 +19,7 @@ class HomeworkPage extends StatefulWidget {
   final DateTime Function()? now;
   final VoidCallback? onAddHomework;
   final ValueChanged<HomeworkTaskData>? onSubmitHomework;
+  final HomeworkReminderScheduler? reminderScheduler;
 
   const HomeworkPage({
     super.key,
@@ -23,6 +27,7 @@ class HomeworkPage extends StatefulWidget {
     this.now,
     this.onAddHomework,
     this.onSubmitHomework,
+    this.reminderScheduler,
   });
 
   @override
@@ -31,6 +36,7 @@ class HomeworkPage extends StatefulWidget {
 
 class _HomeworkPageState extends State<HomeworkPage> {
   late final HomeworkRepository _repository;
+  late final HomeworkReminderScheduler _reminderScheduler;
   List<HomeworkTaskData> _tasks = const [];
   bool? _hasCurrentTerm;
   bool _hasWorkloads = false;
@@ -43,6 +49,11 @@ class _HomeworkPageState extends State<HomeworkPage> {
   void initState() {
     super.initState();
     _repository = widget.repository ?? HomeworkService();
+    _reminderScheduler =
+        widget.reminderScheduler ??
+        (widget.repository == null
+            ? HomeworkReminderService.instance
+            : const NoopHomeworkReminderScheduler());
     _loadHomework();
   }
 
@@ -60,6 +71,7 @@ class _HomeworkPageState extends State<HomeworkPage> {
         _hasWorkloads = overview.hasWorkloads;
         _isLoading = false;
       });
+      unawaited(_syncReminders(overview.tasks));
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -74,6 +86,7 @@ class _HomeworkPageState extends State<HomeworkPage> {
     setState(() => _submittingWorkloadId = task.workloadId);
     try {
       await _repository.finishHomework(task.workloadId);
+      await _cancelReminder(task.workloadId);
       if (!mounted) return;
       setState(() {
         _tasks = _tasks
@@ -115,6 +128,7 @@ class _HomeworkPageState extends State<HomeworkPage> {
       final input = await showAddHomeworkPopup(context, subjects: subjects);
       if (input == null || !mounted) return;
       final created = await _repository.createHomework(input);
+      await _scheduleReminder(created);
       if (!mounted) return;
       setState(() {
         _tasks = [..._tasks, created];
@@ -143,6 +157,7 @@ class _HomeworkPageState extends State<HomeworkPage> {
       onSave: (input) => _repository.updateHomework(task, input),
       onDelete: () async {
         await _repository.deleteHomework(task.workloadId);
+        await _cancelReminder(task.workloadId);
         if (!mounted) return;
         final overview = await _repository.getHomeworkOverview();
         if (!mounted) return;
@@ -154,11 +169,37 @@ class _HomeworkPageState extends State<HomeworkPage> {
       },
     );
     if (updated == null || !mounted) return;
+    await _scheduleReminder(updated);
+    if (!mounted) return;
     setState(() {
       _tasks = _tasks
           .map((item) => item.workloadId == updated.workloadId ? updated : item)
           .toList();
     });
+  }
+
+  Future<void> _syncReminders(List<HomeworkTaskData> tasks) async {
+    try {
+      await _reminderScheduler.syncTasks(tasks);
+    } catch (_) {
+      // Homework data remains usable even if OS notifications are unavailable.
+    }
+  }
+
+  Future<void> _scheduleReminder(HomeworkTaskData task) async {
+    try {
+      await _reminderScheduler.scheduleTask(task);
+    } catch (_) {
+      // Saving homework must not fail because notification permission is denied.
+    }
+  }
+
+  Future<void> _cancelReminder(int workloadId) async {
+    try {
+      await _reminderScheduler.cancelTask(workloadId);
+    } catch (_) {
+      // The backend action has already succeeded; cleanup can retry on sync.
+    }
   }
 
   @override

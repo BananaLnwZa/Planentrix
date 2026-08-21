@@ -1,5 +1,7 @@
 // ignore_for_file: file_names
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../services/auth.service.dart';
@@ -7,9 +9,12 @@ import '../../services/storage.service.dart';
 import '../../services/term.service.dart';
 import '../../services/profile.service.dart';
 import '../../services/table.service.dart';
+import '../../services/homework.service.dart';
+import '../../services/homework_reminder.service.dart';
 import '../../interfaces/auth.interface.dart';
 import '../../interfaces/profile.interface.dart';
 import '../../interfaces/term.interface.dart';
+import '../../interfaces/homework.interface.dart';
 import '../../common/NotebookSectionPage.dart';
 import '../../common/NotebookTabs.dart';
 import '../../common/DateTimeFormat.dart';
@@ -18,6 +23,8 @@ import 'Component/EditProfilePopup.dart';
 import 'Component/StudentCard.dart';
 import 'Component/StudentCardPopup.dart';
 import 'Component/Term.dart';
+import 'Component/HomeworkReminderCard.dart';
+import 'Component/HomeworkReminderPopup.dart';
 
 typedef LogoutAction = Future<void> Function();
 
@@ -28,6 +35,7 @@ class MainPage extends StatefulWidget {
   final TermRepository? termRepository;
   final ProfileRepository? profileRepository;
   final TableRepository? tableRepository;
+  final HomeworkRepository? homeworkRepository;
 
   const MainPage({
     super.key,
@@ -37,6 +45,7 @@ class MainPage extends StatefulWidget {
     this.termRepository,
     this.profileRepository,
     this.tableRepository,
+    this.homeworkRepository,
   });
 
   @override
@@ -47,6 +56,7 @@ class _MainPageState extends State<MainPage> {
   final AuthService _authService = AuthService();
   final StorageService _storageService = StorageService();
   late final ProfileRepository _profileRepository;
+  late final HomeworkRepository _homeworkRepository;
 
   String? _username;
   int? _userId;
@@ -57,14 +67,22 @@ class _MainPageState extends State<MainPage> {
   UserConstraint? _constraint;
   String? _profileError;
   int _scheduleVersion = 0;
+  List<HomeworkTaskData> _homeworkTasks = const [];
+  List<HomeworkTaskData> _urgentHomework = const [];
+  Timer? _homeworkClock;
 
   @override
   void initState() {
     super.initState();
     _profileRepository = widget.profileRepository ?? ProfileService();
+    _homeworkRepository = widget.homeworkRepository ?? HomeworkService();
     _username = widget.username;
     _userId = widget.userId;
     _loadPageData();
+    _homeworkClock = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _refreshUrgentHomework(),
+    );
   }
 
   Future<void> _loadPageData() async {
@@ -107,6 +125,55 @@ class _MainPageState extends State<MainPage> {
       _profileError = profileError;
       _isLoadingSession = false;
     });
+
+    if (_shouldLoadHomework) {
+      unawaited(_loadHomeworkReminders());
+    }
+  }
+
+  bool get _shouldLoadHomework =>
+      widget.homeworkRepository != null ||
+      (widget.profileRepository == null && widget.username == null);
+
+  Future<void> _loadHomeworkReminders() async {
+    try {
+      final overview = await _homeworkRepository.getHomeworkOverview();
+      if (!mounted) return;
+      _homeworkTasks = overview.tasks;
+      _refreshUrgentHomework();
+      if (widget.homeworkRepository == null) {
+        await HomeworkReminderService.instance.syncTasks(overview.tasks);
+      }
+    } catch (_) {
+      // Reminder sync must never block the Main page when offline.
+    }
+  }
+
+  void _refreshUrgentHomework() {
+    if (!mounted) return;
+    final now = DateTime.now();
+    final urgent = _homeworkTasks.where((task) {
+      final remaining = task.deadline.difference(now);
+      return remaining > Duration.zero && remaining <= homeworkReminderLeadTime;
+    }).toList()..sort((left, right) => left.deadline.compareTo(right.deadline));
+    setState(() => _urgentHomework = urgent);
+  }
+
+  Future<void> _openHomeworkReminder() async {
+    await showHomeworkReminderPopup(
+      context,
+      tasks: _urgentHomework,
+      onViewAll: () {
+        Navigator.of(context).pop();
+        Navigator.of(context).pushReplacementNamed('/homework');
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _homeworkClock?.cancel();
+    super.dispose();
   }
 
   String get _displayName => _username ?? 'Student';
@@ -276,6 +343,13 @@ class _MainPageState extends State<MainPage> {
             style: const TextStyle(fontSize: 10, color: Color(0xFFD65D69)),
           ),
         ],
+        if (_urgentHomework.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          HomeworkReminderCard(
+            tasks: _urgentHomework,
+            onTap: _openHomeworkReminder,
+          ),
+        ],
         const SizedBox(height: 24),
         Term(
           repository: widget.termRepository,
@@ -285,6 +359,7 @@ class _MainPageState extends State<MainPage> {
               _currentTerm = term;
               _scheduleVersion += 1;
             });
+            if (_shouldLoadHomework) unawaited(_loadHomeworkReminders());
           },
         ),
         const SizedBox(height: 24),

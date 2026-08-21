@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { AuthState, AuthUser } from "@/interfaces/auth.interface";
 import authService from "@/services/auth.service";
+import homeworkReminderService from "@/services/homework-reminder.service";
 
 interface AuthStore extends AuthState {
   // Actions
@@ -116,6 +117,7 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true, error: null });
         try {
           await authService.logout();
+          homeworkReminderService.clearAll();
 
           set({
             user: null,
@@ -126,6 +128,7 @@ export const useAuthStore = create<AuthStore>()(
           });
         } catch {
           // Still clear state even if logout request fails
+          homeworkReminderService.clearAll();
           set({
             user: null,
             accessToken: null,
@@ -141,6 +144,7 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true, error: null });
         try {
           await authService.deleteAccount();
+          homeworkReminderService.clearAll();
 
           set({
             user: null,
@@ -171,6 +175,7 @@ export const useAuthStore = create<AuthStore>()(
           error: null,
         });
         authService.clearAuth();
+        homeworkReminderService.clearAll();
       },
     }),
     {
