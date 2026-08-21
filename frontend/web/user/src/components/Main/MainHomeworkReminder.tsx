@@ -154,7 +154,7 @@ export default function MainHomeworkReminder() {
 
   return (
     <>
-      <div className="pointer-events-none absolute left-1/2 top-0 z-30 -translate-x-1/2 -translate-y-[calc(100%+6px)]">
+      <div className="pointer-events-none absolute left-1/2 top-0 z-30 w-full max-w-[440px] -translate-x-1/2 -translate-y-8 md:-translate-y-[52px]">
         <button
           type="button"
           onClick={openUrgentPopup}
@@ -163,7 +163,7 @@ export default function MainHomeworkReminder() {
               ? `${urgentTasks[0].subject_name} — ${urgentTasks[0].workload_name}`
               : label
           }
-          className={`pointer-events-auto inline-flex h-8 max-w-[260px] items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[11px] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
+          className={`pointer-events-auto flex h-8 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-b-full rounded-t-none border px-3 text-[11px] shadow-sm transition hover:shadow-md ${
             isUrgent
               ? "border-[#E5A9B8] bg-[#FFF0F4] text-[#A55370]"
               : isGranted
