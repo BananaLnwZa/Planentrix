@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { ScheduleItem } from "@/interfaces/table.interface";
+import type { DisplayScheduleItem } from "@/interfaces/table.interface";
 
 const scheduleTypeStyles = {
   1: {
@@ -24,7 +24,7 @@ export default function ScheduleBlock({
   style,
   onClick,
 }: {
-  item: ScheduleItem;
+  item: DisplayScheduleItem;
   style: CSSProperties;
   onClick: () => void;
 }) {
@@ -53,6 +53,11 @@ export default function ScheduleBlock({
       <span className="mt-1 block whitespace-nowrap text-[9px] leading-none opacity-90">
         {item.start_time}–{item.end_time}
       </span>
+      {item.source === "weekly" && item.is_user_modified && (
+        <span className="mt-1 block text-[8px] font-medium opacity-75">
+          ปรับโดยผู้ใช้
+        </span>
+      )}
     </button>
   );
 }

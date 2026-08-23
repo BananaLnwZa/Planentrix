@@ -181,6 +181,7 @@ class ExamService {
         }
       );
       const json = record(response.data);
+      const reviewMethodJson = record(json.review_method);
       return {
         historyId: number(json.exam_score_history_id),
         actualScore: number(json.actual_score),
@@ -191,6 +192,16 @@ class ExamService {
         checkpointIntervalWeeks: number(json.checkpoint_interval_weeks),
         weakTopicCount: number(json.weak_topic_count),
         reviewMinutesDelta: number(json.review_minutes_delta),
+        scheduleRecommendationId: json.schedule_recommendation_id
+          ? number(json.schedule_recommendation_id)
+          : null,
+        reviewMethod: reviewMethodJson.study_type_id
+          ? {
+              studyTypeId: number(reviewMethodJson.study_type_id),
+              studyTypeName: text(reviewMethodJson.study_type_name),
+              fallbackUsed: Boolean(reviewMethodJson.fallback_used),
+            }
+          : null,
       };
     } catch (error) {
       throw this.toError(error, "ไม่สามารถส่งข้อสอบได้");

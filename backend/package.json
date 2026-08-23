@@ -7,7 +7,9 @@
     "dev:admin": "nodemon --watch src --ext ts --exec \"ts-node src/admin/admin.server.ts\"",
     "dev:user": "nodemon --watch src --ext ts --exec \"ts-node src/user/user.server.ts\"",
     "dev": "npm run dev:admin",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit --incremental false",
+    "test": "node --test -r ts-node/register src/user/services/*.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^7.8.0",

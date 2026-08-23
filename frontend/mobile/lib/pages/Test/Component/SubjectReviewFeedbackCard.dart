@@ -359,8 +359,17 @@ String _checkpointText(int weeks) {
 }
 
 String _reviewTimeText(int minutes) {
-  if (minutes > 0) return 'เพิ่มเวลาทบทวน $minutes นาที';
-  return 'ลดเวลาทบทวน ${minutes.abs()} นาที';
+  if (minutes > 0) return 'เพิ่มเวลาทบทวน ${_reviewDuration(minutes)}';
+  return 'ลดเวลาทบทวน ${_reviewDuration(minutes)}';
+}
+
+String _reviewDuration(int minutes) {
+  final total = minutes.abs();
+  final hours = total ~/ 60;
+  final remaining = total % 60;
+  if (hours > 0 && remaining > 0) return '$hours ชม. $remaining นาที';
+  if (hours > 0) return '$hours ชม.';
+  return '$remaining นาที';
 }
 
 String _dateText(DateTime value) {

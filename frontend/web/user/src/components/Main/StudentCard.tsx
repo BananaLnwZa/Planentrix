@@ -34,6 +34,7 @@ type StudentCardProps = {
   studentNumber?: string;
   onEditProfile?: () => void;
   onDeleteProfile?: () => void;
+  onConstraintUpdated?: () => void;
 };
 
 const emptyConstraintValues: EditConstraintValues = {
@@ -109,6 +110,7 @@ export default function StudentCard({
   studentNumber,
   onEditProfile,
   onDeleteProfile,
+  onConstraintUpdated,
 }: StudentCardProps) {
   const router = useRouter();
   const authUser = useAuthStore((state) => state.user);
@@ -357,6 +359,7 @@ export default function StudentCard({
       if (constraintResult.status === "fulfilled") {
         setConstraint(constraintResult.value.constraint);
         setConstraintError("");
+        onConstraintUpdated?.();
       } else {
         saveErrors.push(
           constraintResult.reason instanceof Error

@@ -5,14 +5,18 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../interfaces/table.interface.dart';
+import '../../../interfaces/recommendation.interface.dart';
 import '../../../services/table.service.dart';
+import '../../../services/recommendation.service.dart';
 import 'AddSchedulePopup.dart';
+import 'RecommendationPreviewSheet.dart';
 import 'ScheduleDetailsPopup.dart';
 
 class Schedule extends StatefulWidget {
   final TableRepository? repository;
+  final RecommendationRepository? recommendationRepository;
 
-  const Schedule({super.key, this.repository});
+  const Schedule({super.key, this.repository, this.recommendationRepository});
 
   @override
   State<Schedule> createState() => _ScheduleState();
@@ -20,7 +24,10 @@ class Schedule extends StatefulWidget {
 
 class _ScheduleState extends State<Schedule> {
   late final TableRepository _repository;
+  late final RecommendationRepository? _recommendationRepository;
   List<ScheduleItem> _items = const [];
+  List<WeeklyScheduleBlock> _weeklyBlocks = const [];
+  WeeklyRecommendation? _acceptedRecommendation;
   bool _loading = true;
   bool _loadingDetail = false;
   bool _hasCurrentTerm = false;
@@ -30,6 +37,7 @@ class _ScheduleState extends State<Schedule> {
   void initState() {
     super.initState();
     _repository = widget.repository ?? TableService();
+    _recommendationRepository = widget.recommendationRepository;
     _loadSchedule();
   }
 
@@ -42,11 +50,35 @@ class _ScheduleState extends State<Schedule> {
     }
     try {
       final response = await _repository.getCurrentSchedule();
+      AcceptedWeeklySchedule? weeklySchedule;
+      final recommendationRepository = _recommendationRepository;
+      if (recommendationRepository != null) {
+        try {
+          weeklySchedule = await recommendationRepository.getWeeklySchedule();
+        } catch (_) {
+          weeklySchedule = null;
+        }
+      }
       if (!mounted) return;
-      setState(() {
-        _items = response?.items ?? const [];
-        _hasCurrentTerm = response != null;
-      });
+      final accepted = weeklySchedule?.acceptedRecommendation;
+      if (accepted != null && weeklySchedule != null) {
+        setState(() {
+          _acceptedRecommendation = accepted;
+          _weeklyBlocks = weeklySchedule!.weeklyBlocks;
+          _items = [
+            ...weeklySchedule.recurringClasses.map(_recurringScheduleItem),
+            ...weeklySchedule.weeklyBlocks.map(_weeklyScheduleItem),
+          ];
+          _hasCurrentTerm = true;
+        });
+      } else {
+        setState(() {
+          _acceptedRecommendation = null;
+          _weeklyBlocks = const [];
+          _items = response?.items ?? const [];
+          _hasCurrentTerm = response != null;
+        });
+      }
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
     } finally {
@@ -56,6 +88,19 @@ class _ScheduleState extends State<Schedule> {
 
   Future<void> _selectItem(ScheduleItem item) async {
     if (_loadingDetail) return;
+    if (item.scheduleTimeId < 0 &&
+        _acceptedRecommendation != null &&
+        _recommendationRepository != null) {
+      final blockId = -item.scheduleTimeId;
+      if (!_weeklyBlocks.any((block) => block.weeklyBlockId == blockId)) return;
+      final updated = await showRecommendationPreviewSheet(
+        context,
+        recommendation: _acceptedRecommendation!,
+        repository: _recommendationRepository,
+      );
+      if (updated != null && mounted) await _loadSchedule();
+      return;
+    }
     setState(() {
       _loadingDetail = true;
       _error = null;
@@ -108,7 +153,7 @@ class _ScheduleState extends State<Schedule> {
   }
 
   Future<void> _openAdd() async {
-    if (!_hasCurrentTerm || _loading) return;
+    if (!_hasCurrentTerm || _loading || _acceptedRecommendation != null) return;
     setState(() {
       _loadingDetail = true;
       _error = null;
@@ -143,7 +188,7 @@ class _ScheduleState extends State<Schedule> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _ScheduleTitle(),
+          _ScheduleTitle(acceptedRecommendation: _acceptedRecommendation),
           const SizedBox(height: 7),
           Expanded(
             child: Stack(
@@ -186,7 +231,7 @@ class _ScheduleState extends State<Schedule> {
                     top: 8,
                     child: _EmptySchedule(),
                   ),
-                if (hasScheduleItems)
+                if (hasScheduleItems && _acceptedRecommendation == null)
                   Positioned(
                     right: 12,
                     bottom: 12,
@@ -238,31 +283,74 @@ class _ScheduleState extends State<Schedule> {
 }
 
 class _ScheduleTitle extends StatelessWidget {
-  const _ScheduleTitle();
+  final WeeklyRecommendation? acceptedRecommendation;
+
+  const _ScheduleTitle({this.acceptedRecommendation});
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(horizontal: 3),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 3),
     child: Row(
       children: [
         Expanded(
-          child: Text(
-            'ตารางเวลาประจำสัปดาห์',
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF52636D),
-              fontWeight: FontWeight.w600,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'ตารางเวลาประจำสัปดาห์',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF52636D),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (acceptedRecommendation != null)
+                Text(
+                  'กำลังใช้แผน ${_displayScheduleDate(acceptedRecommendation!.weekStart)} – ${_displayScheduleDate(acceptedRecommendation!.weekEnd)}',
+                  style: const TextStyle(
+                    fontSize: 8.5,
+                    color: Color(0xFF71907A),
+                  ),
+                ),
+            ],
           ),
         ),
-        _Legend(color: Color(0xFFDDF1C9), label: 'เรียน'),
-        SizedBox(width: 5),
-        _Legend(color: Color(0xFFFFF0BA), label: 'อ่าน'),
-        SizedBox(width: 5),
-        _Legend(color: Color(0xFFF8D1CD), label: 'งาน'),
+        const _Legend(color: Color(0xFFDDF1C9), label: 'เรียน'),
+        const SizedBox(width: 5),
+        const _Legend(color: Color(0xFFFFF0BA), label: 'อ่าน'),
+        const SizedBox(width: 5),
+        const _Legend(color: Color(0xFFF8D1CD), label: 'งาน'),
       ],
     ),
   );
+}
+
+ScheduleItem _recurringScheduleItem(RecurringClassBlock block) => ScheduleItem(
+  scheduleTimeId: block.scheduleTimeId,
+  scheduleTypeId: 1,
+  scheduleTypeName: 'class',
+  subjectId: block.subjectId,
+  subjectName: block.subjectName,
+  scheduleDay: block.scheduleDay,
+  startTime: block.startTime,
+  endTime: block.endTime,
+  classroom: block.classroom,
+);
+
+ScheduleItem _weeklyScheduleItem(WeeklyScheduleBlock block) => ScheduleItem(
+  scheduleTimeId: -block.weeklyBlockId,
+  scheduleTypeId: block.scheduleTypeId,
+  scheduleTypeName: block.scheduleTypeName,
+  subjectId: block.subjectId,
+  subjectName: block.subjectName,
+  scheduleDay: DateTime.tryParse(block.scheduledDate)?.weekday ?? 1,
+  startTime: block.startTime,
+  endTime: block.endTime,
+);
+
+String _displayScheduleDate(String value) {
+  final parts = value.split('-');
+  return parts.length == 3 ? '${parts[2]}/${parts[1]}/${parts[0]}' : value;
 }
 
 class _Legend extends StatelessWidget {

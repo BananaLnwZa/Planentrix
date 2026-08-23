@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import db from "../../config/db";
+import { safelyGenerateRecommendation } from "../services/recommendation.engine";
 
 type UserRequest = Request & {
   user?: { id?: number | string; role?: string };
@@ -150,6 +151,12 @@ export const createWorkload = async (req: Request, res: Response) => {
       ]
     );
 
+    const recommendationResult = await safelyGenerateRecommendation({
+      userId: Number(userId),
+      triggerType: "workload_changed",
+      workloadId: Number(result.insertId),
+    });
+
     res.status(201).json({
       message: "Workload created successfully",
       workload_id: result.insertId,
@@ -161,6 +168,8 @@ export const createWorkload = async (req: Request, res: Response) => {
       deadline_date,
       deadline_time,
       note: note || null,
+      schedule_recommendation: recommendationResult.recommendation,
+      recommendation_warning: recommendationResult.warning,
     });
   } catch (err) {
     console.error("createWorkload error:", err);
@@ -233,6 +242,12 @@ export const updateWorkload = async (req: Request, res: Response) => {
       [workloadName, deadlineDate, deadlineTime, note || null, workloadId]
     );
 
+    const recommendationResult = await safelyGenerateRecommendation({
+      userId: Number(userId),
+      triggerType: "workload_changed",
+      workloadId,
+    });
+
     return res.json({
       message: "Workload updated successfully",
       workload_id: workloadId,
@@ -240,6 +255,8 @@ export const updateWorkload = async (req: Request, res: Response) => {
       deadline_date: deadlineDate,
       deadline_time: deadlineTime,
       note: note || null,
+      schedule_recommendation: recommendationResult.recommendation,
+      recommendation_warning: recommendationResult.warning,
     });
   } catch (err) {
     console.error("updateWorkload error:", err);
@@ -285,9 +302,17 @@ export const deleteWorkload = async (req: Request, res: Response) => {
       });
     }
 
+    const recommendationResult = await safelyGenerateRecommendation({
+      userId: Number(authUser.id),
+      triggerType: "workload_changed",
+      workloadId: null,
+    });
+
     return res.json({
       message: "Workload deleted successfully",
       workload_id: workloadId,
+      schedule_recommendation: recommendationResult.recommendation,
+      recommendation_warning: recommendationResult.warning,
     });
   } catch (err) {
     console.error("deleteWorkload error:", err);
@@ -342,10 +367,18 @@ export const finishWorkload = async (req: Request, res: Response) => {
       [workload_id]
     );
 
+    const recommendationResult = await safelyGenerateRecommendation({
+      userId: Number(userId),
+      triggerType: "workload_changed",
+      workloadId: Number(workload_id),
+    });
+
     res.json({
       message: "Workload finished successfully",
       workload_id,
       user_id: userId,
+      schedule_recommendation: recommendationResult.recommendation,
+      recommendation_warning: recommendationResult.warning,
     });
   } catch (err) {
     console.error("finishWorkload error:", err);
@@ -518,11 +551,19 @@ export const saveWorkloadScore = async (req: Request, res: Response) => {
         [actualScoreNum, maxScoreNum, workload_id]
       );
 
+      const recommendationResult = await safelyGenerateRecommendation({
+        userId: Number(userId),
+        triggerType: "workload_changed",
+        workloadId: Number(workload_id),
+      });
+
       return res.json({
         message: "Score updated successfully",
         workload_id,
         actual_score: actualScoreNum,
         max_score: maxScoreNum,
+        schedule_recommendation: recommendationResult.recommendation,
+        recommendation_warning: recommendationResult.warning,
       });
     }
 
@@ -531,12 +572,20 @@ export const saveWorkloadScore = async (req: Request, res: Response) => {
       [workload_id, actualScoreNum, maxScoreNum]
     );
 
+    const recommendationResult = await safelyGenerateRecommendation({
+      userId: Number(userId),
+      triggerType: "workload_changed",
+      workloadId: Number(workload_id),
+    });
+
     res.status(201).json({
       message: "Score saved successfully",
       score_id: result.insertId,
       workload_id,
       actual_score: actualScoreNum,
       max_score: maxScoreNum,
+      schedule_recommendation: recommendationResult.recommendation,
+      recommendation_warning: recommendationResult.warning,
     });
   } catch (err) {
     console.error("saveWorkloadScore error:", err);

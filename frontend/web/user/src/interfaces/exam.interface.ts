@@ -94,4 +94,10 @@ export interface ExamSubmissionResult {
   checkpointIntervalWeeks: number;
   weakTopicCount: number;
   reviewMinutesDelta: number;
+  scheduleRecommendationId: number | null;
+  reviewMethod: {
+    studyTypeId: number;
+    studyTypeName: string;
+    fallbackUsed: boolean;
+  } | null;
 }

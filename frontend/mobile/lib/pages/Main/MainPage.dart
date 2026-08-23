@@ -11,6 +11,7 @@ import '../../services/profile.service.dart';
 import '../../services/table.service.dart';
 import '../../services/homework.service.dart';
 import '../../services/homework_reminder.service.dart';
+import '../../services/recommendation.service.dart';
 import '../../interfaces/auth.interface.dart';
 import '../../interfaces/profile.interface.dart';
 import '../../interfaces/term.interface.dart';
@@ -25,6 +26,7 @@ import 'Component/StudentCardPopup.dart';
 import 'Component/Term.dart';
 import 'Component/HomeworkReminderCard.dart';
 import 'Component/HomeworkReminderPopup.dart';
+import 'Component/RecommendationCard.dart';
 
 typedef LogoutAction = Future<void> Function();
 
@@ -36,6 +38,7 @@ class MainPage extends StatefulWidget {
   final ProfileRepository? profileRepository;
   final TableRepository? tableRepository;
   final HomeworkRepository? homeworkRepository;
+  final RecommendationRepository? recommendationRepository;
 
   const MainPage({
     super.key,
@@ -46,6 +49,7 @@ class MainPage extends StatefulWidget {
     this.profileRepository,
     this.tableRepository,
     this.homeworkRepository,
+    this.recommendationRepository,
   });
 
   @override
@@ -57,6 +61,7 @@ class _MainPageState extends State<MainPage> {
   final StorageService _storageService = StorageService();
   late final ProfileRepository _profileRepository;
   late final HomeworkRepository _homeworkRepository;
+  late final RecommendationRepository _recommendationRepository;
 
   String? _username;
   int? _userId;
@@ -76,6 +81,8 @@ class _MainPageState extends State<MainPage> {
     super.initState();
     _profileRepository = widget.profileRepository ?? ProfileService();
     _homeworkRepository = widget.homeworkRepository ?? HomeworkService();
+    _recommendationRepository =
+        widget.recommendationRepository ?? RecommendationService();
     _username = widget.username;
     _userId = widget.userId;
     _loadPageData();
@@ -134,6 +141,12 @@ class _MainPageState extends State<MainPage> {
   bool get _shouldLoadHomework =>
       widget.homeworkRepository != null ||
       (widget.profileRepository == null && widget.username == null);
+
+  bool get _shouldLoadRecommendations =>
+      widget.recommendationRepository != null ||
+      (widget.tableRepository == null &&
+          widget.profileRepository == null &&
+          widget.username == null);
 
   Future<void> _loadHomeworkReminders() async {
     try {
@@ -366,7 +379,19 @@ class _MainPageState extends State<MainPage> {
         Schedule(
           key: ValueKey('schedule-$_scheduleVersion'),
           repository: widget.tableRepository,
+          recommendationRepository: _shouldLoadRecommendations
+              ? _recommendationRepository
+              : null,
         ),
+        if (_shouldLoadRecommendations) ...[
+          const SizedBox(height: 24),
+          RecommendationCard(
+            repository: _recommendationRepository,
+            onAccepted: () {
+              if (mounted) setState(() => _scheduleVersion += 1);
+            },
+          ),
+        ],
       ],
     );
   }

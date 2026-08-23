@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Planentrix Backend
 
-## Getting Started
+Express and TypeScript API for the Planentrix admin and user applications.
 
-First, run the development server:
+## Commands
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run dev:user
+npm run dev:admin
+npm run typecheck
+npm test
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The user server uses `USER_SERVER_PORT` and defaults to port `4000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Weekly recommendation API
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+All routes require a user JWT in the `Authorization` header and are mounted at
+`/user/recommendations`.
 
-## Learn More
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/generate` | Generate a pending recommendation. Body may contain `trigger_type` and Monday `target_week_start`. |
+| `GET` | `/latest?week_start=YYYY-MM-DD` | Get the latest non-superseded recommendation. |
+| `GET` | `/schedule?week_start=YYYY-MM-DD` | Get recurring classes plus the accepted weekly plan. |
+| `GET` | `/:recommendation_id` | Get recommendation items, reasons, changes, and preview blocks. |
+| `POST` | `/:recommendation_id/accept` | Accept the complete collision-free plan. |
+| `POST` | `/:recommendation_id/reject` | Reject a pending recommendation. |
+| `POST` | `/:recommendation_id/blocks` | Add a user block to a pending or accepted weekly plan. |
+| `PUT` | `/:recommendation_id/blocks/:weekly_block_id` | Move or resize a weekly block after constraint validation. |
+| `DELETE` | `/:recommendation_id/blocks/:weekly_block_id` | Remove a weekly block and recalculate item totals. |
 
-To learn more about Next.js, take a look at the following resources:
+The backend also recalculates recommendations after exam submission, workload
+changes, workload score changes, and constraint changes. The user server checks
+every minute on Sunday and creates the following week's recommendation once the
+time in `Asia/Bangkok` reaches 18:00.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Database migration
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Run `migrations/20260824_add_weekly_schedule_recommendations.sql` against the
+Planentrix MySQL database. It creates the three weekly recommendation tables and
+is idempotent when those tables already exist.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Exam feedback maps subject types to review methods through the rules in
+`src/user/services/review-method.rules.ts`. The rules use `reading` for theory,
+`practice` for programming/database/AI/web, `review` for system design and
+projects, and `video` for networking/security. An unmapped subject type falls
+back to the `review` study type. Exam-part scores still independently decide weak
+topics using the existing below-50-percent rule.

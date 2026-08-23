@@ -1,4 +1,4 @@
-import type { ScheduleItem } from "@/interfaces/table.interface";
+import type { DisplayScheduleItem } from "@/interfaces/table.interface";
 import ScheduleBlock from "./ScheduleBlock";
 
 const scheduleDays = ["จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."];
@@ -23,7 +23,7 @@ function timeToMinutes(value: string) {
   return hour * 60 + minute;
 }
 
-export function getScheduleHourRange(items: ScheduleItem[]) {
+export function getScheduleHourRange(items: DisplayScheduleItem[]) {
   const validRanges = items
     .map((item) => ({
       start: timeToMinutes(item.start_time),
@@ -42,7 +42,7 @@ export function getScheduleHourRange(items: ScheduleItem[]) {
 }
 
 function getBlockPosition(
-  item: ScheduleItem,
+  item: DisplayScheduleItem,
   startHour: number,
   endHour: number
 ) {
@@ -64,8 +64,8 @@ export default function ScheduleGrid({
   items,
   onSelect,
 }: {
-  items: ScheduleItem[];
-  onSelect: (item: ScheduleItem) => void;
+  items: DisplayScheduleItem[];
+  onSelect: (item: DisplayScheduleItem) => void;
 }) {
   const range = getScheduleHourRange(items);
   if (!range) return null;
@@ -139,7 +139,7 @@ export default function ScheduleGrid({
                     if (!style) return null;
                     return (
                       <ScheduleBlock
-                        key={item.schedule_time_id}
+                        key={item.display_id}
                         item={item}
                         style={style}
                         onClick={() => onSelect(item)}

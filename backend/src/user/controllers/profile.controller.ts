@@ -3,6 +3,7 @@ import db from "../../config/db";
 import path from "path";
 import multer from "multer";
 import fs from "fs";
+import { safelyGenerateRecommendation } from "../services/recommendation.engine";
 
 // ==============================
 // ฟังก์ชัน Helper สำหรับ format DATE เป็น YYYY-MM-DD
@@ -520,9 +521,16 @@ export const updateConstraints = async (req: Request, res: Response) => {
 
     constraintData.busy_days = updatedRecurringBusyItems || [];
 
+    const recommendationResult = await safelyGenerateRecommendation({
+      userId: Number(userId),
+      triggerType: "constraint_changed",
+    });
+
     res.json({
       message: "Constraints updated successfully",
       constraint: constraintData,
+      schedule_recommendation: recommendationResult.recommendation,
+      recommendation_warning: recommendationResult.warning,
     });
   } catch (error) {
     console.error("updateConstraints error:", error);

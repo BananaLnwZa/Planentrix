@@ -22,6 +22,17 @@ export interface ScheduleItem {
   note: string | null;
 }
 
+export interface DisplayScheduleItem
+  extends Omit<ScheduleItem, "schedule_time_id"> {
+  schedule_time_id: number | null;
+  display_id: string;
+  source: "recurring" | "weekly";
+  weekly_block_id: number | null;
+  recommendation_id: number | null;
+  scheduled_date: string | null;
+  is_user_modified: boolean;
+}
+
 export interface ScheduleSubject {
   subject_id: string;
   subject_name: string;

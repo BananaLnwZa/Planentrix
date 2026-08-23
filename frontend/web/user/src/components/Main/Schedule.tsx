@@ -1,21 +1,82 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import type {
+  WeeklyBlockInput,
+  WeeklyRecommendation,
+  WeeklyScheduleBlock,
+} from "@/interfaces/recommendation.interface";
+import type {
   AddScheduleRequest,
+  DisplayScheduleItem,
   ScheduleItem,
   ScheduleSubject,
   UpdateScheduleRequest,
 } from "@/interfaces/table.interface";
+import recommendationService from "@/services/recommendation.service";
 import tableService from "@/services/table.service";
 import AddSchedulePopup from "./AddSchedulePopup";
 import ScheduleDetailsPopup from "./ScheduleDetailsPopup";
 import ScheduleGrid from "./ScheduleGrid";
+import WeeklyBlockEditor from "./WeeklyBlockEditor";
 
-export default function Schedule() {
-  const [items, setItems] = useState<ScheduleItem[]>([]);
+type ScheduleProps = { refreshKey?: number };
+
+const isoDay = (value: string) => {
+  const day = new Date(`${value}T00:00:00`).getDay();
+  return day === 0 ? 7 : day;
+};
+
+const recurringDisplayItem = (
+  item: Omit<ScheduleItem, "teacher_name" | "credits"> & {
+    teacher_name?: string;
+    credits?: number;
+  }
+): DisplayScheduleItem => ({
+  ...item,
+  display_id: `recurring-${item.schedule_time_id}`,
+  source: "recurring",
+  weekly_block_id: null,
+  recommendation_id: null,
+  scheduled_date: null,
+  is_user_modified: false,
+  teacher_name: item.teacher_name ?? "",
+  credits: item.credits ?? 0,
+  start_time: item.start_time.slice(0, 5),
+  end_time: item.end_time.slice(0, 5),
+});
+
+const weeklyDisplayItem = (block: WeeklyScheduleBlock): DisplayScheduleItem => ({
+  schedule_time_id: block.schedule_time_id,
+  display_id: `weekly-${block.weekly_block_id}`,
+  source: "weekly",
+  weekly_block_id: block.weekly_block_id,
+  recommendation_id: block.recommendation_id,
+  scheduled_date: block.scheduled_date,
+  is_user_modified: block.is_user_modified,
+  schedule_type_id: block.schedule_type_id,
+  schedule_type_name: block.schedule_type_name,
+  subject_id: block.subject_id,
+  subject_name: block.subject_name,
+  teacher_name: "",
+  credits: 0,
+  schedule_day: isoDay(block.scheduled_date),
+  start_time: block.start_time.slice(0, 5),
+  end_time: block.end_time.slice(0, 5),
+  classroom: null,
+  note: null,
+});
+
+export default function Schedule({ refreshKey = 0 }: ScheduleProps) {
+  const [items, setItems] = useState<DisplayScheduleItem[]>([]);
+  const [legacyItems, setLegacyItems] = useState<ScheduleItem[]>([]);
+  const [weeklyBlocks, setWeeklyBlocks] = useState<WeeklyScheduleBlock[]>([]);
+  const [acceptedRecommendation, setAcceptedRecommendation] =
+    useState<WeeklyRecommendation | null>(null);
   const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null);
+  const [selectedWeeklyBlock, setSelectedWeeklyBlock] =
+    useState<WeeklyScheduleBlock | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -28,38 +89,69 @@ export default function Schedule() {
   const [subjectsError, setSubjectsError] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    let isActive = true;
+  const loadSchedule = useCallback(async () => {
+    const [legacyResult, weeklyResult] = await Promise.allSettled([
+      tableService.getCurrentSchedule(),
+      recommendationService.getWeeklySchedule(),
+    ]);
 
-    tableService
-      .getCurrentSchedule()
-      .then((response) => {
-        if (!isActive) return;
-        setItems(response?.data ?? []);
-        setHasCurrentTerm(Boolean(response));
-      })
-      .catch((loadError: unknown) => {
-        if (!isActive) return;
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "ไม่สามารถโหลดตารางเวลาได้"
-        );
-      })
-      .finally(() => {
-        if (isActive) setIsLoading(false);
-      });
+    const legacy =
+      legacyResult.status === "fulfilled" ? legacyResult.value : null;
+    setLegacyItems(legacy?.data ?? []);
+    setHasCurrentTerm(Boolean(legacy));
 
-    return () => {
-      isActive = false;
-    };
+    if (
+      weeklyResult.status === "fulfilled" &&
+      weeklyResult.value.accepted_recommendation
+    ) {
+      const weekly = weeklyResult.value;
+      setAcceptedRecommendation(weekly.accepted_recommendation);
+      setWeeklyBlocks(weekly.weekly_blocks);
+      setItems([
+        ...weekly.recurring_classes.map((item) =>
+          recurringDisplayItem({ ...item, teacher_name: "", credits: 0 })
+        ),
+        ...weekly.weekly_blocks.map(weeklyDisplayItem),
+      ]);
+      setHasCurrentTerm(true);
+    } else {
+      setAcceptedRecommendation(null);
+      setWeeklyBlocks([]);
+      setItems((legacy?.data ?? []).map(recurringDisplayItem));
+    }
+
+    if (legacyResult.status === "rejected" && weeklyResult.status === "rejected") {
+      const reason = legacyResult.reason;
+      setError(
+        reason instanceof Error ? reason.message : "ไม่สามารถโหลดตารางเวลาได้"
+      );
+    }
+    setIsLoading(false);
   }, []);
 
-  const handleSelect = async (item: ScheduleItem) => {
-    setIsLoadingDetail(true);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadSchedule();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadSchedule, refreshKey]);
+
+  const handleSelect = async (item: DisplayScheduleItem) => {
     setError("");
+    if (item.source === "weekly") {
+      setSelectedWeeklyBlock(
+        weeklyBlocks.find(
+          (block) => block.weekly_block_id === item.weekly_block_id
+        ) ?? null
+      );
+      return;
+    }
+    if (!item.schedule_time_id) return;
+    setIsLoadingDetail(true);
     try {
-      setSelectedItem(await tableService.getScheduleDetail(item.schedule_time_id));
+      setSelectedItem(
+        await tableService.getScheduleDetail(item.schedule_time_id)
+      );
     } catch (detailError) {
       setError(
         detailError instanceof Error
@@ -76,17 +168,10 @@ export default function Schedule() {
     setIsSaving(true);
     try {
       await tableService.updateSchedule(selectedItem.schedule_time_id, data);
-      const refreshedItem = await tableService.getScheduleDetail(
-        selectedItem.schedule_time_id
+      setSelectedItem(
+        await tableService.getScheduleDetail(selectedItem.schedule_time_id)
       );
-      setSelectedItem(refreshedItem);
-      setItems((currentItems) =>
-        currentItems.map((item) =>
-          item.schedule_time_id === refreshedItem.schedule_time_id
-            ? refreshedItem
-            : item
-        )
-      );
+      await loadSchedule();
     } finally {
       setIsSaving(false);
     }
@@ -97,20 +182,50 @@ export default function Schedule() {
     setIsDeleting(true);
     try {
       await tableService.deleteSchedule(selectedItem.schedule_time_id);
-      setItems((currentItems) =>
-        currentItems.filter(
-          (item) => item.schedule_time_id !== selectedItem.schedule_time_id
-        )
-      );
       setSelectedItem(null);
+      await loadSchedule();
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleWeeklySave = async (input: WeeklyBlockInput) => {
+    if (!selectedWeeklyBlock || !acceptedRecommendation) return;
+    setIsSaving(true);
+    try {
+      await recommendationService.updateBlock(
+        acceptedRecommendation.recommendation_id,
+        selectedWeeklyBlock.weekly_block_id,
+        {
+          scheduled_date: input.scheduled_date,
+          start_time: input.start_time,
+          end_time: input.end_time,
+        }
+      );
+      setSelectedWeeklyBlock(null);
+      await loadSchedule();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleWeeklyDelete = async () => {
+    if (!selectedWeeklyBlock || !acceptedRecommendation) return;
+    setIsDeleting(true);
+    try {
+      await recommendationService.deleteBlock(
+        acceptedRecommendation.recommendation_id,
+        selectedWeeklyBlock.weekly_block_id
+      );
+      setSelectedWeeklyBlock(null);
+      await loadSchedule();
     } finally {
       setIsDeleting(false);
     }
   };
 
   const handleOpenAdd = async () => {
-    if (!hasCurrentTerm) return;
-
+    if (!hasCurrentTerm || acceptedRecommendation) return;
     setIsAddOpen(true);
     setIsLoadingSubjects(true);
     setSubjectsError("");
@@ -134,18 +249,7 @@ export default function Schedule() {
     try {
       await tableService.addSchedule(data);
       setIsAddOpen(false);
-
-      try {
-        const response = await tableService.getCurrentSchedule();
-        setItems(response?.data ?? []);
-        setHasCurrentTerm(Boolean(response));
-      } catch (reloadError) {
-        setError(
-          reloadError instanceof Error
-            ? reloadError.message
-            : "เพิ่มบล็อกแล้ว แต่ไม่สามารถโหลดตารางเวลาใหม่ได้"
-        );
-      }
+      await loadSchedule();
     } finally {
       setIsAdding(false);
     }
@@ -155,15 +259,23 @@ export default function Schedule() {
 
   return (
     <section
-      className={`flex min-h-0 w-full max-w-[440px] flex-col ${hasScheduleItems || isLoading ? "h-[440px] md:h-auto md:flex-1" : "h-[150px]"}`}
+      className={`flex min-h-0 w-full max-w-[440px] flex-col ${
+        hasScheduleItems || isLoading
+          ? "h-[440px] md:h-auto md:flex-1"
+          : "h-[150px]"
+      }`}
     >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
-        <h2
-          className="text-base font-semibold text-[#52636D]"
-          style={{ fontFamily: "var(--font-sansation)" }}
-        >
-          ตารางเวลาประจำสัปดาห์
-        </h2>
+        <div>
+          <h2 className="text-base font-semibold text-[#52636D]" style={{ fontFamily: "var(--font-sansation)" }}>
+            ตารางเวลาประจำสัปดาห์
+          </h2>
+          {acceptedRecommendation && (
+            <p className="text-[9px] text-[#71907A]">
+              กำลังใช้แผนวันที่ {acceptedRecommendation.week_start} – {acceptedRecommendation.week_end}
+            </p>
+          )}
+        </div>
         <div className="flex items-center gap-2 text-[10px] text-[#657780]">
           <Legend color="bg-[#DDF1C9]" label="เรียน" />
           <Legend color="bg-[#FFF0BA]" label="อ่านหนังสือ" />
@@ -172,46 +284,39 @@ export default function Schedule() {
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        {hasScheduleItems && (
-          <ScheduleGrid items={items} onSelect={handleSelect} />
-        )}
-
+        {hasScheduleItems && <ScheduleGrid items={items} onSelect={handleSelect} />}
         {(isLoading || isLoadingDetail) && (
           <div className="absolute inset-0 z-20 flex items-center justify-center rounded-[14px] bg-white/65 text-sm text-[#6A8795] backdrop-blur-[1px]">
             {isLoading ? "กำลังโหลดตารางเวลา..." : "กำลังเปิดรายละเอียด..."}
           </div>
         )}
-
         {!isLoading && !error && items.length === 0 && (
           <div className="pointer-events-none absolute inset-x-3 top-3 z-[5] rounded-xl border border-dashed border-[#B9D9E7] bg-white/90 px-4 py-3 text-center text-xs text-[#6A8795] shadow-sm">
             ยังไม่มีข้อมูลตารางเวลาสำหรับเทอมปัจจุบัน
           </div>
         )}
-
-        {hasScheduleItems && <button
-          type="button"
-          onClick={() => void handleOpenAdd()}
-          disabled={isLoading || !hasCurrentTerm}
-          aria-label="เพิ่มบล็อกเวลา"
-          title={hasCurrentTerm ? "เพิ่มบล็อกเวลา" : "กรุณาสร้างเทอมก่อน"}
-          className="absolute bottom-3 right-3 z-10 flex h-11 w-11 items-center justify-center rounded-xl border-2 border-white bg-[#F58BC2] text-white shadow-[0_5px_12px_rgba(190,83,140,0.3)] transition hover:-translate-y-0.5 hover:bg-[#EC78B3] hover:shadow-[0_7px_15px_rgba(190,83,140,0.36)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D865A2] disabled:cursor-not-allowed disabled:bg-[#C9D4D9] disabled:shadow-none"
-        >
-          <Plus aria-hidden="true" size={27} strokeWidth={3.2} />
-        </button>}
+        {hasScheduleItems && !acceptedRecommendation && (
+          <button
+            type="button"
+            onClick={() => void handleOpenAdd()}
+            disabled={isLoading || !hasCurrentTerm}
+            aria-label="เพิ่มบล็อกเวลา"
+            title={hasCurrentTerm ? "เพิ่มบล็อกเวลา" : "กรุณาสร้างเทอมก่อน"}
+            className="absolute bottom-3 right-3 z-10 flex h-11 w-11 items-center justify-center rounded-xl border-2 border-white bg-[#F58BC2] text-white shadow-[0_5px_12px_rgba(190,83,140,0.3)] transition hover:-translate-y-0.5 hover:bg-[#EC78B3] disabled:opacity-50"
+          >
+            <Plus aria-hidden="true" size={27} strokeWidth={3.2} />
+          </button>
+        )}
       </div>
 
       {error && (
-        <p
-          role="alert"
-          className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600"
-        >
+        <p role="alert" className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
           {error}
         </p>
       )}
-
       {selectedItem && (
         <ScheduleDetailsPopup
-          key={`${selectedItem.schedule_time_id}-${selectedItem.schedule_day}-${selectedItem.start_time}-${selectedItem.end_time}-${selectedItem.classroom}-${selectedItem.note}`}
+          key={`${selectedItem.schedule_time_id}-${selectedItem.schedule_day}-${selectedItem.start_time}-${selectedItem.end_time}`}
           item={selectedItem}
           isSaving={isSaving}
           isDeleting={isDeleting}
@@ -220,11 +325,23 @@ export default function Schedule() {
           onDelete={handleDelete}
         />
       )}
-
+      {selectedWeeklyBlock && acceptedRecommendation && (
+        <WeeklyBlockEditor
+          block={selectedWeeklyBlock}
+          subjects={[]}
+          weekStart={acceptedRecommendation.week_start}
+          weekEnd={acceptedRecommendation.week_end}
+          isSaving={isSaving}
+          isDeleting={isDeleting}
+          onClose={() => setSelectedWeeklyBlock(null)}
+          onSave={handleWeeklySave}
+          onDelete={handleWeeklyDelete}
+        />
+      )}
       {isAddOpen && (
         <AddSchedulePopup
           subjects={subjects}
-          scheduleItems={items}
+          scheduleItems={legacyItems}
           isLoadingSubjects={isLoadingSubjects}
           subjectsError={subjectsError}
           isSubmitting={isAdding}

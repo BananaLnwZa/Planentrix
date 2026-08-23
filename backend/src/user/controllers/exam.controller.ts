@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import db from "../../config/db";
+import { safelyGenerateRecommendation } from "../services/recommendation.engine";
+import { getReviewMethodForSubjectType } from "../services/review-method.engine";
+import { isWeakTopic } from "../services/review-method.rules";
 
 const CLASS_SCHEDULE_TYPE_ID = 1;
 
@@ -17,6 +20,10 @@ interface AccessibleExamRow extends RowDataPacket {
   total_score: number | string;
   total_question: number;
   time_limit: number;
+}
+
+interface AccessibleExamSubmissionRow extends AccessibleExamRow {
+  subject_type_name: string;
 }
 
 interface ExamPartRow extends RowDataPacket {
@@ -70,45 +77,33 @@ interface CheckpointInsightRow extends RowDataPacket {
   review_minutes_delta: number;
 }
 
-interface StudyTypeRow extends RowDataPacket {
-  study_type_id: number;
-  study_type_name: string;
-}
-
-const findStudyTypeForPercentage = (
-  studyTypes: StudyTypeRow[],
-  percentage: number,
-) => {
-  if (percentage >= 50) return undefined;
-  const preferredName = "practice";
-  return studyTypes.find(
-    (type) => type.study_type_name.toLowerCase() === preferredName,
-  );
-};
-
 const getUser = (req: Request) => (req as UserRequest).user;
 
 const getAccessibleExam = async (
   userId: number | string,
   examRepositoryId: number,
-): Promise<AccessibleExamRow | undefined> => {
-  const [rows] = await db.query<AccessibleExamRow[]>(
+): Promise<AccessibleExamSubmissionRow | undefined> => {
+  const [rows] = await db.query<AccessibleExamSubmissionRow[]>(
     `SELECT
        er.exam_repository_id,
        MIN(st.schedule_time_id) AS schedule_time_id,
        er.subject_id,
        s.subject_name,
+       subject_type.subject_type_name,
        er.exam_name,
        CAST(er.total_score AS DOUBLE) AS total_score,
        er.total_question,
        er.time_limit
      FROM exam_repository er
      INNER JOIN subjects s ON s.subject_id = er.subject_id
+     INNER JOIN subject_types subject_type
+       ON subject_type.subject_type_id = s.subject_type_id
      INNER JOIN schedule_time st ON st.subject_id = er.subject_id
      INNER JOIN terms t ON t.term_id = st.term_id
      WHERE er.exam_repository_id = ? AND st.user_id = ?
        AND t.term_status = 1 AND st.schedule_type_id = ?
      GROUP BY er.exam_repository_id, er.subject_id, s.subject_name,
+       subject_type.subject_type_name,
        er.exam_name, er.total_score, er.total_question, er.time_limit
      LIMIT 1`,
     [examRepositoryId, userId, CLASS_SCHEDULE_TYPE_ID]
@@ -421,10 +416,8 @@ export const submitExam = async (req: Request, res: Response) => {
        WHERE ep.exam_repository_id = ?`,
       [examRepositoryId]
     );
-    const [studyTypes] = await db.query<StudyTypeRow[]>(
-      `SELECT study_type_id, study_type_name
-       FROM study_types
-       ORDER BY study_type_id`
+    const reviewMethod = await getReviewMethodForSubjectType(
+      exam.subject_type_name,
     );
 
     if (questions.length === 0) {
@@ -496,12 +489,12 @@ export const submitExam = async (req: Request, res: Response) => {
       .filter((topic) => topic.maximum > 0)
       .map((topic) => ({
         ...topic,
-        studyTypeId:
-          findStudyTypeForPercentage(studyTypes, topic.percentage)?.study_type_id ??
-          null,
+        studyTypeId: isWeakTopic(topic.percentage)
+          ? reviewMethod.studyTypeId
+          : null,
       }));
     const weakTopicCount = topicResults.filter(
-      (topic) => topic.percentage < 50
+      (topic) => isWeakTopic(topic.percentage)
     ).length;
     const overallPercent =
       normalizedMaximum <= 0 ? 0 : (normalizedScore / normalizedMaximum) * 100;
@@ -513,14 +506,6 @@ export const submitExam = async (req: Request, res: Response) => {
           : overallPercent < 80
             ? 3
             : 4;
-    const reviewMinutesDelta =
-      weakTopicCount >= 3
-        ? 30
-        : weakTopicCount > 0
-          ? 20
-          : overallPercent >= 80
-            ? -10
-            : 0;
     const nextCheckpointAt = new Date(
       Date.now() + intervalWeeks * 7 * 24 * 60 * 60 * 1000
     );
@@ -559,13 +544,12 @@ export const submitExam = async (req: Request, res: Response) => {
       await connection.query(
         `INSERT INTO exam_checkpoint
            (user_id, schedule_time_id, exam_repository_id, next_checkpoint_at,
-            interval_weeks, weak_topic_count, review_minutes_delta)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+            interval_weeks, weak_topic_count)
+         VALUES (?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
            next_checkpoint_at = VALUES(next_checkpoint_at),
            interval_weeks = VALUES(interval_weeks),
-           weak_topic_count = VALUES(weak_topic_count),
-           review_minutes_delta = VALUES(review_minutes_delta)`,
+           weak_topic_count = VALUES(weak_topic_count)`,
         [
           authUser.id,
           exam.schedule_time_id,
@@ -573,7 +557,6 @@ export const submitExam = async (req: Request, res: Response) => {
           nextCheckpointAt,
           intervalWeeks,
           weakTopicCount,
-          reviewMinutesDelta,
         ]
       );
       await connection.commit();
@@ -583,6 +566,17 @@ export const submitExam = async (req: Request, res: Response) => {
     } finally {
       connection.release();
     }
+
+    const recommendationResult = await safelyGenerateRecommendation({
+      userId: Number(authUser.id),
+      triggerType: "exam_submitted",
+      examScoreHistoryId: historyId,
+    });
+    const reviewItem = recommendationResult.recommendation?.items.find(
+      (item) =>
+        item.subject_id === exam.subject_id &&
+        Number(item.schedule_type_id) === 2
+    );
 
     return res.status(201).json({
       message: "Exam submitted successfully",
@@ -594,7 +588,15 @@ export const submitExam = async (req: Request, res: Response) => {
       next_checkpoint_at: nextCheckpointAt,
       checkpoint_interval_weeks: intervalWeeks,
       weak_topic_count: weakTopicCount,
-      review_minutes_delta: reviewMinutesDelta,
+      review_minutes_delta: Number(reviewItem?.difference_minutes ?? 0),
+      schedule_recommendation_id:
+        recommendationResult.recommendation?.recommendation_id ?? null,
+      recommendation_warning: recommendationResult.warning,
+      review_method: {
+        study_type_id: reviewMethod.studyTypeId,
+        study_type_name: reviewMethod.studyTypeName,
+        fallback_used: reviewMethod.fallbackUsed,
+      },
     });
   } catch (err) {
     console.error("submitExam error:", err);
@@ -656,7 +658,19 @@ export const getExamInsights = async (req: Request, res: Response) => {
          ec.next_checkpoint_at,
          ec.interval_weeks,
          ec.weak_topic_count,
-         ec.review_minutes_delta
+         COALESCE((
+           SELECT item.difference_minutes
+           FROM weekly_recommendation recommendation
+           INNER JOIN weekly_recommendation_item item
+             ON item.recommendation_id = recommendation.recommendation_id
+           WHERE recommendation.user_id = ec.user_id
+             AND recommendation.term_id = t.term_id
+             AND recommendation.status <> 'superseded'
+             AND item.subject_id = s.subject_id
+             AND item.schedule_type_id = 2
+           ORDER BY recommendation.week_start DESC, recommendation.version DESC
+           LIMIT 1
+         ), 0) AS review_minutes_delta
        FROM exam_checkpoint ec
        INNER JOIN schedule_time st
          ON st.schedule_time_id = ec.schedule_time_id
@@ -675,7 +689,7 @@ export const getExamInsights = async (req: Request, res: Response) => {
     }
     const weakTopicCountsBySubject = new Map<string, number>();
     const weakTopics = [...latestTopics.values()]
-      .filter((row) => Number(row.percentage) < 50)
+      .filter((row) => isWeakTopic(Number(row.percentage)))
       .sort((left, right) => Number(left.percentage) - Number(right.percentage))
       .filter((row) => {
         const subjectKey = String(row.subject_id ?? row.subject_name);

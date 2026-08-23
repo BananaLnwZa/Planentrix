@@ -10,7 +10,9 @@ import userTableRouter from "./routes/table.router";
 import userGradeRouter from "./routes/grade.routes";
 import userWorkloadRouter from "./routes/workload.routes";
 import userTimeRouter from "./routes/time.routes";
+import userRecommendationRouter from "./routes/recommendation.routes";
 import { errorHandler } from "../middlewares/errorHandler";
+import { startRecommendationScheduler } from "./services/recommendation.job";
 
 dotenv.config();
 
@@ -30,6 +32,7 @@ app.use("/user/grade", userGradeRouter);
 app.use("/user/workload", userWorkloadRouter);
 app.use("/user/time", userTimeRouter);
 app.use("/user/exam", userExamRouter);
+app.use("/user/recommendations", userRecommendationRouter);
 
 app.get("/", (req, res) => {
   res.json({ message: "User backend is running" });
@@ -41,4 +44,5 @@ const port = Number(process.env.USER_SERVER_PORT || 4000);
 console.log("Starting user server...");
 app.listen(port, () => {
   console.log(`User server listening on http://localhost:${port}`);
+  startRecommendationScheduler();
 });

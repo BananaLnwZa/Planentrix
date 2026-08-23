@@ -20,10 +20,22 @@ const weeksUntil = (value: Date) => {
   return days <= 0 ? 0 : Math.ceil(days / 7);
 };
 
+const formatReviewDuration = (minutes: number) => {
+  const totalMinutes = Math.abs(Math.round(minutes));
+  if (totalMinutes < 60) return `${totalMinutes} นาที`;
+  const hours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = totalMinutes % 60;
+  return remainingMinutes > 0
+    ? `${hours} ชม. ${remainingMinutes} นาที`
+    : `${hours} ชม.`;
+};
+
 const reviewTimeText = (minutes: number) =>
   minutes > 0
-    ? `เพิ่มเวลาทบทวน ${minutes} นาที`
-    : `ลดเวลาทบทวน ${Math.abs(minutes)} นาที`;
+    ? `เพิ่มเวลาทบทวน ${formatReviewDuration(minutes)}`
+    : minutes < 0
+      ? `ลดเวลาทบทวน ${formatReviewDuration(minutes)}`
+      : "เวลาทบทวนปัจจุบันเหมาะสมแล้ว";
 
 function FeedbackSection({
   icon,
@@ -60,6 +72,14 @@ export default function FeedbackPanel({
   const sortedCheckpoints = [...checkpoints].sort(
     (left, right) => left.nextCheckpointAt.getTime() - right.nextCheckpointAt.getTime()
   );
+  const recommendedMethods = Array.from(
+    new Map(
+      sortedTopics.map((topic) => [
+        topic.studyTypeId || topic.studyTypeName,
+        topic.studyTypeName,
+      ])
+    ).values()
+  ).filter(Boolean);
 
   return (
     <article className="rounded-[19px] border border-[#DCE7EB] bg-white p-3.5 shadow-[0_3px_8px_rgba(0,0,0,0.09)]">
@@ -95,14 +115,14 @@ export default function FeedbackPanel({
         {sortedTopics.length > 0 && (
           <FeedbackSection
             icon={<Lightbulb className="h-3.5 w-3.5" />}
-            title="วิธีทบทวน"
+            title="วิธีทบทวนที่แนะนำ"
             color="bg-[#E5F4FB]"
           >
             <ul className="space-y-1.5">
-              {sortedTopics.map((topic) => (
-                <li key={`study-${topic.examPartId}`}>
-                  <strong className="font-semibold text-[#4F7D92]">{topic.topicName}: </strong>
-                  {studyTypeLabel(topic.studyTypeName)}
+              {recommendedMethods.map((method) => (
+                <li key={method} className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#72A9BE]" />
+                  <span>{studyTypeLabel(method)}</span>
                 </li>
               ))}
             </ul>
@@ -130,11 +150,9 @@ export default function FeedbackPanel({
                       <strong className="block font-semibold text-[#9A7527]">
                         {weeks <= 0 ? "ถึงรอบแล้ว" : `อีก ${weeks} สัปดาห์`}
                       </strong>
-                      {checkpoint.reviewMinutesDelta !== 0 && (
-                        <span className="mt-0.5 block text-[10px] text-[#66894E]">
-                          {reviewTimeText(checkpoint.reviewMinutesDelta)}
-                        </span>
-                      )}
+                      <span className="mt-0.5 block text-[10px] text-[#66894E]">
+                        {reviewTimeText(checkpoint.reviewMinutesDelta)}
+                      </span>
                     </span>
                   </li>
                 );
