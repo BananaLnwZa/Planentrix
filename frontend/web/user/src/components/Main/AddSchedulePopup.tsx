@@ -10,6 +10,9 @@ import type {
   ScheduleItem,
   ScheduleSubject,
 } from "@/interfaces/table.interface";
+import type { UserConstraint } from "@/interfaces/profile.interface";
+import { findConstraintOverlap } from "@/utils/constraintOverlap";
+import ConstraintOverlapWarning from "./ConstraintOverlapWarning";
 import ScheduleTimePicker24Hour from "./ScheduleTimePicker24Hour";
 
 type AddSchedulePopupProps = {
@@ -18,6 +21,7 @@ type AddSchedulePopupProps = {
   isLoadingSubjects: boolean;
   subjectsError: string;
   isSubmitting: boolean;
+  constraint?: UserConstraint | null;
   onClose: () => void;
   onSubmit: (data: AddScheduleRequest) => Promise<void>;
 };
@@ -28,6 +32,7 @@ export default function AddSchedulePopup({
   isLoadingSubjects,
   subjectsError,
   isSubmitting,
+  constraint,
   onClose,
   onSubmit,
 }: AddSchedulePopupProps) {
@@ -37,6 +42,8 @@ export default function AddSchedulePopup({
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("09:00");
   const [submitError, setSubmitError] = useState("");
+  const [pendingInput, setPendingInput] =
+    useState<AddScheduleRequest | null>(null);
 
   const hasInvalidTimeRange = startTime >= endTime;
   const conflictingItem = !hasInvalidTimeRange
@@ -57,25 +64,47 @@ export default function AddSchedulePopup({
 
   const clearSubmitError = () => setSubmitError("");
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!canSubmit || !scheduleTypeId) return;
-
+  const submitInput = async (input: AddScheduleRequest) => {
     setSubmitError("");
     try {
-      await onSubmit({
-        schedule_type_id: scheduleTypeId,
-        subject_id: subjectId,
-        schedule_day: scheduleDay,
-        start_time: startTime,
-        end_time: endTime,
-      });
+      await onSubmit(input);
     } catch (error) {
       setSubmitError(
         error instanceof Error ? error.message : "ไม่สามารถเพิ่มบล็อกเวลาได้"
       );
     }
   };
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSubmit || !scheduleTypeId) return;
+
+    const input: AddScheduleRequest = {
+      schedule_type_id: scheduleTypeId,
+      subject_id: subjectId,
+      schedule_day: scheduleDay,
+      start_time: startTime,
+      end_time: endTime,
+    };
+    const conflict = findConstraintOverlap(constraint, {
+      scheduleDay,
+      startTime,
+      endTime,
+    });
+    if (conflict) {
+      setPendingInput(input);
+      return;
+    }
+    void submitInput(input);
+  };
+
+  const pendingConflict = pendingInput
+    ? findConstraintOverlap(constraint, {
+        scheduleDay: pendingInput.schedule_day,
+        startTime: pendingInput.start_time,
+        endTime: pendingInput.end_time,
+      })
+    : null;
 
   return createPortal(
     <div
@@ -261,6 +290,18 @@ export default function AddSchedulePopup({
           </div>
         </form>
       </section>
+      {pendingInput && pendingConflict && (
+        <ConstraintOverlapWarning
+          conflict={pendingConflict}
+          isSubmitting={isSubmitting}
+          onCancel={() => setPendingInput(null)}
+          onConfirm={() => {
+            const input = pendingInput;
+            setPendingInput(null);
+            void submitInput(input);
+          }}
+        />
+      )}
     </div>,
     document.body
   );

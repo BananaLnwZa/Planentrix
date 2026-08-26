@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'services/homework_reminder.service.dart';
+import 'services/app_notification.service.dart';
 import 'pages/Homework/Homework.dart';
 import 'pages/Login/LogInPage.dart';
 import 'pages/Main/MainPage.dart';
@@ -11,7 +11,7 @@ import 'pages/Timer/Timer.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await HomeworkReminderService.instance.initialize();
+  await AppNotificationService.instance.initialize();
   runApp(const MyApp());
 }
 

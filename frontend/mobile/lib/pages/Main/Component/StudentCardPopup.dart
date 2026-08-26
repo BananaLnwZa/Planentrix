@@ -107,17 +107,18 @@ class _StudentCardPopupState extends State<StudentCardPopup> {
 
     return Dialog(
       key: const Key('student-card-popup'),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
       backgroundColor: Colors.transparent,
       child: ConstrainedBox(
+        key: const Key('student-card-popup-box'),
         constraints: BoxConstraints(
-          maxWidth: 480,
-          maxHeight: screenHeight * 0.9,
+          maxWidth: 400,
+          maxHeight: screenHeight * 0.72,
         ),
         child: Material(
           color: const Color(0xFFF3FBFF),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(18),
             side: const BorderSide(color: Color(0xFFD1D5DB)),
           ),
           clipBehavior: Clip.antiAlias,
@@ -143,7 +144,7 @@ class _StudentCardPopupState extends State<StudentCardPopup> {
               Expanded(
                 child: SingleChildScrollView(
                   key: const Key('student-popup-scroll'),
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
                   child: _activePanel == StudentPopupPanel.profile
                       ? _ProfilePanel(
                           name: widget.name,
@@ -192,16 +193,16 @@ class _PopupHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: const Color(0xFFC7E8F8),
-      padding: const EdgeInsets.fromLTRB(20, 24, 12, 18),
+      padding: const EdgeInsets.fromLTRB(16, 18, 10, 14),
       child: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.only(right: 28),
+            padding: const EdgeInsets.only(right: 24),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _ProfilePhoto(photo: photo),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,29 +215,29 @@ class _PopupHeader extends StatelessWidget {
                         style: const TextStyle(
                           color: Colors.black,
                           fontFamily: 'Sansation',
-                          fontSize: 19,
+                          fontSize: 17,
                           fontWeight: FontWeight.w600,
                           height: 1.05,
                         ),
                       ),
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 4),
                       Text(
                         'ID $studentNumber',
                         style: const TextStyle(
                           color: Color(0xFF526773),
                           fontFamily: 'Sansation',
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 7),
                       _HeaderAction(
                         key: const Key('edit-profile-button'),
                         icon: Icons.edit_outlined,
                         label: 'Edit Profile',
                         onPressed: onEditProfile,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       _HeaderAction(
                         key: const Key('delete-profile-button'),
                         icon: Icons.delete_outline,
@@ -256,7 +257,7 @@ class _PopupHeader extends StatelessWidget {
               key: const Key('close-student-popup'),
               tooltip: 'Close profile',
               onPressed: onClose,
-              icon: const Icon(Icons.close_rounded, size: 28),
+              icon: const Icon(Icons.close_rounded, size: 24),
               color: const Color(0xFF314553),
             ),
           ),
@@ -274,8 +275,8 @@ class _ProfilePhoto extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 104,
-      height: 104,
+      width: 86,
+      height: 86,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 3),
@@ -297,7 +298,7 @@ class _ProfilePhoto extends StatelessWidget {
           ? const Icon(
               Icons.person_outline_rounded,
               color: Colors.white,
-              size: 56,
+              size: 46,
             )
           : null,
     );
@@ -327,7 +328,7 @@ class _HeaderAction extends StatelessWidget {
           children: [
             Icon(
               icon,
-              size: 18,
+              size: 16,
               color: onPressed == null
                   ? const Color(0x80314553)
                   : const Color(0xFF314553),
@@ -343,7 +344,7 @@ class _HeaderAction extends StatelessWidget {
                       ? const Color(0x80314553)
                       : const Color(0xFF314553),
                   fontFamily: 'Sansation',
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -409,18 +410,18 @@ class _TabButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: isActive ? const Color(0xFFF3FBFF) : const Color(0xFFE5E7EB),
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
       child: InkWell(
         onTap: onTap,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
         child: SizedBox(
-          height: 44,
+          height: 40,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 20, color: const Color(0xFF314553)),
+                Icon(icon, size: 18, color: const Color(0xFF314553)),
                 const SizedBox(width: 6),
                 Flexible(
                   child: FittedBox(
@@ -431,7 +432,7 @@ class _TabButton extends StatelessWidget {
                       style: const TextStyle(
                         color: Color(0xFF314553),
                         fontFamily: 'Sansation',
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w400,
                       ),
                     ),
@@ -464,14 +465,14 @@ class _ProfilePanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _ProfileInfoCard(label: 'ชื่อผู้ใช้', value: name),
-        const SizedBox(height: 12),
+        const SizedBox(height: 9),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: _ProfileInfoCard(label: 'วันเกิด', value: birthDate),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 9),
             Expanded(
               child: _ProfileInfoCard(label: 'เพศ', value: gender),
             ),
@@ -507,23 +508,23 @@ class _ConstraintPanel extends StatelessWidget {
         _ConstraintRow(label: 'ระยะเวลาทำงาน', value: workingDuration),
         _ConstraintRow(label: 'ระยะเวลาพัก', value: breakDuration),
         _ConstraintRow(label: 'เวลาทำงาน', value: workingTime),
-        const SizedBox(height: 12),
+        const SizedBox(height: 9),
         const Text(
           'วันเวลาไม่ว่างประจำ',
           style: TextStyle(
             color: Color(0xFF374151),
             fontFamily: 'Sansation',
-            fontSize: 14,
+            fontSize: 12,
             fontWeight: FontWeight.w400,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(11),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(13),
             border: Border.all(color: const Color(0xFFD1D5DB)),
           ),
           child: busyTimes.isEmpty
@@ -532,7 +533,7 @@ class _ConstraintPanel extends StatelessWidget {
                   style: TextStyle(
                     color: Color(0xFF6B7280),
                     fontFamily: 'Sansation',
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w400,
                   ),
                 )
@@ -547,7 +548,7 @@ class _ConstraintPanel extends StatelessWidget {
                             style: const TextStyle(
                               color: Color(0xFF374151),
                               fontFamily: 'Sansation',
-                              fontSize: 13,
+                              fontSize: 12,
                               fontWeight: FontWeight.w400,
                             ),
                           ),
@@ -571,11 +572,11 @@ class _ProfileInfoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 76),
-      padding: const EdgeInsets.all(12),
+      constraints: const BoxConstraints(minHeight: 64),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: const Color(0xCCFFFFFF),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(13),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
@@ -586,7 +587,7 @@ class _ProfileInfoCard extends StatelessWidget {
             style: const TextStyle(
               color: Color(0xFF374151),
               fontFamily: 'Sansation',
-              fontSize: 14,
+              fontSize: 12,
               fontWeight: FontWeight.w400,
             ),
           ),
@@ -598,7 +599,7 @@ class _ProfileInfoCard extends StatelessWidget {
             style: const TextStyle(
               color: Color(0xFF314553),
               fontFamily: 'Sansation',
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.w400,
             ),
           ),
@@ -617,7 +618,7 @@ class _ConstraintRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 9),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -627,15 +628,15 @@ class _ConstraintRow extends StatelessWidget {
               style: const TextStyle(
                 color: Color(0xFF4B5563),
                 fontFamily: 'Sansation',
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.w400,
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 9),
           Flexible(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
@@ -647,7 +648,7 @@ class _ConstraintRow extends StatelessWidget {
                 style: const TextStyle(
                   color: Color(0xFF374151),
                   fontFamily: 'Sansation',
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -669,7 +670,7 @@ class _PopupFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       decoration: const BoxDecoration(
         color: Color(0xB3FFFFFF),
         border: Border(top: BorderSide(color: Color(0xFFD9E7EE))),
@@ -689,13 +690,13 @@ class _PopupFooter extends StatelessWidget {
           style: OutlinedButton.styleFrom(
             foregroundColor: const Color(0xFFE65D84),
             side: const BorderSide(color: Color(0xFFF19AB3)),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(25),
             ),
             textStyle: const TextStyle(
               fontFamily: 'Sansation',
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w400,
             ),
           ),

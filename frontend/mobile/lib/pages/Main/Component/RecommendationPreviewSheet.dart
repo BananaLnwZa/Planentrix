@@ -2,7 +2,11 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../common/AppDatePicker.dart';
+import '../../../common/AppTimePicker.dart';
+import '../../../common/ConstraintOverlapWarning.dart';
 import '../../../common/DateTimeFormat.dart';
+import '../../../interfaces/profile.interface.dart';
 import '../../../interfaces/recommendation.interface.dart';
 import '../../../services/recommendation.service.dart';
 
@@ -10,6 +14,7 @@ Future<WeeklyRecommendation?> showRecommendationPreviewSheet(
   BuildContext context, {
   required WeeklyRecommendation recommendation,
   required RecommendationRepository repository,
+  UserConstraint? constraint,
 }) => showModalBottomSheet<WeeklyRecommendation>(
   context: context,
   isScrollControlled: true,
@@ -20,6 +25,7 @@ Future<WeeklyRecommendation?> showRecommendationPreviewSheet(
     child: _RecommendationPreviewSheet(
       recommendation: recommendation,
       repository: repository,
+      constraint: constraint,
     ),
   ),
 );
@@ -27,10 +33,12 @@ Future<WeeklyRecommendation?> showRecommendationPreviewSheet(
 class _RecommendationPreviewSheet extends StatefulWidget {
   final WeeklyRecommendation recommendation;
   final RecommendationRepository repository;
+  final UserConstraint? constraint;
 
   const _RecommendationPreviewSheet({
     required this.recommendation,
     required this.repository,
+    this.constraint,
   });
 
   @override
@@ -45,6 +53,7 @@ class _RecommendationPreviewSheetState
   bool _loading = true;
   bool _adjusting = false;
   bool _busy = false;
+  bool _hasChangesToApply = false;
   String? _error;
 
   @override
@@ -122,6 +131,7 @@ class _RecommendationPreviewSheetState
         subjects: _subjects,
         weekStart: _recommendation.weekStart,
         weekEnd: _recommendation.weekEnd,
+        constraint: widget.constraint,
       ),
     );
     if (result == null || !mounted) return;
@@ -145,7 +155,12 @@ class _RecommendationPreviewSheetState
               block.weeklyBlockId,
               result.input!,
             );
-      if (mounted) setState(() => _recommendation = updated);
+      if (mounted) {
+        setState(() {
+          _recommendation = updated;
+          _hasChangesToApply = true;
+        });
+      }
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
     } finally {
@@ -170,6 +185,10 @@ class _RecommendationPreviewSheetState
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _applyChanges() {
+    Navigator.of(context).pop(_recommendation);
   }
 
   @override
@@ -206,9 +225,11 @@ class _RecommendationPreviewSheetState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'ตัวอย่างตารางสัปดาห์ที่แนะนำ',
-                        style: TextStyle(
+                      Text(
+                        _recommendation.status == 'accepted'
+                            ? 'ตารางสัปดาห์ที่กำลังใช้งาน'
+                            : 'ตัวอย่างตารางสัปดาห์ที่แนะนำ',
+                        style: const TextStyle(
                           fontSize: 16,
                           color: Color(0xFF405B69),
                           fontWeight: FontWeight.w600,
@@ -286,12 +307,29 @@ class _RecommendationPreviewSheetState
                           ),
                         const SizedBox(height: 12),
                       ],
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Text(
+                          _adjusting
+                              ? 'กดบล็อกเวลาเพื่อย้าย เปลี่ยนเวลา หรือลบ'
+                              : _recommendation.status == 'accepted'
+                              ? _hasChangesToApply
+                                    ? 'บันทึกการแก้ไขแล้ว กดนำการแก้ไขไปใช้เพื่ออัปเดตตารางหลัก'
+                                    : 'ตารางนี้กำลังใช้งานอยู่ คุณสามารถปรับเวลาได้'
+                              : 'ตารางนี้ยังเป็นตัวอย่าง จนกว่าจะกดยอมรับคำแนะนำ',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            color: Color(0xFF74878F),
+                          ),
+                        ),
+                      ),
                       if (_recommendation.items.any(
                         (item) => item.capacityLimited,
                       ))
                         _Notice(
-                          text:
-                              'เวลาว่างไม่พอจัดครบทุกเป้าหมาย คุณสามารถปรับตารางก่อนยอมรับได้',
+                          text: _recommendation.status == 'accepted'
+                              ? 'เวลาว่างไม่พอจัดครบทุกเป้าหมาย คุณยังสามารถปรับตารางได้'
+                              : 'เวลาว่างไม่พอจัดครบทุกเป้าหมาย คุณสามารถปรับตารางก่อนยอมรับได้',
                           color: const Color(0xFFFFF4D8),
                         ),
                       if (_error != null)
@@ -315,7 +353,11 @@ class _RecommendationPreviewSheetState
                         : () => setState(() => _adjusting = !_adjusting),
                     icon: const Icon(Icons.edit_calendar_rounded, size: 17),
                     label: Text(
-                      _adjusting ? 'เสร็จสิ้นการปรับ' : 'ปรับตารางก่อนใช้',
+                      _adjusting
+                          ? 'เสร็จสิ้นการปรับ'
+                          : _recommendation.status == 'accepted'
+                          ? 'ปรับตาราง'
+                          : 'ปรับตารางก่อนใช้',
                     ),
                   ),
                 ),
@@ -329,6 +371,21 @@ class _RecommendationPreviewSheetState
                         backgroundColor: const Color(0xFF71A982),
                       ),
                       child: Text(_busy ? 'กำลังบันทึก...' : 'ยอมรับคำแนะนำ'),
+                    ),
+                  ),
+                ] else if (_hasChangesToApply) ...[
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: FilledButton(
+                      key: const Key('recommendation-preview-apply'),
+                      onPressed: _busy ? null : _applyChanges,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF71A982),
+                      ),
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('นำการแก้ไขไปใช้'),
+                      ),
                     ),
                   ),
                 ],
@@ -404,12 +461,14 @@ class _WeeklyBlockEditorDialog extends StatefulWidget {
   final List<({String id, String name})> subjects;
   final String weekStart;
   final String weekEnd;
+  final UserConstraint? constraint;
 
   const _WeeklyBlockEditorDialog({
     this.block,
     required this.subjects,
     required this.weekStart,
     required this.weekEnd,
+    this.constraint,
   });
 
   @override
@@ -441,19 +500,21 @@ class _WeeklyBlockEditorDialogState extends State<_WeeklyBlockEditorDialog> {
   }
 
   Future<void> _pickDate() async {
-    final value = await showDatePicker(
+    final value = await showAppDatePicker(
       context: context,
       initialDate: _date,
       firstDate: DateTime.parse(widget.weekStart),
       lastDate: DateTime.parse(widget.weekEnd),
+      title: 'เลือกวันที่ของบล็อกเวลา',
     );
     if (value != null) setState(() => _date = value);
   }
 
   Future<void> _pickTime(bool start) async {
-    final value = await showTimePicker(
+    final value = await showAppTimePicker(
       context: context,
       initialTime: start ? _start : _end,
+      title: start ? 'เลือกเวลาเริ่ม' : 'เลือกเวลาสิ้นสุด',
     );
     if (value == null) return;
     setState(() {
@@ -465,12 +526,24 @@ class _WeeklyBlockEditorDialogState extends State<_WeeklyBlockEditorDialog> {
     });
   }
 
-  void _save() {
+  Future<void> _save() async {
     final startMinutes = _start.hour * 60 + _start.minute;
     final endMinutes = _end.hour * 60 + _end.minute;
     if (_subjectId.isEmpty || startMinutes >= endMinutes) {
       setState(() => _error = 'เวลาเริ่มต้องอยู่ก่อนเวลาสิ้นสุด');
       return;
+    }
+    final conflict = findConstraintOverlap(
+      widget.constraint,
+      scheduleDay: _date.weekday,
+      startTime: _timeKey(_start),
+      endTime: _timeKey(_end),
+    );
+    var allowConstraintOverlap = false;
+    if (conflict != null) {
+      final confirmed = await showConstraintOverlapWarning(context, conflict);
+      if (!confirmed || !mounted) return;
+      allowConstraintOverlap = true;
     }
     Navigator.pop(
       context,
@@ -481,6 +554,7 @@ class _WeeklyBlockEditorDialogState extends State<_WeeklyBlockEditorDialog> {
           scheduledDate: _dateKey(_date),
           startTime: _timeKey(_start),
           endTime: _timeKey(_end),
+          allowConstraintOverlap: allowConstraintOverlap,
         ),
       ),
     );

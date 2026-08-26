@@ -6,10 +6,8 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../interfaces/homework.interface.dart';
 
-const Duration homeworkReminderLeadTime = Duration(days: 1);
-
 DateTime homeworkReminderTime(DateTime deadline) {
-  return deadline.subtract(homeworkReminderLeadTime);
+  return DateTime(deadline.year, deadline.month, deadline.day - 1, 9);
 }
 
 bool shouldShowHomeworkReminderImmediately({
@@ -64,7 +62,7 @@ class HomeworkReminderService implements HomeworkReminderScheduler {
   static const String _channelId = 'homework_deadline_reminders';
   static const String _channelName = 'Homework deadlines';
   static const String _channelDescription =
-      'แจ้งเตือนงานหนึ่งวันก่อนถึงกำหนดส่ง';
+      'แจ้งเตือนเวลาเก้าโมงของวันก่อนถึงกำหนดส่ง';
 
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
@@ -191,7 +189,9 @@ class HomeworkReminderService implements HomeworkReminderScheduler {
         threadIdentifier: 'homework-deadlines',
       ),
     );
-    const title = 'งานใกล้ถึงกำหนดส่ง';
+    final title = _isSameCalendarDay(task.deadline, now)
+        ? 'งานที่ต้องส่งวันนี้'
+        : 'งานที่ต้องส่งพรุ่งนี้';
     final body =
         'วิชา: ${task.subject} • งาน: ${task.assignment} • '
         'กำหนดส่ง: ${task.dueDate} เวลา ${task.dueTime} น.';
@@ -289,7 +289,12 @@ class HomeworkReminderService implements HomeworkReminderScheduler {
   }
 
   String _taskSignature(HomeworkTaskData task) {
-    return '${task.deadline.millisecondsSinceEpoch}|'
+    return 'day-before-0900|${task.deadline.millisecondsSinceEpoch}|'
         '${task.subject}|${task.assignment}';
   }
 }
+
+bool _isSameCalendarDay(DateTime left, DateTime right) =>
+    left.year == right.year &&
+    left.month == right.month &&
+    left.day == right.day;

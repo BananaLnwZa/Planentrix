@@ -92,7 +92,7 @@ HomeworkTaskData _task(DateTime deadline) => HomeworkTaskData(
 
 void _setPhoneSize(WidgetTester tester) {
   tester.view.devicePixelRatio = 1;
-  tester.view.physicalSize = const Size(390, 844);
+  tester.view.physicalSize = const Size(360, 800);
   addTearDown(() {
     tester.view.resetDevicePixelRatio();
     tester.view.resetPhysicalSize();
@@ -112,41 +112,63 @@ Widget _mainPage(List<HomeworkTaskData> tasks) => MaterialApp(
 );
 
 void main() {
-  testWidgets('urgent homework sits between student card and term at full width', (
-    tester,
-  ) async {
+  testWidgets('term and active alerts share one compact row', (tester) async {
     _setPhoneSize(tester);
-    await tester.pumpWidget(
-      _mainPage([_task(DateTime.now().add(const Duration(hours: 5)))]),
-    );
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1, 19);
+    await tester.pumpWidget(_mainPage([_task(tomorrow)]));
     await tester.pumpAndSettle();
 
     final student = find.byKey(const Key('student-card'));
-    final reminder = find.byKey(const Key('main-homework-reminder-card'));
+    final reminder = find.byKey(const Key('main-notification-card'));
     final term = find.byKey(const Key('term-card'));
 
     expect(reminder, findsOneWidget);
-    expect(tester.getBottomLeft(student).dy, lessThan(tester.getTopLeft(reminder).dy));
-    expect(tester.getBottomLeft(reminder).dy, lessThan(tester.getTopLeft(term).dy));
+    expect(find.byKey(const Key('compact-term-header')), findsOneWidget);
     expect(
-      tester.getSize(reminder).width,
-      closeTo(tester.getSize(student).width, 0.1),
+      tester.getSize(find.byKey(const Key('compact-term-header'))).height,
+      36,
+    );
+    expect(
+      tester.getBottomLeft(student).dy,
+      lessThan(tester.getTopLeft(reminder).dy),
+    );
+    expect(
+      tester.getTopLeft(reminder).dy,
+      closeTo(tester.getTopLeft(term).dy, 0.1),
+    );
+    expect(
+      tester.getSize(reminder).height,
+      closeTo(tester.getSize(term).height, 0.1),
+    );
+    expect(
+      tester.getTopLeft(reminder).dx,
+      greaterThan(tester.getTopLeft(term).dx),
     );
     expect(
       tester.getSize(reminder).width,
-      closeTo(tester.getSize(term).width, 0.1),
+      greaterThan(tester.getSize(term).width),
     );
 
-    await tester.tap(find.byKey(const Key('main-homework-reminder-button')));
+    await tester.tap(find.byKey(const Key('main-notification-button')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('main-homework-reminder-popup')), findsOneWidget);
-    expect(find.text('Business Intelligence'), findsOneWidget);
-    expect(find.text('Dashboard Analysis'), findsOneWidget);
-    expect(find.text('กำหนดส่ง 22/08/2026 เวลา 19:00 น.'), findsOneWidget);
+    final popup = find.byKey(const Key('main-notification-popup'));
+    expect(popup, findsOneWidget);
+    expect(
+      find.descendant(of: popup, matching: find.text('Business Intelligence')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: popup,
+        matching: find.textContaining('Dashboard Analysis'),
+      ),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('main page hides reminder when no homework is due within a day', (
+  testWidgets('notification card stays empty before the day-before window', (
     tester,
   ) async {
     _setPhoneSize(tester);
@@ -155,9 +177,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const Key('main-homework-reminder-card')),
-      findsNothing,
-    );
+    expect(find.byKey(const Key('main-notification-card')), findsOneWidget);
+    expect(find.text('ยังไม่มีรายการที่ต้องแจ้งเตือน'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('main-notification-button')));
+    await tester.pump();
+    expect(find.byKey(const Key('main-notification-popup')), findsNothing);
   });
 }

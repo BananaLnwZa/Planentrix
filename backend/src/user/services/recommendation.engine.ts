@@ -1053,7 +1053,8 @@ const validatePreviewPlacement = async (
     startTime: string;
     endTime: string;
   },
-  excludeBlockId?: number
+  excludeBlockId?: number,
+  allowConstraintOverlap = false
 ) => {
   if (![REVIEW_SCHEDULE_TYPE_ID, HOMEWORK_SCHEDULE_TYPE_ID].includes(input.scheduleTypeId)) {
     throw new RecommendationServiceError(400, "INVALID_SCHEDULE_TYPE", "schedule_type_id must be 2 or 3");
@@ -1096,7 +1097,7 @@ const validatePreviewPlacement = async (
     [recommendation.user_id]
   );
   const constraint = constraints[0];
-  if (constraint) {
+  if (constraint && !allowConstraintOverlap) {
     if (Number(constraint.day_off) === day) {
       throw new RecommendationServiceError(409, "DAY_OFF_CONFLICT", "Block is on the user's day off");
     }
@@ -1125,7 +1126,7 @@ const validatePreviewPlacement = async (
   if (classConflicts.length > 0) {
     throw new RecommendationServiceError(409, "CLASS_CONFLICT", "Block overlaps a class");
   }
-  if (constraint) {
+  if (constraint && !allowConstraintOverlap) {
     const [busyConflicts] = await connection.query<RowDataPacket[]>(
       `SELECT recurring_busy_id
        FROM recurring_busy
@@ -1203,7 +1204,12 @@ export const updatePreviewBlock = async (
   userId: number,
   recommendationId: number,
   weeklyBlockId: number,
-  body: { scheduled_date?: unknown; start_time?: unknown; end_time?: unknown }
+  body: {
+    scheduled_date?: unknown;
+    start_time?: unknown;
+    end_time?: unknown;
+    allow_constraint_overlap?: unknown;
+  }
 ) => {
   const connection = await db.getConnection();
   try {
@@ -1231,7 +1237,8 @@ export const updatePreviewBlock = async (
         startTime,
         endTime,
       },
-      weeklyBlockId
+      weeklyBlockId,
+      body.allow_constraint_overlap === true
     );
     await connection.query(
       `UPDATE weekly_schedule_block
@@ -1262,6 +1269,7 @@ export const addPreviewBlock = async (
     scheduled_date?: unknown;
     start_time?: unknown;
     end_time?: unknown;
+    allow_constraint_overlap?: unknown;
   }
 ) => {
   const subjectId = String(body.subject_id ?? "").trim();
@@ -1273,13 +1281,19 @@ export const addPreviewBlock = async (
   try {
     await connection.beginTransaction();
     const recommendation = await loadOwnedEditable(connection, userId, recommendationId, true);
-    await validatePreviewPlacement(connection, recommendation, {
-      subjectId,
-      scheduleTypeId,
-      scheduledDate,
-      startTime,
-      endTime,
-    });
+    await validatePreviewPlacement(
+      connection,
+      recommendation,
+      {
+        subjectId,
+        scheduleTypeId,
+        scheduledDate,
+        startTime,
+        endTime,
+      },
+      undefined,
+      body.allow_constraint_overlap === true
+    );
     const [items] = await connection.query<RowDataPacket[]>(
       `SELECT recommendation_item_id
        FROM weekly_recommendation_item

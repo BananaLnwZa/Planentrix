@@ -8,7 +8,6 @@ import '../../common/NotebookTabs.dart';
 import '../../interfaces/exam.interface.dart';
 import '../../services/exam.service.dart';
 import '../../services/term.service.dart';
-import 'Component/ExamDetailsPopup.dart';
 import 'Component/ExamHistorySection.dart';
 import 'Component/ExamList.dart';
 import 'Component/ExamNavigationButtons.dart';
@@ -42,9 +41,11 @@ class _TestPageState extends State<TestPage> {
   int? _openingExamId;
   bool _isLoading = true;
   bool _hasCurrentTerm = true;
+  bool _examStarted = false;
   bool _isSubmitting = false;
   bool _showAnswerWarning = false;
   String? _error;
+  String? _submitError;
   Duration _remainingTime = Duration.zero;
   Timer? _timer;
 
@@ -124,10 +125,12 @@ class _TestPageState extends State<TestPage> {
     try {
       final detail = await _repository.getExamDetail(summary.examRepositoryId);
       if (!mounted) return;
-      setState(() => _openingExamId = null);
-      final shouldStart = await showExamDetailsPopup(context, exam: detail);
-      if (!shouldStart || !mounted) return;
-      _beginExam(detail);
+      setState(() {
+        _openingExamId = null;
+        _activeExam = detail;
+        _examStarted = false;
+        _submitError = null;
+      });
     } catch (error) {
       if (mounted) {
         setState(() => _openingExamId = null);
@@ -140,6 +143,7 @@ class _TestPageState extends State<TestPage> {
     _timer?.cancel();
     setState(() {
       _activeExam = detail;
+      _examStarted = true;
       _answers.clear();
       _currentQuestionIndex = 0;
       _showAnswerWarning = false;
@@ -176,7 +180,10 @@ class _TestPageState extends State<TestPage> {
       if (!confirmed || !mounted) return;
     }
 
-    setState(() => _isSubmitting = true);
+    setState(() {
+      _isSubmitting = true;
+      _submitError = null;
+    });
     try {
       final result = await _repository.submitExam(
         exam.summary.examRepositoryId,
@@ -191,16 +198,31 @@ class _TestPageState extends State<TestPage> {
       _timer?.cancel();
       setState(() {
         _activeExam = null;
+        _examStarted = false;
         _isSubmitting = false;
       });
       await showExamResultPopup(context, result: result);
       if (mounted) await _loadData();
     } catch (error) {
       if (mounted) {
-        setState(() => _isSubmitting = false);
-        _showError('$error');
+        setState(() {
+          _isSubmitting = false;
+          _submitError = '$error';
+        });
       }
     }
+  }
+
+  void _closeExam() {
+    if (_isSubmitting) return;
+    _timer?.cancel();
+    setState(() {
+      _activeExam = null;
+      _examStarted = false;
+      _answers.clear();
+      _showAnswerWarning = false;
+      _submitError = null;
+    });
   }
 
   void _showError(String message) {
@@ -235,12 +257,18 @@ class _TestPageState extends State<TestPage> {
 
   @override
   Widget build(BuildContext context) {
-    return NotebookSectionPage(
-      activeTab: NotebookTabId.test,
-      contentKey: const Key('test-page'),
-      contentPadding: const EdgeInsets.fromLTRB(12, 22, 12, 26),
-      centerContent: false,
-      child: _activeExam == null ? _buildExamHome() : _buildExamRunner(),
+    return Stack(
+      children: [
+        NotebookSectionPage(
+          activeTab: NotebookTabId.test,
+          contentKey: const Key('test-page'),
+          contentPadding: const EdgeInsets.fromLTRB(12, 22, 12, 26),
+          centerContent: false,
+          child: _buildExamHome(),
+        ),
+        if (_activeExam != null)
+          Positioned.fill(child: _buildExamModal(_activeExam!)),
+      ],
     );
   }
 
@@ -254,15 +282,36 @@ class _TestPageState extends State<TestPage> {
     if (_error != null) {
       return _TestState(
         key: const Key('test-error'),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline_rounded, color: Color(0xFFE56B8A)),
-            const SizedBox(height: 8),
-            Text(_error!, textAlign: TextAlign.center),
-            const SizedBox(height: 10),
-            OutlinedButton(onPressed: _loadData, child: const Text('ลองใหม่')),
-          ],
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 26),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.8),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFF1BBC8)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 32,
+                color: Color(0xFFE27691),
+              ),
+              const SizedBox(height: 12),
+              Text(_error!, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _loadData,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFB65D78),
+                  side: const BorderSide(color: Color(0xFFD3A4B1)),
+                  shape: const StadiumBorder(),
+                ),
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('ลองใหม่'),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -341,8 +390,24 @@ class _TestPageState extends State<TestPage> {
             ),
           ),
         ],
-        if (feedbackSubjectIds.isNotEmpty) ...[
-          const SizedBox(height: 18),
+        const SizedBox(height: 24),
+        const Text(
+          'Feedback',
+          style: TextStyle(
+            fontSize: 19,
+            color: Color(0xFF405B69),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 5),
+        const Text(
+          'คำแนะนำและแผนทบทวนหลังทำแบบทดสอบ',
+          style: TextStyle(fontSize: 11, color: Color(0xFF82969F)),
+        ),
+        const SizedBox(height: 14),
+        if (feedbackSubjectIds.isEmpty)
+          const _NoFeedback()
+        else ...[
           for (final subjectId in feedbackSubjectIds) ...[
             SubjectReviewFeedbackCard(
               subjectId: subjectId,
@@ -382,6 +447,7 @@ class _TestPageState extends State<TestPage> {
           question: question,
           selectedChoiceId: _answers[question.questionId],
           showAnswerWarning: _showAnswerWarning,
+          errorMessage: _submitError,
           onChoiceSelected: (choiceId) {
             setState(() {
               _answers[question.questionId] = choiceId;
@@ -404,6 +470,62 @@ class _TestPageState extends State<TestPage> {
       ],
     );
   }
+
+  Widget _buildExamModal(ExamDetail exam) {
+    return Material(
+      key: const Key('exam-modal-overlay'),
+      color: Colors.black.withValues(alpha: 0.35),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Center(
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxWidth: 620, maxHeight: 680),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFEF8),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFDCD6CA)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x3D000000),
+                    blurRadius: 24,
+                    offset: Offset(0, 12),
+                  ),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+                    child: _examStarted
+                        ? _buildExamRunner()
+                        : _ExamIntroduction(
+                            exam: exam,
+                            onCancel: _closeExam,
+                            onStart: () => _beginExam(exam),
+                          ),
+                  ),
+                  Positioned(
+                    right: 10,
+                    top: 10,
+                    child: IconButton(
+                      key: const Key('close-exam-modal-button'),
+                      onPressed: _isSubmitting ? null : _closeExam,
+                      tooltip: 'ปิด',
+                      color: const Color(0xFF59707B),
+                      icon: const Icon(Icons.close_rounded, size: 24),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _NoAvailableExam extends StatelessWidget {
@@ -413,31 +535,189 @@ class _NoAvailableExam extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       key: const Key('test-no-checkpoint-exam'),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 22),
+      constraints: const BoxConstraints(minHeight: 112),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F8EE),
+        color: const Color(0xFFF5FAEF),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFD9E8CD)),
+        border: Border.all(color: const Color(0xFFDCE7D2)),
       ),
-      child: const Column(
-        children: [
-          Icon(Icons.task_alt_rounded, color: Color(0xFF83AA68)),
-          SizedBox(height: 7),
-          Text(
-            'ยังไม่มีแบบทดสอบที่ถึงรอบ',
-            style: TextStyle(fontSize: 13, color: Color(0xFF667A5A)),
-          ),
-          SizedBox(height: 3),
-          Text(
-            'ทบทวนตามคำแนะนำระหว่างรอ Checkpoint ถัดไป',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10, color: Color(0xFF8A9982)),
-          ),
-        ],
+      child: const Text(
+        'ยังไม่มีแบบทดสอบที่ถึงรอบ Checkpoint',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 13, color: Color(0xFF78906A)),
       ),
     );
   }
 }
+
+class _NoFeedback extends StatelessWidget {
+  const _NoFeedback();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('test-no-feedback'),
+      constraints: const BoxConstraints(minHeight: 160),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFDCE7EB)),
+      ),
+      child: const Text(
+        'ยังไม่มี Feedback จากการทำแบบทดสอบ',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 13, color: Color(0xFF8A9CA4)),
+      ),
+    );
+  }
+}
+
+class _ExamIntroduction extends StatelessWidget {
+  final ExamDetail exam;
+  final VoidCallback onCancel;
+  final VoidCallback onStart;
+
+  const _ExamIntroduction({
+    required this.exam,
+    required this.onCancel,
+    required this.onStart,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = exam.summary;
+    return Column(
+      key: const Key('exam-details-popup'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 34),
+          child: Text(
+            summary.examName,
+            style: const TextStyle(
+              fontSize: 19,
+              color: Color(0xFF405B69),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          summary.subjectName,
+          style: const TextStyle(fontSize: 13, color: Color(0xFF738892)),
+        ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Expanded(
+              child: _ExamMetric(
+                color: const Color(0xFFEAF6FB),
+                value: '${exam.questions.length}',
+                label: 'ข้อ',
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _ExamMetric(
+                color: const Color(0xFFFFF0BF),
+                value: '${summary.timeLimitMinutes}',
+                label: 'นาที',
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _ExamMetric(
+                color: const Color(0xFFFFE7EB),
+                value: _scoreText(summary.totalScore),
+                label: 'คะแนน',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        const Text(
+          'เมื่อเริ่มแล้วเวลาจะนับถอยหลัง และต้องเลือกคำตอบก่อนจึงจะไปข้อถัดไปได้',
+          style: TextStyle(
+            fontSize: 11,
+            height: 1.55,
+            color: Color(0xFF778990),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: onCancel,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF63747C),
+                  side: const BorderSide(color: Color(0xFFBAC6CB)),
+                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                ),
+                child: const FittedBox(child: Text('ยกเลิก')),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton(
+                key: const Key('start-exam-button'),
+                onPressed: exam.questions.isEmpty ? null : onStart,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFA8D780),
+                  foregroundColor: Colors.white,
+                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                ),
+                child: const FittedBox(child: Text('เริ่มทำ')),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ExamMetric extends StatelessWidget {
+  final Color color;
+  final String value;
+  final String label;
+
+  const _ExamMetric({
+    required this.color,
+    required this.value,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 12),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        '$value\n$label',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 11,
+          height: 1.45,
+          color: Color(0xFF59707B),
+        ),
+      ),
+    );
+  }
+}
+
+String _scoreText(double value) => value == value.roundToDouble()
+    ? value.toInt().toString()
+    : value.toStringAsFixed(1);
 
 class _TestState extends StatelessWidget {
   final Widget child;

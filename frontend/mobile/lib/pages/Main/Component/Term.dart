@@ -10,8 +10,14 @@ import 'TermDetailsPopup.dart';
 class Term extends StatefulWidget {
   final TermRepository? repository;
   final ValueChanged<CurrentTerm?>? onTermChanged;
+  final bool compact;
 
-  const Term({super.key, this.repository, this.onTermChanged});
+  const Term({
+    super.key,
+    this.repository,
+    this.onTermChanged,
+    this.compact = false,
+  });
 
   @override
   State<Term> createState() => _TermState();
@@ -93,14 +99,49 @@ class _TermState extends State<Term> {
 
   @override
   Widget build(BuildContext context) {
+    final compact = widget.compact;
+    final currentTerm = _currentTerm;
+
+    if (compact && !_isLoading && currentTerm != null) {
+      return Material(
+        key: const Key('term-card'),
+        color: const Color(0xFFF8FCFE),
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(13),
+          side: const BorderSide(color: Color(0xFFAFCFDC)),
+        ),
+        elevation: 3,
+        shadowColor: const Color(0x384B5D66),
+        child: InkWell(
+          key: const Key('current-term-card'),
+          onTap: _openDetails,
+          child: SizedBox(
+            width: double.infinity,
+            height: 150,
+            child: Column(
+              children: [
+                const _CompactTermHeader(),
+                Expanded(child: _CompactTermContent(term: currentTerm)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Container(
       key: const Key('term-card'),
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 98),
+      constraints: compact
+          ? const BoxConstraints(minHeight: 150, maxHeight: 150)
+          : const BoxConstraints(minHeight: 98),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: compact ? const Color(0xFFF8FCFE) : Colors.white,
         borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: const Color(0xFFAFAFAF)),
+        border: Border.all(
+          color: compact ? const Color(0xFFAFCFDC) : const Color(0xFFAFAFAF),
+        ),
         boxShadow: const [
           BoxShadow(
             color: Color(0x384B5D66),
@@ -109,7 +150,15 @@ class _TermState extends State<Term> {
           ),
         ],
       ),
-      child: _buildContent(),
+      clipBehavior: Clip.antiAlias,
+      child: compact
+          ? Column(
+              children: [
+                const _CompactTermHeader(),
+                Expanded(child: _buildContent()),
+              ],
+            )
+          : _buildContent(),
     );
   }
 
@@ -127,24 +176,34 @@ class _TermState extends State<Term> {
 
     final term = _currentTerm;
     if (term != null) {
-      return _CurrentTermCard(term: term, onTap: _openDetails);
+      return _CurrentTermCard(
+        term: term,
+        onTap: _openDetails,
+        compact: widget.compact,
+      );
     }
 
     return Padding(
       key: const Key('term-empty'),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.compact ? 7 : 16,
+        vertical: widget.compact ? 6 : 12,
+      ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text(
-            '*กรุณาระบุข้อมูลเทอมก่อนใช้งาน*',
+          Text(
+            widget.compact ? 'ยังไม่มีเทอม' : '*กรุณาระบุข้อมูลเทอมก่อนใช้งาน*',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, color: Color(0xFF9CC5F9)),
+            style: TextStyle(
+              fontSize: widget.compact ? 9.5 : 18,
+              color: const Color(0xFF9CC5F9),
+            ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: widget.compact ? 5 : 10),
           SizedBox(
-            width: 92,
-            height: 40,
+            width: widget.compact ? 58 : 92,
+            height: widget.compact ? 32 : 40,
             child: FilledButton(
               key: const Key('add-term-button'),
               onPressed: _isSubmitting ? null : _openCreateForm,
@@ -163,9 +222,9 @@ class _TermState extends State<Term> {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(
+                  : Icon(
                       Icons.add_rounded,
-                      size: 27,
+                      size: widget.compact ? 24 : 27,
                       color: Colors.white,
                     ),
             ),
@@ -187,8 +246,13 @@ class _TermState extends State<Term> {
 class _CurrentTermCard extends StatelessWidget {
   final CurrentTerm term;
   final VoidCallback onTap;
+  final bool compact;
 
-  const _CurrentTermCard({required this.term, required this.onTap});
+  const _CurrentTermCard({
+    required this.term,
+    required this.onTap,
+    required this.compact,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -199,54 +263,159 @@ class _CurrentTermCard extends StatelessWidget {
         key: const Key('current-term-card'),
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        splashColor: const Color(0xFFB9DFF0),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  children: [
-                    _InlineTermValue(label: 'ชั้นปีที่', value: term.yearLevel),
-                    const SizedBox(width: 10),
-                    _InlineTermValue(
-                      label: 'ปีการศึกษา',
-                      value: term.academicYear,
-                      minWidth: 72,
-                    ),
-                    const SizedBox(width: 10),
-                    _InlineTermValue(label: 'เทอม', value: term.term),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF6FBFD),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+        child: compact
+            ? _CompactTermContent(term: term)
+            : Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _ExamRangeRow(
-                      label: 'สอบกลางภาค',
-                      start: term.startMidterm,
-                      end: term.endMidterm,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        children: [
+                          _InlineTermValue(
+                            label: 'ชั้นปีที่',
+                            value: term.yearLevel,
+                          ),
+                          const SizedBox(width: 10),
+                          _InlineTermValue(
+                            label: 'ปีการศึกษา',
+                            value: term.academicYear,
+                            minWidth: 72,
+                          ),
+                          const SizedBox(width: 10),
+                          _InlineTermValue(label: 'เทอม', value: term.term),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 6),
-                    _ExamRangeRow(
-                      label: 'สอบปลายภาค',
-                      start: term.startFinal,
-                      end: term.endFinal,
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF6FBFD),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          _ExamRangeRow(
+                            label: 'สอบกลางภาค',
+                            start: term.startMidterm,
+                            end: term.endMidterm,
+                          ),
+                          const SizedBox(height: 6),
+                          _ExamRangeRow(
+                            label: 'สอบปลายภาค',
+                            start: term.startFinal,
+                            end: term.endFinal,
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
-            ],
+      ),
+    );
+  }
+}
+
+class _CompactTermHeader extends StatelessWidget {
+  const _CompactTermHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('compact-term-header'),
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      decoration: const BoxDecoration(
+        color: Color(0xFFE7F5FB),
+        border: Border(bottom: BorderSide(color: Color(0xFFCBE2EB))),
+      ),
+      child: const Row(
+        children: [
+          Icon(
+            Icons.calendar_month_outlined,
+            size: 16,
+            color: Color(0xFF62899A),
           ),
-        ),
+          SizedBox(width: 5),
+          Expanded(
+            child: Text(
+              'เทอม',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10.5,
+                color: Color(0xFF52798A),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactTermContent extends StatelessWidget {
+  final CurrentTerm term;
+
+  const _CompactTermContent({required this.term});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              'เทอม ${term.term}',
+              style: const TextStyle(
+                fontSize: 19,
+                color: Color(0xFF4F6B78),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFC8C8C8)),
+            ),
+            child: Text(
+              'ชั้นปี ${term.yearLevel}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 8.5, color: Color(0xFF526B77)),
+            ),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              'ปี ${term.academicYear}',
+              style: const TextStyle(fontSize: 8.5, color: Color(0xFF688492)),
+            ),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'กดเพื่อดูรายละเอียด',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 7, color: Color(0xFF93A4AB)),
+          ),
+        ],
       ),
     );
   }

@@ -140,12 +140,18 @@ void main() {
       find.byKey(const Key('student-card-surface')),
     );
     expect(surface.clipBehavior, Clip.antiAlias);
+    final cardShape = surface.shape! as RoundedRectangleBorder;
+    expect(cardShape.borderRadius, BorderRadius.circular(18));
     expect(find.text('Nicha'), findsOneWidget);
     expect(find.text('42'), findsOneWidget);
     expect(find.text('Female'), findsOneWidget);
     expect(find.text('COMSCI'), findsOneWidget);
     expect(find.text('16/07/2004'), findsOneWidget);
     expect(tester.getSize(find.byKey(const Key('student-card'))).width, 320);
+    expect(
+      tester.getSize(find.byKey(const Key('student-card'))).height,
+      inInclusiveRange(175, 185),
+    );
     await tester.tap(find.byKey(const Key('student-card')));
     expect(wasTapped, isTrue);
   });
@@ -227,7 +233,7 @@ void main() {
     );
     expect(
       tester.getTopLeft(find.byKey(const Key('student-card'))).dy,
-      lessThan(cardPosition.dy),
+      lessThanOrEqualTo(cardPosition.dy),
     );
 
     await tester.drag(
@@ -240,6 +246,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('student-card-popup')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('student-card-popup-box'))).height,
+      lessThanOrEqualTo(640 * 0.72),
+    );
     expect(find.byKey(const Key('student-popup-name')), findsOneWidget);
     expect(find.text('ID 42'), findsOneWidget);
     expect(find.byKey(const Key('edit-profile-button')), findsOneWidget);

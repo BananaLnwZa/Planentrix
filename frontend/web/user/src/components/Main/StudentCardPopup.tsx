@@ -87,10 +87,10 @@ function ProfileAvatar({ imageUrl }: { imageUrl?: string | null }) {
     <div
       role="img"
       aria-label="Profile photo"
-      className="flex h-36 w-36 shrink-0 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-[#FFD6E5] to-[#B9DDF6] bg-cover bg-center text-white shadow-md"
+      className="flex h-28 w-28 shrink-0 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-[#FFD6E5] to-[#B9DDF6] bg-cover bg-center text-white shadow-md"
       style={imageUrl ? { backgroundImage: `url(${JSON.stringify(imageUrl)})` } : undefined}
     >
-      {!imageUrl && <UserRound aria-hidden="true" size={72} strokeWidth={1.4} />}
+      {!imageUrl && <UserRound aria-hidden="true" size={58} strokeWidth={1.4} />}
     </div>
   );
 }
@@ -203,19 +203,19 @@ export default function StudentCardPopup({
         role="dialog"
         aria-modal="true"
         aria-labelledby="student-profile-title"
-        className="relative flex max-h-[90vh] min-h-[640px] w-full max-w-[480px] flex-col overflow-hidden rounded-3xl border border-gray-300 bg-[#F3FBFF] shadow-2xl"
+        className="relative flex h-[min(600px,86vh)] w-full max-w-[430px] flex-col overflow-hidden rounded-2xl border border-gray-300 bg-[#F3FBFF] shadow-2xl"
       >
         <button
           type="button"
           onClick={onClose}
           aria-label="Close profile"
-          className="absolute right-4 top-4 z-20 rounded-full p-1 text-[#314553] transition-colors hover:bg-white/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          className="absolute right-3 top-3 z-20 rounded-full p-1 text-[#314553] transition-colors hover:bg-white/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         >
-          <X aria-hidden="true" size={30} strokeWidth={2.4} />
+          <X aria-hidden="true" size={26} strokeWidth={2.4} />
         </button>
 
-        <header className="bg-[#C7E8F8] px-9 pb-5 pt-9">
-          <div className="flex items-center gap-8">
+        <header className="bg-[#C7E8F8] px-7 pb-4 pt-7">
+          <div className="flex items-center gap-5">
             <div className="relative">
               <ProfileAvatar imageUrl={avatarImageUrl} />
               {isEditing && (
@@ -224,9 +224,9 @@ export default function StudentCardPopup({
                   onClick={() => avatarInputRef.current?.click()}
                   disabled={isUploadingAvatar}
                   aria-label="Change profile photo"
-                  className="absolute bottom-1 right-1 flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[#314553] text-white shadow-md transition-transform hover:scale-105 disabled:cursor-wait disabled:opacity-60"
+                  className="absolute bottom-0.5 right-0.5 flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-[#314553] text-white shadow-md transition-transform hover:scale-105 disabled:cursor-wait disabled:opacity-60"
                 >
-                  <Camera aria-hidden="true" size={20} />
+                  <Camera aria-hidden="true" size={18} />
                 </button>
               )}
               <input
@@ -241,7 +241,7 @@ export default function StudentCardPopup({
             <div className="min-w-0">
               <h2
                 id="student-profile-title"
-                className="truncate text-[clamp(26px,8vw,34px)] leading-tight text-black"
+                className="truncate text-[clamp(23px,7vw,29px)] leading-tight text-black"
               >
                 {displayName}
               </h2>
@@ -252,18 +252,18 @@ export default function StudentCardPopup({
                     type="button"
                     onClick={onSaveAll}
                     disabled={isSaving || isUploadingAvatar}
-                    className="mt-4 flex items-center gap-2 text-base text-[#314553] hover:text-black disabled:cursor-wait disabled:opacity-60"
+                    className="mt-3 flex items-center gap-2 text-sm text-[#314553] hover:text-black disabled:cursor-wait disabled:opacity-60"
                   >
-                    <Save aria-hidden="true" size={20} />
+                    <Save aria-hidden="true" size={18} />
                     {isSaving ? "Saving..." : "Save Changes"}
                   </button>
                   <button
                     type="button"
                     onClick={onCancelEditing}
                     disabled={isSaving}
-                    className="mt-2 flex items-center gap-2 text-base text-[#314553] hover:text-black disabled:opacity-60"
+                    className="mt-1.5 flex items-center gap-2 text-sm text-[#314553] hover:text-black disabled:opacity-60"
                   >
-                    <X aria-hidden="true" size={20} />
+                    <X aria-hidden="true" size={18} />
                     Cancel
                   </button>
                 </>
@@ -273,18 +273,18 @@ export default function StudentCardPopup({
                     type="button"
                     onClick={onStartEditing}
                     disabled={isLoading || !profile}
-                    className="mt-4 flex items-center gap-2 text-base text-[#314553] hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
+                    className="mt-3 flex items-center gap-2 text-sm text-[#314553] hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <Pencil aria-hidden="true" size={20} />
+                    <Pencil aria-hidden="true" size={18} />
                     Edit Profile
                   </button>
                   <button
                     type="button"
                     onClick={onDeleteProfile}
                     disabled={isDeleting}
-                    className="mt-2 flex items-center gap-2 text-base text-[#314553] hover:text-red-600 disabled:cursor-wait disabled:opacity-60"
+                    className="mt-1.5 flex items-center gap-2 text-sm text-[#314553] hover:text-red-600 disabled:cursor-wait disabled:opacity-60"
                   >
-                    <Trash2 aria-hidden="true" size={20} />
+                    <Trash2 aria-hidden="true" size={18} />
                     {isDeleting ? "Deleting..." : "Delete Profile"}
                   </button>
                 </>
@@ -303,9 +303,9 @@ export default function StudentCardPopup({
             role="tab"
             aria-selected={activePanel === "profile"}
             onClick={() => onPanelChange("profile")}
-            className={`flex h-10 flex-1 items-center justify-center gap-2 rounded-t-2xl text-base text-[#314553] ${activePanel === "profile" ? "bg-[#F3FBFF]" : "bg-gray-200"}`}
+            className={`flex h-9 flex-1 items-center justify-center gap-1.5 rounded-t-xl text-sm text-[#314553] ${activePanel === "profile" ? "bg-[#F3FBFF]" : "bg-gray-200"}`}
           >
-            <UserRound aria-hidden="true" size={21} />
+            <UserRound aria-hidden="true" size={19} />
             Profile
           </button>
           <button
@@ -313,14 +313,14 @@ export default function StudentCardPopup({
             role="tab"
             aria-selected={activePanel === "constraint"}
             onClick={() => onPanelChange("constraint")}
-            className={`flex h-10 flex-1 items-center justify-center gap-2 rounded-t-2xl text-base text-[#314553] ${activePanel === "constraint" ? "bg-[#F3FBFF]" : "bg-gray-200"}`}
+            className={`flex h-9 flex-1 items-center justify-center gap-1.5 rounded-t-xl text-sm text-[#314553] ${activePanel === "constraint" ? "bg-[#F3FBFF]" : "bg-gray-200"}`}
           >
-            <BookOpen aria-hidden="true" size={21} />
+            <BookOpen aria-hidden="true" size={19} />
             Constraint
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-12 py-8">
+        <div className="flex-1 overflow-y-auto px-8 py-5">
           {actionError && (
             <p
               role="alert"
@@ -664,14 +664,14 @@ export default function StudentCardPopup({
           )}
         </div>
 
-        <footer className="border-t border-[#D9E7EE] bg-white/70 px-8 py-4">
+        <footer className="border-t border-[#D9E7EE] bg-white/70 px-6 py-3">
           <button
             type="button"
             onClick={onLogout}
             disabled={isLoggingOut || isSaving || isDeleting}
-            className="mx-auto flex items-center justify-center gap-2 rounded-full border border-[#F19AB3] bg-white px-7 py-2 text-base text-[#E65D84] transition-colors hover:bg-[#FFF0F5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F19AB3] disabled:cursor-wait disabled:opacity-60"
+            className="mx-auto flex items-center justify-center gap-2 rounded-full border border-[#F19AB3] bg-white px-6 py-1.5 text-sm text-[#E65D84] transition-colors hover:bg-[#FFF0F5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F19AB3] disabled:cursor-wait disabled:opacity-60"
           >
-            <LogOut aria-hidden="true" size={20} />
+            <LogOut aria-hidden="true" size={18} />
             {isLoggingOut ? "Logging out..." : "Log out"}
           </button>
         </footer>

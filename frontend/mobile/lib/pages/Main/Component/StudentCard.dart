@@ -30,12 +30,12 @@ class StudentCard extends StatelessWidget {
       child: DecoratedBox(
         key: const Key('student-card-shadow'),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(18),
           boxShadow: const [
             BoxShadow(
               color: Color(0x40354045),
               blurRadius: 9,
-              offset: Offset(0, 7),
+              offset: Offset(0, 5),
             ),
           ],
         ),
@@ -44,14 +44,14 @@ class StudentCard extends StatelessWidget {
           color: Colors.white,
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(18),
             side: const BorderSide(color: Color(0xFF93A3AA)),
           ),
           child: InkWell(
             key: const Key('student-card'),
             onTap: onTap,
             customBorder: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(18),
             ),
             child: SizedBox(
               width: double.infinity,
@@ -60,16 +60,16 @@ class StudentCard extends StatelessWidget {
                 children: [
                   _StudentCardHeader(studentNumber: studentNumber),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SizedBox(
-                          width: 94,
-                          height: 112,
+                          width: 82,
+                          height: 102,
                           child: _StudentPhoto(photo: photo),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -83,7 +83,7 @@ class StudentCard extends StatelessWidget {
                                       value: name,
                                     ),
                                   ),
-                                  const SizedBox(width: 9),
+                                  const SizedBox(width: 7),
                                   Expanded(
                                     child: _CardDetail(
                                       label: 'GENDER',
@@ -92,7 +92,7 @@ class StudentCard extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 5),
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -102,7 +102,7 @@ class StudentCard extends StatelessWidget {
                                       value: major,
                                     ),
                                   ),
-                                  const SizedBox(width: 9),
+                                  const SizedBox(width: 7),
                                   Expanded(
                                     child: _CardDetail(
                                       label: 'YEAR',
@@ -111,7 +111,7 @@ class StudentCard extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 5),
                               Align(
                                 alignment: Alignment.centerLeft,
                                 child: _CardDetail(
@@ -126,7 +126,7 @@ class StudentCard extends StatelessWidget {
                     ),
                   ),
                   const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 0, 16, 6),
+                    padding: EdgeInsets.fromLTRB(12, 0, 12, 5),
                     child: _SecurityPattern(),
                   ),
                 ],
@@ -148,7 +148,7 @@ class _StudentCardHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: const Color(0xFFC7E8F8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       child: Row(
         children: [
           const Expanded(
@@ -159,7 +159,7 @@ class _StudentCardHeader extends StatelessWidget {
               style: TextStyle(
                 color: Colors.white,
                 fontFamily: 'Sansation',
-                fontSize: 29,
+                fontSize: 25,
                 fontWeight: FontWeight.w400,
                 height: 1,
                 shadows: [
@@ -168,7 +168,7 @@ class _StudentCardHeader extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -178,7 +178,7 @@ class _StudentCardHeader extends StatelessWidget {
                 style: const TextStyle(
                   color: Colors.white,
                   fontFamily: 'Sansation',
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w400,
                   height: 1,
                 ),
@@ -189,7 +189,7 @@ class _StudentCardHeader extends StatelessWidget {
                 style: TextStyle(
                   color: Colors.white,
                   fontFamily: 'Sansation',
-                  fontSize: 9,
+                  fontSize: 8,
                   fontWeight: FontWeight.w400,
                   letterSpacing: 0.5,
                 ),
@@ -229,7 +229,7 @@ class _StudentPhoto extends StatelessWidget {
           ? const Icon(
               Icons.person_outline_rounded,
               color: Colors.white,
-              size: 52,
+              size: 44,
             )
           : null,
     );
@@ -253,7 +253,7 @@ class _CardDetail extends StatelessWidget {
           style: const TextStyle(
             color: Color(0xFF9CA3AF),
             fontFamily: 'Sansation',
-            fontSize: 10,
+            fontSize: 9,
             fontWeight: FontWeight.w400,
             letterSpacing: 0.4,
           ),
@@ -266,7 +266,7 @@ class _CardDetail extends StatelessWidget {
           style: const TextStyle(
             color: Color(0xFF111827),
             fontFamily: 'Sansation',
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w400,
             height: 1.1,
           ),
@@ -292,7 +292,7 @@ class _SecurityPattern extends StatelessWidget {
               '›',
               style: TextStyle(
                 color: Color(0xFF4B5563),
-                fontSize: 10,
+                fontSize: 9,
                 height: 1,
               ),
             ),

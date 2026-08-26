@@ -99,7 +99,10 @@ const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedu
     <div className="w-full max-w-md space-y-4">
 
       {/* TITLE */}
-      <h2 className="text-sm font-medium text-gray-700">
+      <h2
+        data-preserve-typography
+        className="text-xs font-normal text-gray-700 sm:text-sm"
+      >
         วันเวลาไม่ว่างประจำ
       </h2>
 

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:mobile/interfaces/profile.interface.dart';
 import 'package:mobile/interfaces/table.interface.dart';
 import 'package:mobile/pages/Main/Component/Schedule.dart';
 import 'package:mobile/services/table.service.dart';
 
 class FakeTableRepository implements TableRepository {
+  int updateCount = 0;
   var items = <ScheduleItem>[
     const ScheduleItem(
       scheduleTimeId: 1,
@@ -61,6 +63,7 @@ class FakeTableRepository implements TableRepository {
     int scheduleTimeId,
     UpdateScheduleInput input,
   ) async {
+    updateCount += 1;
     items = items
         .map(
           (item) => item.scheduleTimeId == scheduleTimeId
@@ -128,6 +131,42 @@ void main() {
     expect(find.text('Business Intelligence'), findsWidgets);
     expect(find.byKey(const Key('edit-schedule-button')), findsOneWidget);
     expect(find.byKey(const Key('delete-schedule-button')), findsNothing);
+  });
+
+  testWidgets('constraint conflict must be confirmed before schedule update', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+    final repository = FakeTableRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Schedule(
+            repository: repository,
+            constraint: const UserConstraint(
+              constraintId: 1,
+              userId: 7,
+              dayOff: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('schedule-block-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('edit-schedule-button')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('save-schedule-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('constraint-overlap-warning')), findsOneWidget);
+    expect(repository.updateCount, 0);
+
+    await tester.tap(find.byKey(const Key('confirm-constraint-overlap')));
+    await tester.pumpAndSettle();
+    expect(repository.updateCount, 1);
   });
 
   testWidgets('schedule hides its grid and add button when it has no items', (

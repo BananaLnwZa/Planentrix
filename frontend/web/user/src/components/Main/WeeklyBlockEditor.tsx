@@ -3,10 +3,18 @@
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Trash2, X } from "lucide-react";
+import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
+import TimePicker24Hour from "@/components/common/TimePicker24Hour";
 import type {
   WeeklyBlockInput,
   WeeklyScheduleBlock,
 } from "@/interfaces/recommendation.interface";
+import type { UserConstraint } from "@/interfaces/profile.interface";
+import {
+  findConstraintOverlap,
+  scheduleDayFromDate,
+} from "@/utils/constraintOverlap";
+import ConstraintOverlapWarning from "./ConstraintOverlapWarning";
 
 type SubjectOption = {
   subject_id: string;
@@ -20,6 +28,7 @@ type WeeklyBlockEditorProps = {
   weekEnd: string;
   isSaving: boolean;
   isDeleting: boolean;
+  constraint?: UserConstraint | null;
   onClose: () => void;
   onSave: (input: WeeklyBlockInput) => Promise<void>;
   onDelete?: () => Promise<void>;
@@ -34,6 +43,7 @@ export default function WeeklyBlockEditor({
   weekEnd,
   isSaving,
   isDeleting,
+  constraint,
   onClose,
   onSave,
   onDelete,
@@ -53,6 +63,8 @@ export default function WeeklyBlockEditor({
     block ? trimTime(block.end_time) : "19:00"
   );
   const [error, setError] = useState("");
+  const [pendingInput, setPendingInput] =
+    useState<WeeklyBlockInput | null>(null);
 
   const subjectName = useMemo(
     () =>
@@ -61,7 +73,19 @@ export default function WeeklyBlockEditor({
     [block?.subject_name, subjectId, subjects]
   );
 
-  const handleSave = async () => {
+  const saveInput = async (input: WeeklyBlockInput) => {
+    try {
+      await onSave(input);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "ไม่สามารถบันทึกบล็อกเวลาได้"
+      );
+    }
+  };
+
+  const handleSave = () => {
     setError("");
     if (!subjectId || !scheduledDate || !startTime || !endTime) {
       setError("กรุณากรอกข้อมูลให้ครบ");
@@ -71,22 +95,32 @@ export default function WeeklyBlockEditor({
       setError("เวลาเริ่มต้องอยู่ก่อนเวลาสิ้นสุด");
       return;
     }
-    try {
-      await onSave({
-        subject_id: subjectId,
-        schedule_type_id: scheduleTypeId,
-        scheduled_date: scheduledDate,
-        start_time: startTime,
-        end_time: endTime,
-      });
-    } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "ไม่สามารถบันทึกบล็อกเวลาได้"
-      );
+    const input: WeeklyBlockInput = {
+      subject_id: subjectId,
+      schedule_type_id: scheduleTypeId,
+      scheduled_date: scheduledDate,
+      start_time: startTime,
+      end_time: endTime,
+    };
+    const conflict = findConstraintOverlap(constraint, {
+      scheduleDay: scheduleDayFromDate(scheduledDate),
+      startTime,
+      endTime,
+    });
+    if (conflict) {
+      setPendingInput(input);
+      return;
     }
+    void saveInput(input);
   };
+
+  const pendingConflict = pendingInput
+    ? findConstraintOverlap(constraint, {
+        scheduleDay: scheduleDayFromDate(pendingInput.scheduled_date),
+        startTime: pendingInput.start_time,
+        endTime: pendingInput.end_time,
+      })
+    : null;
 
   const handleDelete = async () => {
     if (!onDelete) return;
@@ -179,35 +213,39 @@ export default function WeeklyBlockEditor({
 
           <label className="block">
             <span className="mb-1 block text-xs">วันที่</span>
-            <input
+            <LocalizedDateTimeInput
+              id="weekly-block-date"
               type="date"
               min={weekStart}
               max={weekEnd}
               value={scheduledDate}
               onChange={(event) => setScheduledDate(event.target.value)}
-              className="w-full rounded-xl border border-[#CCD9DE] px-3 py-2.5 outline-none focus:border-[#73A9BC]"
+              aria-label="เลือกวันที่ของบล็อกเวลา"
+              className="h-11 w-full rounded-xl border border-[#CCD9DE] bg-white px-3 text-sm text-[#536A74] outline-none transition focus-visible:border-[#73A9BC]"
             />
           </label>
 
           <div className="grid grid-cols-2 gap-3">
             <label>
               <span className="mb-1 block text-xs">เวลาเริ่ม</span>
-              <input
-                type="time"
-                step={1800}
+              <TimePicker24Hour
+                id="weekly-block-start-time"
                 value={startTime}
-                onChange={(event) => setStartTime(event.target.value)}
-                className="w-full rounded-xl border border-[#CCD9DE] px-3 py-2.5 outline-none focus:border-[#73A9BC]"
+                onChange={setStartTime}
+                ariaLabel="เลือกเวลาเริ่มของบล็อกเวลา"
+                iconSize={18}
+                className="h-11 w-full rounded-xl border border-[#CCD9DE] bg-white px-3 text-sm text-[#536A74] outline-none transition focus-visible:border-[#73A9BC]"
               />
             </label>
             <label>
               <span className="mb-1 block text-xs">เวลาสิ้นสุด</span>
-              <input
-                type="time"
-                step={1800}
+              <TimePicker24Hour
+                id="weekly-block-end-time"
                 value={endTime}
-                onChange={(event) => setEndTime(event.target.value)}
-                className="w-full rounded-xl border border-[#CCD9DE] px-3 py-2.5 outline-none focus:border-[#73A9BC]"
+                onChange={setEndTime}
+                ariaLabel="เลือกเวลาสิ้นสุดของบล็อกเวลา"
+                iconSize={18}
+                className="h-11 w-full rounded-xl border border-[#CCD9DE] bg-white px-3 text-sm text-[#536A74] outline-none transition focus-visible:border-[#73A9BC]"
               />
             </label>
           </div>
@@ -256,6 +294,18 @@ export default function WeeklyBlockEditor({
           </div>
         </div>
       </section>
+      {pendingInput && pendingConflict && (
+        <ConstraintOverlapWarning
+          conflict={pendingConflict}
+          isSubmitting={isSaving}
+          onCancel={() => setPendingInput(null)}
+          onConfirm={() => {
+            const input = pendingInput;
+            setPendingInput(null);
+            void saveInput({ ...input, allow_constraint_overlap: true });
+          }}
+        />
+      )}
     </div>,
     document.body
   );

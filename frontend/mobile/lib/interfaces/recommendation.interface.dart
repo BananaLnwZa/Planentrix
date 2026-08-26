@@ -287,6 +287,7 @@ class WeeklyBlockInput {
   final String scheduledDate;
   final String startTime;
   final String endTime;
+  final bool allowConstraintOverlap;
 
   const WeeklyBlockInput({
     required this.subjectId,
@@ -294,6 +295,7 @@ class WeeklyBlockInput {
     required this.scheduledDate,
     required this.startTime,
     required this.endTime,
+    this.allowConstraintOverlap = false,
   });
 
   Map<String, dynamic> toJson({bool includeSubject = true}) => {
@@ -302,6 +304,8 @@ class WeeklyBlockInput {
     'scheduled_date': scheduledDate,
     'start_time': startTime,
     'end_time': endTime,
+    if (allowConstraintOverlap)
+      'allow_constraint_overlap': allowConstraintOverlap,
   };
 }
 

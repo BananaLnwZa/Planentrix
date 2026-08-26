@@ -8,6 +8,9 @@ import type {
   ScheduleItem,
   UpdateScheduleRequest,
 } from "@/interfaces/table.interface";
+import type { UserConstraint } from "@/interfaces/profile.interface";
+import { findConstraintOverlap } from "@/utils/constraintOverlap";
+import ConstraintOverlapWarning from "./ConstraintOverlapWarning";
 import ScheduleTimePicker24Hour from "./ScheduleTimePicker24Hour";
 
 const thaiDays = [
@@ -24,6 +27,7 @@ type ScheduleDetailsPopupProps = {
   item: ScheduleItem;
   isSaving: boolean;
   isDeleting: boolean;
+  constraint?: UserConstraint | null;
   onClose: () => void;
   onSave: (data: UpdateScheduleRequest) => Promise<void>;
   onDelete: () => Promise<void>;
@@ -33,6 +37,7 @@ export default function ScheduleDetailsPopup({
   item,
   isSaving,
   isDeleting,
+  constraint,
   onClose,
   onSave,
   onDelete,
@@ -47,13 +52,28 @@ export default function ScheduleDetailsPopup({
   const [error, setError] = useState("");
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [pendingInput, setPendingInput] =
+    useState<UpdateScheduleRequest | null>(null);
   const deletableScheduleTypeName =
     item.schedule_type_id === 2 ? "อ่านหนังสือ" : "การบ้าน";
   const hasInvalidTimeRange = Boolean(
     startTime && endTime && startTime >= endTime
   );
 
-  const handleSave = async () => {
+  const saveInput = async (input: UpdateScheduleRequest) => {
+    try {
+      await onSave(input);
+      setIsEditing(false);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "ไม่สามารถบันทึกข้อมูลได้"
+      );
+    }
+  };
+
+  const handleSave = () => {
     setError("");
 
     if (!startTime || !endTime) {
@@ -71,27 +91,36 @@ export default function ScheduleDetailsPopup({
       return;
     }
 
-    try {
-      await onSave({
-        schedule_day: scheduleDay,
-        start_time: startTime,
-        end_time: endTime,
-        ...(isClass
-          ? {
-              classroom: classroom.trim() || null,
-              note: note.trim() || null,
-            }
-          : {}),
-      });
-      setIsEditing(false);
-    } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "ไม่สามารถบันทึกข้อมูลได้"
-      );
+    const input: UpdateScheduleRequest = {
+      schedule_day: scheduleDay,
+      start_time: startTime,
+      end_time: endTime,
+      ...(isClass
+        ? {
+            classroom: classroom.trim() || null,
+            note: note.trim() || null,
+          }
+        : {}),
+    };
+    const conflict = findConstraintOverlap(constraint, {
+      scheduleDay,
+      startTime,
+      endTime,
+    });
+    if (conflict) {
+      setPendingInput(input);
+      return;
     }
+    void saveInput(input);
   };
+
+  const pendingConflict = pendingInput
+    ? findConstraintOverlap(constraint, {
+        scheduleDay: pendingInput.schedule_day,
+        startTime: pendingInput.start_time,
+        endTime: pendingInput.end_time,
+      })
+    : null;
 
   const handleConfirmDelete = async () => {
     setDeleteError("");
@@ -398,6 +427,18 @@ export default function ScheduleDetailsPopup({
             </div>
           </section>
         </div>
+      )}
+      {pendingInput && pendingConflict && (
+        <ConstraintOverlapWarning
+          conflict={pendingConflict}
+          isSubmitting={isSaving}
+          onCancel={() => setPendingInput(null)}
+          onConfirm={() => {
+            const input = pendingInput;
+            setPendingInput(null);
+            void saveInput(input);
+          }}
+        />
       )}
     </div>,
     document.body

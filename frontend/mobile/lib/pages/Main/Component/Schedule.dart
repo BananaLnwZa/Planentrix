@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../../interfaces/table.interface.dart';
 import '../../../interfaces/recommendation.interface.dart';
+import '../../../interfaces/profile.interface.dart';
 import '../../../services/table.service.dart';
 import '../../../services/recommendation.service.dart';
 import 'AddSchedulePopup.dart';
@@ -15,8 +16,16 @@ import 'ScheduleDetailsPopup.dart';
 class Schedule extends StatefulWidget {
   final TableRepository? repository;
   final RecommendationRepository? recommendationRepository;
+  final UserConstraint? constraint;
+  final VoidCallback? onChanged;
 
-  const Schedule({super.key, this.repository, this.recommendationRepository});
+  const Schedule({
+    super.key,
+    this.repository,
+    this.recommendationRepository,
+    this.constraint,
+    this.onChanged,
+  });
 
   @override
   State<Schedule> createState() => _ScheduleState();
@@ -97,8 +106,12 @@ class _ScheduleState extends State<Schedule> {
         context,
         recommendation: _acceptedRecommendation!,
         repository: _recommendationRepository,
+        constraint: widget.constraint,
       );
-      if (updated != null && mounted) await _loadSchedule();
+      if (updated != null && mounted) {
+        await _loadSchedule();
+        widget.onChanged?.call();
+      }
       return;
     }
     setState(() {
@@ -112,6 +125,7 @@ class _ScheduleState extends State<Schedule> {
       await showScheduleDetailsPopup(
         context,
         item: detail,
+        constraint: widget.constraint,
         onSave: (input) async {
           await _repository.updateSchedule(detail.scheduleTimeId, input);
           final updated = await _repository.getScheduleDetail(
@@ -128,6 +142,7 @@ class _ScheduleState extends State<Schedule> {
                   )
                   .toList();
             });
+            widget.onChanged?.call();
           }
           return updated;
         },
@@ -142,6 +157,7 @@ class _ScheduleState extends State<Schedule> {
                   )
                   .toList();
             });
+            widget.onChanged?.call();
           }
         },
       );
@@ -166,11 +182,13 @@ class _ScheduleState extends State<Schedule> {
         context,
         subjects: subjects,
         scheduleItems: _items,
+        constraint: widget.constraint,
       );
       if (input == null || !mounted) return;
       setState(() => _loadingDetail = true);
       await _repository.addSchedule(input);
       await _loadSchedule();
+      widget.onChanged?.call();
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
     } finally {

@@ -4,26 +4,34 @@ import 'package:flutter/material.dart';
 
 import '../../../common/AppTimePicker.dart';
 import '../../../common/AppDropdown.dart';
+import '../../../common/ConstraintOverlapWarning.dart';
+import '../../../interfaces/profile.interface.dart';
 import '../../../interfaces/table.interface.dart';
 
 Future<AddScheduleInput?> showAddSchedulePopup(
   BuildContext context, {
   required List<ScheduleSubject> subjects,
   required List<ScheduleItem> scheduleItems,
+  UserConstraint? constraint,
 }) => showDialog<AddScheduleInput>(
   context: context,
   barrierColor: Colors.black38,
-  builder: (_) =>
-      _AddSchedulePopup(subjects: subjects, scheduleItems: scheduleItems),
+  builder: (_) => _AddSchedulePopup(
+    subjects: subjects,
+    scheduleItems: scheduleItems,
+    constraint: constraint,
+  ),
 );
 
 class _AddSchedulePopup extends StatefulWidget {
   final List<ScheduleSubject> subjects;
   final List<ScheduleItem> scheduleItems;
+  final UserConstraint? constraint;
 
   const _AddSchedulePopup({
     required this.subjects,
     required this.scheduleItems,
+    this.constraint,
   });
 
   @override
@@ -56,7 +64,7 @@ class _AddSchedulePopupState extends State<_AddSchedulePopup> {
     });
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_typeId == null || _subjectId == null) {
       setState(() => _error = 'กรุณาเลือกประเภทและรายวิชา');
       return;
@@ -74,6 +82,16 @@ class _AddSchedulePopupState extends State<_AddSchedulePopup> {
     if (overlaps) {
       setState(() => _error = 'ช่วงเวลานี้ทับซ้อนกับตารางที่มีอยู่');
       return;
+    }
+    final conflict = findConstraintOverlap(
+      widget.constraint,
+      scheduleDay: _day,
+      startTime: _start,
+      endTime: _end,
+    );
+    if (conflict != null) {
+      final confirmed = await showConstraintOverlapWarning(context, conflict);
+      if (!confirmed || !mounted) return;
     }
     Navigator.pop(
       context,

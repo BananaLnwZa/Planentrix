@@ -10,12 +10,17 @@ import '../../services/term.service.dart';
 import '../../services/profile.service.dart';
 import '../../services/table.service.dart';
 import '../../services/homework.service.dart';
-import '../../services/homework_reminder.service.dart';
 import '../../services/recommendation.service.dart';
+import '../../services/exam.service.dart';
+import '../../services/app_notification.service.dart';
 import '../../interfaces/auth.interface.dart';
 import '../../interfaces/profile.interface.dart';
 import '../../interfaces/term.interface.dart';
 import '../../interfaces/homework.interface.dart';
+import '../../interfaces/recommendation.interface.dart';
+import '../../interfaces/table.interface.dart';
+import '../../interfaces/exam.interface.dart';
+import '../../interfaces/app_alert.interface.dart';
 import '../../common/NotebookSectionPage.dart';
 import '../../common/NotebookTabs.dart';
 import '../../common/DateTimeFormat.dart';
@@ -24,8 +29,8 @@ import 'Component/EditProfilePopup.dart';
 import 'Component/StudentCard.dart';
 import 'Component/StudentCardPopup.dart';
 import 'Component/Term.dart';
-import 'Component/HomeworkReminderCard.dart';
-import 'Component/HomeworkReminderPopup.dart';
+import 'Component/MainNotificationCard.dart';
+import 'Component/MainNotificationPopup.dart';
 import 'Component/RecommendationCard.dart';
 
 typedef LogoutAction = Future<void> Function();
@@ -39,6 +44,7 @@ class MainPage extends StatefulWidget {
   final TableRepository? tableRepository;
   final HomeworkRepository? homeworkRepository;
   final RecommendationRepository? recommendationRepository;
+  final ExamRepository? examRepository;
 
   const MainPage({
     super.key,
@@ -50,6 +56,7 @@ class MainPage extends StatefulWidget {
     this.tableRepository,
     this.homeworkRepository,
     this.recommendationRepository,
+    this.examRepository,
   });
 
   @override
@@ -62,6 +69,8 @@ class _MainPageState extends State<MainPage> {
   late final ProfileRepository _profileRepository;
   late final HomeworkRepository _homeworkRepository;
   late final RecommendationRepository _recommendationRepository;
+  late final TableRepository _tableRepository;
+  late final ExamRepository _examRepository;
 
   String? _username;
   int? _userId;
@@ -72,9 +81,10 @@ class _MainPageState extends State<MainPage> {
   UserConstraint? _constraint;
   String? _profileError;
   int _scheduleVersion = 0;
-  List<HomeworkTaskData> _homeworkTasks = const [];
-  List<HomeworkTaskData> _urgentHomework = const [];
-  Timer? _homeworkClock;
+  List<AppAlertData> _alertEvents = const [];
+  List<AppAlertData> _activeAlerts = const [];
+  DateTime _alertNow = DateTime.now();
+  Timer? _alertClock;
 
   @override
   void initState() {
@@ -83,12 +93,14 @@ class _MainPageState extends State<MainPage> {
     _homeworkRepository = widget.homeworkRepository ?? HomeworkService();
     _recommendationRepository =
         widget.recommendationRepository ?? RecommendationService();
+    _tableRepository = widget.tableRepository ?? TableService();
+    _examRepository = widget.examRepository ?? ExamService();
     _username = widget.username;
     _userId = widget.userId;
     _loadPageData();
-    _homeworkClock = Timer.periodic(
-      const Duration(minutes: 1),
-      (_) => _refreshUrgentHomework(),
+    _alertClock = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _refreshActiveAlerts(),
     );
   }
 
@@ -133,14 +145,32 @@ class _MainPageState extends State<MainPage> {
       _isLoadingSession = false;
     });
 
-    if (_shouldLoadHomework) {
-      unawaited(_loadHomeworkReminders());
+    if (_shouldLoadAlerts) {
+      unawaited(_loadAppAlerts());
     }
   }
 
-  bool get _shouldLoadHomework =>
+  bool get _usesLiveAlertSources =>
+      widget.username == null && widget.profileRepository == null;
+
+  bool get _shouldLoadAlerts =>
+      _usesLiveAlertSources ||
       widget.homeworkRepository != null ||
-      (widget.profileRepository == null && widget.username == null);
+      widget.tableRepository != null ||
+      widget.recommendationRepository != null ||
+      widget.examRepository != null;
+
+  bool get _loadHomeworkSource =>
+      _usesLiveAlertSources || widget.homeworkRepository != null;
+
+  bool get _loadTableSource =>
+      _usesLiveAlertSources || widget.tableRepository != null;
+
+  bool get _loadRecommendationSource =>
+      _usesLiveAlertSources || widget.recommendationRepository != null;
+
+  bool get _loadExamSource =>
+      _usesLiveAlertSources || widget.examRepository != null;
 
   bool get _shouldLoadRecommendations =>
       widget.recommendationRepository != null ||
@@ -148,44 +178,76 @@ class _MainPageState extends State<MainPage> {
           widget.profileRepository == null &&
           widget.username == null);
 
-  Future<void> _loadHomeworkReminders() async {
-    try {
-      final overview = await _homeworkRepository.getHomeworkOverview();
-      if (!mounted) return;
-      _homeworkTasks = overview.tasks;
-      _refreshUrgentHomework();
-      if (widget.homeworkRepository == null) {
-        await HomeworkReminderService.instance.syncTasks(overview.tasks);
-      }
-    } catch (_) {
-      // Reminder sync must never block the Main page when offline.
+  Future<void> _loadAppAlerts() async {
+    final Future<({HomeworkOverview? value, Object? error})> homeworkFuture =
+        _loadHomeworkSource
+        ? _capture<HomeworkOverview>(_homeworkRepository.getHomeworkOverview())
+        : Future.value((value: null, error: null));
+    final Future<({CurrentSchedule? value, Object? error})> scheduleFuture =
+        _loadTableSource
+        ? _capture<CurrentSchedule?>(_tableRepository.getCurrentSchedule())
+        : Future.value((value: null, error: null));
+    final Future<({AcceptedWeeklySchedule? value, Object? error})>
+    weeklyFuture = _loadRecommendationSource
+        ? _capture<AcceptedWeeklySchedule?>(
+            _recommendationRepository.getWeeklySchedule(),
+          )
+        : Future.value((value: null, error: null));
+    final Future<({ExamInsights? value, Object? error})> insightsFuture =
+        _loadExamSource
+        ? _capture<ExamInsights>(_examRepository.getInsights())
+        : Future.value((value: null, error: null));
+
+    final homework = await homeworkFuture;
+    final schedule = await scheduleFuture;
+    final weekly = await weeklyFuture;
+    final insights = await insightsFuture;
+    if (!mounted) return;
+
+    final now = DateTime.now();
+    final events = buildAppAlerts(
+      homeworkTasks: homework.value?.tasks ?? const [],
+      currentSchedule: schedule.value,
+      weeklySchedule: weekly.value,
+      checkpoints: insights.value?.nextCheckpoints ?? const [],
+      now: now,
+    );
+    setState(() {
+      _alertEvents = events;
+      _alertNow = now;
+      _activeAlerts = activeAppAlerts(events, now: now);
+    });
+    if (_usesLiveAlertSources) {
+      unawaited(AppNotificationService.instance.syncAlerts(events));
     }
   }
 
-  void _refreshUrgentHomework() {
+  void _refreshActiveAlerts() {
     if (!mounted) return;
     final now = DateTime.now();
-    final urgent = _homeworkTasks.where((task) {
-      final remaining = task.deadline.difference(now);
-      return remaining > Duration.zero && remaining <= homeworkReminderLeadTime;
-    }).toList()..sort((left, right) => left.deadline.compareTo(right.deadline));
-    setState(() => _urgentHomework = urgent);
+    setState(() {
+      _alertNow = now;
+      _activeAlerts = activeAppAlerts(_alertEvents, now: now);
+    });
   }
 
-  Future<void> _openHomeworkReminder() async {
-    await showHomeworkReminderPopup(
+  Future<void> _openNotifications() async {
+    await showMainNotificationPopup(
       context,
-      tasks: _urgentHomework,
-      onViewAll: () {
+      alerts: _activeAlerts,
+      now: _alertNow,
+      onSelected: (alert) {
         Navigator.of(context).pop();
-        Navigator.of(context).pushReplacementNamed('/homework');
+        if (alert.destination != '/main') {
+          Navigator.of(context).pushReplacementNamed(alert.destination);
+        }
       },
     );
   }
 
   @override
   void dispose() {
-    _homeworkClock?.cancel();
+    _alertClock?.cancel();
     super.dispose();
   }
 
@@ -356,39 +418,60 @@ class _MainPageState extends State<MainPage> {
             style: const TextStyle(fontSize: 10, color: Color(0xFFD65D69)),
           ),
         ],
-        if (_urgentHomework.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          HomeworkReminderCard(
-            tasks: _urgentHomework,
-            onTap: _openHomeworkReminder,
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 150,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 42,
+                child: Term(
+                  compact: true,
+                  repository: widget.termRepository,
+                  onTermChanged: (term) {
+                    if (!mounted) return;
+                    setState(() {
+                      _currentTerm = term;
+                      _scheduleVersion += 1;
+                    });
+                    if (_shouldLoadAlerts) unawaited(_loadAppAlerts());
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 58,
+                child: MainNotificationCard(
+                  alerts: _activeAlerts,
+                  now: _alertNow,
+                  onTap: _openNotifications,
+                ),
+              ),
+            ],
           ),
-        ],
-        const SizedBox(height: 24),
-        Term(
-          repository: widget.termRepository,
-          onTermChanged: (term) {
-            if (!mounted) return;
-            setState(() {
-              _currentTerm = term;
-              _scheduleVersion += 1;
-            });
-            if (_shouldLoadHomework) unawaited(_loadHomeworkReminders());
-          },
         ),
         const SizedBox(height: 24),
         Schedule(
           key: ValueKey('schedule-$_scheduleVersion'),
           repository: widget.tableRepository,
+          constraint: _constraint,
           recommendationRepository: _shouldLoadRecommendations
               ? _recommendationRepository
+              : null,
+          onChanged: _shouldLoadAlerts
+              ? () => unawaited(_loadAppAlerts())
               : null,
         ),
         if (_shouldLoadRecommendations) ...[
           const SizedBox(height: 24),
           RecommendationCard(
             repository: _recommendationRepository,
+            constraint: _constraint,
             onAccepted: () {
-              if (mounted) setState(() => _scheduleVersion += 1);
+              if (!mounted) return;
+              setState(() => _scheduleVersion += 1);
+              unawaited(_loadAppAlerts());
             },
           ),
         ],

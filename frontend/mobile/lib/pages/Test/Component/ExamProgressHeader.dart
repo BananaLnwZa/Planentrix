@@ -18,80 +18,82 @@ class ExamProgressHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final minutes = remainingTime.inMinutes.toString().padLeft(2, '0');
     final seconds = (remainingTime.inSeconds % 60).toString().padLeft(2, '0');
-    return Container(
+    return Column(
       key: const Key('exam-progress-header'),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: const Color(0xFFE4DCD0)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1F6B6557),
-            blurRadius: 6,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 32),
+          child: Row(
             children: [
               Expanded(
-                child: Text(
-                  examName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    color: Color(0xFF405B69),
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      examName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF78909B),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'ข้อ $currentQuestion/$totalQuestions',
+                      style: const TextStyle(
+                        fontSize: 19,
+                        color: Color(0xFF405B69),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(width: 10),
               Container(
                 key: const Key('exam-countdown'),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
-                  vertical: 5,
+                  vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: remainingTime.inMinutes < 5
-                      ? const Color(0xFFFFE3E7)
-                      : const Color(0xFFE4F3FA),
-                  borderRadius: BorderRadius.circular(15),
+                  color: const Color(0xFFFFF0BF),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.timer_outlined, size: 14),
+                    const Icon(
+                      Icons.access_time_rounded,
+                      size: 15,
+                      color: Color(0xFF8A6B27),
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       '$minutes:$seconds',
-                      style: const TextStyle(fontSize: 12),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF8A6B27),
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(5),
-            child: LinearProgressIndicator(
-              minHeight: 7,
-              value: totalQuestions == 0 ? 0 : currentQuestion / totalQuestions,
-              backgroundColor: const Color(0xFFE8EEF0),
-              valueColor: const AlwaysStoppedAnimation(Color(0xFF91CEE8)),
-            ),
+        ),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(5),
+          child: LinearProgressIndicator(
+            minHeight: 8,
+            value: totalQuestions == 0 ? 0 : currentQuestion / totalQuestions,
+            backgroundColor: const Color(0xFFE6EEF1),
+            valueColor: const AlwaysStoppedAnimation(Color(0xFF8CCBE8)),
           ),
-          const SizedBox(height: 5),
-          Text(
-            'ข้อ $currentQuestion จาก $totalQuestions',
-            style: const TextStyle(fontSize: 10, color: Color(0xFF80949D)),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -82,7 +82,7 @@ class SubjectReviewFeedbackCard extends StatelessWidget {
                     ),
                     const Text(
                       'คำแนะนำหลังทำแบบทดสอบ',
-                      style: TextStyle(fontSize: 9.5, color: Color(0xFF8A9CA4)),
+                      style: TextStyle(fontSize: 11, color: Color(0xFF91A0A7)),
                     ),
                   ],
                 ),
@@ -182,34 +182,48 @@ class _ReviewMethodsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final methods = <String>[];
+    final seenMethods = <String>{};
+    for (final topic in topics) {
+      final key = topic.studyTypeId > 0
+          ? 'id:${topic.studyTypeId}'
+          : topic.studyTypeName.trim().toLowerCase();
+      if (seenMethods.add(key)) methods.add(topic.studyTypeName);
+    }
     return _FeedbackSection(
       key: const Key('review-method-section'),
       color: const Color(0xFFE5F4FB),
       titleColor: const Color(0xFF4D7487),
       icon: Icons.lightbulb_outline_rounded,
-      title: 'วิธีทบทวน',
+      title: 'วิธีทบทวนที่แนะนำ',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (var index = 0; index < topics.length; index++) ...[
-            Text(
-              topics[index].topicName,
-              style: const TextStyle(
-                fontSize: 10.5,
-                color: Color(0xFF4F7D92),
-                fontWeight: FontWeight.w600,
-              ),
+          for (var index = 0; index < methods.length; index++) ...[
+            Row(
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF72A9BE),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _studyTypeLabel(methods[index]),
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      height: 1.35,
+                      color: Color(0xFF5E727B),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 2),
-            Text(
-              _studyTypeLabel(topics[index].studyTypeName),
-              style: const TextStyle(
-                fontSize: 10.5,
-                height: 1.35,
-                color: Color(0xFF5E727B),
-              ),
-            ),
-            if (index < topics.length - 1) const SizedBox(height: 8),
+            if (index < methods.length - 1) const SizedBox(height: 8),
           ],
         ],
       ),
@@ -273,16 +287,14 @@ class _CheckpointSection extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (checkpoints[index].reviewMinutesDelta != 0) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        _reviewTimeText(checkpoints[index].reviewMinutesDelta),
-                        style: const TextStyle(
-                          fontSize: 9,
-                          color: Color(0xFF66894E),
-                        ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _reviewTimeText(checkpoints[index].reviewMinutesDelta),
+                      style: const TextStyle(
+                        fontSize: 9,
+                        color: Color(0xFF66894E),
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ],
@@ -319,7 +331,7 @@ class _FeedbackSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(11),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(13),
@@ -360,7 +372,8 @@ String _checkpointText(int weeks) {
 
 String _reviewTimeText(int minutes) {
   if (minutes > 0) return 'เพิ่มเวลาทบทวน ${_reviewDuration(minutes)}';
-  return 'ลดเวลาทบทวน ${_reviewDuration(minutes)}';
+  if (minutes < 0) return 'ลดเวลาทบทวน ${_reviewDuration(minutes)}';
+  return 'เวลาทบทวนปัจจุบันเหมาะสมแล้ว';
 }
 
 String _reviewDuration(int minutes) {

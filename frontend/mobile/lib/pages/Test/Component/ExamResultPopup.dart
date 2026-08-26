@@ -12,14 +12,17 @@ Future<void> showExamResultPopup(
     builder: (context) => AlertDialog(
       key: const Key('exam-result-popup'),
       backgroundColor: const Color(0xFFFFFEF8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: const BorderSide(color: Color(0xFFDCD6CA)),
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(
-            Icons.celebration_rounded,
-            size: 42,
-            color: Color(0xFFF0A0BA),
+            Icons.check_circle_outline_rounded,
+            size: 56,
+            color: Color(0xFF88BF69),
           ),
           const SizedBox(height: 10),
           const Text(
@@ -27,41 +30,15 @@ Future<void> showExamResultPopup(
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 15),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE4F3FA),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Text(
-              '${_number(result.actualScore)}/${_number(result.maximumScore)}',
-              style: const TextStyle(
-                fontSize: 25,
-                color: Color(0xFF5289A2),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+          Text(
+            '${_number(result.actualScore)}/${_number(result.maximumScore)}',
+            style: const TextStyle(fontSize: 30, color: Color(0xFFE78CA8)),
           ),
           const SizedBox(height: 10),
           Text(
             'ตอบถูก ${result.correctAnswers} จาก ${result.totalQuestions} ข้อ',
             style: const TextStyle(fontSize: 12, color: Color(0xFF738790)),
           ),
-          if (result.checkpointIntervalWeeks > 0) ...[
-            const SizedBox(height: 9),
-            Text(
-              'Checkpoint ถัดไปอีก ${result.checkpointIntervalWeeks} สัปดาห์',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF8A6E2E)),
-            ),
-          ],
-          if (result.weakTopicCount > 0) ...[
-            const SizedBox(height: 4),
-            Text(
-              'พบเรื่องที่ควรทบทวน ${result.weakTopicCount} เรื่อง',
-              style: const TextStyle(fontSize: 11, color: Color(0xFFB05D79)),
-            ),
-          ],
         ],
       ),
       actionsAlignment: MainAxisAlignment.center,
@@ -71,8 +48,11 @@ Future<void> showExamResultPopup(
           onPressed: () => Navigator.of(context).pop(),
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFFA8D780),
+            foregroundColor: Colors.white,
+            shape: const StadiumBorder(),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
           ),
-          child: const Text('เสร็จสิ้น'),
+          child: const Text('ดูคำแนะนำ'),
         ),
       ],
     ),

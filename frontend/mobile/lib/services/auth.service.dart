@@ -3,6 +3,7 @@ import '../interfaces/auth.interface.dart';
 import 'api.service.dart';
 import 'storage.service.dart';
 import 'homework_reminder.service.dart';
+import 'app_notification.service.dart';
 
 class AuthException implements Exception {
   final String message;
@@ -228,6 +229,7 @@ class AuthService {
   Future<void> _cancelHomeworkReminders() async {
     try {
       await HomeworkReminderService.instance.cancelAllHomeworkReminders();
+      await AppNotificationService.instance.cancelAll();
     } catch (_) {
       // Logout/account deletion must still complete if notifications fail.
     }

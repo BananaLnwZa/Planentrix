@@ -4,27 +4,36 @@ import 'package:flutter/material.dart';
 
 import '../../../common/AppTimePicker.dart';
 import '../../../common/AppDropdown.dart';
+import '../../../common/ConstraintOverlapWarning.dart';
+import '../../../interfaces/profile.interface.dart';
 import '../../../interfaces/table.interface.dart';
 
 Future<void> showScheduleDetailsPopup(
   BuildContext context, {
   required ScheduleItem item,
+  UserConstraint? constraint,
   required Future<ScheduleItem> Function(UpdateScheduleInput input) onSave,
   required Future<void> Function() onDelete,
 }) => showDialog<void>(
   context: context,
   barrierColor: Colors.black38,
-  builder: (_) =>
-      _ScheduleDetailsPopup(item: item, onSave: onSave, onDelete: onDelete),
+  builder: (_) => _ScheduleDetailsPopup(
+    item: item,
+    constraint: constraint,
+    onSave: onSave,
+    onDelete: onDelete,
+  ),
 );
 
 class _ScheduleDetailsPopup extends StatefulWidget {
   final ScheduleItem item;
+  final UserConstraint? constraint;
   final Future<ScheduleItem> Function(UpdateScheduleInput input) onSave;
   final Future<void> Function() onDelete;
 
   const _ScheduleDetailsPopup({
     required this.item,
+    this.constraint,
     required this.onSave,
     required this.onDelete,
   });
@@ -98,6 +107,16 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
     if (_isClass && _classroom.text.trim().length > 10) {
       setState(() => _error = 'ชื่อห้องเรียนต้องไม่เกิน 10 ตัวอักษร');
       return;
+    }
+    final conflict = findConstraintOverlap(
+      widget.constraint,
+      scheduleDay: _day,
+      startTime: _start,
+      endTime: _end,
+    );
+    if (conflict != null) {
+      final confirmed = await showConstraintOverlapWarning(context, conflict);
+      if (!confirmed || !mounted) return;
     }
     setState(() {
       _busy = true;
@@ -314,7 +333,10 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
                 ),
               ],
               const SizedBox(height: 16),
-              Row(
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 7,
+                runSpacing: 8,
                 children: [
                   if (!_isClass)
                     OutlinedButton.icon(
@@ -327,10 +349,7 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
                         side: const BorderSide(color: Color(0xFFE5A39D)),
                         shape: const StadiumBorder(),
                       ),
-                    )
-                  else
-                    const Spacer(),
-                  if (!_isClass) const Spacer(),
+                    ),
                   if (_editing) ...[
                     OutlinedButton(
                       onPressed: _busy
@@ -346,7 +365,6 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
                             },
                       child: const Text('ยกเลิก'),
                     ),
-                    const SizedBox(width: 7),
                   ],
                   FilledButton.icon(
                     key: Key(

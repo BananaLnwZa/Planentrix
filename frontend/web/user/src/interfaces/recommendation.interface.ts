@@ -129,9 +129,13 @@ export interface WeeklyBlockInput {
   scheduled_date: string;
   start_time: string;
   end_time: string;
+  allow_constraint_overlap?: boolean;
 }
 
 export type WeeklyBlockUpdate = Pick<
   WeeklyBlockInput,
-  "scheduled_date" | "start_time" | "end_time"
+  | "scheduled_date"
+  | "start_time"
+  | "end_time"
+  | "allow_constraint_overlap"
 >;

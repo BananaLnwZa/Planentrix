@@ -10,7 +10,9 @@ import type {
   WeeklyScheduleBlock,
 } from "@/interfaces/recommendation.interface";
 import type { DisplayScheduleItem } from "@/interfaces/table.interface";
+import type { UserConstraint } from "@/interfaces/profile.interface";
 import recommendationService from "@/services/recommendation.service";
+import profileService from "@/services/profile.service";
 import { formatDisplayDate } from "@/utils/dateTime";
 import ScheduleGrid from "./ScheduleGrid";
 import WeeklyBlockEditor from "./WeeklyBlockEditor";
@@ -86,27 +88,32 @@ export default function RecommendationPreviewModal({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
+  const [hasChangesToApply, setHasChangesToApply] = useState(false);
   const [error, setError] = useState("");
+  const [constraint, setConstraint] = useState<UserConstraint | null>(null);
 
   useEffect(() => {
     let active = true;
-    recommendationService
-      .getWeeklySchedule(recommendation.week_start)
-      .then((schedule) => {
-        if (active) setRecurringClasses(schedule.recurring_classes);
-      })
-      .catch((loadError: unknown) => {
-        if (active) {
-          setError(
-            loadError instanceof Error
-              ? loadError.message
-              : "ไม่สามารถโหลดคาบเรียนประจำได้"
-          );
-        }
-      })
-      .finally(() => {
-        if (active) setIsLoading(false);
-      });
+    void Promise.allSettled([
+      recommendationService.getWeeklySchedule(recommendation.week_start),
+      profileService.getConstraints(),
+    ]).then(([scheduleResult, constraintResult]) => {
+      if (!active) return;
+      if (scheduleResult.status === "fulfilled") {
+        setRecurringClasses(scheduleResult.value.recurring_classes);
+      } else {
+        const loadError = scheduleResult.reason;
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "ไม่สามารถโหลดคาบเรียนประจำได้"
+        );
+      }
+      if (constraintResult.status === "fulfilled") {
+        setConstraint(constraintResult.value);
+      }
+      setIsLoading(false);
+    });
     return () => {
       active = false;
     };
@@ -142,6 +149,7 @@ export default function RecommendationPreviewModal({
               scheduled_date: input.scheduled_date,
               start_time: input.start_time,
               end_time: input.end_time,
+              allow_constraint_overlap: input.allow_constraint_overlap,
             }
           )
         : await recommendationService.addBlock(
@@ -149,6 +157,7 @@ export default function RecommendationPreviewModal({
             input
           );
       onRecommendationChange(updated);
+      setHasChangesToApply(true);
       setSelectedBlock(null);
       setIsAdding(false);
     } finally {
@@ -165,6 +174,7 @@ export default function RecommendationPreviewModal({
         selectedBlock.weekly_block_id
       );
       onRecommendationChange(updated);
+      setHasChangesToApply(true);
       setSelectedBlock(null);
     } finally {
       setIsDeleting(false);
@@ -190,6 +200,11 @@ export default function RecommendationPreviewModal({
     }
   };
 
+  const handleApplyChanges = () => {
+    setHasChangesToApply(false);
+    onAccepted(recommendation);
+  };
+
   return createPortal(
     <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]">
       <section
@@ -206,7 +221,9 @@ export default function RecommendationPreviewModal({
               className="flex items-center gap-2 text-lg font-semibold text-[#405B69]"
             >
               <CalendarDays size={20} className="text-[#6DA5B8]" />
-              ตัวอย่างตารางสัปดาห์ที่แนะนำ
+              {recommendation.status === "accepted"
+                ? "ตารางสัปดาห์ที่กำลังใช้งาน"
+                : "ตัวอย่างตารางสัปดาห์ที่แนะนำ"}
             </h2>
             <p className="mt-1 text-xs text-[#82939B]">
               {formatDisplayDate(recommendation.week_start)} –{" "}
@@ -249,7 +266,11 @@ export default function RecommendationPreviewModal({
             <div className="text-xs text-[#74878F]">
               {isAdjusting
                 ? "กดบล็อกสีเหลืองหรือชมพูเพื่อย้าย เปลี่ยนเวลา หรือลบ"
-                : "ตารางนี้ยังเป็นตัวอย่าง จนกว่าจะกดยอมรับคำแนะนำ"}
+                : recommendation.status === "accepted"
+                  ? hasChangesToApply
+                    ? "บันทึกการแก้ไขแล้ว กดนำการแก้ไขไปใช้เพื่ออัปเดตตารางหลัก"
+                    : "ตารางนี้กำลังใช้งานอยู่ คุณสามารถปรับเวลาได้"
+                  : "ตารางนี้ยังเป็นตัวอย่าง จนกว่าจะกดยอมรับคำแนะนำ"}
             </div>
             <div className="flex flex-wrap gap-2">
               <button
@@ -258,7 +279,11 @@ export default function RecommendationPreviewModal({
                 className="inline-flex items-center gap-1.5 rounded-xl border border-[#BFD5DE] bg-white px-3.5 py-2 text-sm text-[#567E8E] hover:bg-[#F1F8FA]"
               >
                 <Pencil size={15} />
-                {isAdjusting ? "เสร็จสิ้นการปรับ" : "ปรับตารางก่อนใช้"}
+                {isAdjusting
+                  ? "เสร็จสิ้นการปรับ"
+                  : recommendation.status === "accepted"
+                    ? "ปรับตาราง"
+                    : "ปรับตารางก่อนใช้"}
               </button>
               {isAdjusting && (
                 <button
@@ -275,7 +300,9 @@ export default function RecommendationPreviewModal({
 
           {recommendation.items.some((item) => item.capacity_limited) && (
             <p className="mt-3 rounded-xl border border-[#F0D49B] bg-[#FFF7DF] px-3 py-2 text-xs text-[#8A6B2B]">
-              เวลาว่างไม่พอจัดครบทุกเป้าหมาย คุณยังสามารถปรับตารางก่อนยอมรับได้
+              {recommendation.status === "accepted"
+                ? "เวลาว่างไม่พอจัดครบทุกเป้าหมาย คุณยังสามารถปรับตารางได้"
+                : "เวลาว่างไม่พอจัดครบทุกเป้าหมาย คุณยังสามารถปรับตารางก่อนยอมรับได้"}
             </p>
           )}
           {error && (
@@ -304,6 +331,16 @@ export default function RecommendationPreviewModal({
               {isAccepting ? "กำลังยอมรับ..." : "ยอมรับคำแนะนำ"}
             </button>
           )}
+          {recommendation.status === "accepted" && hasChangesToApply && (
+            <button
+              type="button"
+              onClick={handleApplyChanges}
+              disabled={isSaving || isDeleting}
+              className="rounded-xl bg-[#71A982] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#609A72] disabled:opacity-50"
+            >
+              นำการแก้ไขไปใช้
+            </button>
+          )}
         </footer>
       </section>
 
@@ -315,6 +352,7 @@ export default function RecommendationPreviewModal({
           weekEnd={recommendation.week_end}
           isSaving={isSaving}
           isDeleting={isDeleting}
+          constraint={constraint}
           onClose={() => {
             if (!isSaving && !isDeleting) {
               setSelectedBlock(null);

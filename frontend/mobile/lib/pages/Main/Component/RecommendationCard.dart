@@ -4,14 +4,21 @@ import 'package:flutter/material.dart';
 
 import '../../../common/DateTimeFormat.dart';
 import '../../../interfaces/recommendation.interface.dart';
+import '../../../interfaces/profile.interface.dart';
 import '../../../services/recommendation.service.dart';
 import 'RecommendationPreviewSheet.dart';
 
 class RecommendationCard extends StatefulWidget {
   final RecommendationRepository? repository;
+  final UserConstraint? constraint;
   final VoidCallback? onAccepted;
 
-  const RecommendationCard({super.key, this.repository, this.onAccepted});
+  const RecommendationCard({
+    super.key,
+    this.repository,
+    this.constraint,
+    this.onAccepted,
+  });
 
   @override
   State<RecommendationCard> createState() => _RecommendationCardState();
@@ -55,6 +62,7 @@ class _RecommendationCardState extends State<RecommendationCard> {
       context,
       recommendation: recommendation,
       repository: _repository,
+      constraint: widget.constraint,
     );
     if (updated == null || !mounted) return;
     setState(() => _recommendation = updated);

@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Plus, X } from "lucide-react";
+import { CalendarDays, Plus, X } from "lucide-react";
 import type { CurrentTerm } from "@/interfaces/term.interface";
 import termService from "@/services/term.service";
 import TermDetailsPopup from "@/components/Main/TermDetailsPopup";
@@ -34,6 +34,7 @@ type TermProps = {
   onAddTerm?: () => void;
   onConfirm?: (values: TermFormValues) => void;
   onEndTerm?: () => void;
+  compact?: boolean;
 };
 
 function getNextDate(date: string) {
@@ -170,7 +171,12 @@ function ExamWeekField({
   );
 }
 
-export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
+export default function Term({
+  onAddTerm,
+  onConfirm,
+  onEndTerm,
+  compact = false,
+}: TermProps) {
   const termCardRef = useRef<HTMLElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -237,7 +243,10 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
 
       const rect = card.getBoundingClientRect();
       const pagePadding = 16;
-      const width = Math.min(rect.width, window.innerWidth - pagePadding * 2);
+      const width = Math.min(
+        compact ? 440 : rect.width,
+        window.innerWidth - pagePadding * 2
+      );
 
       setDialogPosition({
         left: Math.max(
@@ -265,7 +274,7 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
       document.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("resize", updateDialogPosition);
     };
-  }, [isOpen, isDetailsOpen]);
+  }, [compact, isOpen, isDetailsOpen]);
 
   const openTermForm = () => {
     setFormError("");
@@ -347,11 +356,27 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
     <>
       <section
         ref={termCardRef}
-        aria-labelledby="term-empty-title"
-        className={`flex min-h-[98px] w-full max-w-[440px] flex-col items-center justify-center rounded-xl border border-[#AFAFAF] bg-white shadow-[0_5px_9px_rgba(75,93,102,0.22)] ${currentTerm ? "p-0" : "px-4 py-2.5"}`}
+        aria-labelledby={compact ? "compact-term-title" : "term-empty-title"}
+        className={`flex w-full flex-col rounded-xl border shadow-[0_5px_9px_rgba(75,93,102,0.22)] ${compact ? "h-[150px] min-h-[150px] overflow-hidden border-[#AFCFDC] bg-[#F8FCFE]" : "min-h-[98px] max-w-[440px] items-center justify-center border-[#AFAFAF] bg-white"} ${compact || currentTerm ? "p-0" : "px-4 py-2.5"}`}
       >
+        {compact && (
+          <div className="flex h-9 w-full shrink-0 items-center border-b border-[#CBE2EB] bg-[#E7F5FB] px-3 text-[11px] font-semibold text-[#52798A]">
+            <CalendarDays aria-hidden="true" className="mr-1.5 h-4 w-4" />
+            <span id="compact-term-title">เทอม</span>
+          </div>
+        )}
+
+        <div
+          className={
+            compact
+              ? "flex min-h-0 w-full flex-1 flex-col items-center justify-center"
+              : "contents"
+          }
+        >
         {isLoadingTerm ? (
-          <p className="text-center text-sm text-[#7897AC]">
+          <p
+            className={`text-center text-[#7897AC] ${compact ? "text-[10px]" : "text-sm"}`}
+          >
             กำลังโหลดข้อมูลเทอม...
           </p>
         ) : currentTerm ? (
@@ -359,65 +384,84 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
             type="button"
             onClick={openTermDetails}
             aria-haspopup="dialog"
-            className="group min-h-[132px] w-full rounded-[11px] px-4 py-2 text-left text-[#242424] transition-all duration-200 hover:bg-[#B9DFF0] hover:text-white hover:shadow-[0_7px_11px_rgba(75,93,102,0.26)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9CC5F9]"
+            className={`overflow-hidden text-left text-[#242424] transition-colors hover:bg-black/[0.04] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#9CC5F9] ${compact ? "h-full w-full px-2.5 py-1.5" : "min-h-[132px] w-full rounded-[11px] px-4 py-2"}`}
             style={{ fontFamily: "var(--font-sansation)" }}
           >
             <span id="term-empty-title" className="sr-only">
               ข้อมูลเทอมปัจจุบัน
             </span>
 
+            {compact ? (
+              <div className="flex h-full flex-col items-center justify-center text-center">
+                <strong className="text-[19px] font-semibold leading-none text-[#4F6B78]">
+                  เทอม {currentTerm.term}
+                </strong>
+                <span className="mt-1.5 rounded-full border border-[#C8C8C8] bg-white px-2.5 py-1 text-[9px] text-[#526B77]">
+                  ชั้นปี {currentTerm.academic_year}
+                </span>
+                <span className="mt-1 truncate text-[9px] text-[#688492]">
+                  ปี {currentTerm.semester}
+                </span>
+                <span className="mt-1.5 text-[7.5px] text-[#93A4AB]">
+                  กดเพื่อดูรายละเอียด
+                </span>
+              </div>
+            ) : (
+              <>
             <div className="grid grid-cols-[auto_auto_auto] items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 whitespace-nowrap text-[clamp(12px,2vw,14px)]">
                 <span>ชั้นปีที่</span>
-                <span className="flex h-8 min-w-[48px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-2.5 text-[clamp(15px,2.2vw,17px)] leading-none text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
+                <span className="flex h-8 min-w-[48px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-2.5 text-[clamp(15px,2.2vw,17px)] leading-none text-[#242424]">
                   {currentTerm.academic_year}
                 </span>
               </div>
 
               <div className="flex items-center gap-1.5 whitespace-nowrap text-[clamp(12px,2vw,14px)]">
                 <span>ปีการศึกษา</span>
-                <span className="flex h-8 min-w-[74px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-2.5 text-[clamp(15px,2.2vw,17px)] leading-none text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
+                <span className="flex h-8 min-w-[74px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-2.5 text-[clamp(15px,2.2vw,17px)] leading-none text-[#242424]">
                   {currentTerm.semester}
                 </span>
               </div>
 
               <div className="flex items-center gap-1.5 whitespace-nowrap text-[clamp(12px,2vw,14px)]">
                 <span>เทอม</span>
-                <span className="flex h-8 min-w-[48px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-2.5 text-[clamp(15px,2.2vw,17px)] leading-none text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
+                <span className="flex h-8 min-w-[48px] items-center justify-center rounded-full border border-[#C8C8C8] bg-white px-2.5 text-[clamp(15px,2.2vw,17px)] leading-none text-[#242424]">
                   {currentTerm.term}
                 </span>
               </div>
             </div>
 
-            <div className="mt-2 space-y-1.5 rounded-xl bg-[#F6FBFD] px-2.5 py-1.5 text-[clamp(11px,2vw,13px)] transition-colors duration-200 group-hover:bg-white/25">
+            <div className="mt-2 space-y-1.5 rounded-xl bg-[#F6FBFD] px-2.5 py-1.5 text-[clamp(11px,2vw,13px)]">
               <div className="grid grid-cols-[92px_minmax(0,1fr)] items-center gap-2">
-                <span className="whitespace-nowrap text-[#688492] transition-colors group-hover:text-white">
+                <span className="whitespace-nowrap text-[#688492]">
                   สอบกลางภาค
                 </span>
-                <span className="flex h-7 min-w-0 items-center justify-center whitespace-nowrap rounded-full border border-[#C8C8C8] bg-white px-2 text-[clamp(11px,2.1vw,13px)] text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
+                <span className="flex h-7 min-w-0 items-center justify-center whitespace-nowrap rounded-full border border-[#C8C8C8] bg-white px-2 text-[clamp(11px,2.1vw,13px)] text-[#242424]">
                   {formatThaiExamDate(currentTerm.start_midterm)} –{" "}
                   {formatThaiExamDate(currentTerm.end_midterm)}
                 </span>
               </div>
               <div className="grid grid-cols-[92px_minmax(0,1fr)] items-center gap-2">
-                <span className="whitespace-nowrap text-[#688492] transition-colors group-hover:text-white">
+                <span className="whitespace-nowrap text-[#688492]">
                   สอบปลายภาค
                 </span>
-                <span className="flex h-7 min-w-0 items-center justify-center whitespace-nowrap rounded-full border border-[#C8C8C8] bg-white px-2 text-[clamp(11px,2.1vw,13px)] text-[#242424] transition-colors duration-200 group-hover:text-[#82B5CF]">
+                <span className="flex h-7 min-w-0 items-center justify-center whitespace-nowrap rounded-full border border-[#C8C8C8] bg-white px-2 text-[clamp(11px,2.1vw,13px)] text-[#242424]">
                   {formatThaiExamDate(currentTerm.start_final)} –{" "}
                   {formatThaiExamDate(currentTerm.end_final)}
                 </span>
               </div>
             </div>
+              </>
+            )}
           </button>
         ) : (
           <>
             <h2
               id="term-empty-title"
-              className="text-center text-[18px] leading-none text-[#9CC5F9]"
+              className={`text-center leading-tight text-[#7893A0] ${compact ? "text-[10px]" : "text-[18px] leading-none"}`}
               style={{ fontFamily: "var(--font-Sansation Light)" }}
             >
-              *กรุณาระบุข้อมูลเทอมก่อนใช้งาน*
+              {compact ? "ยังไม่มีเทอม" : "*กรุณาระบุข้อมูลเทอมก่อนใช้งาน*"}
             </h2>
 
             <button
@@ -425,9 +469,13 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
               onClick={openTermForm}
               aria-label="เพิ่มข้อมูลเทอม"
               aria-haspopup="dialog"
-              className="mt-2.5 flex h-10 w-[92px] items-center justify-center rounded-full bg-[#A9DDFC] text-white transition-all duration-200 hover:scale-105 hover:bg-[#96D3F7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9CC5F9] active:scale-95"
+              className={`flex items-center justify-center rounded-full bg-[#A9DDFC] text-white transition-all duration-200 hover:scale-105 hover:bg-[#96D3F7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9CC5F9] active:scale-95 ${compact ? "mt-1.5 h-8 w-[58px]" : "mt-2.5 h-10 w-[92px]"}`}
             >
-              <Plus aria-hidden="true" size={27} strokeWidth={3.5} />
+              <Plus
+                aria-hidden="true"
+                size={compact ? 24 : 27}
+                strokeWidth={3.5}
+              />
             </button>
 
             {formError && (
@@ -437,6 +485,7 @@ export default function Term({ onAddTerm, onConfirm, onEndTerm }: TermProps) {
             )}
           </>
         )}
+        </div>
       </section>
 
       {isDetailsOpen && currentTerm && (

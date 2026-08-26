@@ -16,7 +16,6 @@ import type {
   UpdateHomeworkInput,
 } from "@/interfaces/homework.interface";
 import homeworkService from "@/services/homework.service";
-import homeworkReminderService from "@/services/homework-reminder.service";
 import CurrentTermRequiredState from "@/components/common/CurrentTermRequiredState";
 import AddHomeworkModal from "./AddHomeworkModal";
 import HomeworkDetailsModal from "./HomeworkDetailsModal";
@@ -54,7 +53,6 @@ export default function HomeworkDashboard({
       setTasks(overview.tasks);
       setHasCurrentTerm(overview.hasCurrentTerm);
       setHasWorkloads(overview.hasWorkloads);
-      await homeworkReminderService.syncTasks(overview.tasks);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "โหลดรายการงานไม่สำเร็จ");
     } finally {
@@ -71,7 +69,6 @@ export default function HomeworkDashboard({
         setTasks(overview.tasks);
         setHasCurrentTerm(overview.hasCurrentTerm);
         setHasWorkloads(overview.hasWorkloads);
-        void homeworkReminderService.syncTasks(overview.tasks);
       })
       .catch((error: unknown) => {
         if (active) setLoadError(error instanceof Error ? error.message : "โหลดรายการงานไม่สำเร็จ");
@@ -102,7 +99,6 @@ export default function HomeworkDashboard({
     setModalError(null);
     try {
       const created = await homeworkService.createHomework(input, subjects);
-      homeworkReminderService.scheduleTask(created);
       setTasks((current) => [...current, created]);
       setHasWorkloads(true);
       setIsAddOpen(false);
@@ -119,7 +115,6 @@ export default function HomeworkDashboard({
     setModalError(null);
     try {
       const updated = await homeworkService.updateHomework(selectedTask, input);
-      homeworkReminderService.scheduleTask(updated);
       setTasks((current) =>
         current.map((task) => (task.workload_id === updated.workload_id ? updated : task))
       );
@@ -137,7 +132,6 @@ export default function HomeworkDashboard({
     setModalError(null);
     try {
       await homeworkService.deleteHomework(selectedTask.workload_id);
-      homeworkReminderService.cancelTask(selectedTask.workload_id);
       setSelectedTask(null);
       await loadTasks();
     } catch (error) {
@@ -153,7 +147,6 @@ export default function HomeworkDashboard({
     setLoadError(null);
     try {
       await homeworkService.finishHomework(task.workload_id);
-      homeworkReminderService.cancelTask(task.workload_id);
       setTasks((current) => current.filter((item) => item.workload_id !== task.workload_id));
       onHomeworkFinished();
     } catch (error) {

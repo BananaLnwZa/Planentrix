@@ -247,12 +247,18 @@ void main() {
     expect(find.text('Data Warehouse'), findsNothing);
     expect(find.text('70/100'), findsOneWidget);
 
+    await tester.ensureVisible(
+      find.byKey(const Key('exam-history-subject-tab-CS102')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('exam-history-subject-tab-CS102')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('exam-history-90')), findsNothing);
     expect(find.byKey(const Key('exam-history-89')), findsOneWidget);
     expect(find.text('4/5'), findsOneWidget);
 
+    await tester.ensureVisible(find.byKey(const Key('test-subject-tabs')));
+    await tester.pumpAndSettle();
     await tester.drag(
       find.byKey(const Key('test-subject-tabs')),
       const Offset(-150, 0),
@@ -357,6 +363,15 @@ void main() {
     final paper = tester.getRect(find.byKey(const Key('notebook-paper-test')));
     expect(paper.left, greaterThanOrEqualTo(0));
     expect(paper.right, lessThanOrEqualTo(320));
+
+    await tester.tap(find.byKey(const Key('exam-card-1')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('exam-details-popup')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('start-exam-button')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const Key('exam-runner')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

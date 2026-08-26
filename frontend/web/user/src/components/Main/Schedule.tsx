@@ -14,14 +14,19 @@ import type {
   ScheduleSubject,
   UpdateScheduleRequest,
 } from "@/interfaces/table.interface";
+import type { UserConstraint } from "@/interfaces/profile.interface";
 import recommendationService from "@/services/recommendation.service";
+import profileService from "@/services/profile.service";
 import tableService from "@/services/table.service";
 import AddSchedulePopup from "./AddSchedulePopup";
 import ScheduleDetailsPopup from "./ScheduleDetailsPopup";
 import ScheduleGrid from "./ScheduleGrid";
 import WeeklyBlockEditor from "./WeeklyBlockEditor";
 
-type ScheduleProps = { refreshKey?: number };
+type ScheduleProps = {
+  refreshKey?: number;
+  onChanged?: () => void;
+};
 
 const isoDay = (value: string) => {
   const day = new Date(`${value}T00:00:00`).getDay();
@@ -68,7 +73,10 @@ const weeklyDisplayItem = (block: WeeklyScheduleBlock): DisplayScheduleItem => (
   note: null,
 });
 
-export default function Schedule({ refreshKey = 0 }: ScheduleProps) {
+export default function Schedule({
+  refreshKey = 0,
+  onChanged,
+}: ScheduleProps) {
   const [items, setItems] = useState<DisplayScheduleItem[]>([]);
   const [legacyItems, setLegacyItems] = useState<ScheduleItem[]>([]);
   const [weeklyBlocks, setWeeklyBlocks] = useState<WeeklyScheduleBlock[]>([]);
@@ -88,12 +96,19 @@ export default function Schedule({ refreshKey = 0 }: ScheduleProps) {
   const [subjects, setSubjects] = useState<ScheduleSubject[]>([]);
   const [subjectsError, setSubjectsError] = useState("");
   const [error, setError] = useState("");
+  const [constraint, setConstraint] = useState<UserConstraint | null>(null);
 
   const loadSchedule = useCallback(async () => {
-    const [legacyResult, weeklyResult] = await Promise.allSettled([
+    const [legacyResult, weeklyResult, constraintResult] =
+      await Promise.allSettled([
       tableService.getCurrentSchedule(),
       recommendationService.getWeeklySchedule(),
-    ]);
+        profileService.getConstraints(),
+      ]);
+
+    if (constraintResult.status === "fulfilled") {
+      setConstraint(constraintResult.value);
+    }
 
     const legacy =
       legacyResult.status === "fulfilled" ? legacyResult.value : null;
@@ -172,6 +187,7 @@ export default function Schedule({ refreshKey = 0 }: ScheduleProps) {
         await tableService.getScheduleDetail(selectedItem.schedule_time_id)
       );
       await loadSchedule();
+      onChanged?.();
     } finally {
       setIsSaving(false);
     }
@@ -184,6 +200,7 @@ export default function Schedule({ refreshKey = 0 }: ScheduleProps) {
       await tableService.deleteSchedule(selectedItem.schedule_time_id);
       setSelectedItem(null);
       await loadSchedule();
+      onChanged?.();
     } finally {
       setIsDeleting(false);
     }
@@ -200,10 +217,12 @@ export default function Schedule({ refreshKey = 0 }: ScheduleProps) {
           scheduled_date: input.scheduled_date,
           start_time: input.start_time,
           end_time: input.end_time,
+          allow_constraint_overlap: input.allow_constraint_overlap,
         }
       );
       setSelectedWeeklyBlock(null);
       await loadSchedule();
+      onChanged?.();
     } finally {
       setIsSaving(false);
     }
@@ -219,6 +238,7 @@ export default function Schedule({ refreshKey = 0 }: ScheduleProps) {
       );
       setSelectedWeeklyBlock(null);
       await loadSchedule();
+      onChanged?.();
     } finally {
       setIsDeleting(false);
     }
@@ -250,6 +270,7 @@ export default function Schedule({ refreshKey = 0 }: ScheduleProps) {
       await tableService.addSchedule(data);
       setIsAddOpen(false);
       await loadSchedule();
+      onChanged?.();
     } finally {
       setIsAdding(false);
     }
@@ -320,6 +341,7 @@ export default function Schedule({ refreshKey = 0 }: ScheduleProps) {
           item={selectedItem}
           isSaving={isSaving}
           isDeleting={isDeleting}
+          constraint={constraint}
           onClose={() => setSelectedItem(null)}
           onSave={handleSave}
           onDelete={handleDelete}
@@ -333,6 +355,7 @@ export default function Schedule({ refreshKey = 0 }: ScheduleProps) {
           weekEnd={acceptedRecommendation.week_end}
           isSaving={isSaving}
           isDeleting={isDeleting}
+          constraint={constraint}
           onClose={() => setSelectedWeeklyBlock(null)}
           onSave={handleWeeklySave}
           onDelete={handleWeeklyDelete}
@@ -345,6 +368,7 @@ export default function Schedule({ refreshKey = 0 }: ScheduleProps) {
           isLoadingSubjects={isLoadingSubjects}
           subjectsError={subjectsError}
           isSubmitting={isAdding}
+          constraint={constraint}
           onClose={() => {
             if (!isAdding) setIsAddOpen(false);
           }}
