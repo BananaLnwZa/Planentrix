@@ -8,6 +8,14 @@ import {
   UserManagementErrorResponse,
 } from "@/interfaces/user-management.interface";
 import { apiConfig, apiEndpoints } from "@/services/api.config";
+import { expireAdminSession } from "@/services/admin-session.client";
+
+export class UserEditConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UserEditConflictError";
+  }
+}
 
 class UserManagementService {
   private readonly apiClient: AxiosInstance;
@@ -65,9 +73,14 @@ class UserManagementService {
   private handleError(error: unknown): Error {
     if (axios.isAxiosError<UserManagementErrorResponse>(error)) {
       if (error.response?.status === 401) {
-        Cookies.remove("adminAccessToken");
-        Cookies.remove("adminName");
-        Cookies.remove("adminId");
+        expireAdminSession();
+      }
+
+      if (
+        error.response?.status === 409 &&
+        error.response.data?.code === "EDIT_CONFLICT"
+      ) {
+        return new UserEditConflictError(error.response.data.message);
       }
 
       return new Error(

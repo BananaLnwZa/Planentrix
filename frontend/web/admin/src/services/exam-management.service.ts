@@ -12,6 +12,7 @@ import {
   MessageResponse,
 } from "@/interfaces/exam-management.interface";
 import { apiConfig, apiEndpoints } from "@/services/api.config";
+import { expireAdminSession } from "@/services/admin-session.client";
 
 class ExamManagementService {
   private readonly apiClient: AxiosInstance;
@@ -115,9 +116,7 @@ class ExamManagementService {
   private handleError(error: unknown): Error {
     if (axios.isAxiosError<ExamManagementErrorResponse>(error)) {
       if (error.response?.status === 401) {
-        Cookies.remove("adminAccessToken");
-        Cookies.remove("adminName");
-        Cookies.remove("adminId");
+        expireAdminSession();
       }
       return new Error(
         error.response?.data?.message ||

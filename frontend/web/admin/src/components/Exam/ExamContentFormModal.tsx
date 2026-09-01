@@ -18,18 +18,19 @@ interface ExamContentFormModalProps {
   kind: ContentFormKind;
   item?: ExamPart | ExamQuestion | ExamChoice;
   defaultOrder: number;
+  requiresCorrectChoice?: boolean;
   onClose: () => void;
   onSave: (payload: ContentFormPayload) => Promise<void>;
 }
 
-export default function ExamContentFormModal({ kind, item, defaultOrder, onClose, onSave }: ExamContentFormModalProps) {
+export default function ExamContentFormModal({ kind, item, defaultOrder, requiresCorrectChoice = false, onClose, onSave }: ExamContentFormModalProps) {
   const part = item && "exam_part_name" in item ? item : null;
   const question = item && "question_text" in item ? item : null;
   const choice = item && "choice_text" in item ? item : null;
   const [order, setOrder] = useState(String(part?.part_order ?? question?.question_order ?? choice?.choice_order ?? defaultOrder));
   const [text, setText] = useState(part?.exam_part_name ?? question?.question_text ?? choice?.choice_text ?? "");
   const [score, setScore] = useState(question ? Number(question.question_score).toFixed(2) : "1.00");
-  const [isCorrect, setIsCorrect] = useState(choice?.is_correct ?? false);
+  const [isCorrect, setIsCorrect] = useState(requiresCorrectChoice || (choice?.is_correct ?? false));
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const labels = { part: "Part", question: "คำถาม", choice: "ตัวเลือก" };
@@ -61,7 +62,7 @@ export default function ExamContentFormModal({ kind, item, defaultOrder, onClose
           <label className="block text-sm font-medium text-[#4c626c]">ลำดับ<input type="number" min="1" step="1" value={order} onChange={(event) => setOrder(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-[#dbe6ea] px-3.5 font-normal outline-none focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]" /></label>
           <label className="block text-sm font-medium text-[#4c626c]">{kind === "part" ? "ชื่อ Part" : kind === "question" ? "ข้อความคำถาม" : "ข้อความตัวเลือก"}{kind === "part" ? <input autoFocus value={text} onChange={(event) => setText(event.target.value)} maxLength={200} className="mt-2 h-11 w-full rounded-xl border border-[#dbe6ea] px-3.5 font-normal outline-none focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]" /> : <textarea autoFocus value={text} onChange={(event) => setText(event.target.value)} rows={4} className="mt-2 w-full resize-y rounded-xl border border-[#dbe6ea] px-3.5 py-3 font-normal outline-none focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]" />}</label>
           {kind === "question" && <label className="block text-sm font-medium text-[#4c626c]">คะแนน<input type="number" min="0.01" max="999.99" step="0.01" value={score} onChange={(event) => setScore(event.target.value)} onBlur={() => { const value = Number(score); if (value > 0 && value <= 999.99) setScore(value.toFixed(2)); }} className="mt-2 h-11 w-full rounded-xl border border-[#dbe6ea] px-3.5 font-normal outline-none focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]" /></label>}
-          {kind === "choice" && <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#dbe6ea] bg-[#f8fbfc] p-3.5 text-sm text-[#4c626c]"><input type="checkbox" checked={isCorrect} onChange={(event) => setIsCorrect(event.target.checked)} className="size-4 accent-[#4c93ac]" />เป็นคำตอบที่ถูกต้อง</label>}
+          {kind === "choice" && <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#dbe6ea] bg-[#f8fbfc] p-3.5 text-sm text-[#4c626c]"><input type="checkbox" checked={isCorrect} disabled={requiresCorrectChoice} onChange={(event) => setIsCorrect(event.target.checked)} className="size-4 accent-[#4c93ac] disabled:cursor-not-allowed" />เป็นคำตอบที่ถูกต้อง{requiresCorrectChoice && <span className="text-xs text-[#7b8d95]">(คำถามต้องมีคำตอบถูกอย่างน้อย 1 ตัวเลือก)</span>}</label>}
           {error && <p role="alert" className="rounded-xl bg-[#fff0ec] px-3.5 py-3 text-sm text-[#a9503c]">{error}</p>}
           <div className="flex justify-end gap-2 border-t border-[#edf1f3] pt-5"><button type="button" onClick={onClose} disabled={saving} className="rounded-xl px-4 py-2.5 text-sm text-[#687b84] hover:bg-[#eef4f6]">ยกเลิก</button><button type="submit" disabled={saving} className="inline-flex min-w-28 items-center justify-center gap-2 rounded-xl bg-[#4c93ac] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60">{saving ? <LoaderCircle className="animate-spin" size={17} /> : <Save size={17} />}บันทึก</button></div>
         </form>

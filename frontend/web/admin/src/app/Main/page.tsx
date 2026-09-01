@@ -1,5 +1,3 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import AdminNavbar from "@/components/Main/AdminNavbar";
 import DashboardHeader from "@/components/Main/DashboardHeader";
 import ExamPartRankingMetricCard from "@/components/Main/ExamPartRankingMetricCard";
@@ -9,17 +7,12 @@ import ReviewMethodsMetricCard from "@/components/Main/ReviewMethodsMetricCard";
 import TaskCompletionMetricCard from "@/components/Main/TaskCompletionMetricCard";
 import UserAccountsMetricCard from "@/components/Main/UserAccountsMetricCard";
 import StudyMetricCards from "@/components/Main/StudyTimeMetricCard";
+import { requireAdminSession } from "@/services/admin-session";
 
 export default async function AdminMainPage() {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get("adminAccessToken");
-
-  if (!accessToken?.value) {
-    redirect("/LogIn");
-  }
-
-  const adminName = cookieStore.get("adminName")?.value || "Admin";
-  const adminId = cookieStore.get("adminId")?.value;
+  const admin = await requireAdminSession();
+  const adminName = admin.admin_name;
+  const adminId = String(admin.admin_id);
 
   return (
     <div className="min-h-svh bg-[#f5fafc] pb-12">

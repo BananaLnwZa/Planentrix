@@ -13,6 +13,7 @@ interface ManagedUserRow extends RowDataPacket {
   last_login: Date | null;
   is_inactive: 0 | 1;
   inactive_days: number | null;
+  version: string;
 }
 
 interface UserPictureRow extends RowDataPacket {
@@ -56,6 +57,7 @@ export const getManagedUsers = async (req: Request, res: Response) => {
         user_birthdate,
         user_gender,
         last_login,
+        DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version,
         CASE
           WHEN last_login IS NULL OR last_login < DATE_SUB(NOW(), INTERVAL 1 YEAR)
           THEN 1 ELSE 0
@@ -88,9 +90,16 @@ export const updateManagedUser = async (req: Request, res: Response) => {
     const userId = parseUserId(req, res);
     if (!userId) return;
 
-    const { user_name, user_birthdate, user_gender } = req.body;
+    const { user_name, user_birthdate, user_gender, version } = req.body;
     const normalizedUserName = String(user_name ?? "").trim();
     const usernameRegex = /^(?=.*[a-zA-Z])[a-zA-Z0-9]{3,50}$/;
+
+    if (
+      typeof version !== "string" ||
+      !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/.test(version)
+    ) {
+      return res.status(400).json({ message: "A valid user version is required" });
+    }
 
     if (!usernameRegex.test(normalizedUserName)) {
       return res.status(400).json({
@@ -130,17 +139,39 @@ export const updateManagedUser = async (req: Request, res: Response) => {
     const [result] = await db.query<ResultSetHeader>(
       `UPDATE user
        SET user_name = ?, user_birthdate = ?, user_gender = ?
-       WHERE user_id = ?`,
+       WHERE user_id = ?
+         AND updated_at = STR_TO_DATE(?, '%Y-%m-%d %H:%i:%s.%f')`,
       [
         normalizedUserName,
         user_birthdate || null,
         user_gender,
         userId,
+        version,
       ],
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "User not found" });
+      const [currentUsers] = await db.query<ManagedUserRow[]>(
+        `SELECT
+          user_id,
+          DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version
+        FROM user
+        WHERE user_id = ?
+        LIMIT 1`,
+        [userId],
+      );
+
+      if (currentUsers.length === 0) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (currentUsers[0].version !== version) {
+        return res.status(409).json({
+          code: "EDIT_CONFLICT",
+          message:
+            "ข้อมูลผู้ใช้นี้ถูกแก้ไขโดยผู้ดูแลระบบคนอื่นแล้ว กรุณาปิดหน้าต่างและเปิดใหม่เพื่อตรวจสอบข้อมูลล่าสุด",
+        });
+      }
     }
 
     const [updatedUsers] = await db.query<ManagedUserRow[]>(
@@ -151,6 +182,7 @@ export const updateManagedUser = async (req: Request, res: Response) => {
         user_birthdate,
         user_gender,
         last_login,
+        DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version,
         CASE
           WHEN last_login IS NULL OR last_login < DATE_SUB(NOW(), INTERVAL 1 YEAR)
           THEN 1 ELSE 0

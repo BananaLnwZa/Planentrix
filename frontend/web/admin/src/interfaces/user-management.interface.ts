@@ -9,6 +9,7 @@ export interface ManagedUser {
   last_login: string | null;
   is_inactive: boolean;
   inactive_days: number | null;
+  version: string;
 }
 
 export interface ManagedUsersResponse {
@@ -20,6 +21,7 @@ export interface UpdateManagedUserRequest {
   user_name: string;
   user_birthdate: string | null;
   user_gender: UserGender;
+  version: string;
 }
 
 export interface UpdateManagedUserResponse {
@@ -33,4 +35,5 @@ export interface DeleteManagedUserResponse {
 
 export interface UserManagementErrorResponse {
   message: string;
+  code?: "EDIT_CONFLICT";
 }

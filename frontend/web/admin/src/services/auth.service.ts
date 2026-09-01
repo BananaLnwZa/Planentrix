@@ -10,6 +10,7 @@ import {
   RegisterAdminResponse,
 } from "@/interfaces/auth.interface";
 import { apiConfig, apiEndpoints } from "@/services/api.config";
+import { clearAdminSession, expireAdminSession } from "@/services/admin-session.client";
 
 class AdminAuthService {
   private readonly apiClient: AxiosInstance;
@@ -109,13 +110,14 @@ class AdminAuthService {
   }
 
   clearAuth(): void {
-    Cookies.remove("adminAccessToken");
-    Cookies.remove("adminName");
-    Cookies.remove("adminId");
+    clearAdminSession();
   }
 
   private handleError(error: unknown): Error {
     if (axios.isAxiosError<AdminAuthErrorResponse>(error)) {
+      if (error.response?.status === 401 && this.isAuthenticated()) {
+        expireAdminSession();
+      }
       const message =
         error.response?.data?.message ||
         (error.request

@@ -53,6 +53,7 @@ export default function EditUserModal({ user, onClose, onSave }: EditUserModalPr
         user_name: normalizedName,
         user_birthdate: birthdate || null,
         user_gender: gender,
+        version: user.version,
       });
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "ไม่สามารถบันทึกข้อมูลได้");

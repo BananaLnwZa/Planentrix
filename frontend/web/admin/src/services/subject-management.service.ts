@@ -7,6 +7,7 @@ import {
   SubjectsResponse,
 } from "@/interfaces/subject-management.interface";
 import { apiConfig, apiEndpoints } from "@/services/api.config";
+import { expireAdminSession } from "@/services/admin-session.client";
 
 class SubjectManagementService {
   private readonly apiClient: AxiosInstance;
@@ -87,9 +88,7 @@ class SubjectManagementService {
   private handleError(error: unknown): Error {
     if (axios.isAxiosError<SubjectManagementErrorResponse>(error)) {
       if (error.response?.status === 401) {
-        Cookies.remove("adminAccessToken");
-        Cookies.remove("adminName");
-        Cookies.remove("adminId");
+        expireAdminSession();
       }
 
       const response = error.response?.data;

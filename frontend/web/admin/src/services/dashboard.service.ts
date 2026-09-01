@@ -11,6 +11,7 @@ import {
   WorkloadCompletionResponse,
 } from "@/interfaces/dashboard.interface";
 import { apiConfig, apiEndpoints } from "@/services/api.config";
+import { expireAdminSession } from "@/services/admin-session.client";
 
 class DashboardService {
   private readonly apiClient: AxiosInstance;
@@ -37,9 +38,7 @@ class DashboardService {
     } catch (error: unknown) {
       if (axios.isAxiosError<DashboardErrorResponse>(error)) {
         if (error.response?.status === 401) {
-          Cookies.remove("adminAccessToken");
-          Cookies.remove("adminName");
-          Cookies.remove("adminId");
+          expireAdminSession();
         }
 
         throw new Error(
@@ -126,9 +125,7 @@ class DashboardService {
   private handleError(error: unknown, fallbackMessage: string): Error {
     if (axios.isAxiosError<DashboardErrorResponse>(error)) {
       if (error.response?.status === 401) {
-        Cookies.remove("adminAccessToken");
-        Cookies.remove("adminName");
-        Cookies.remove("adminId");
+        expireAdminSession();
       }
 
       return new Error(

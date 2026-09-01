@@ -687,12 +687,17 @@ export const createChoice = async (req: Request, res: Response) => {
       [questionId, order],
     );
     if (duplicates.length > 0) return res.status(409).json({ message: "ลำดับตัวเลือกนี้มีอยู่แล้ว" });
+    const [correctChoices] = await db.query<RowDataPacket[]>(
+      `SELECT choice_id FROM choice
+       WHERE question_id = ? AND is_correct = 1 LIMIT 1`,
+      [questionId],
+    );
+    if (!isCorrect && correctChoices.length === 0) {
+      return res.status(409).json({
+        message: "คำถามต้องมีคำตอบที่ถูกต้องอย่างน้อยหนึ่งตัวเลือก",
+      });
+    }
     if (isCorrect) {
-      const [correctChoices] = await db.query<RowDataPacket[]>(
-        `SELECT choice_id FROM choice
-         WHERE question_id = ? AND is_correct = 1 LIMIT 1`,
-        [questionId],
-      );
       if (correctChoices.length > 0) {
         return res.status(409).json({ message: "คำถามหนึ่งข้อมีคำตอบที่ถูกได้เพียงหนึ่งตัวเลือก" });
       }
@@ -735,6 +740,18 @@ export const updateChoice = async (req: Request, res: Response) => {
       [choices[0].question_id, order, choiceId],
     );
     if (duplicates.length > 0) return res.status(409).json({ message: "ลำดับตัวเลือกนี้มีอยู่แล้ว" });
+    if (!isCorrect && Boolean(choices[0].is_correct)) {
+      const [otherCorrectChoices] = await db.query<RowDataPacket[]>(
+        `SELECT choice_id FROM choice
+         WHERE question_id = ? AND is_correct = 1 AND choice_id <> ? LIMIT 1`,
+        [choices[0].question_id, choiceId],
+      );
+      if (otherCorrectChoices.length === 0) {
+        return res.status(409).json({
+          message: "คำถามต้องมีคำตอบที่ถูกต้องอย่างน้อยหนึ่งตัวเลือก",
+        });
+      }
+    }
     if (isCorrect) {
       const [correctChoices] = await db.query<RowDataPacket[]>(
         `SELECT choice_id FROM choice
@@ -764,8 +781,8 @@ export const deleteChoice = async (req: Request, res: Response) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    const [choices] = await connection.query<IdRow[]>(
-      `SELECT ep.exam_repository_id
+    const [choices] = await connection.query<(IdRow & { question_id: number; is_correct: 0 | 1 })[]>(
+      `SELECT ep.exam_repository_id, c.question_id, c.is_correct
        FROM choice c
        INNER JOIN question q ON q.question_id = c.question_id
        INNER JOIN exam_part ep ON ep.exam_part_id = q.exam_part_id
@@ -780,6 +797,19 @@ export const deleteChoice = async (req: Request, res: Response) => {
     if (await hasExamHistory(connection, choices[0].exam_repository_id)) {
       await connection.rollback();
       return res.status(409).json({ message: "ไม่สามารถลบตัวเลือกของข้อสอบที่มีประวัติการทำแล้ว" });
+    }
+    if (Boolean(choices[0].is_correct)) {
+      const [otherCorrectChoices] = await connection.query<RowDataPacket[]>(
+        `SELECT choice_id FROM choice
+         WHERE question_id = ? AND is_correct = 1 AND choice_id <> ? LIMIT 1`,
+        [choices[0].question_id, choiceId],
+      );
+      if (otherCorrectChoices.length === 0) {
+        await connection.rollback();
+        return res.status(409).json({
+          message: "ไม่สามารถลบคำตอบที่ถูกต้องเพียงตัวเดียวของคำถามได้",
+        });
+      }
     }
     await connection.query("DELETE FROM choice WHERE choice_id = ?", [choiceId]);
     await connection.commit();

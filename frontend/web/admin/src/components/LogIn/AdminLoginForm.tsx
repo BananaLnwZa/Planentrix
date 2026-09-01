@@ -2,10 +2,11 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import adminAuthService from "@/services/auth.service";
+import { clearAdminSession } from "@/services/admin-session.client";
 import AdminLoginButton from "./AdminLoginButton";
 
 const adminLoginSchema = z.object({
@@ -25,6 +26,10 @@ type AdminLoginFormData = z.infer<typeof adminLoginSchema>;
 export default function AdminLoginForm() {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    clearAdminSession();
+  }, []);
 
   const {
     register,

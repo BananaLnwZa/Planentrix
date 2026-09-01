@@ -6,7 +6,10 @@ import {
   ManagedUser,
   UpdateManagedUserRequest,
 } from "@/interfaces/user-management.interface";
-import { userManagementService } from "@/services/user-management.service";
+import {
+  UserEditConflictError,
+  userManagementService,
+} from "@/services/user-management.service";
 import DeleteUserModal from "./DeleteUserModal";
 import EditUserModal from "./EditUserModal";
 import UserFilters, { UserFilter } from "./UserFilters";
@@ -92,10 +95,18 @@ export default function ManageUsersClient() {
 
   const handleUpdate = async (data: UpdateManagedUserRequest) => {
     if (!editingUser) return;
-    const response = await userManagementService.updateUser(editingUser.user_id, data);
-    setUsers((current) => sortUsers(current.map((user) => user.user_id === response.user.user_id ? response.user : user)));
-    setEditingUser(null);
-    setNotice(`บันทึกข้อมูลของ ${response.user.user_name} แล้ว`);
+    try {
+      const response = await userManagementService.updateUser(editingUser.user_id, data);
+      setUsers((current) => sortUsers(current.map((user) => user.user_id === response.user.user_id ? response.user : user)));
+      setEditingUser(null);
+      setNotice(`บันทึกข้อมูลของ ${response.user.user_name} แล้ว`);
+    } catch (updateError) {
+      if (updateError instanceof UserEditConflictError) {
+        await loadUsers();
+        throw new Error(`${updateError.message} ระบบโหลดรายการล่าสุดให้แล้ว`);
+      }
+      throw updateError;
+    }
   };
 
   const handleDelete = async () => {
