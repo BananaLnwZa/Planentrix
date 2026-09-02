@@ -243,7 +243,7 @@ class CreateAccountFormState extends State<CreateAccountForm> {
       ),
 
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.92),
+        color: const Color(0xEBFFFFFF),
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(

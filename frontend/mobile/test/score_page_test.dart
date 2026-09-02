@@ -287,8 +287,8 @@ void main() {
       expect(find.byKey(const Key('workload-score-table')), findsOneWidget);
       const expectedTypeColors = {
         1: Color(0xFFC5DBAA),
-        2: Color(0xFFFA86A3),
-        3: Color(0xFFEECDF9),
+        2: Color(0xE6FA86A3),
+        3: Color(0xE6EECDF9),
       };
       for (final entry in expectedTypeColors.entries) {
         final chip = find.byKey(Key('score-workload-type-${entry.key}'));

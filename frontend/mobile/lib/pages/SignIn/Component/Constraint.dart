@@ -289,7 +289,7 @@ class ConstraintState extends State<Constraint> {
       constraints: const BoxConstraints(maxWidth: 500, minHeight: 420),
       padding: EdgeInsets.all(containerPadding),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: const Color(0xEBFFFFFF),
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(

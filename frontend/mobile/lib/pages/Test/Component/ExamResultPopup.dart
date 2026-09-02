@@ -39,6 +39,13 @@ Future<void> showExamResultPopup(
             'ตอบถูก ${result.correctAnswers} จาก ${result.totalQuestions} ข้อ',
             style: const TextStyle(fontSize: 12, color: Color(0xFF738790)),
           ),
+          if (result.checkpointIntervalWeeks > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              'รอบ Checkpoint ถัดไปอีก ${result.checkpointIntervalWeeks} สัปดาห์',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF8A6B27)),
+            ),
+          ],
         ],
       ),
       actionsAlignment: MainAxisAlignment.center,

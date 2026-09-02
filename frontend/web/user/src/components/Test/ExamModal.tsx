@@ -107,6 +107,11 @@ export default function ExamModal({
             <p className="mt-2 text-sm text-[#738892]">
               ตอบถูก {result.correctAnswers} จาก {result.totalQuestions} ข้อ
             </p>
+            {result.checkpointIntervalWeeks > 0 && (
+              <p className="mt-3 text-sm text-[#8A6B27]">
+                รอบ Checkpoint ถัดไปอีก {result.checkpointIntervalWeeks} สัปดาห์
+              </p>
+            )}
             <button
               type="button"
               onClick={onClose}

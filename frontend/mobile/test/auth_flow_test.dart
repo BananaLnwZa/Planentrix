@@ -15,6 +15,7 @@ void main() {
       MaterialApp(
         home: MainPage(
           username: 'student',
+          userId: 1,
           logoutAction: () => completer.future,
         ),
         routes: {
@@ -24,12 +25,23 @@ void main() {
       ),
     );
 
-    expect(find.text('Welcome, student'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const ValueKey('main-tab-content')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('logout-button')));
+    await tester.tap(find.byKey(const Key('student-card')));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const Key('student-card-popup')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('popup-logout-button')));
     await tester.pump();
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('popup-logout-button')),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsOneWidget,
+    );
 
     completer.complete();
     await tester.pumpAndSettle();

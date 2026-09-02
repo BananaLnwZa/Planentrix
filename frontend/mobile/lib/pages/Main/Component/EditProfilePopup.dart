@@ -444,8 +444,10 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
                         children: [
                           Expanded(
                             child: _ValueButton(
+                              key: const Key('profile-working-start-time'),
                               label: 'เวลาเริ่มทำงาน',
                               value: _startTime ?? 'ไม่ระบุ',
+                              hasError: workingTimeError != null,
                               onTap: () async {
                                 final value = await _pickTime(_startTime);
                                 if (value != null && mounted) {
@@ -462,8 +464,10 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: _ValueButton(
+                              key: const Key('profile-working-end-time'),
                               label: 'เวลาสิ้นสุด',
                               value: _endTime ?? 'ไม่ระบุ',
+                              hasError: workingTimeError != null,
                               onTap: () async {
                                 final value = await _pickTime(_endTime);
                                 if (value != null && mounted) {
@@ -1082,13 +1086,16 @@ class _ValueButton extends StatelessWidget {
   final VoidCallback onTap;
   final IconData icon;
   final Color iconColor;
+  final bool hasError;
 
   const _ValueButton({
+    super.key,
     required this.label,
     required this.value,
     required this.onTap,
     required this.icon,
     required this.iconColor,
+    this.hasError = false,
   });
 
   @override
@@ -1096,7 +1103,7 @@ class _ValueButton extends StatelessWidget {
     onTap: onTap,
     borderRadius: BorderRadius.circular(14),
     child: InputDecorator(
-      decoration: _decoration(label),
+      decoration: _decoration(label, hasError: hasError),
       child: Row(
         children: [
           Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
@@ -1107,13 +1114,28 @@ class _ValueButton extends StatelessWidget {
   );
 }
 
-InputDecoration _decoration(String label) => InputDecoration(
+InputDecoration _decoration(String label, {bool hasError = false}) {
+  final borderColor = hasError
+      ? const Color(0xFFE97A8D)
+      : const Color(0xFF9E9E9E);
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(14),
+    borderSide: BorderSide(color: borderColor),
+  );
+
+  return InputDecoration(
   labelText: label,
+  labelStyle: hasError ? const TextStyle(color: Color(0xFFD65D69)) : null,
   isDense: true,
   filled: true,
   fillColor: Colors.white,
-  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-);
+  border: border,
+  enabledBorder: border,
+  focusedBorder: border.copyWith(
+    borderSide: BorderSide(color: borderColor, width: hasError ? 1.5 : 1),
+  ),
+  );
+}
 
 String _formatDate(DateTime value) => formatDisplayDate(value);
 
