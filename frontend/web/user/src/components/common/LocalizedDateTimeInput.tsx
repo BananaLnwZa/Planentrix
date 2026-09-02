@@ -102,6 +102,8 @@ const LocalizedDateTimeInput = forwardRef<
     name,
     required,
     "aria-label": ariaLabel,
+    "aria-invalid": ariaInvalid,
+    "aria-describedby": ariaDescribedBy,
   },
   ref
 ) {
@@ -188,6 +190,8 @@ const LocalizedDateTimeInput = forwardRef<
         type="button"
         disabled={disabled}
         aria-label={ariaLabel ?? (type === "date" ? "เลือกวันที่" : type === "time" ? "เลือกเวลา" : "เลือกวันและเวลา")}
+        data-invalid={ariaInvalid || undefined}
+        aria-describedby={ariaDescribedBy}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={openPicker}
@@ -216,6 +220,8 @@ const LocalizedDateTimeInput = forwardRef<
         type="hidden"
         value={stringValue}
         required={required}
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedBy}
         readOnly
       />
 

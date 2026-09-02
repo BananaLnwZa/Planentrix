@@ -20,6 +20,13 @@ const weeksUntil = (value: Date) => {
   return days <= 0 ? 0 : Math.ceil(days / 7);
 };
 
+const checkpointWeeks = (checkpoint: ExamCheckpointInsight) => {
+  if (checkpoint.nextCheckpointAt.getTime() <= Date.now()) return 0;
+  return checkpoint.intervalWeeks > 0
+    ? checkpoint.intervalWeeks
+    : weeksUntil(checkpoint.nextCheckpointAt);
+};
+
 const formatReviewDuration = (minutes: number) => {
   const totalMinutes = Math.abs(Math.round(minutes));
   if (totalMinutes < 60) return `${totalMinutes} นาที`;
@@ -68,18 +75,11 @@ export default function FeedbackPanel({
   checkpoints: ExamCheckpointInsight[];
 }) {
   const sortedTopics = [...topics]
-    .sort((left, right) => left.percentage - right.percentage);
+    .sort((left, right) => left.percentage - right.percentage)
+    .slice(0, 3);
   const sortedCheckpoints = [...checkpoints].sort(
     (left, right) => left.nextCheckpointAt.getTime() - right.nextCheckpointAt.getTime()
   );
-  const recommendedMethods = Array.from(
-    new Map(
-      sortedTopics.map((topic) => [
-        topic.studyTypeId || topic.studyTypeName,
-        topic.studyTypeName,
-      ])
-    ).values()
-  ).filter(Boolean);
 
   return (
     <article className="rounded-[19px] border border-[#DCE7EB] bg-white p-3.5 shadow-[0_3px_8px_rgba(0,0,0,0.09)]">
@@ -119,10 +119,13 @@ export default function FeedbackPanel({
             color="bg-[#E5F4FB]"
           >
             <ul className="space-y-1.5">
-              {recommendedMethods.map((method) => (
-                <li key={method} className="flex items-center gap-2">
+              {sortedTopics.map((topic) => (
+                <li key={topic.examPartId} className="flex items-start gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#72A9BE]" />
-                  <span>{studyTypeLabel(method)}</span>
+                  <span className="min-w-0">
+                    <strong className="font-medium text-[#4D7487]">{topic.topicName}:</strong>{" "}
+                    {studyTypeLabel(topic.studyTypeName)}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -137,7 +140,7 @@ export default function FeedbackPanel({
           >
             <ul className="space-y-1.5">
               {sortedCheckpoints.map((checkpoint) => {
-                const weeks = weeksUntil(checkpoint.nextCheckpointAt);
+                const weeks = checkpointWeeks(checkpoint);
                 return (
                   <li key={`${checkpoint.examRepositoryId}-${checkpoint.nextCheckpointAt.toISOString()}`} className="flex justify-between gap-3">
                     <span className="min-w-0">

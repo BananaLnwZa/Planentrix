@@ -64,18 +64,6 @@ class _AppDateTimePickerDialogState extends State<_AppDateTimePickerDialog> {
   DateTime get _value =>
       DateTime(_date.year, _date.month, _date.day, _hour, _minute);
 
-  DateTime get _firstDateInSelectedYear {
-    final firstOfYear = DateTime(_date.year);
-    return firstOfYear.isBefore(widget.firstDate)
-        ? widget.firstDate
-        : firstOfYear;
-  }
-
-  DateTime get _lastDateInSelectedYear {
-    final lastOfYear = DateTime(_date.year, 12, 31);
-    return lastOfYear.isAfter(widget.lastDate) ? widget.lastDate : lastOfYear;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -171,8 +159,8 @@ class _AppDateTimePickerDialogState extends State<_AppDateTimePickerDialog> {
                   child: CalendarDatePicker(
                     key: ValueKey('app-date-time-calendar-${_date.year}'),
                     initialDate: _date,
-                    firstDate: _firstDateInSelectedYear,
-                    lastDate: _lastDateInSelectedYear,
+                    firstDate: widget.firstDate,
+                    lastDate: widget.lastDate,
                     onDateChanged: (value) => setState(() => _date = value),
                   ),
                 ),

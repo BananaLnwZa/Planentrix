@@ -96,6 +96,20 @@ class FakeProfileRepository implements ProfileRepository {
       );
 }
 
+class InvalidWorkingTimeProfileRepository extends FakeProfileRepository {
+  @override
+  Future<UserConstraint> getConstraints() async => const UserConstraint(
+    constraintId: 9,
+    userId: 42,
+    dayOff: 7,
+    continuousWorkingDuration: 50,
+    breakDuration: 10,
+    startTime: '18:00',
+    endTime: '08:00',
+    busyDays: [],
+  );
+}
+
 void setPhoneSize(WidgetTester tester) {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(360, 640);
@@ -313,5 +327,51 @@ void main() {
     expect(find.byKey(const ValueKey('profile-busy-time-0')), findsOneWidget);
     expect(find.byKey(const Key('profile-busy-start-0')), findsOneWidget);
     expect(find.byKey(const Key('profile-busy-end-0')), findsOneWidget);
+  });
+
+  testWidgets('mobile profile editor marks an invalid working time range', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MainPage(
+          username: 'Nicha',
+          userId: 42,
+          profileRepository: InvalidWorkingTimeProfileRepository(),
+          termRepository: EmptyTermRepository(),
+          tableRepository: EmptyTableRepository(),
+          logoutAction: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('student-card')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('edit-profile-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('edit-constraint-tab')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('เวลาสิ้นสุดการทำงานต้องมากกว่าเวลาเริ่มทำงาน'),
+      findsOneWidget,
+    );
+
+    for (final key in const [
+      Key('profile-working-start-time'),
+      Key('profile-working-end-time'),
+    ]) {
+      final decorator = tester.widget<InputDecorator>(
+        find.descendant(
+          of: find.byKey(key),
+          matching: find.byType(InputDecorator),
+        ),
+      );
+      final border = decorator.decoration.enabledBorder! as OutlineInputBorder;
+      expect(border.borderSide.color, const Color(0xFFE97A8D));
+    }
   });
 }

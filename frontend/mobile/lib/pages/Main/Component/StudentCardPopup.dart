@@ -97,7 +97,6 @@ class _StudentCardPopupState extends State<StudentCardPopup> {
       _isLoggingOut = true;
     });
 
-    Navigator.of(context).pop();
     await action();
   }
 

@@ -128,6 +128,11 @@ export default function CustomSelect<T extends SelectValue>({
             ? (current + direction + enabledOptions.length) % enabledOptions.length
             : 0
         );
+      } else if (event.key === "Home" || event.key === "End") {
+        event.preventDefault();
+        setActiveIndex(
+          event.key === "Home" ? 0 : Math.max(0, enabledOptions.length - 1)
+        );
       } else if (event.key === "Enter" && enabledOptions[activeIndex]) {
         event.preventDefault();
         onChange(enabledOptions[activeIndex].value);

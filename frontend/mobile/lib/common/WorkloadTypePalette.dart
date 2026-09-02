@@ -9,10 +9,10 @@ class WorkloadTypePalette {
 
 const _workloadTypePalettes = <String, WorkloadTypePalette>{
   'quiz': WorkloadTypePalette(Color(0xFFC5DBAA), Color(0xFFA5BE85)),
-  'final': WorkloadTypePalette(Color(0xFFFFE7AB), Color(0xFFF6D481)),
-  'midterm': WorkloadTypePalette(Color(0xFFB3F7EF), Color(0xFF74DBD0)),
-  'project': WorkloadTypePalette(Color(0xFFFA86A3), Color(0xFFD45A78)),
-  'assignment': WorkloadTypePalette(Color(0xFFEECDF9), Color(0xFFD19EE2)),
+  'final': WorkloadTypePalette(Color(0xE6FFE7AB), Color(0xE6F6D481)),
+  'midterm': WorkloadTypePalette(Color(0xE6B3F7EF), Color(0xFF74DBD0)),
+  'project': WorkloadTypePalette(Color(0xE6FA86A3), Color(0xFFD45A78)),
+  'assignment': WorkloadTypePalette(Color(0xE6EECDF9), Color(0xE6D19EE2)),
 };
 
 WorkloadTypePalette workloadTypePalette(String typeName) =>

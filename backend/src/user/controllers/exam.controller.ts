@@ -91,8 +91,18 @@ const getAccessibleExam = async (
        s.subject_name,
        subject_type.subject_type_name,
        er.exam_name,
-       CAST(er.total_score AS DOUBLE) AS total_score,
-       er.total_question,
+       COALESCE((
+         SELECT SUM(CAST(q.question_score AS DOUBLE))
+         FROM exam_part ep
+         INNER JOIN question q ON q.exam_part_id = ep.exam_part_id
+         WHERE ep.exam_repository_id = er.exam_repository_id
+       ), CAST(er.total_score AS DOUBLE)) AS total_score,
+       COALESCE(NULLIF((
+         SELECT COUNT(q.question_id)
+         FROM exam_part ep
+         INNER JOIN question q ON q.exam_part_id = ep.exam_part_id
+         WHERE ep.exam_repository_id = er.exam_repository_id
+       ), 0), er.total_question) AS total_question,
        er.time_limit
      FROM exam_repository er
      INNER JOIN subjects s ON s.subject_id = er.subject_id
@@ -132,8 +142,18 @@ export const getExamsForCurrentTerm = async (req: Request, res: Response) => {
          er.subject_id,
          s.subject_name,
          er.exam_name,
-         CAST(er.total_score AS DOUBLE) AS total_score,
-         er.total_question,
+         COALESCE((
+           SELECT SUM(CAST(q.question_score AS DOUBLE))
+           FROM exam_part ep
+           INNER JOIN question q ON q.exam_part_id = ep.exam_part_id
+           WHERE ep.exam_repository_id = er.exam_repository_id
+         ), CAST(er.total_score AS DOUBLE)) AS total_score,
+         COALESCE(NULLIF((
+           SELECT COUNT(q.question_id)
+           FROM exam_part ep
+           INNER JOIN question q ON q.exam_part_id = ep.exam_part_id
+           WHERE ep.exam_repository_id = er.exam_repository_id
+         ), 0), er.total_question) AS total_question,
          er.time_limit
        FROM exam_repository er
        JOIN subjects s ON er.subject_id = s.subject_id
@@ -315,11 +335,21 @@ export const getExamDetail = async (req: Request, res: Response) => {
       });
     }
 
+    const calculatedTotalScore = Number(
+      questions
+        .reduce(
+          (sum, question) => sum + (Number(question.question_score) || 0),
+          0,
+        )
+        .toFixed(2),
+    );
+
     return res.json({
       message: "Exam detail retrieved successfully",
       data: {
         ...exam,
-        total_score: Number(exam.total_score),
+        total_score: calculatedTotalScore,
+        total_question: questions.length,
         parts: parts.map((part) => ({
           exam_part_id: part.exam_part_id,
           part_order: part.part_order,

@@ -19,8 +19,12 @@ class SubjectReviewFeedbackCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sortedTopics = [...topics]
-      ..sort((left, right) => left.percentage.compareTo(right.percentage));
+    final sortedTopics =
+        ([...topics]..sort(
+              (left, right) => left.percentage.compareTo(right.percentage),
+            ))
+            .take(3)
+            .toList();
     final sortedCheckpoints = [...checkpoints]
       ..sort(
         (left, right) =>
@@ -182,14 +186,6 @@ class _ReviewMethodsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final methods = <String>[];
-    final seenMethods = <String>{};
-    for (final topic in topics) {
-      final key = topic.studyTypeId > 0
-          ? 'id:${topic.studyTypeId}'
-          : topic.studyTypeName.trim().toLowerCase();
-      if (seenMethods.add(key)) methods.add(topic.studyTypeName);
-    }
     return _FeedbackSection(
       key: const Key('review-method-section'),
       color: const Color(0xFFE5F4FB),
@@ -199,12 +195,14 @@ class _ReviewMethodsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (var index = 0; index < methods.length; index++) ...[
+          for (var index = 0; index < topics.length; index++) ...[
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
                   width: 6,
                   height: 6,
+                  margin: const EdgeInsets.only(top: 5),
                   decoration: const BoxDecoration(
                     color: Color(0xFF72A9BE),
                     shape: BoxShape.circle,
@@ -212,18 +210,32 @@ class _ReviewMethodsSection extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    _studyTypeLabel(methods[index]),
-                    style: const TextStyle(
-                      fontSize: 10.5,
-                      height: 1.35,
-                      color: Color(0xFF5E727B),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        topics[index].topicName,
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF4D7487),
+                        ),
+                      ),
+                      Text(
+                        _studyTypeLabel(topics[index].studyTypeName),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          height: 1.35,
+                          color: Color(0xFF5E727B),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            if (index < methods.length - 1) const SizedBox(height: 8),
+            if (index < topics.length - 1) const SizedBox(height: 8),
           ],
         ],
       ),
@@ -280,7 +292,13 @@ class _CheckpointSection extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      _checkpointText(checkpoints[index].weeksUntil(now)),
+                      _checkpointText(
+                        checkpoints[index].nextCheckpointAt.isAfter(now)
+                            ? (checkpoints[index].intervalWeeks > 0
+                                  ? checkpoints[index].intervalWeeks
+                                  : checkpoints[index].weeksUntil(now))
+                            : 0,
+                      ),
                       style: const TextStyle(
                         fontSize: 10.5,
                         color: Color(0xFF9A7527),

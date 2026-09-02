@@ -398,6 +398,7 @@ class _AppDropdownState<T> extends State<AppDropdown<T>> {
           style: const TextStyle(
             fontFamily: 'Sansation',
             fontSize: 13,
+            fontWeight: FontWeight.w400,
             color: Color(0xFF374151),
           ),
         ),
