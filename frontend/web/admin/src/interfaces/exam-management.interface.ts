@@ -88,6 +88,7 @@ export interface ExamQuestionPayload {
   question_order: number;
   question_text: string;
   question_score: number;
+  choices: ExamChoicePayload[];
 }
 
 export interface ExamChoicePayload {

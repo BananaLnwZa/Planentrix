@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, ChevronDown, Circle, FileQuestion, Layers3, LoaderCircle, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
-  ExamChoice,
-  ExamChoicePayload,
   ExamDetail,
   ExamPart,
   ExamPartPayload,
@@ -19,8 +17,7 @@ interface FormTarget {
   kind: ContentFormKind;
   parentId: number;
   defaultOrder: number;
-  item?: ExamPart | ExamQuestion | ExamChoice;
-  requiresCorrectChoice?: boolean;
+  item?: ExamPart | ExamQuestion;
 }
 
 interface DeleteTarget {
@@ -36,11 +33,12 @@ export default function ExamDetailModal({ examId, onClose, onChanged }: { examId
   const [formTarget, setFormTarget] = useState<FormTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
-  const loadDetail = useCallback(async () => {
-    setLoading(true); setError("");
+  const loadDetail = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    setError("");
     try { const response = await examManagementService.getExamDetail(examId); setExam(response.exam); }
     catch (loadError) { setError(loadError instanceof Error ? loadError.message : "ไม่สามารถโหลดข้อสอบได้"); }
-    finally { setLoading(false); }
+    finally { if (showLoading) setLoading(false); }
   }, [examId]);
 
   useEffect(() => {
@@ -49,7 +47,7 @@ export default function ExamDetailModal({ examId, onClose, onChanged }: { examId
     return () => { active = false; };
   }, [examId]);
 
-  const refresh = async () => { await loadDetail(); await onChanged(); };
+  const refresh = async () => { await loadDetail(false); await onChanged(); };
 
   const saveContent = async (payload: ContentFormPayload) => {
     if (!formTarget) return;
@@ -61,10 +59,6 @@ export default function ExamDetailModal({ examId, onClose, onChanged }: { examId
       const data = payload as ExamQuestionPayload;
       if (formTarget.item && "question_id" in formTarget.item) await examManagementService.updateQuestion(formTarget.item.question_id, data);
       else await examManagementService.createQuestion(formTarget.parentId, data);
-    } else {
-      const data = payload as ExamChoicePayload;
-      if (formTarget.item && "choice_id" in formTarget.item) await examManagementService.updateChoice(formTarget.item.choice_id, data);
-      else await examManagementService.createChoice(formTarget.parentId, data);
     }
     setFormTarget(null);
     await refresh();
@@ -73,8 +67,7 @@ export default function ExamDetailModal({ examId, onClose, onChanged }: { examId
   const deleteContent = async () => {
     if (!deleteTarget) return;
     if (deleteTarget.kind === "part") await examManagementService.deletePart(deleteTarget.id);
-    else if (deleteTarget.kind === "question") await examManagementService.deleteQuestion(deleteTarget.id);
-    else await examManagementService.deleteChoice(deleteTarget.id);
+    else await examManagementService.deleteQuestion(deleteTarget.id);
     setDeleteTarget(null);
     await refresh();
   };
@@ -101,8 +94,7 @@ export default function ExamDetailModal({ examId, onClose, onChanged }: { examId
                       {part.questions.length === 0 ? <p className="py-8 text-center text-sm text-[#93a0a6]">ยังไม่มีคำถามใน Part นี้</p> : <div className="space-y-3">{part.questions.map((question) => (
                         <article key={question.question_id} className="rounded-2xl border border-[#e2eaed] bg-white p-4">
                           <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 gap-3"><span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#f1effb] text-xs font-semibold text-[#7569a6]">{question.question_order}</span><div><p className="whitespace-pre-wrap text-sm leading-6 text-[#415963]">{question.question_text}</p><p className="mt-1 text-xs text-[#8a989e]">{Number(question.question_score).toFixed(2)} คะแนน</p></div></div><div className="flex shrink-0"><button type="button" onClick={() => setFormTarget({ kind: "question", parentId: part.exam_part_id, defaultOrder: question.question_order, item: question })} className="p-2 text-[#6f65a2]"><Pencil size={14} /></button><button type="button" disabled={exam.attempt_count > 0} onClick={() => setDeleteTarget({ kind: "question", id: question.question_id, label: `คำถามข้อ ${question.question_order} พร้อมตัวเลือกทั้งหมด` })} className="p-2 text-[#c6644d] disabled:opacity-35"><Trash2 size={14} /></button></div></div>
-                          <div className="mt-3 grid gap-2 sm:grid-cols-2">{question.choices.map((choice) => <div key={choice.choice_id} className={`flex items-start gap-2 rounded-xl border p-2.5 text-xs ${choice.is_correct ? "border-[#cce8da] bg-[#effaf4] text-[#39745a]" : "border-[#e5eaec] bg-[#f9fbfc] text-[#61737b]"}`}>{choice.is_correct ? <CheckCircle2 className="mt-0.5 shrink-0" size={14} /> : <Circle className="mt-0.5 shrink-0" size={14} />}<span className="min-w-0 flex-1">{choice.choice_order}. {choice.choice_text}</span><button type="button" onClick={() => setFormTarget({ kind: "choice", parentId: question.question_id, defaultOrder: choice.choice_order, item: choice, requiresCorrectChoice: choice.is_correct && !question.choices.some((candidate) => candidate.is_correct && candidate.choice_id !== choice.choice_id) })} className="shrink-0 p-1"><Pencil size={12} /></button><button type="button" disabled={exam.attempt_count > 0} onClick={() => setDeleteTarget({ kind: "choice", id: choice.choice_id, label: `ตัวเลือก ${choice.choice_order}: ${choice.choice_text}` })} className="shrink-0 p-1 text-[#c6644d] disabled:opacity-35"><Trash2 size={12} /></button></div>)}</div>
-                          <button type="button" onClick={() => setFormTarget({ kind: "choice", parentId: question.question_id, defaultOrder: Math.max(0, ...question.choices.map((choice) => choice.choice_order)) + 1, requiresCorrectChoice: !question.choices.some((choice) => choice.is_correct) })} className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-[#47849a]"><Plus size={14} />เพิ่มตัวเลือก</button>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">{question.choices.map((choice) => <div key={choice.choice_id} className={`flex items-start gap-2 rounded-xl border p-2.5 text-xs ${choice.is_correct ? "border-[#cce8da] bg-[#effaf4] text-[#39745a]" : "border-[#e5eaec] bg-[#f9fbfc] text-[#61737b]"}`}>{choice.is_correct ? <CheckCircle2 className="mt-0.5 shrink-0" size={14} /> : <Circle className="mt-0.5 shrink-0" size={14} />}<span className="min-w-0 flex-1">{choice.choice_order}. {choice.choice_text}</span></div>)}</div>
                         </article>
                       ))}</div>}
                     </div>
@@ -114,7 +106,7 @@ export default function ExamDetailModal({ examId, onClose, onChanged }: { examId
           )}
         </div>
       </div>
-      {formTarget && <ExamContentFormModal key={`${formTarget.kind}-${formTarget.item ? "exam_part_name" in formTarget.item ? formTarget.item.exam_part_id : "question_text" in formTarget.item ? formTarget.item.question_id : formTarget.item.choice_id : "new"}`} kind={formTarget.kind} item={formTarget.item} defaultOrder={formTarget.defaultOrder} requiresCorrectChoice={formTarget.requiresCorrectChoice} onClose={() => setFormTarget(null)} onSave={saveContent} />}
+      {formTarget && <ExamContentFormModal key={`${formTarget.kind}-${formTarget.item ? "exam_part_name" in formTarget.item ? formTarget.item.exam_part_id : formTarget.item.question_id : "new"}`} kind={formTarget.kind} item={formTarget.item} defaultOrder={formTarget.defaultOrder} onClose={() => setFormTarget(null)} onSave={saveContent} />}
       {deleteTarget && <ConfirmContentDeleteModal label={deleteTarget.label} onClose={() => setDeleteTarget(null)} onConfirm={deleteContent} />}
     </div>
   );

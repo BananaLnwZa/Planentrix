@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -26,6 +27,7 @@ type AdminLoginFormData = z.infer<typeof adminLoginSchema>;
 export default function AdminLoginForm() {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     clearAdminSession();
@@ -120,22 +122,37 @@ export default function AdminLoginForm() {
             >
               Password
             </label>
-            <input
-              id="admin-password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="Enter password"
-              aria-invalid={Boolean(errors.admin_password)}
-              aria-describedby={
-                errors.admin_password ? "admin-password-error" : undefined
-              }
-              {...register("admin_password")}
-              className={`h-11 w-full rounded-full border bg-white/75 px-4 text-sm text-[#2d3740] outline-none transition duration-200 placeholder:text-[#a3adb3] focus:bg-white focus:ring-4 ${
-                errors.admin_password
-                  ? "border-[#dc7769] focus:border-[#dc7769] focus:ring-[#f7d6d0]/50"
-                  : "border-[#c9d8df] focus:border-[#79b7cf] focus:ring-[#ccebf5]/55"
-              }`}
-            />
+            <div className="relative">
+              <input
+                id="admin-password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                placeholder="Enter password"
+                aria-invalid={Boolean(errors.admin_password)}
+                aria-describedby={
+                  errors.admin_password ? "admin-password-error" : undefined
+                }
+                {...register("admin_password")}
+                className={`h-11 w-full rounded-full border bg-white/75 py-0 pl-4 pr-12 text-sm text-[#2d3740] outline-none transition duration-200 placeholder:text-[#a3adb3] focus:bg-white focus:ring-4 ${
+                  errors.admin_password
+                    ? "border-[#dc7769] focus:border-[#dc7769] focus:ring-[#f7d6d0]/50"
+                    : "border-[#c9d8df] focus:border-[#79b7cf] focus:ring-[#ccebf5]/55"
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((previous) => !previous)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                title={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-4 top-1/2 flex -translate-y-1/2 items-center justify-center text-[#829097] transition-colors hover:text-[#47545c] focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#79b7cf]"
+              >
+                {showPassword ? (
+                  <EyeOff aria-hidden="true" size={18} strokeWidth={1.8} />
+                ) : (
+                  <Eye aria-hidden="true" size={18} strokeWidth={1.8} />
+                )}
+              </button>
+            </div>
             {errors.admin_password && (
               <p
                 id="admin-password-error"

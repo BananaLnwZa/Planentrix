@@ -48,6 +48,12 @@ interface ChoiceRow extends RowDataPacket {
   is_correct: 0 | 1;
 }
 
+interface QuestionChoiceInput {
+  choice_order: number;
+  choice_text: string;
+  is_correct: boolean;
+}
+
 interface ActiveSubjectRow extends RowDataPacket {
   subject_id: string;
   subject_name: string;
@@ -125,6 +131,74 @@ const validateScore = (value: unknown): number | null => {
     return null;
   }
   return score;
+};
+
+const validateQuestionChoices = (
+  value: unknown,
+):
+  | { valid: true; choices: QuestionChoiceInput[] }
+  | { valid: false; error: string } => {
+  if (!Array.isArray(value) || value.length < 4) {
+    return { valid: false, error: "กรุณาเพิ่มตัวเลือกอย่างน้อย 4 ตัวเลือก" };
+  }
+
+  const choices: QuestionChoiceInput[] = [];
+  const usedOrders = new Set<number>();
+  for (const rawChoice of value) {
+    if (!rawChoice || typeof rawChoice !== "object") {
+      return { valid: false, error: "ข้อมูลตัวเลือกไม่ถูกต้อง" };
+    }
+
+    const input = rawChoice as Record<string, unknown>;
+    const order = Number(input.choice_order);
+    const text = String(input.choice_text ?? "").trim();
+    const isCorrect = input.is_correct;
+    if (!Number.isInteger(order) || order < 1 || order > 999) {
+      return { valid: false, error: "ลำดับตัวเลือกต้องอยู่ระหว่าง 1-999" };
+    }
+    if (usedOrders.has(order)) {
+      return { valid: false, error: "ลำดับตัวเลือกต้องไม่ซ้ำกัน" };
+    }
+    if (!text) {
+      return { valid: false, error: "กรุณากรอกข้อความตัวเลือกให้ครบทุกตัวเลือก" };
+    }
+    if (typeof isCorrect !== "boolean") {
+      return { valid: false, error: "สถานะคำตอบที่ถูกต้องไม่ถูกต้อง" };
+    }
+
+    usedOrders.add(order);
+    choices.push({ choice_order: order, choice_text: text, is_correct: isCorrect });
+  }
+
+  const correctChoiceCount = choices.filter((choice) => choice.is_correct).length;
+  if (correctChoiceCount === 0) {
+    return { valid: false, error: "กรุณากำหนดคำตอบที่ถูกต้อง 1 ตัวเลือก" };
+  }
+  if (correctChoiceCount > 1) {
+    return { valid: false, error: "คำถามหนึ่งข้อมีคำตอบที่ถูกได้เพียงหนึ่งตัวเลือก" };
+  }
+
+  return { valid: true, choices };
+};
+
+const replaceQuestionChoices = async (
+  connection: PoolConnection,
+  questionId: number,
+  choices: QuestionChoiceInput[],
+) => {
+  await connection.query("DELETE FROM choice WHERE question_id = ?", [questionId]);
+  for (const choice of choices) {
+    await connection.query(
+      `INSERT INTO choice (question_id, choice_order, choice_text, is_correct)
+       VALUES (?, ?, ?, ?)`,
+      [
+        questionId,
+        choice.choice_order,
+        choice.choice_text,
+        choice.is_correct ? 1 : 0,
+      ],
+    );
+  }
 };
 
 const getExamSummary = async (
@@ -511,11 +585,15 @@ export const createQuestion = async (req: Request, res: Response) => {
   const order = Number(req.body.question_order);
   const text = String(req.body.question_text ?? "").trim();
   const score = validateScore(req.body.question_score);
+  const choiceValidation = validateQuestionChoices(req.body.choices);
   if (!Number.isInteger(order) || order < 1 || order > 9999) {
     return res.status(400).json({ message: "ลำดับคำถามต้องอยู่ระหว่าง 1-9999" });
   }
   if (!text) return res.status(400).json({ message: "กรุณากรอกคำถาม" });
   if (score === null) return res.status(400).json({ message: "คะแนนคำถามไม่ถูกต้อง" });
+  if (!choiceValidation.valid) {
+    return res.status(400).json({ message: choiceValidation.error });
+  }
 
   const connection = await db.getConnection();
   try {
@@ -543,11 +621,16 @@ export const createQuestion = async (req: Request, res: Response) => {
       await connection.rollback();
       return res.status(409).json({ message: "ลำดับคำถามนี้มีอยู่แล้ว" });
     }
-    await connection.query(
+    const [questionResult] = await connection.query<ResultSetHeader>(
       `INSERT INTO question
         (exam_part_id, question_order, question_text, question_score)
        VALUES (?, ?, ?, ?)`,
       [partId, order, text, score],
+    );
+    await replaceQuestionChoices(
+      connection,
+      questionResult.insertId,
+      choiceValidation.choices,
     );
     await syncPartAndExamTotals(connection, partId);
     await connection.commit();
@@ -568,11 +651,15 @@ export const updateQuestion = async (req: Request, res: Response) => {
   const order = Number(req.body.question_order);
   const text = String(req.body.question_text ?? "").trim();
   const score = validateScore(req.body.question_score);
+  const choiceValidation = validateQuestionChoices(req.body.choices);
   if (!Number.isInteger(order) || order < 1 || order > 9999) {
     return res.status(400).json({ message: "ลำดับคำถามต้องอยู่ระหว่าง 1-9999" });
   }
   if (!text) return res.status(400).json({ message: "กรุณากรอกคำถาม" });
   if (score === null) return res.status(400).json({ message: "คะแนนคำถามไม่ถูกต้อง" });
+  if (!choiceValidation.valid) {
+    return res.status(400).json({ message: choiceValidation.error });
+  }
 
   const connection = await db.getConnection();
   try {
@@ -611,6 +698,7 @@ export const updateQuestion = async (req: Request, res: Response) => {
        WHERE question_id = ?`,
       [order, text, score, questionId],
     );
+    await replaceQuestionChoices(connection, questionId, choiceValidation.choices);
     await syncPartAndExamTotals(connection, partId);
     await connection.commit();
     res.json({ message: "Question updated successfully" });
