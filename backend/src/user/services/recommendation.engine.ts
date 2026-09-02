@@ -907,17 +907,29 @@ export const getLatestRecommendation = async (
   userId: number,
   weekStart?: string
 ) => {
-  const params: unknown[] = [userId];
+  const params: unknown[] = [userId, userId];
   let weekFilter = "";
   if (weekStart) {
-    weekFilter = " AND week_start = ?";
+    weekFilter = " AND recommendation.week_start = ?";
     params.push(weekStart);
   }
   const [rows] = await db.query<ExistingRecommendationRow[]>(
-    `SELECT recommendation_id, version, status
-     FROM weekly_recommendation
-     WHERE user_id = ? AND status <> 'superseded'${weekFilter}
-     ORDER BY week_start DESC, version DESC LIMIT 1`,
+    `SELECT recommendation.recommendation_id,
+            recommendation.version,
+            recommendation.status
+     FROM weekly_recommendation recommendation
+     WHERE recommendation.user_id = ?
+       AND recommendation.term_id = (
+         SELECT term_id
+         FROM terms
+         WHERE user_id = ? AND term_status = 1
+         ORDER BY term_id DESC
+         LIMIT 1
+       )
+       AND recommendation.status <> 'superseded'${weekFilter}
+     ORDER BY recommendation.week_start DESC,
+              recommendation.version DESC
+     LIMIT 1`,
     params
   );
   if (!rows[0]) return null;
@@ -1389,19 +1401,21 @@ export const getAcceptedWeeklySchedule = async (
   weekStart?: string
 ) => {
   const target = weekStart ?? resolveTargetWeek("manual", new Date()).weekStart;
-  const [headers] = await db.query<ExistingRecommendationRow[]>(
-    `SELECT recommendation_id, version, status
-     FROM weekly_recommendation
-     WHERE user_id = ? AND week_start = ? AND status = 'accepted'
-     ORDER BY version DESC LIMIT 1`,
-    [userId, target]
-  );
   const connection = await db.getConnection();
   try {
     const term = await loadCurrentTerm(connection, userId);
     if (!term) {
       throw new RecommendationServiceError(404, "NO_CURRENT_TERM", "No current term found");
     }
+    const [headers] = await connection.query<ExistingRecommendationRow[]>(
+      `SELECT recommendation_id, version, status
+       FROM weekly_recommendation
+       WHERE user_id = ? AND term_id = ? AND week_start = ?
+         AND status = 'accepted'
+       ORDER BY version DESC
+       LIMIT 1`,
+      [userId, term.term_id, target]
+    );
     const [classes] = await connection.query<RowDataPacket[]>(
       `SELECT st.schedule_time_id, st.subject_id, s.subject_name,
          st.schedule_type_id, types.schedule_type_name, st.schedule_day,
@@ -1453,9 +1467,10 @@ export const generateWeekendRecommendations = async (now = new Date()) => {
   if (isoDay(parts.date) !== 7 || parts.hour < 18) return [];
   const { weekStart } = resolveTargetWeek("weekend", now);
   const [users] = await db.query<RowDataPacket[]>(
-    `SELECT user_id
+    `SELECT user_id, MAX(term_id) AS term_id
      FROM terms
      WHERE term_status = 1
+     GROUP BY user_id
      ORDER BY user_id`
   );
   const results = [];
@@ -1463,9 +1478,10 @@ export const generateWeekendRecommendations = async (now = new Date()) => {
     const [existing] = await db.query<RowDataPacket[]>(
       `SELECT recommendation_id
        FROM weekly_recommendation
-       WHERE user_id = ? AND week_start = ? AND trigger_type = 'weekend'
+       WHERE user_id = ? AND term_id = ? AND week_start = ?
+         AND trigger_type = 'weekend'
        LIMIT 1`,
-      [row.user_id, weekStart]
+      [row.user_id, row.term_id, weekStart]
     );
     if (existing.length > 0) continue;
     results.push(

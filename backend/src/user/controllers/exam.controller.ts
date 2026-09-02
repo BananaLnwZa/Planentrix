@@ -199,8 +199,15 @@ export const getExamScoreHistory = async (req: Request, res: Response) => {
        JOIN exam_repository er ON esh.exam_repository_id = er.exam_repository_id
        JOIN subjects s ON er.subject_id = s.subject_id
        WHERE st.user_id = ?
+         AND st.term_id = (
+           SELECT term_id
+           FROM terms
+           WHERE user_id = ? AND term_status = 1
+           ORDER BY term_id DESC
+           LIMIT 1
+         )
        ORDER BY esh.exam_date DESC`,
-      [userId]
+      [userId, userId]
     );
 
     const [topicRows]: any = await db.query(
@@ -215,10 +222,17 @@ export const getExamScoreHistory = async (req: Request, res: Response) => {
          ON st.schedule_time_id = esh.schedule_time_id
        INNER JOIN exam_part ep ON ep.exam_part_id = psh.exam_part_id
        WHERE st.user_id = ?
+         AND st.term_id = (
+           SELECT term_id
+           FROM terms
+           WHERE user_id = ? AND term_status = 1
+           ORDER BY term_id DESC
+           LIMIT 1
+         )
          AND ep.part_score > 0
          AND (psh.part_score / ep.part_score) * 100 < 50
        ORDER BY psh.exam_score_history_id DESC, percentage ASC`,
-      [userId]
+      [userId, userId]
     );
     const weakTopicsByHistory = new Map<number, Array<{
       topic_name: string;
