@@ -23,11 +23,29 @@ abstract class ScoreRepository {
   Future<void> saveWorkloadScore(int workloadId, WorkloadScoreInput input);
 }
 
-class ScoreService implements ScoreRepository {
+abstract class GradeGoalStatusRepository {
+  Future<bool> hasSavedGradeGoals();
+}
+
+class ScoreService implements ScoreRepository, GradeGoalStatusRepository {
   final ApiService _apiService;
 
   ScoreService({ApiService? apiService})
     : _apiService = apiService ?? ApiService();
+
+  @override
+  Future<bool> hasSavedGradeGoals() async {
+    try {
+      final response = await _apiService.get('/user/grade/goals');
+      final body = Map<String, dynamic>.from(response.data as Map);
+      return body['goals_locked'] == true;
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) return false;
+      throw _toScoreException(error, 'ไม่สามารถตรวจสอบเป้าหมายเกรดได้');
+    } on TypeError {
+      throw const ScoreException('ข้อมูลเป้าหมายเกรดจากระบบไม่ถูกต้อง');
+    }
+  }
 
   @override
   Future<List<SubjectScore>> getCompletedSubjectScores() async {

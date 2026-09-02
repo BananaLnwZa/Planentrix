@@ -28,8 +28,10 @@ import {
 
 export default function HomeworkDashboard({
   onHomeworkFinished,
+  canAddHomework,
 }: {
   onHomeworkFinished: () => void;
+  canAddHomework: boolean;
 }) {
   const [tasks, setTasks] = useState<HomeworkTask[]>([]);
   const [hasCurrentTerm, setHasCurrentTerm] = useState<boolean | null>(null);
@@ -82,7 +84,7 @@ export default function HomeworkDashboard({
   const groups = useMemo(() => groupHomeworkTasks(tasks), [tasks]);
 
   const openAdd = async () => {
-    if (!hasCurrentTerm) return;
+    if (!hasCurrentTerm || !canAddHomework) return;
     setModalError(null);
     try {
       const result = await homeworkService.getSubjects();
@@ -159,7 +161,7 @@ export default function HomeworkDashboard({
   return (
     <section className="relative h-full min-h-[500px] w-full md:pl-1">
       <div className="px-2 pb-5 pt-1">
-        {!isLoading && !loadError && hasCurrentTerm && (
+        {!isLoading && !loadError && hasCurrentTerm && canAddHomework && (
           <button
             type="button"
             onClick={() => void openAdd()}

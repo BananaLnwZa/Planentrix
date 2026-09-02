@@ -1,20 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import MainNotebookScreen from "@/components/common/MainNotebookScreen";
 import Schedule from "@/components/Main/Schedule";
 import StudentCard from "@/components/Main/StudentCard";
 import Term from "@/components/Main/Term";
 import MainNotificationCard from "@/components/Main/MainNotificationCard";
 import RecommendationCard from "@/components/Main/RecommendationCard";
+import gradeService from "@/services/grade.service";
 
 export default function MainPage() {
   const [termVersion, setTermVersion] = useState(0);
   const [scheduleVersion, setScheduleVersion] = useState(0);
   const [recommendationVersion, setRecommendationVersion] = useState(0);
   const [alertVersion, setAlertVersion] = useState(0);
+  const [hasSavedGradeGoals, setHasSavedGradeGoals] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    gradeService
+      .getSubjectGoals()
+      .then((response) => {
+        if (active) setHasSavedGradeGoals(Boolean(response?.goals_locked));
+      })
+      .catch(() => {
+        if (active) setHasSavedGradeGoals(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [termVersion]);
 
   const handleTermChange = () => {
+    setHasSavedGradeGoals(false);
     setTermVersion((version) => version + 1);
     setScheduleVersion((version) => version + 1);
     setRecommendationVersion((version) => version + 1);
@@ -56,10 +76,12 @@ export default function MainPage() {
               }
             />
           </div>
-          <RecommendationCard
-            refreshKey={recommendationVersion + termVersion}
-            onAccepted={() => setScheduleVersion((version) => version + 1)}
-          />
+          {hasSavedGradeGoals && (
+            <RecommendationCard
+              refreshKey={recommendationVersion + termVersion}
+              onAccepted={() => setScheduleVersion((version) => version + 1)}
+            />
+          )}
         </div>
       </div>
     </MainNotebookScreen>

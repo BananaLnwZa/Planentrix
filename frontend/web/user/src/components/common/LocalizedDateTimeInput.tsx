@@ -227,7 +227,7 @@ const LocalizedDateTimeInput = forwardRef<
 
       {open && typeof document !== "undefined" && createPortal(
         <div
-          className="fixed inset-0 z-[2147483647] flex items-center justify-center overflow-y-auto bg-transparent p-3 backdrop-blur-[1px]"
+          className="fixed inset-0 z-[2147483644] flex items-center justify-center overflow-y-auto bg-transparent p-3 backdrop-blur-[1px]"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setOpen(false);
           }}

@@ -151,7 +151,10 @@ export default function ScoreHomeworkContent() {
         />
       )}
     </div>
-      <HomeworkDashboard onHomeworkFinished={() => void loadGoals()} />
+      <HomeworkDashboard
+        canAddHomework={Boolean(data?.goals_locked)}
+        onHomeworkFinished={() => void loadGoals()}
+      />
     </div>
   );
 }

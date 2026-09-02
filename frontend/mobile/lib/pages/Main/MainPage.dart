@@ -13,6 +13,7 @@ import '../../services/homework.service.dart';
 import '../../services/recommendation.service.dart';
 import '../../services/exam.service.dart';
 import '../../services/app_notification.service.dart';
+import '../../services/score.service.dart';
 import '../../interfaces/auth.interface.dart';
 import '../../interfaces/profile.interface.dart';
 import '../../interfaces/term.interface.dart';
@@ -45,6 +46,7 @@ class MainPage extends StatefulWidget {
   final HomeworkRepository? homeworkRepository;
   final RecommendationRepository? recommendationRepository;
   final ExamRepository? examRepository;
+  final GradeGoalStatusRepository? gradeGoalStatusRepository;
 
   const MainPage({
     super.key,
@@ -57,6 +59,7 @@ class MainPage extends StatefulWidget {
     this.homeworkRepository,
     this.recommendationRepository,
     this.examRepository,
+    this.gradeGoalStatusRepository,
   });
 
   @override
@@ -71,6 +74,7 @@ class _MainPageState extends State<MainPage> {
   late final RecommendationRepository _recommendationRepository;
   late final TableRepository _tableRepository;
   late final ExamRepository _examRepository;
+  late final GradeGoalStatusRepository _gradeGoalStatusRepository;
 
   String? _username;
   int? _userId;
@@ -85,6 +89,7 @@ class _MainPageState extends State<MainPage> {
   List<AppAlertData> _activeAlerts = const [];
   DateTime _alertNow = DateTime.now();
   Timer? _alertClock;
+  bool _hasSavedGradeGoals = false;
 
   @override
   void initState() {
@@ -95,6 +100,8 @@ class _MainPageState extends State<MainPage> {
         widget.recommendationRepository ?? RecommendationService();
     _tableRepository = widget.tableRepository ?? TableService();
     _examRepository = widget.examRepository ?? ExamService();
+    _gradeGoalStatusRepository =
+        widget.gradeGoalStatusRepository ?? ScoreService();
     _username = widget.username;
     _userId = widget.userId;
     _loadPageData();
@@ -148,6 +155,9 @@ class _MainPageState extends State<MainPage> {
     if (_shouldLoadAlerts) {
       unawaited(_loadAppAlerts());
     }
+    if (_shouldLoadGradeGoalStatus) {
+      unawaited(_loadGradeGoalStatus());
+    }
   }
 
   bool get _usesLiveAlertSources =>
@@ -177,6 +187,19 @@ class _MainPageState extends State<MainPage> {
       (widget.tableRepository == null &&
           widget.profileRepository == null &&
           widget.username == null);
+
+  bool get _shouldLoadGradeGoalStatus =>
+      _usesLiveAlertSources || widget.gradeGoalStatusRepository != null;
+
+  Future<void> _loadGradeGoalStatus() async {
+    var hasSavedGradeGoals = false;
+    try {
+      hasSavedGradeGoals =
+          await _gradeGoalStatusRepository.hasSavedGradeGoals();
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => _hasSavedGradeGoals = hasSavedGradeGoals);
+  }
 
   Future<void> _loadAppAlerts() async {
     final Future<({HomeworkOverview? value, Object? error})> homeworkFuture =
@@ -434,8 +457,12 @@ class _MainPageState extends State<MainPage> {
                     setState(() {
                       _currentTerm = term;
                       _scheduleVersion += 1;
+                      _hasSavedGradeGoals = false;
                     });
                     if (_shouldLoadAlerts) unawaited(_loadAppAlerts());
+                    if (_shouldLoadGradeGoalStatus) {
+                      unawaited(_loadGradeGoalStatus());
+                    }
                   },
                 ),
               ),
@@ -463,7 +490,7 @@ class _MainPageState extends State<MainPage> {
               ? () => unawaited(_loadAppAlerts())
               : null,
         ),
-        if (_shouldLoadRecommendations) ...[
+        if (_shouldLoadRecommendations && _hasSavedGradeGoals) ...[
           const SizedBox(height: 24),
           RecommendationCard(
             repository: _recommendationRepository,

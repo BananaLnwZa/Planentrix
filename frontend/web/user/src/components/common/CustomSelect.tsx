@@ -211,12 +211,14 @@ export default function CustomSelect<T extends SelectValue>({
               type="button"
               aria-label="ปิดตัวเลือก"
               className="fixed inset-0 z-[2147483645] cursor-default"
+              onMouseDown={(event) => event.stopPropagation()}
               onClick={() => setOpen(false)}
             />
             <div
               id={listboxId}
               role="listbox"
               aria-labelledby={selectId}
+              onMouseDown={(event) => event.stopPropagation()}
               className={`fixed z-[2147483646] overflow-y-auto border border-gray-300 bg-white shadow-xl ${
                 position.opensUp
                   ? "rounded-t-[22px] border-b-0"
