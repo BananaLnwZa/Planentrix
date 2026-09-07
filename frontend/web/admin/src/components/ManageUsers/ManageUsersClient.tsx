@@ -18,9 +18,28 @@ import UserTable from "./UserTable";
 
 const PAGE_SIZE = 12;
 
+const userSortPriority = (user: ManagedUser) => {
+  if (user.last_login && user.is_inactive) return 0;
+  if (user.last_login) return 1;
+  return 2;
+};
+
+const lastLoginTimestamp = (user: ManagedUser) => {
+  if (!user.last_login) return Number.NEGATIVE_INFINITY;
+  const timestamp = Date.parse(user.last_login);
+  return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
+};
+
 const sortUsers = (users: ManagedUser[]) =>
   [...users].sort((first, second) => {
-    if (first.is_inactive !== second.is_inactive) return first.is_inactive ? -1 : 1;
+    const priorityDifference =
+      userSortPriority(first) - userSortPriority(second);
+    if (priorityDifference !== 0) return priorityDifference;
+
+    const loginDifference =
+      lastLoginTimestamp(second) - lastLoginTimestamp(first);
+    if (loginDifference !== 0) return loginDifference;
+
     return first.user_id - second.user_id;
   });
 

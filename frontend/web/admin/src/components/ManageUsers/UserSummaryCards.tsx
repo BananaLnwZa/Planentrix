@@ -1,4 +1,4 @@
-import { ClockAlert, LogIn, UserRoundCheck, UsersRound } from "lucide-react";
+import { ClockAlert, UserRoundCheck, UsersRound } from "lucide-react";
 import { ManagedUser } from "@/interfaces/user-management.interface";
 
 interface UserSummaryCardsProps {
@@ -7,7 +7,6 @@ interface UserSummaryCardsProps {
 
 export default function UserSummaryCards({ users }: UserSummaryCardsProps) {
   const inactive = users.filter((user) => user.is_inactive).length;
-  const neverLoggedIn = users.filter((user) => !user.last_login).length;
   const recentlyActive = users.filter((user) => {
     return user.inactive_days !== null && user.inactive_days >= 0 && user.inactive_days <= 30;
   }).length;
@@ -34,17 +33,10 @@ export default function UserSummaryCards({ users }: UserSummaryCardsProps) {
       icon: UserRoundCheck,
       color: "bg-[#eaf8f2] text-[#4b9a7b]",
     },
-    {
-      label: "ยังไม่เคยเข้าใช้งาน",
-      value: neverLoggedIn,
-      note: "ไม่มีประวัติการเข้าสู่ระบบ",
-      icon: LogIn,
-      color: "bg-[#f2effc] text-[#8070bd]",
-    },
   ];
 
   return (
-    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="สรุปข้อมูลผู้ใช้">
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="สรุปข้อมูลผู้ใช้">
       {cards.map(({ label, value, note, icon: Icon, color }) => (
         <article
           key={label}
