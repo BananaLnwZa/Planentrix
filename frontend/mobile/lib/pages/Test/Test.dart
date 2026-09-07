@@ -328,9 +328,12 @@ class _TestPageState extends State<TestPage> {
     for (final exam in _exams) {
       uniqueSubjects.putIfAbsent(exam.subjectId, () => exam);
     }
-    final visibleExams = _selectedSubjectId == null
+    final selectedExam = _selectedSubjectId == null
+        ? null
+        : uniqueSubjects[_selectedSubjectId];
+    final visibleExams = selectedExam == null
         ? const <ExamSummary>[]
-        : _exams.where((exam) => exam.subjectId == _selectedSubjectId).toList();
+        : <ExamSummary>[selectedExam];
     final feedbackSubjectIds = <String>{
       ..._insights.weakTopics.map((topic) => topic.subjectId),
       ..._insights.nextCheckpoints.map((checkpoint) => checkpoint.subjectId),

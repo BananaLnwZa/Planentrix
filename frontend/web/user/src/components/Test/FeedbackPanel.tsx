@@ -1,19 +1,9 @@
-import { BookOpen, CalendarClock, Lightbulb, TrendingDown } from "lucide-react";
+import { BookOpen, CalendarClock, TrendingDown } from "lucide-react";
 import type {
   ExamCheckpointInsight,
   WeakTopicInsight,
 } from "@/interfaces/exam.interface";
 import { formatDisplayDate } from "@/utils/dateTime";
-
-const studyTypeLabel = (value: string) => {
-  switch (value.trim().toLowerCase()) {
-    case "reading": return "อ่านตำรา/เอกสาร";
-    case "practice": return "ทำโจทย์/ฝึกปฏิบัติ";
-    case "video": return "ดูวิดีโอ/lecture";
-    case "review": return "ทบทวน/สรุปบทเรียน";
-    default: return value || "ยังไม่มีวิธีทบทวนที่แนะนำ";
-  }
-};
 
 const weeksUntil = (value: Date) => {
   const days = Math.ceil((value.getTime() - Date.now()) / 86_400_000);
@@ -111,26 +101,6 @@ export default function FeedbackPanel({
             </ol>
           ) : "ทำได้ดี ยังไม่มีเรื่องที่ต้องเน้นเป็นพิเศษ"}
         </FeedbackSection>
-
-        {sortedTopics.length > 0 && (
-          <FeedbackSection
-            icon={<Lightbulb className="h-3.5 w-3.5" />}
-            title="วิธีทบทวนที่แนะนำ"
-            color="bg-[#E5F4FB]"
-          >
-            <ul className="space-y-1.5">
-              {sortedTopics.map((topic) => (
-                <li key={topic.examPartId} className="flex items-start gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#72A9BE]" />
-                  <span className="min-w-0">
-                    <strong className="font-medium text-[#4D7487]">{topic.topicName}:</strong>{" "}
-                    {studyTypeLabel(topic.studyTypeName)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </FeedbackSection>
-        )}
 
         {sortedCheckpoints.length > 0 && (
           <FeedbackSection

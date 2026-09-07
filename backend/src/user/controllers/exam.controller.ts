@@ -167,7 +167,6 @@ export const getExamsForCurrentTerm = async (req: Request, res: Response) => {
            INNER JOIN schedule_time checkpoint_st
              ON checkpoint_st.schedule_time_id = ec.schedule_time_id
            WHERE ec.user_id = st.user_id
-             AND ec.exam_repository_id = er.exam_repository_id
              AND checkpoint_st.subject_id = er.subject_id
              AND ec.next_checkpoint_at > NOW()
          )
@@ -177,11 +176,15 @@ export const getExamsForCurrentTerm = async (req: Request, res: Response) => {
       [userId, CLASS_SCHEDULE_TYPE_ID]
     );
 
+    const examsBySubject = Array.from(
+      new Map(rows.map((row) => [row.subject_id, row])).values(),
+    );
+
     res.json({
       message: "Exams retrieved successfully",
       user_id: userId,
-      total: rows.length,
-      data: rows,
+      total: examsBySubject.length,
+      data: examsBySubject,
     });
   } catch (err) {
     console.error("getExamsForCurrentTerm error:", err);

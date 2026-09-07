@@ -141,8 +141,8 @@ export default function TestWorkspace() {
   );
 
   const visibleExams = useMemo(
-    () => exams.filter((exam) => exam.subjectId === examSubjectId),
-    [examSubjectId, exams]
+    () => examSubjects.filter((exam) => exam.subjectId === examSubjectId),
+    [examSubjectId, examSubjects]
   );
 
   const openExam = async (summary: ExamSummary) => {

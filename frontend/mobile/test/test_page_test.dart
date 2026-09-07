@@ -33,11 +33,21 @@ class FakeExamRepository implements ExamRepository {
       totalQuestion: 1,
       timeLimitMinutes: 15,
     ),
+    ExamSummary(
+      examRepositoryId: 3,
+      scheduleTimeId: 11,
+      subjectId: 'CS101',
+      subjectName: 'Numerical Method',
+      examName: 'แบบทดสอบบทที่ 2',
+      totalScore: 100,
+      totalQuestion: 2,
+      timeLimitMinutes: 30,
+    ),
   ];
 
   @override
   Future<List<ExamSummary>> getExams() async => submitted
-      ? exams.where((exam) => exam.examRepositoryId != 1).toList()
+      ? exams.where((exam) => exam.subjectId != 'CS101').toList()
       : exams;
 
   @override
@@ -235,6 +245,7 @@ void main() {
     expect(find.byKey(const Key('test-subject-tabs')), findsOneWidget);
     expect(find.byKey(const Key('exam-card-1')), findsOneWidget);
     expect(find.byKey(const Key('exam-card-2')), findsNothing);
+    expect(find.byKey(const Key('exam-card-3')), findsNothing);
     expect(find.byKey(const Key('exam-history-section')), findsOneWidget);
     expect(find.byKey(const Key('exam-history-subject-tabs')), findsOneWidget);
     expect(find.byKey(const Key('exam-history-90')), findsOneWidget);
@@ -347,9 +358,9 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('weak-topic-section')), findsOneWidget);
-    expect(find.byKey(const Key('review-method-section')), findsOneWidget);
+    expect(find.byKey(const Key('review-method-section')), findsNothing);
     expect(find.byKey(const Key('checkpoint-section')), findsOneWidget);
-    expect(find.text('ทำโจทย์/ฝึกปฏิบัติ'), findsOneWidget);
+    expect(find.text('วิธีทบทวนที่แนะนำ'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

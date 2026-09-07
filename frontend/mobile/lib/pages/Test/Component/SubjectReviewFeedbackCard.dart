@@ -95,10 +95,6 @@ class SubjectReviewFeedbackCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _WeakTopicsSection(topics: sortedTopics),
-          if (sortedTopics.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _ReviewMethodsSection(topics: sortedTopics),
-          ],
           if (sortedCheckpoints.isNotEmpty) ...[
             const SizedBox(height: 10),
             _CheckpointSection(checkpoints: sortedCheckpoints, now: now),
@@ -175,70 +171,6 @@ class _WeakTopicsSection extends StatelessWidget {
                 ],
               ],
             ),
-    );
-  }
-}
-
-class _ReviewMethodsSection extends StatelessWidget {
-  final List<WeakTopicInsight> topics;
-
-  const _ReviewMethodsSection({required this.topics});
-
-  @override
-  Widget build(BuildContext context) {
-    return _FeedbackSection(
-      key: const Key('review-method-section'),
-      color: const Color(0xFFE5F4FB),
-      titleColor: const Color(0xFF4D7487),
-      icon: Icons.lightbulb_outline_rounded,
-      title: 'วิธีทบทวนที่แนะนำ',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (var index = 0; index < topics.length; index++) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  margin: const EdgeInsets.only(top: 5),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF72A9BE),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        topics[index].topicName,
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          height: 1.35,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF4D7487),
-                        ),
-                      ),
-                      Text(
-                        _studyTypeLabel(topics[index].studyTypeName),
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          height: 1.35,
-                          color: Color(0xFF5E727B),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            if (index < topics.length - 1) const SizedBox(height: 8),
-          ],
-        ],
-      ),
     );
   }
 }
@@ -405,19 +337,4 @@ String _reviewDuration(int minutes) {
 
 String _dateText(DateTime value) {
   return formatDisplayDate(value);
-}
-
-String _studyTypeLabel(String value) {
-  switch (value.trim().toLowerCase()) {
-    case 'reading':
-      return 'อ่านตำรา/เอกสาร';
-    case 'practice':
-      return 'ทำโจทย์/ฝึกปฏิบัติ';
-    case 'video':
-      return 'ดูวิดีโอ/lecture';
-    case 'review':
-      return 'ทบทวน/สรุปบทเรียน';
-    default:
-      return value.isEmpty ? 'ยังไม่มีวิธีทบทวนที่แนะนำ' : value;
-  }
 }
