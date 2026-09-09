@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState, forwardRef, useImperativeHandle } from "react";
+import { useMemo, useState, forwardRef, useImperativeHandle } from "react";
 
-import BusyDay, { type BusyDayHandle } from "./BusyDay";
+import BusyDay from "./BusyDay";
 import DaySelect from "@/components/common/DaySelect";
 import TimePicker24Hour from "@/components/common/TimePicker24Hour";
+import { validateConstraintInput } from "@/utils/constraintValidation";
 
 interface ConstraintFormData {
   day_off: number | null;
@@ -20,6 +21,14 @@ interface BusyDayData {
   end: string;
 }
 
+const isContinuousDurationError = (message: string) =>
+  message.startsWith("กรุณาระบุระยะเวลาทำงานต่อเนื่อง") ||
+  message.startsWith("ระยะเวลาทำงานต่อเนื่อง") ||
+  message.startsWith("ระยะเวลาทำงานต้อง");
+
+const isBreakDurationError = (message: string) =>
+  message.startsWith("ระยะเวลาพัก");
+
 export interface ConstraintFormHandle {
   getFormData: () => Promise<{
     constraints: ConstraintFormData;
@@ -32,23 +41,76 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
   const [timeError, setTimeError] = useState<string | null>(null);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-  
-  // Working duration (hours, minutes)
-  const continuousWorkingHoursRef = useRef<HTMLInputElement>(null);
-  const continuousWorkingMinutesRef = useRef<HTMLInputElement>(null);
-  
-  // Break duration (hours, minutes)
-  const breakHoursRef = useRef<HTMLInputElement>(null);
-  const breakMinutesRef = useRef<HTMLInputElement>(null);
-  
-  const busyDayRef = useRef<BusyDayHandle>(null);
+  const [continuousWorkingHours, setContinuousWorkingHours] = useState("");
+  const [continuousWorkingMinutes, setContinuousWorkingMinutes] = useState("");
+  const [breakHours, setBreakHours] = useState("");
+  const [breakMinutes, setBreakMinutes] = useState("");
+  const [busyDays, setBusyDays] = useState<BusyDayData[]>([]);
+  const [didAttemptSave, setDidAttemptSave] = useState(false);
 
   // Calculate minutes from hours and minutes
-  const calculateMinutes = (hours: string, minutes: string): number => {
-    const h = parseInt(hours) || 0;
-    const m = parseInt(minutes) || 0;
-    return h * 60 + m;
+  const parseDuration = (hours: string, minutes: string) => {
+    const parsedHours = hours.trim() === "" ? 0 : Number(hours);
+    const parsedMinutes = minutes.trim() === "" ? 0 : Number(minutes);
+    const valid =
+      Number.isInteger(parsedHours) &&
+      Number.isInteger(parsedMinutes) &&
+      parsedHours >= 0 &&
+      parsedMinutes >= 0 &&
+      parsedMinutes <= 59;
+    return {
+      value: valid ? parsedHours * 60 + parsedMinutes : null,
+      valid,
+    };
   };
+
+  const continuousDuration = parseDuration(
+    continuousWorkingHours,
+    continuousWorkingMinutes
+  );
+  const breakDuration = parseDuration(breakHours, breakMinutes);
+  const constraintValidation = useMemo(() => {
+    const result = validateConstraintInput({
+      dayOff: selectedDay,
+      continuousWorkingDuration: continuousDuration.valid
+        ? continuousDuration.value
+        : -1,
+      breakDuration: breakDuration.valid ? breakDuration.value : -1,
+      startTime,
+      endTime,
+      busyDays,
+    });
+    const durationErrors: string[] = [];
+    if (!continuousDuration.valid) {
+      durationErrors.push("ระยะเวลาทำงานต้องเป็นชั่วโมงตั้งแต่ 0 ขึ้นไป และนาที 0–59");
+    }
+    if (!breakDuration.valid) {
+      durationErrors.push("ระยะเวลาพักต้องเป็นชั่วโมงตั้งแต่ 0 ขึ้นไป และนาที 0–59");
+    }
+    return { ...result, errors: [...durationErrors, ...result.errors] };
+  }, [
+    breakDuration.valid,
+    breakDuration.value,
+    busyDays,
+    continuousDuration.valid,
+    continuousDuration.value,
+    endTime,
+    selectedDay,
+    startTime,
+  ]);
+  const showConstraintErrors =
+    didAttemptSave ||
+    continuousWorkingHours !== "" ||
+    continuousWorkingMinutes !== "" ||
+    breakHours !== "" ||
+    breakMinutes !== "" ||
+    busyDays.length > 0;
+  const continuousDurationErrors = constraintValidation.errors.filter(
+    isContinuousDurationError
+  );
+  const breakDurationErrors = constraintValidation.errors.filter(
+    isBreakDurationError
+  );
 
   const getWorkTimeError = (
     startTime: string,
@@ -79,10 +141,7 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
   // Handle save constraints
   useImperativeHandle(ref, () => ({
     getFormData: async () => {
-      const continuousWorkingHours = continuousWorkingHoursRef.current?.value || "0";
-      const continuousWorkingMinutes = continuousWorkingMinutesRef.current?.value || "0";
-      const breakHours = breakHoursRef.current?.value || "0";
-      const breakMinutes = breakMinutesRef.current?.value || "0";
+      setDidAttemptSave(true);
       const currentTimeError = getWorkTimeError(
         startTime,
         endTime,
@@ -91,22 +150,17 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
 
       setTimeError(currentTimeError);
 
-      if (currentTimeError) {
+      if (currentTimeError || constraintValidation.errors.length > 0) {
         return null;
       }
 
-      const continuousDurationMinutes = calculateMinutes(continuousWorkingHours, continuousWorkingMinutes);
-      const breakDurationMinutes = calculateMinutes(breakHours, breakMinutes);
-
       const constraints: ConstraintFormData = {
         day_off: selectedDay,
-        continuous_working_duration: continuousDurationMinutes || null,
-        break: breakDurationMinutes || null,
+        continuous_working_duration: continuousDuration.value,
+        break: breakDuration.value,
         start_time: startTime || null,
         end_time: endTime || null,
       };
-
-      const busyDays = await busyDayRef.current?.getFormData?.() || [];
 
       return {
         constraints,
@@ -174,16 +228,19 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
           <div className="flex flex-wrap gap-3 sm:gap-4">
             <div className="flex items-center gap-2">
               <input
-                ref={continuousWorkingHoursRef}
                 type="number"
                 min={0}
+                step={1}
+                value={continuousWorkingHours}
+                onChange={(event) => setContinuousWorkingHours(event.target.value)}
                 placeholder="0"
-                className="
+                aria-invalid={showConstraintErrors && continuousDurationErrors.length > 0}
+                className={`
                   h-[40px]
                   w-[72px]
                   rounded-full
                   border
-                  border-gray-300
+                  ${showConstraintErrors && continuousDurationErrors.length > 0 ? "border-red-400" : "border-gray-300"}
                   bg-white
                   px-3
                   text-center
@@ -195,7 +252,7 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
                   sm:h-[44px]
                   sm:w-20
                   sm:text-sm
-                "
+                `}
               />
 
               <span className="text-xs text-gray-600 sm:text-sm">
@@ -205,17 +262,20 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
 
             <div className="flex items-center gap-2">
               <input
-                ref={continuousWorkingMinutesRef}
                 type="number"
                 min={0}
                 max={59}
+                step={1}
+                value={continuousWorkingMinutes}
+                onChange={(event) => setContinuousWorkingMinutes(event.target.value)}
                 placeholder="0"
-                className="
+                aria-invalid={showConstraintErrors && continuousDurationErrors.length > 0}
+                className={`
                   h-[40px]
                   w-[72px]
                   rounded-full
                   border
-                  border-gray-300
+                  ${showConstraintErrors && continuousDurationErrors.length > 0 ? "border-red-400" : "border-gray-300"}
                   bg-white
                   px-3
                   text-center
@@ -227,7 +287,7 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
                   sm:h-[44px]
                   sm:w-20
                   sm:text-sm
-                "
+                `}
               />
 
               <span className="text-xs text-gray-600 sm:text-sm">
@@ -235,6 +295,12 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
               </span>
             </div>
           </div>
+          {showConstraintErrors &&
+            continuousDurationErrors.map((message) => (
+              <p key={message} className="text-xs text-red-600" role="alert">
+                {message}
+              </p>
+            ))}
         </div>
 
         {/* ระยะเวลาพัก */}
@@ -246,16 +312,19 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
           <div className="flex flex-wrap gap-3 sm:gap-4">
             <div className="flex items-center gap-2">
               <input
-                ref={breakHoursRef}
                 type="number"
                 min={0}
+                step={1}
+                value={breakHours}
+                onChange={(event) => setBreakHours(event.target.value)}
                 placeholder="0"
-                className="
+                aria-invalid={showConstraintErrors && breakDurationErrors.length > 0}
+                className={`
                   h-[40px]
                   w-[72px]
                   rounded-full
                   border
-                  border-gray-300
+                  ${showConstraintErrors && breakDurationErrors.length > 0 ? "border-red-400" : "border-gray-300"}
                   bg-white
                   px-3
                   text-center
@@ -267,7 +336,7 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
                   sm:h-[44px]
                   sm:w-20
                   sm:text-sm
-                "
+                `}
               />
 
               <span className="text-xs text-gray-600 sm:text-sm">
@@ -277,17 +346,20 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
 
             <div className="flex items-center gap-2">
               <input
-                ref={breakMinutesRef}
                 type="number"
                 min={0}
                 max={59}
+                step={1}
+                value={breakMinutes}
+                onChange={(event) => setBreakMinutes(event.target.value)}
                 placeholder="0"
-                className="
+                aria-invalid={showConstraintErrors && breakDurationErrors.length > 0}
+                className={`
                   h-[40px]
                   w-[72px]
                   rounded-full
                   border
-                  border-gray-300
+                  ${showConstraintErrors && breakDurationErrors.length > 0 ? "border-red-400" : "border-gray-300"}
                   bg-white
                   px-3
                   text-center
@@ -299,7 +371,7 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
                   sm:h-[44px]
                   sm:w-20
                   sm:text-sm
-                "
+                `}
               />
 
               <span className="text-xs text-gray-600 sm:text-sm">
@@ -307,6 +379,12 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
               </span>
             </div>
           </div>
+          {showConstraintErrors &&
+            breakDurationErrors.map((message) => (
+              <p key={message} className="text-xs text-red-600" role="alert">
+                {message}
+              </p>
+            ))}
         </div>
 
         {/* เวลาเริ่มทำงาน */}
@@ -408,7 +486,35 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
           )}
         </div>
 
-        <BusyDay ref={busyDayRef} />
+        <BusyDay onChange={setBusyDays} />
+
+        {showConstraintErrors &&
+          constraintValidation.errors
+            .filter(
+              (message) =>
+                message !== timeError &&
+                !isContinuousDurationError(message) &&
+                !isBreakDurationError(message)
+            )
+            .map((message) => (
+              <p
+                key={message}
+                className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-600"
+                role="alert"
+              >
+                {message}
+              </p>
+            ))}
+
+        {constraintValidation.warnings.map((message) => (
+          <p
+            key={message}
+            className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700"
+            role="status"
+          >
+            {message}
+          </p>
+        ))}
       </div>
     </div>
   );

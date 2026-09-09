@@ -20,6 +20,7 @@ import {
   formatDisplayDate as formatDate,
   formatDisplayTime as formatTime,
 } from "@/utils/dateTime";
+import { validateConstraintInput } from "@/utils/constraintValidation";
 import StudentCardPopup, {
   type EditConstraintValues,
   type EditProfileValues,
@@ -259,50 +260,25 @@ export default function StudentCard({
       return;
     }
 
-    const hasOnlyOneWorkingTime =
-      Boolean(editConstraintValues.startTime) !==
-      Boolean(editConstraintValues.endTime);
-    if (hasOnlyOneWorkingTime) {
-      setActivePanel("constraint");
-      setActionError("Please enter both the start and end working times.");
-      return;
-    }
-    if (
-      editConstraintValues.startTime &&
-      editConstraintValues.endTime &&
-      editConstraintValues.startTime >= editConstraintValues.endTime
-    ) {
-      setActivePanel("constraint");
-      setActionError("เวลาสิ้นสุดการทำงานต้องมากกว่าเวลาเริ่มทำงาน");
-      return;
-    }
-
-    const invalidBusyTimeIndex = editConstraintValues.busyDays.findIndex(
-      (busyTime) =>
-        !busyTime.start ||
-        !busyTime.end ||
-        busyTime.start >= busyTime.end
-    );
-    if (invalidBusyTimeIndex !== -1) {
-      setActivePanel("constraint");
-      setActionError(
-        `Busy time ${invalidBusyTimeIndex + 1} must have a start time before its end time.`
-      );
-      return;
-    }
-
     const continuousWorkingDuration = editConstraintValues.continuousWorkingDuration
       ? Number(editConstraintValues.continuousWorkingDuration)
       : null;
     const breakDuration = editConstraintValues.breakDuration
       ? Number(editConstraintValues.breakDuration)
       : null;
-    if (
-      (continuousWorkingDuration !== null && continuousWorkingDuration < 0) ||
-      (breakDuration !== null && breakDuration < 0)
-    ) {
+    const constraintValidation = validateConstraintInput({
+      dayOff: editConstraintValues.dayOff
+        ? Number(editConstraintValues.dayOff)
+        : null,
+      continuousWorkingDuration,
+      breakDuration,
+      startTime: editConstraintValues.startTime,
+      endTime: editConstraintValues.endTime,
+      busyDays: editConstraintValues.busyDays,
+    });
+    if (constraintValidation.errors.length > 0) {
       setActivePanel("constraint");
-      setActionError("Working and break durations cannot be negative.");
+      setActionError(constraintValidation.errors[0]);
       return;
     }
 

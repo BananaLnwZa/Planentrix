@@ -4,6 +4,7 @@ import path from "path";
 import multer from "multer";
 import fs from "fs";
 import { safelyGenerateRecommendation } from "../services/recommendation.engine";
+import { validateConstraintForSave } from "../services/constraint-validation";
 
 // ==============================
 // ฟังก์ชัน Helper สำหรับ format DATE เป็น YYYY-MM-DD
@@ -422,6 +423,19 @@ export const updateConstraints = async (req: Request, res: Response) => {
     if (breakTime !== undefined && breakTime !== null && isNaN(breakTime)) {
       errors.push("break must be a number");
     }
+    errors.push(
+      ...validateConstraintForSave({
+        dayOff: day_off == null ? null : Number(day_off),
+        continuousWorkingDuration:
+          continuous_working_duration == null
+            ? null
+            : Number(continuous_working_duration),
+        breakDuration: breakTime == null ? null : Number(breakTime),
+        startTime: start_time || null,
+        endTime: end_time || null,
+        busyDays: Array.isArray(busy_days) ? busy_days : [],
+      }),
+    );
     if (errors.length > 0) {
       return res.status(400).json({
         message: "Validation failed",

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../interfaces/auth.interface.dart' as auth;
 import '../../../common/AppTimePicker.dart';
+import '../../../common/ConstraintValidation.dart';
 import 'CustomDayDropdown.dart';
 import 'BusyDay.dart';
 import 'BusyDayModal.dart';
@@ -115,6 +116,16 @@ const TextStyle _labelTextStyle = TextStyle(
   fontSize: 14,
 );
 
+bool _isContinuousDurationError(String message) =>
+    message.startsWith('กรุณาระบุระยะเวลาทำงานต่อเนื่อง') ||
+    message.startsWith('ระยะเวลาทำงานต่อเนื่อง') ||
+    message.startsWith('ระยะเวลาทำงานต้อง');
+
+bool _isBreakDurationError(String message) => message.startsWith('ระยะเวลาพัก');
+
+bool _isDurationError(String message) =>
+    _isContinuousDurationError(message) || _isBreakDurationError(message);
+
 class Constraint extends StatefulWidget {
   const Constraint({super.key});
 
@@ -131,6 +142,8 @@ class ConstraintState extends State<Constraint> {
 
   String? selectedDay;
   String? _errorMessage;
+  List<auth.BusyDay> _busyDays = const [];
+  bool _didAttemptSave = false;
 
   String? get validationMessage => _errorMessage;
 
@@ -153,7 +166,25 @@ class ConstraintState extends State<Constraint> {
 
   final TextEditingController endTimeController = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    for (final controller in [
+      workHourController,
+      workMinuteController,
+      breakHourController,
+      breakMinuteController,
+    ]) {
+      controller.addListener(_refreshValidation);
+    }
+  }
+
+  void _refreshValidation() {
+    if (mounted) setState(() {});
+  }
+
   ConstraintFormData? validateAndGetData() {
+    _didAttemptSave = true;
     int continuousDuration;
     int breakDuration;
     try {
@@ -190,6 +221,27 @@ class ConstraintState extends State<Constraint> {
       busyDays = _busyDayKey.currentState?.getFormData() ?? const [];
     } on FormatException catch (error) {
       _setError(error.message);
+      return null;
+    }
+
+    final validation = validateConstraintInput(
+      dayOff: selectedDay == null ? null : dayNameToNumber(selectedDay!),
+      continuousWorkingDuration: continuousDuration,
+      breakDuration: breakDuration,
+      startTime: startTime,
+      endTime: endTime,
+      busyDays: busyDays
+          .map(
+            (busy) => ConstraintBusyPeriod(
+              day: busy.day,
+              start: busy.start,
+              end: busy.end,
+            ),
+          )
+          .toList(growable: false),
+    );
+    if (validation.errors.isNotEmpty) {
+      _setError(validation.errors.first);
       return null;
     }
 
@@ -265,6 +317,41 @@ class ConstraintState extends State<Constraint> {
     super.dispose();
   }
 
+  ConstraintValidationResult get _constraintValidation {
+    int? workingDuration;
+    int? breakDuration;
+    try {
+      workingDuration = durationToMinutes(
+        workHourController.text,
+        workMinuteController.text,
+      );
+      breakDuration = durationToMinutes(
+        breakHourController.text,
+        breakMinuteController.text,
+      );
+    } on FormatException {
+      return const ConstraintValidationResult(
+        errors: ['กรุณาระบุชั่วโมงตั้งแต่ 0 ขึ้นไป และนาทีระหว่าง 0–59'],
+      );
+    }
+    return validateConstraintInput(
+      dayOff: selectedDay == null ? null : dayNameToNumber(selectedDay!),
+      continuousWorkingDuration: workingDuration,
+      breakDuration: breakDuration,
+      startTime: convertDisplayTimeTo24Hour(startTimeController.text),
+      endTime: convertDisplayTimeTo24Hour(endTimeController.text),
+      busyDays: _busyDays
+          .map(
+            (busy) => ConstraintBusyPeriod(
+              day: busy.day,
+              start: busy.start,
+              end: busy.end,
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
@@ -282,6 +369,19 @@ class ConstraintState extends State<Constraint> {
 
     // ความสูงช่องเลือกเวลาเริ่มและสิ้นสุด
     const double timeFieldHeight = 52;
+    final validation = _constraintValidation;
+    final showValidationErrors =
+        _didAttemptSave ||
+        workHourController.text.isNotEmpty ||
+        workMinuteController.text.isNotEmpty ||
+        breakHourController.text.isNotEmpty ||
+        breakMinuteController.text.isNotEmpty;
+    final continuousDurationErrors = validation.errors
+        .where(_isContinuousDurationError)
+        .toList(growable: false);
+    final breakDurationErrors = validation.errors
+        .where(_isBreakDurationError)
+        .toList(growable: false);
 
     return Container(
       key: const Key('constraint-card'),
@@ -344,7 +444,23 @@ class ConstraintState extends State<Constraint> {
             minuteController: workMinuteController,
             fieldHeight: numberFieldHeight,
             fontSize: labelSize,
+            hasError:
+                showValidationErrors && continuousDurationErrors.isNotEmpty,
           ),
+
+          if (showValidationErrors)
+            for (final message in continuousDurationErrors) ...[
+              const SizedBox(height: 6),
+              Text(
+                message,
+                style: const TextStyle(
+                  color: Color(0xFFEF4444),
+                  fontFamily: _fontFamily,
+                  fontWeight: FontWeight.w300,
+                  fontSize: 12,
+                ),
+              ),
+            ],
 
           SizedBox(height: mobile ? 20 : 24),
 
@@ -360,7 +476,22 @@ class ConstraintState extends State<Constraint> {
             minuteController: breakMinuteController,
             fieldHeight: numberFieldHeight,
             fontSize: labelSize,
+            hasError: showValidationErrors && breakDurationErrors.isNotEmpty,
           ),
+
+          if (showValidationErrors)
+            for (final message in breakDurationErrors) ...[
+              const SizedBox(height: 6),
+              Text(
+                message,
+                style: const TextStyle(
+                  color: Color(0xFFEF4444),
+                  fontFamily: _fontFamily,
+                  fontWeight: FontWeight.w300,
+                  fontSize: 12,
+                ),
+              ),
+            ],
 
           SizedBox(height: mobile ? 20 : 24),
 
@@ -392,7 +523,7 @@ class ConstraintState extends State<Constraint> {
             onTap: () => _selectTime(endTimeController),
           ),
 
-          if (_errorMessage != null) ...[
+          if (_errorMessage != null && !_isDurationError(_errorMessage!)) ...[
             const SizedBox(height: 8),
             Text(
               _errorMessage!,
@@ -408,9 +539,47 @@ class ConstraintState extends State<Constraint> {
 
           SizedBox(height: mobile ? 20 : 24),
 
-          BusyDay(key: _busyDayKey),
+          BusyDay(
+            key: _busyDayKey,
+            onChanged: (items) => setState(() => _busyDays = items),
+          ),
+
+          if (showValidationErrors)
+            for (final message in validation.errors)
+              if (message != _errorMessage && !_isDurationError(message)) ...[
+                const SizedBox(height: 8),
+                _ConstraintMessage(message: message, isError: true),
+              ],
+          for (final message in validation.warnings) ...[
+            const SizedBox(height: 8),
+            _ConstraintMessage(message: message, isError: false),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _ConstraintMessage extends StatelessWidget {
+  final String message;
+  final bool isError;
+
+  const _ConstraintMessage({required this.message, required this.isError});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isError ? const Color(0xFFD65D69) : const Color(0xFF9A6B16);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: isError ? const Color(0xFFFFF1F2) : const Color(0xFFFFF8E1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isError ? const Color(0xFFF3B1BA) : const Color(0xFFEBCB78),
+        ),
+      ),
+      child: Text(message, style: TextStyle(fontSize: 11, color: color)),
     );
   }
 }
@@ -424,6 +593,7 @@ class _DurationFields extends StatelessWidget {
 
   final double fieldHeight;
   final double fontSize;
+  final bool hasError;
 
   const _DurationFields({
     required this.hourFieldKey,
@@ -432,6 +602,7 @@ class _DurationFields extends StatelessWidget {
     required this.minuteController,
     required this.fieldHeight,
     required this.fontSize,
+    this.hasError = false,
   });
 
   @override
@@ -454,6 +625,7 @@ class _DurationFields extends StatelessWidget {
                     style: _inputTextStyle,
                     decoration: _inputDecoration(
                       hintText: '0',
+                      hasError: hasError,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 16,
@@ -495,6 +667,7 @@ class _DurationFields extends StatelessWidget {
                     style: _inputTextStyle,
                     decoration: _inputDecoration(
                       hintText: '0',
+                      hasError: hasError,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 16,

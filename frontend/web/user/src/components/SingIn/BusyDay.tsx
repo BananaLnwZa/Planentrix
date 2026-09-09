@@ -19,10 +19,10 @@ export interface BusyDayHandle {
 }
 
 export interface BusyDayProps {
-  onBusyDaysSaved?: () => void;
+  onChange?: (items: BusyDayFormData[]) => void;
 }
 
-const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedule(_, ref) {
+const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedule({ onChange }, ref) {
   const [items, setItems] = useState<Item[]>([]);
   const [open, setOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -36,6 +36,13 @@ const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedu
       }));
     },
   }));
+
+  const updateItems = (nextItems: Item[]) => {
+    setItems(nextItems);
+    onChange?.(
+      nextItems.map(({ day, start, end }) => ({ day, start, end }))
+    );
+  };
 
   // Convert abbreviated day name to full name
   const abbreviatedToFullDayName = (abbr: string): string => {
@@ -162,11 +169,7 @@ const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedu
               <button
                 type="button"
                 onClick={() =>
-                  setItems(
-                    items.filter(
-                      (item) => item.id !== t.id
-                    )
-                  )
+                  updateItems(items.filter((item) => item.id !== t.id))
                 }
                 className="
                   p-1.5
@@ -238,7 +241,7 @@ const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedu
           const dayNumber = dayNameToNumber(fullDayName);
           if (editingItem) {
             // แก้ไขรายการเดิม
-            setItems(
+            updateItems(
               items.map((item) =>
                 item.id === editingItem.id
                   ? {
@@ -252,7 +255,7 @@ const FlatSchedule = forwardRef<BusyDayHandle, BusyDayProps>(function FlatSchedu
             );
           } else {
             // เพิ่มรายการใหม่
-            setItems([
+            updateItems([
               ...items,
               {
                 id: crypto.randomUUID(),

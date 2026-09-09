@@ -28,6 +28,7 @@ import type {
   UserConstraint,
   UserProfile,
 } from "@/interfaces/profile.interface";
+import { validateConstraintInput } from "@/utils/constraintValidation";
 
 export type ProfilePanel = "profile" | "constraint";
 
@@ -100,11 +101,13 @@ function DurationEditor({
   label,
   value,
   onChange,
+  errorMessages = [],
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
+  errorMessages?: string[];
 }) {
   const total = value === "" ? null : Math.max(0, Number(value) || 0);
   const hours = total === null ? "" : String(Math.floor(total / 60));
@@ -130,7 +133,8 @@ function DurationEditor({
             step={1}
             value={hours}
             onChange={(event) => updatePart("hours", event.target.value)}
-            className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-3 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
+            aria-invalid={errorMessages.length > 0}
+            className={`mt-1 block w-full rounded-full border bg-white px-3 py-2 text-base text-gray-800 outline-none ${errorMessages.length > 0 ? "border-red-400 focus:border-red-500" : "border-gray-300 focus:border-[#9CC5F9]"}`}
           />
         </label>
         <label className="text-xs text-gray-600">
@@ -143,10 +147,16 @@ function DurationEditor({
             step={1}
             value={minutes}
             onChange={(event) => updatePart("minutes", event.target.value)}
-            className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-3 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
+            aria-invalid={errorMessages.length > 0}
+            className={`mt-1 block w-full rounded-full border bg-white px-3 py-2 text-base text-gray-800 outline-none ${errorMessages.length > 0 ? "border-red-400 focus:border-red-500" : "border-gray-300 focus:border-[#9CC5F9]"}`}
           />
         </label>
       </div>
+      {errorMessages.map((message) => (
+        <p key={message} className="mt-1 text-xs text-red-600" role="alert">
+          {message}
+        </p>
+      ))}
     </fieldset>
   );
 }
@@ -190,6 +200,31 @@ export default function StudentCardPopup({
     editConstraintValues.startTime &&
       editConstraintValues.endTime &&
       editConstraintValues.startTime >= editConstraintValues.endTime
+  );
+  const constraintValidation = validateConstraintInput({
+    dayOff: editConstraintValues.dayOff
+      ? Number(editConstraintValues.dayOff)
+      : null,
+    continuousWorkingDuration:
+      editConstraintValues.continuousWorkingDuration === ""
+        ? null
+        : Number(editConstraintValues.continuousWorkingDuration),
+    breakDuration:
+      editConstraintValues.breakDuration === ""
+        ? null
+        : Number(editConstraintValues.breakDuration),
+    startTime: editConstraintValues.startTime,
+    endTime: editConstraintValues.endTime,
+    busyDays: editConstraintValues.busyDays,
+  });
+  const continuousDurationErrors = constraintValidation.errors.filter(
+    (message) =>
+      message.startsWith("กรุณาระบุระยะเวลาทำงานต่อเนื่อง") ||
+      message.startsWith("ระยะเวลาทำงานต่อเนื่อง") ||
+      message.startsWith("ระยะเวลาทำงานต้อง")
+  );
+  const breakDurationErrors = constraintValidation.errors.filter((message) =>
+    message.startsWith("ระยะเวลาพัก")
   );
 
   return createPortal(
@@ -436,11 +471,12 @@ export default function StudentCardPopup({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 items-start gap-3">
                 <DurationEditor
                   id="constraint-work-duration"
                   label="ระยะเวลาทำงาน"
                   value={editConstraintValues.continuousWorkingDuration}
+                  errorMessages={continuousDurationErrors}
                   onChange={(value) => {
                     onClearActionError();
                     setEditConstraintValues((previous) => ({
@@ -453,6 +489,7 @@ export default function StudentCardPopup({
                   id="constraint-break-duration"
                   label="ระยะเวลาพัก"
                   value={editConstraintValues.breakDuration}
+                  errorMessages={breakDurationErrors}
                   onChange={(value) => {
                     onClearActionError();
                     setEditConstraintValues((previous) => ({
@@ -618,6 +655,33 @@ export default function StudentCardPopup({
                     <p className="text-sm text-gray-500">ไม่มีวันเวลาไม่ว่างประจำ</p>
                   )}
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                {constraintValidation.errors
+                  .filter(
+                    (message) =>
+                      !continuousDurationErrors.includes(message) &&
+                      !breakDurationErrors.includes(message)
+                  )
+                  .map((message) => (
+                  <p
+                    key={message}
+                    role="alert"
+                    className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600"
+                  >
+                    {message}
+                  </p>
+                  ))}
+                {constraintValidation.warnings.map((message) => (
+                  <p
+                    key={message}
+                    role="status"
+                    className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700"
+                  >
+                    {message}
+                  </p>
+                ))}
               </div>
             </form>
           ) : isLoading ? (

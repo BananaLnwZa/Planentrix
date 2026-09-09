@@ -139,7 +139,7 @@ Future<bool> showConstraintOverlapWarning(
           ),
           const SizedBox(height: 10),
           const Text(
-            'หากยังต้องการลงเวลานี้ ให้กด “ตกลงและบันทึก”',
+            'หากยังต้องการลงเวลานี้ ให้กด “ยืนยันใช้เวลานี้”',
             style: TextStyle(fontSize: 11, color: Color(0xFF8A7864)),
           ),
         ],
@@ -155,7 +155,7 @@ Future<bool> showConstraintOverlapWarning(
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFFE5A453),
           ),
-          child: const Text('ตกลงและบันทึก'),
+          child: const Text('ยืนยันใช้เวลานี้'),
         ),
       ],
     ),

@@ -30,7 +30,9 @@ class BusyDayItem {
 }
 
 class BusyDay extends StatefulWidget {
-  const BusyDay({super.key});
+  final ValueChanged<List<auth.BusyDay>>? onChanged;
+
+  const BusyDay({super.key, this.onChanged});
 
   @override
   State<BusyDay> createState() => BusyDayState();
@@ -72,6 +74,10 @@ class BusyDayState extends State<BusyDay> {
 
   String _generateId() {
     return DateTime.now().microsecondsSinceEpoch.toString();
+  }
+
+  void _notifyChanged() {
+    widget.onChanged?.call(getFormData());
   }
 
   Future<void> _openBusyDayModal({BusyDayItem? item}) async {
@@ -118,6 +124,7 @@ class BusyDayState extends State<BusyDay> {
                   );
                 }
               });
+              _notifyChanged();
             },
           ),
         );
@@ -131,6 +138,7 @@ class BusyDayState extends State<BusyDay> {
     setState(() {
       items.removeWhere((item) => item.id == id);
     });
+    _notifyChanged();
   }
 
   Future<void> _confirmDelete(BusyDayItem item) async {

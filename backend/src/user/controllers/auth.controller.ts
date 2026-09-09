@@ -4,6 +4,7 @@ import * as bcrypt from "bcrypt";
 import * as jwt from "jsonwebtoken";
 import * as path from "path";
 import * as fs from "fs";
+import { validateConstraintForSave } from "../services/constraint-validation";
 
 // ==============================
 // REGISTER USER
@@ -99,6 +100,24 @@ export const register = async (req: Request, res: Response) => {
           return res.status(400).json({ message: `busy_days[${i}] start time must be before end time` });
         }
       }
+    }
+
+    const constraintErrors = validateConstraintForSave({
+      dayOff: day_off == null ? null : Number(day_off),
+      continuousWorkingDuration:
+        continuous_working_duration == null
+          ? null
+          : Number(continuous_working_duration),
+      breakDuration: breakTime == null ? null : Number(breakTime),
+      startTime: start_time || null,
+      endTime: end_time || null,
+      busyDays: Array.isArray(busy_days) ? busy_days : [],
+    });
+    if (constraintErrors.length > 0) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: constraintErrors,
+      });
     }
 
     const [existing]: any = await db.query(

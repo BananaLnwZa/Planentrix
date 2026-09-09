@@ -8,6 +8,7 @@ import '../../../common/AppDatePicker.dart';
 import '../../../common/AppTimePicker.dart';
 import '../../../common/AppDropdown.dart';
 import '../../../common/DateTimeFormat.dart';
+import '../../../common/ConstraintValidation.dart';
 
 import '../../../interfaces/profile.interface.dart';
 import '../../../services/profile.service.dart';
@@ -102,6 +103,14 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
     _breakMinutes = TextEditingController(
       text: breakDuration == null ? '' : '${breakDuration % 60}',
     );
+    for (final controller in [
+      _workingHours,
+      _workingMinutes,
+      _breakHours,
+      _breakMinutes,
+    ]) {
+      controller.addListener(_refreshConstraintValidation);
+    }
     _birthdate = widget.profile.birthdate;
     _gender = widget.profile.gender;
     _dayOff = widget.constraint.dayOff;
@@ -118,6 +127,10 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
     _breakHours.dispose();
     _breakMinutes.dispose();
     super.dispose();
+  }
+
+  void _refreshConstraintValidation() {
+    if (mounted) setState(() => _error = null);
   }
 
   Future<void> _pickBirthdate() async {
@@ -268,6 +281,29 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
       );
       return;
     }
+    final constraintValidation = validateConstraintInput(
+      dayOff: _dayOff,
+      continuousWorkingDuration: workingDuration.value,
+      breakDuration: breakDuration.value,
+      startTime: _startTime,
+      endTime: _endTime,
+      busyDays: _busyDays
+          .map(
+            (busy) => ConstraintBusyPeriod(
+              day: busy.day,
+              start: busy.start,
+              end: busy.end,
+            ),
+          )
+          .toList(growable: false),
+    );
+    if (constraintValidation.errors.isNotEmpty) {
+      setState(() {
+        _activePanel = _EditProfilePanel.constraint;
+        _error = constraintValidation.errors.first;
+      });
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
@@ -326,6 +362,39 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
   Widget build(BuildContext context) {
     final height = MediaQuery.sizeOf(context).height;
     final workingTimeError = _workingTimeError;
+    final workingDuration = _durationValue(_workingHours, _workingMinutes);
+    final breakDuration = _durationValue(_breakHours, _breakMinutes);
+    final constraintValidation = workingDuration.valid && breakDuration.valid
+        ? validateConstraintInput(
+            dayOff: _dayOff,
+            continuousWorkingDuration: workingDuration.value,
+            breakDuration: breakDuration.value,
+            startTime: _startTime,
+            endTime: _endTime,
+            busyDays: _busyDays
+                .map(
+                  (busy) => ConstraintBusyPeriod(
+                    day: busy.day,
+                    start: busy.start,
+                    end: busy.end,
+                  ),
+                )
+                .toList(growable: false),
+          )
+        : const ConstraintValidationResult(
+            errors: ['กรุณาระบุชั่วโมงตั้งแต่ 0 ขึ้นไป และนาทีระหว่าง 0–59'],
+          );
+    final continuousDurationErrors = constraintValidation.errors
+        .where(
+          (message) =>
+              message.startsWith('กรุณาระบุระยะเวลาทำงานต่อเนื่อง') ||
+              message.startsWith('ระยะเวลาทำงานต่อเนื่อง') ||
+              message.startsWith('ระยะเวลาทำงานต้อง'),
+        )
+        .toList(growable: false);
+    final breakDurationErrors = constraintValidation.errors
+        .where((message) => message.startsWith('ระยะเวลาพัก'))
+        .toList(growable: false);
     return Dialog(
       key: const Key('edit-profile-popup'),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
@@ -421,12 +490,14 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
                       ),
                       const SizedBox(height: 10),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: _DurationFields(
                               label: 'ระยะเวลาทำงาน',
                               hoursController: _workingHours,
                               minutesController: _workingMinutes,
+                              errorMessages: continuousDurationErrors,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -435,6 +506,7 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
                               label: 'ระยะเวลาพัก',
                               hoursController: _breakHours,
                               minutesController: _breakMinutes,
+                              errorMessages: breakDurationErrors,
                             ),
                           ),
                         ],
@@ -560,8 +632,20 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
                         ),
                         const SizedBox(height: 10),
                       ],
+                      for (final message in constraintValidation.errors)
+                        if (!continuousDurationErrors.contains(message) &&
+                            !breakDurationErrors.contains(message)) ...[
+                          _ConstraintNotice(message: message, isError: true),
+                          const SizedBox(height: 8),
+                        ],
+                      for (final message in constraintValidation.warnings) ...[
+                        _ConstraintNotice(message: message, isError: false),
+                        const SizedBox(height: 8),
+                      ],
                     ],
-                    if (_error != null) ...[
+                    if (_error != null &&
+                        !continuousDurationErrors.contains(_error) &&
+                        !breakDurationErrors.contains(_error)) ...[
                       const SizedBox(height: 8),
                       Text(
                         _error!,
@@ -997,11 +1081,13 @@ class _DurationFields extends StatelessWidget {
   final String label;
   final TextEditingController hoursController;
   final TextEditingController minutesController;
+  final List<String> errorMessages;
 
   const _DurationFields({
     required this.label,
     required this.hoursController,
     required this.minutesController,
+    this.errorMessages = const [],
   });
 
   @override
@@ -1020,6 +1106,7 @@ class _DurationFields extends StatelessWidget {
               label: 'ชม.',
               controller: hoursController,
               numeric: true,
+              hasError: errorMessages.isNotEmpty,
             ),
           ),
           const SizedBox(width: 6),
@@ -1028,10 +1115,18 @@ class _DurationFields extends StatelessWidget {
               label: 'นาที',
               controller: minutesController,
               numeric: true,
+              hasError: errorMessages.isNotEmpty,
             ),
           ),
         ],
       ),
+      for (final message in errorMessages) ...[
+        const SizedBox(height: 5),
+        Text(
+          message,
+          style: const TextStyle(fontSize: 11, color: Color(0xFFD65D69)),
+        ),
+      ],
     ],
   );
 }
@@ -1040,19 +1135,21 @@ class _TextField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
   final bool numeric;
+  final bool hasError;
 
   const _TextField({
     super.key,
     required this.label,
     required this.controller,
     this.numeric = false,
+    this.hasError = false,
   });
 
   @override
   Widget build(BuildContext context) => TextField(
     controller: controller,
     keyboardType: numeric ? TextInputType.number : TextInputType.text,
-    decoration: _decoration(label),
+    decoration: _decoration(label, hasError: hasError),
   );
 }
 
@@ -1124,17 +1221,46 @@ InputDecoration _decoration(String label, {bool hasError = false}) {
   );
 
   return InputDecoration(
-  labelText: label,
-  labelStyle: hasError ? const TextStyle(color: Color(0xFFD65D69)) : null,
-  isDense: true,
-  filled: true,
-  fillColor: Colors.white,
-  border: border,
-  enabledBorder: border,
-  focusedBorder: border.copyWith(
-    borderSide: BorderSide(color: borderColor, width: hasError ? 1.5 : 1),
-  ),
+    labelText: label,
+    labelStyle: hasError ? const TextStyle(color: Color(0xFFD65D69)) : null,
+    isDense: true,
+    filled: true,
+    fillColor: Colors.white,
+    border: border,
+    enabledBorder: border,
+    focusedBorder: border.copyWith(
+      borderSide: BorderSide(color: borderColor, width: hasError ? 1.5 : 1),
+    ),
   );
+}
+
+class _ConstraintNotice extends StatelessWidget {
+  final String message;
+  final bool isError;
+
+  const _ConstraintNotice({required this.message, required this.isError});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: isError ? const Color(0xFFFFF1F2) : const Color(0xFFFFF8E1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isError ? const Color(0xFFF3B1BA) : const Color(0xFFEBCB78),
+        ),
+      ),
+      child: Text(
+        message,
+        style: TextStyle(
+          fontSize: 11,
+          color: isError ? const Color(0xFFD65D69) : const Color(0xFF9A6B16),
+        ),
+      ),
+    );
+  }
 }
 
 String _formatDate(DateTime value) => formatDisplayDate(value);

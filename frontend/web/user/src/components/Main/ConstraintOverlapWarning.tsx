@@ -53,7 +53,7 @@ export default function ConstraintOverlapWarning({
         </ul>
 
         <p className="mt-3 text-xs leading-relaxed text-[#8A7864]">
-          หากยังต้องการลงเวลานี้ ให้กด “ตกลงและบันทึก”
+          หากยังต้องการลงเวลานี้ ให้กด “ยืนยันใช้เวลานี้”
         </p>
 
         <div className="mt-5 flex justify-end gap-2">
@@ -71,7 +71,7 @@ export default function ConstraintOverlapWarning({
             disabled={isSubmitting}
             className="rounded-full bg-[#E5A453] px-4 py-2 text-sm font-semibold text-white hover:bg-[#D59342] disabled:opacity-50"
           >
-            {isSubmitting ? "กำลังบันทึก..." : "ตกลงและบันทึก"}
+            {isSubmitting ? "กำลังบันทึก..." : "ยืนยันใช้เวลานี้"}
           </button>
         </div>
       </section>
