@@ -40,6 +40,7 @@ type CustomSelectProps<T extends SelectValue> = {
   menuClassName?: string;
   optionClassName?: string;
   compact?: boolean;
+  wrapOptions?: boolean;
   showCheck?: boolean;
   maxMenuHeight?: number;
 };
@@ -60,6 +61,7 @@ export default function CustomSelect<T extends SelectValue>({
   menuClassName = "",
   optionClassName = "",
   compact = false,
+  wrapOptions = false,
   showCheck = true,
   maxMenuHeight = 260,
 }: CustomSelectProps<T>) {
@@ -268,7 +270,15 @@ export default function CustomSelect<T extends SelectValue>({
                       selected ? option.selectedClassName ?? "" : ""
                     } ${optionClassName}`}
                   >
-                    <span className="min-w-0 truncate">{option.label}</span>
+                    <span
+                      className={`min-w-0 ${
+                        wrapOptions
+                          ? "whitespace-normal break-words py-1 leading-5"
+                          : "truncate"
+                      }`}
+                    >
+                      {option.label}
+                    </span>
                     {showCheck && selected && <Check aria-hidden="true" size={15} />}
                   </button>
                 );

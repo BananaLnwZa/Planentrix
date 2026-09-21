@@ -8,6 +8,9 @@ import {
   useImperativeHandle,
 } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import CustomSelect, {
+  type CustomSelectOption,
+} from "@/components/common/CustomSelect";
 import GenderSelect from "@/components/common/GenderSelect";
 import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
 import type { FacultyOption } from "@/interfaces/auth.interface";
@@ -74,6 +77,17 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
     (faculty) => String(faculty.faculty_id) === selectedFacultyId
   );
   const availableDepartments = selectedFaculty?.departments ?? [];
+  const facultyOptions: CustomSelectOption<string>[] = faculties.map(
+    (faculty) => ({
+      value: String(faculty.faculty_id),
+      label: faculty.faculty_name,
+    })
+  );
+  const departmentOptions: CustomSelectOption<string>[] =
+    availableDepartments.map((department) => ({
+      value: String(department.department_id),
+      label: department.department_name,
+    }));
 
   useEffect(() => {
     let isActive = true;
@@ -250,7 +264,7 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
               sm:text-sm
             "
           >
-            username
+            username <span className="text-red-500" aria-hidden="true">*</span>
           </label>
 
           <input
@@ -258,6 +272,7 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
             ref={usernameRef}
             type="text"
             placeholder="Enter username"
+            required
             aria-invalid={Boolean(errors.username)}
             aria-describedby={errors.username ? "signup-username-error" : undefined}
             onChange={() => clearError("username")}
@@ -290,13 +305,13 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
         </div>
 
         {/* Student name */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4">
           <div>
             <label
               htmlFor="signup-first-name"
               className="mb-2 block text-xs text-gray-700 sm:text-sm"
             >
-              First name
+              First name <span className="text-red-500" aria-hidden="true">*</span>
             </label>
             <input
               id="signup-first-name"
@@ -337,7 +352,7 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
               htmlFor="signup-last-name"
               className="mb-2 block text-xs text-gray-700 sm:text-sm"
             >
-              Last name
+              Last name <span className="text-red-500" aria-hidden="true">*</span>
             </label>
             <input
               id="signup-last-name"
@@ -380,7 +395,7 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
             htmlFor="signup-email"
             className="mb-2 block text-xs text-gray-700 sm:text-sm"
           >
-            Email
+            Email <span className="text-red-500" aria-hidden="true">*</span>
           </label>
           <input
             id="signup-email"
@@ -421,40 +436,26 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
               htmlFor="signup-faculty"
               className="mb-2 block text-xs text-gray-700 sm:text-sm"
             >
-              คณะ
+              คณะ <span className="text-red-500" aria-hidden="true">*</span>
             </label>
-            <select
+            <CustomSelect
               id="signup-faculty"
               value={selectedFacultyId}
+              options={facultyOptions}
               required
               disabled={isOptionsLoading || faculties.length === 0}
-              aria-invalid={Boolean(errors.faculty)}
-              aria-describedby={
-                errors.faculty ? "signup-faculty-error" : undefined
-              }
-              onChange={(event) => {
-                setSelectedFacultyId(event.target.value);
+              ariaLabel="เลือกคณะ"
+              ariaInvalid={Boolean(errors.faculty)}
+              wrapOptions
+              placeholder={isOptionsLoading ? "กำลังโหลด..." : "เลือกคณะ"}
+              onChange={(value) => {
+                setSelectedFacultyId(value);
                 setSelectedDepartmentId("");
                 clearError("faculty");
                 clearError("department");
               }}
-              className={`
-                h-[44px] w-full rounded-full border bg-white px-4
-                text-[11px] text-gray-500 outline-none disabled:cursor-not-allowed
-                disabled:bg-gray-100 sm:h-[48px] sm:px-5 sm:text-[12px]
-                md:text-[14px]
-                ${errors.faculty ? "border-red-400" : "border-gray-300"}
-              `}
-            >
-              <option value="">
-                {isOptionsLoading ? "กำลังโหลด..." : "เลือกคณะ"}
-              </option>
-              {faculties.map((faculty) => (
-                <option key={faculty.faculty_id} value={faculty.faculty_id}>
-                  {faculty.faculty_name}
-                </option>
-              ))}
-            </select>
+              buttonClassName={errors.faculty ? "bg-red-50/40" : ""}
+            />
             {errors.faculty && (
               <p
                 id="signup-faculty-error"
@@ -471,47 +472,32 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
               htmlFor="signup-department"
               className="mb-2 block text-xs text-gray-700 sm:text-sm"
             >
-              สาขา
+              สาขา <span className="text-red-500" aria-hidden="true">*</span>
             </label>
-            <select
+            <CustomSelect
               id="signup-department"
               value={selectedDepartmentId}
+              options={departmentOptions}
               required
               disabled={
                 !selectedFacultyId || availableDepartments.length === 0
               }
-              aria-invalid={Boolean(errors.department)}
-              aria-describedby={
-                errors.department ? "signup-department-error" : undefined
-              }
-              onChange={(event) => {
-                setSelectedDepartmentId(event.target.value);
-                clearError("department");
-              }}
-              className={`
-                h-[44px] w-full rounded-full border bg-white px-4
-                text-[11px] text-gray-500 outline-none disabled:cursor-not-allowed
-                disabled:bg-gray-100 sm:h-[48px] sm:px-5 sm:text-[12px]
-                md:text-[14px]
-                ${errors.department ? "border-red-400" : "border-gray-300"}
-              `}
-            >
-              <option value="">
-                {!selectedFacultyId
+              ariaLabel="เลือกสาขา"
+              ariaInvalid={Boolean(errors.department)}
+              wrapOptions
+              placeholder={
+                !selectedFacultyId
                   ? "เลือกคณะก่อน"
                   : availableDepartments.length === 0
                     ? "คณะนี้ยังไม่มีสาขา"
-                    : "เลือกสาขา"}
-              </option>
-              {availableDepartments.map((department) => (
-                <option
-                  key={department.department_id}
-                  value={department.department_id}
-                >
-                  {department.department_name}
-                </option>
-              ))}
-            </select>
+                    : "เลือกสาขา"
+              }
+              onChange={(value) => {
+                setSelectedDepartmentId(value);
+                clearError("department");
+              }}
+              buttonClassName={errors.department ? "bg-red-50/40" : ""}
+            />
             {errors.department && (
               <p
                 id="signup-department-error"
@@ -543,7 +529,7 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
               sm:text-sm
             "
           >
-            password
+            password <span className="text-red-500" aria-hidden="true">*</span>
           </label>
 
           <div className="relative">
@@ -553,6 +539,7 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
               type={showPassword ? "text" : "password"}
               placeholder="Enter password"
               minLength={8}
+              required
               autoComplete="new-password"
               aria-invalid={Boolean(errors.password)}
               aria-describedby={errors.password ? "signup-password-error" : "signup-password-help"}
@@ -629,7 +616,7 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
               sm:text-sm
             "
           >
-            Confirm Password
+            Confirm Password <span className="text-red-500" aria-hidden="true">*</span>
           </label>
 
           <div className="relative">
@@ -639,6 +626,7 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
               type={showConfirmPassword ? "text" : "password"}
               placeholder="Confirm password"
               minLength={8}
+              required
               autoComplete="new-password"
               aria-invalid={Boolean(errors.confirmPassword)}
               aria-describedby={errors.confirmPassword ? "signup-confirm-password-error" : undefined}

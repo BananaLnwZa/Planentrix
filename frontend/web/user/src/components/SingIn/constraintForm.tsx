@@ -222,7 +222,8 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
         {/* ระยะเวลาทำงานต่อเนื่อง */}
         <div className="space-y-2">
           <label className="block text-xs text-gray-700 sm:text-sm">
-            ระยะเวลาทำงานต่อเนื่อง
+            ระยะเวลาทำงานต่อเนื่อง{" "}
+            <span className="text-red-500" aria-hidden="true">*</span>
           </label>
 
           <div className="flex flex-wrap gap-3 sm:gap-4">
@@ -390,7 +391,8 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
         {/* เวลาเริ่มทำงาน */}
         <div className="w-full space-y-2">
           <label className="block text-xs text-gray-700 sm:text-sm">
-            เวลาเริ่มทำงาน
+            เวลาเริ่มทำงาน{" "}
+            <span className="text-red-500" aria-hidden="true">*</span>
           </label>
 
           <div className="relative w-[130px] max-w-full">
@@ -435,7 +437,8 @@ const ConstraintForm = forwardRef<ConstraintFormHandle>(function ConstraintForm(
         {/* เวลาสิ้นสุดการทำงาน */}
         <div className="w-full space-y-2">
           <label className="block text-xs text-gray-700 sm:text-sm">
-            เวลาสิ้นสุดการทำงาน
+            เวลาสิ้นสุดการทำงาน{" "}
+            <span className="text-red-500" aria-hidden="true">*</span>
           </label>
 
           <div className="relative w-[130px] max-w-full">
