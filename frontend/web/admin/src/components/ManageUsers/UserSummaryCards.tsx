@@ -1,21 +1,22 @@
 import { ClockAlert, UserRoundCheck, UsersRound } from "lucide-react";
-import { ManagedUser } from "@/interfaces/user-management.interface";
+import { ManagedAccountActivity } from "@/interfaces/user-management.interface";
 
 interface UserSummaryCardsProps {
-  users: ManagedUser[];
+  accounts: ManagedAccountActivity[];
+  accountLabel: string;
 }
 
-export default function UserSummaryCards({ users }: UserSummaryCardsProps) {
-  const inactive = users.filter((user) => user.is_inactive).length;
-  const recentlyActive = users.filter((user) => {
+export default function UserSummaryCards({ accounts, accountLabel }: UserSummaryCardsProps) {
+  const inactive = accounts.filter((user) => user.is_inactive).length;
+  const recentlyActive = accounts.filter((user) => {
     return user.inactive_days !== null && user.inactive_days >= 0 && user.inactive_days <= 30;
   }).length;
 
   const cards = [
     {
-      label: "บัญชีผู้ใช้ทั้งหมด",
-      value: users.length,
-      note: "บัญชีในระบบ",
+      label: `${accountLabel}ทั้งหมด`,
+      value: accounts.length,
+      note: `บัญชี${accountLabel}ในระบบ`,
       icon: UsersRound,
       color: "bg-[#e9f7fc] text-[#4794af]",
     },

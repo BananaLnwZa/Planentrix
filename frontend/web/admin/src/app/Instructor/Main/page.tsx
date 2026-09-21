@@ -45,9 +45,6 @@ export default async function InstructorMainPage() {
             <h1 className="mt-1 text-2xl text-[#2f4650] sm:text-3xl">
               ยินดีต้อนรับ {displayName}
             </h1>
-            <p className="mt-1 text-sm text-[#71848c]">
-              รหัสบัญชี {instructor.admin_id}
-            </p>
           </div>
         </div>
 
@@ -65,13 +62,6 @@ export default async function InstructorMainPage() {
             <h2 className="mt-2 text-2xl text-[#304b56]">
               พื้นที่ทำงานสำหรับอาจารย์
             </h2>
-            <p className="mt-2 text-sm leading-6 text-[#71848c]">
-              บัญชีนี้ผ่านการตรวจสอบสิทธิ์ด้วย Role
-              <span className="mx-1 rounded-full bg-[#e7f4f8] px-2 py-1 font-medium text-[#39758c]">
-                instructor
-              </span>
-              แล้ว ฟังก์ชันการสอนสามารถเชื่อมต่อเพิ่มเติมในหน้านี้ได้
-            </p>
           </div>
 
           <div className="mt-7 grid gap-4 md:grid-cols-3">

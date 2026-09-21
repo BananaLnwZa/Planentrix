@@ -1,7 +1,9 @@
 import {
   BarChart3,
   BookOpen,
+  Building2,
   ClipboardList,
+  Landmark,
   UserPlus,
   UsersRound,
 } from "lucide-react";
@@ -14,6 +16,8 @@ const navItems = [
   { label: "เพิ่มแอดมิน", href: "/SignInAdmin", icon: UserPlus },
   { label: "ข้อสอบ", href: "/Exam", icon: ClipboardList },
   { label: "วิชา", href: "/Subject", icon: BookOpen },
+  { label: "คณะ", href: "/Faculty", icon: Landmark },
+  { label: "สาขา", href: "/Department", icon: Building2 },
 ];
 
 interface AdminNavbarProps {

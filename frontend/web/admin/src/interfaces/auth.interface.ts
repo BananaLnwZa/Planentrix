@@ -20,6 +20,21 @@ export interface RegisterAdminResponse {
   role: "university_staff" | "instructor";
 }
 
+export interface RegistrationDepartmentOption {
+  department_id: number;
+  department_name: string;
+}
+
+export interface RegistrationFacultyOption {
+  faculty_id: number;
+  faculty_name: string;
+  departments: RegistrationDepartmentOption[];
+}
+
+export interface RegistrationOptionsResponse {
+  faculties: RegistrationFacultyOption[];
+}
+
 export interface LogoutAdminResponse {
   message: string;
 }

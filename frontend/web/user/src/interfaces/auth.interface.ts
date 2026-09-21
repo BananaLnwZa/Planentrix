@@ -39,13 +39,11 @@ export interface LoginRequest {
 
 export interface DepartmentOption {
   department_id: number;
-  department_code: string;
   department_name: string;
 }
 
 export interface FacultyOption {
   faculty_id: number;
-  faculty_code: string;
   faculty_name: string;
   departments: DepartmentOption[];
 }

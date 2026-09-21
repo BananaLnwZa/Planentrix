@@ -1,7 +1,7 @@
 import { AlertCircle, CheckCircle2 } from "lucide-react";
-import { ManagedUser } from "@/interfaces/user-management.interface";
+import { ManagedAccountActivity } from "@/interfaces/user-management.interface";
 
-export default function UserStatusBadge({ user }: { user: ManagedUser }) {
+export default function UserStatusBadge({ user }: { user: ManagedAccountActivity }) {
   if (user.is_inactive) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fff0ea] px-2.5 py-1 text-xs font-medium text-[#b96049]">

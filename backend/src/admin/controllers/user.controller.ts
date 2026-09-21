@@ -7,18 +7,100 @@ import db from "../../config/db";
 interface ManagedUserRow extends RowDataPacket {
   user_id: number;
   user_name: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  department_id: number;
+  department_code: string;
+  department_name: string;
+  faculty_id: number;
+  faculty_code: string;
+  faculty_name: string;
+  year_level: number | null;
   user_pic: string | null;
   user_birthdate: Date | null;
-  user_gender: "male" | "female" | "other";
+  user_gender: "male" | "female" | "other" | "unspecified";
+  status: "active" | "suspended" | "archived";
   last_login: Date | null;
   is_inactive: 0 | 1;
   inactive_days: number | null;
   version: string;
 }
 
+interface ManagedInstructorRow extends RowDataPacket {
+  admin_id: number;
+  admin_name: string;
+  first_name: string;
+  last_name: string;
+  admin_email: string;
+  phone: string | null;
+  address: string | null;
+  department_id: number | null;
+  department_code: string | null;
+  department_name: string | null;
+  faculty_id: number | null;
+  faculty_code: string | null;
+  faculty_name: string | null;
+  status: "active" | "suspended" | "archived";
+  last_login: Date | null;
+  is_inactive: 0 | 1;
+  inactive_days: number | null;
+  version: string;
+}
+
+interface FacultyFilterRow extends RowDataPacket {
+  faculty_id: number;
+  faculty_code: string;
+  faculty_name: string;
+}
+
+interface DepartmentFilterRow extends RowDataPacket {
+  department_id: number;
+  department_code: string;
+  department_name: string;
+  faculty_id: number;
+}
+
 interface UserPictureRow extends RowDataPacket {
   user_pic: string | null;
 }
+
+const managedStudentSelect = `SELECT
+  u.user_id,
+  u.user_name,
+  u.first_name,
+  u.last_name,
+  u.email,
+  u.department_id,
+  d.department_code,
+  d.department_name,
+  f.faculty_id,
+  f.faculty_code,
+  f.faculty_name,
+  (
+    SELECT st.year_level
+    FROM student_terms st
+    WHERE st.user_id = u.user_id
+    ORDER BY (st.status = 'active') DESC, st.student_term_id DESC
+    LIMIT 1
+  ) AS year_level,
+  u.user_pic,
+  u.birthdate AS user_birthdate,
+  u.gender AS user_gender,
+  u.status,
+  u.last_login,
+  DATE_FORMAT(u.updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version,
+  CASE
+    WHEN u.last_login IS NULL OR u.last_login < DATE_SUB(NOW(), INTERVAL 1 YEAR)
+    THEN 1 ELSE 0
+  END AS is_inactive,
+  CASE
+    WHEN u.last_login IS NULL THEN NULL
+    ELSE TIMESTAMPDIFF(DAY, u.last_login, NOW())
+  END AS inactive_days
+FROM user u
+INNER JOIN departments d ON d.department_id = u.department_id
+INNER JOIN faculties f ON f.faculty_id = d.faculty_id`;
 
 const isAdmin = (req: Request, res: Response): boolean => {
   if (!req.user?.id) {
@@ -50,24 +132,50 @@ export const getManagedUsers = async (req: Request, res: Response) => {
     if (!isAdmin(req, res)) return;
 
     const [users] = await db.query<ManagedUserRow[]>(
+      `${managedStudentSelect}
+       ORDER BY is_inactive DESC, u.user_id ASC`,
+    );
+    const [instructors] = await db.query<ManagedInstructorRow[]>(
       `SELECT
-        user_id,
-        user_name,
-        user_pic,
-        user_birthdate,
-        user_gender,
-        last_login,
-        DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version,
+        a.admin_id,
+        a.admin_name,
+        a.first_name,
+        a.last_name,
+        a.admin_email,
+        a.phone,
+        a.address,
+        a.department_id,
+        d.department_code,
+        d.department_name,
+        f.faculty_id,
+        f.faculty_code,
+        f.faculty_name,
+        a.status,
+        a.last_login,
+        DATE_FORMAT(a.updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version,
         CASE
-          WHEN last_login IS NULL OR last_login < DATE_SUB(NOW(), INTERVAL 1 YEAR)
+          WHEN a.last_login IS NULL OR a.last_login < DATE_SUB(NOW(), INTERVAL 1 YEAR)
           THEN 1 ELSE 0
         END AS is_inactive,
         CASE
-          WHEN last_login IS NULL THEN NULL
-          ELSE TIMESTAMPDIFF(DAY, last_login, NOW())
+          WHEN a.last_login IS NULL THEN NULL
+          ELSE TIMESTAMPDIFF(DAY, a.last_login, NOW())
         END AS inactive_days
-      FROM user
-      ORDER BY is_inactive DESC, user_id ASC`,
+       FROM admin a
+       LEFT JOIN departments d ON d.department_id = a.department_id
+       LEFT JOIN faculties f ON f.faculty_id = d.faculty_id
+       WHERE a.role = 'instructor'
+       ORDER BY is_inactive DESC, a.admin_id ASC`,
+    );
+    const [faculties] = await db.query<FacultyFilterRow[]>(
+      `SELECT faculty_id, faculty_code, faculty_name
+       FROM faculties
+       ORDER BY faculty_name ASC`,
+    );
+    const [departments] = await db.query<DepartmentFilterRow[]>(
+      `SELECT department_id, department_code, department_name, faculty_id
+       FROM departments
+       ORDER BY department_name ASC`,
     );
 
     res.json({
@@ -76,6 +184,12 @@ export const getManagedUsers = async (req: Request, res: Response) => {
         ...user,
         is_inactive: Boolean(user.is_inactive),
       })),
+      instructors: instructors.map((instructor) => ({
+        ...instructor,
+        is_inactive: Boolean(instructor.is_inactive),
+      })),
+      faculties,
+      departments,
     });
   } catch (error) {
     console.error("getManagedUsers error:", error);
@@ -108,7 +222,7 @@ export const updateManagedUser = async (req: Request, res: Response) => {
       });
     }
 
-    if (!["male", "female", "other"].includes(user_gender)) {
+    if (!["male", "female", "other", "unspecified"].includes(user_gender)) {
       return res.status(400).json({ message: "Invalid gender" });
     }
 
@@ -138,7 +252,7 @@ export const updateManagedUser = async (req: Request, res: Response) => {
 
     const [result] = await db.query<ResultSetHeader>(
       `UPDATE user
-       SET user_name = ?, user_birthdate = ?, user_gender = ?
+       SET user_name = ?, birthdate = ?, gender = ?
        WHERE user_id = ?
          AND updated_at = STR_TO_DATE(?, '%Y-%m-%d %H:%i:%s.%f')`,
       [
@@ -175,24 +289,8 @@ export const updateManagedUser = async (req: Request, res: Response) => {
     }
 
     const [updatedUsers] = await db.query<ManagedUserRow[]>(
-      `SELECT
-        user_id,
-        user_name,
-        user_pic,
-        user_birthdate,
-        user_gender,
-        last_login,
-        DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version,
-        CASE
-          WHEN last_login IS NULL OR last_login < DATE_SUB(NOW(), INTERVAL 1 YEAR)
-          THEN 1 ELSE 0
-        END AS is_inactive,
-        CASE
-          WHEN last_login IS NULL THEN NULL
-          ELSE TIMESTAMPDIFF(DAY, last_login, NOW())
-        END AS inactive_days
-      FROM user
-      WHERE user_id = ?
+      `${managedStudentSelect}
+      WHERE u.user_id = ?
       LIMIT 1`,
       [userId],
     );

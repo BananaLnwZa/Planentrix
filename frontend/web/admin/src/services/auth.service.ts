@@ -6,6 +6,7 @@ import {
   LogoutAdminResponse,
   RegisterAdminRequest,
   RegisterAdminResponse,
+  RegistrationOptionsResponse,
 } from "@/interfaces/auth.interface";
 import { apiConfig, apiEndpoints } from "@/services/api.config";
 import { clearAdminSession, expireAdminSession } from "@/services/admin-session.client";
@@ -34,6 +35,17 @@ class AdminAuthService {
         data,
       );
 
+      return response.data;
+    } catch (error: unknown) {
+      throw this.handleError(error);
+    }
+  }
+
+  async getRegistrationOptions(): Promise<RegistrationOptionsResponse> {
+    try {
+      const response = await this.apiClient.get<RegistrationOptionsResponse>(
+        apiEndpoints.auth.registrationOptions,
+      );
       return response.data;
     } catch (error: unknown) {
       throw this.handleError(error);

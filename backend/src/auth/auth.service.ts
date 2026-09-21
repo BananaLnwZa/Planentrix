@@ -74,22 +74,18 @@ interface DepartmentRow extends RowDataPacket {
 
 interface RegistrationOptionRow extends RowDataPacket {
   faculty_id: number;
-  faculty_code: string;
   faculty_name: string;
   department_id: number | null;
-  department_code: string | null;
   department_name: string | null;
 }
 
 export interface RegistrationDepartmentOption {
   department_id: number;
-  department_code: string;
   department_name: string;
 }
 
 export interface RegistrationFacultyOption {
   faculty_id: number;
-  faculty_code: string;
   faculty_name: string;
   departments: RegistrationDepartmentOption[];
 }
@@ -131,8 +127,8 @@ export const getRegistrationOptions = async (): Promise<{
   faculties: RegistrationFacultyOption[];
 }> => {
   const [rows] = await db.query<RegistrationOptionRow[]>(
-    `SELECT f.faculty_id, f.faculty_code, f.faculty_name,
-            d.department_id, d.department_code, d.department_name
+    `SELECT f.faculty_id, f.faculty_name,
+            d.department_id, d.department_name
      FROM faculties f
      LEFT JOIN departments d
        ON d.faculty_id = f.faculty_id
@@ -145,19 +141,13 @@ export const getRegistrationOptions = async (): Promise<{
   for (const row of rows) {
     const faculty = faculties.get(row.faculty_id) ?? {
       faculty_id: row.faculty_id,
-      faculty_code: row.faculty_code,
       faculty_name: row.faculty_name,
       departments: [],
     };
 
-    if (
-      row.department_id !== null &&
-      row.department_code !== null &&
-      row.department_name !== null
-    ) {
+    if (row.department_id !== null && row.department_name !== null) {
       faculty.departments.push({
         department_id: row.department_id,
-        department_code: row.department_code,
         department_name: row.department_name,
       });
     }

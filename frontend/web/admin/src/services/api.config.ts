@@ -20,6 +20,7 @@ export const apiConfig = {
 export const apiEndpoints = {
   auth: {
     register: "/auth/admin/register",
+    registrationOptions: "/auth/registration-options",
     logout: "/auth/logout",
     profile: "/auth/me",
   },
@@ -38,6 +39,17 @@ export const apiEndpoints = {
     list: "/admin/subject-types",
     byId: (subjectTypeId: number) =>
       `/admin/subject-types/${subjectTypeId}`,
+  },
+  faculties: {
+    list: "/admin/faculties",
+    byId: (facultyId: number) => `/admin/faculties/${facultyId}`,
+    status: (facultyId: number) => `/admin/faculties/${facultyId}/status`,
+  },
+  departments: {
+    list: "/admin/departments",
+    byId: (departmentId: number) => `/admin/departments/${departmentId}`,
+    status: (departmentId: number) =>
+      `/admin/departments/${departmentId}/status`,
   },
   exams: {
     list: "/admin/exams",

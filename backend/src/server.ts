@@ -16,6 +16,8 @@ import adminSubjectRouter from "./admin/routes/subject.route";
 import adminSubjectTypeRouter from "./admin/routes/subject-type.route";
 import adminExamRouter from "./admin/routes/exam.route";
 import adminDashboardRouter from "./admin/routes/dashboard.route";
+import adminFacultyRouter from "./admin/routes/faculty.route";
+import adminDepartmentRouter from "./admin/routes/department.route";
 import instructorRouter from "./instructor/routes/instructor.route";
 import { errorHandler } from "./middlewares/errorHandler";
 import { requireRole } from "./middlewares/requireRole";
@@ -57,6 +59,8 @@ adminRouter.use("/subjects", adminSubjectRouter);
 adminRouter.use("/subject-types", adminSubjectTypeRouter);
 adminRouter.use("/exams", adminExamRouter);
 adminRouter.use("/dashboard", adminDashboardRouter);
+adminRouter.use("/faculties", adminFacultyRouter);
+adminRouter.use("/departments", adminDepartmentRouter);
 app.use("/admin", adminRouter);
 
 app.get("/", (_req, res) => {

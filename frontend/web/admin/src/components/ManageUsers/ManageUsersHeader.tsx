@@ -9,13 +9,13 @@ export default function ManageUsersHeader() {
           จัดการผู้ใช้งาน
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6c7f88] sm:text-base">
-          ตรวจสอบ แก้ไข และลบบัญชีผู้ใช้ โดยบัญชีที่ไม่ได้เข้าใช้งานเกิน 1 ปีจะถูกจัดไว้ด้านบน
+          ตรวจสอบบัญชีนักศึกษาและอาจารย์ ค้นหาและกรองตามข้อมูลการศึกษา โดยยังเรียงบัญชีตามลำดับความสำคัญเดิม
         </p>
       </div>
 
       <div className="flex max-w-md items-start gap-3 rounded-2xl border border-[#f1d4c9] bg-[#fff8f4] px-4 py-3 text-sm text-[#815c50]">
         <ShieldAlert className="mt-0.5 shrink-0 text-[#dd8065]" size={19} />
-        <p>โปรดตรวจสอบชื่อและรหัสผู้ใช้ก่อนลบ เพราะบัญชีและข้อมูลที่เกี่ยวข้องจะถูกลบถาวร</p>
+        <p>การแก้ไขและลบบัญชียังเปิดให้ใช้ในแท็บนักศึกษา โปรดตรวจสอบข้อมูลให้ครบถ้วนก่อนดำเนินการ</p>
       </div>
     </header>
   );

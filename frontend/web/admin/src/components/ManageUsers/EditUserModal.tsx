@@ -108,8 +108,8 @@ export default function EditUserModal({ user, onClose, onSave }: EditUserModalPr
 
           <fieldset>
             <legend className="text-sm font-medium text-[#4c626c]">เพศ</legend>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {([['male', 'ชาย'], ['female', 'หญิง'], ['other', 'อื่น ๆ']] as const).map(([value, label]) => (
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {([['male', 'ชาย'], ['female', 'หญิง'], ['other', 'อื่น ๆ'], ['unspecified', 'ไม่ระบุ']] as const).map(([value, label]) => (
                 <label key={value} className={`cursor-pointer rounded-xl border px-3 py-2.5 text-center text-sm transition ${gender === value ? 'border-[#69abc2] bg-[#e9f6fa] text-[#34788f]' : 'border-[#dfe8eb] text-[#657780] hover:bg-[#f5f9fa]'}`}>
                   <input type="radio" name="gender" value={value} checked={gender === value} onChange={() => setGender(value)} className="sr-only" />
                   {label}
