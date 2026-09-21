@@ -3,8 +3,8 @@ const getAdminApiBaseUrl = (): string => {
     typeof window === "undefined"
       ? process.env.ADMIN_API_URL ||
         process.env.NEXT_PUBLIC_ADMIN_API_URL ||
-        "http://localhost:4100"
-      : process.env.NEXT_PUBLIC_ADMIN_API_URL || "http://localhost:4100";
+        "http://localhost:4000"
+      : process.env.NEXT_PUBLIC_ADMIN_API_URL || "http://localhost:4000";
 
   return baseUrl.replace(/\/$/, "");
 };
@@ -19,10 +19,9 @@ export const apiConfig = {
 
 export const apiEndpoints = {
   auth: {
-    register: "/admin/auth/register",
-    login: "/admin/auth/login",
-    logout: "/admin/auth/logout",
-    profile: "/admin/auth/me",
+    register: "/auth/admin/register",
+    logout: "/auth/logout",
+    profile: "/auth/me",
   },
   users: {
     list: "/admin/users",

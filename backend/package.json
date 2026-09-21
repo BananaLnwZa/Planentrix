@@ -4,9 +4,9 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "dev:admin": "nodemon --watch src --ext ts --exec \"ts-node src/admin/admin.server.ts\"",
-    "dev:user": "nodemon --watch src --ext ts --exec \"ts-node src/user/user.server.ts\"",
-    "dev": "npm run dev:admin",
+    "dev": "nodemon --watch src --ext ts --exec \"ts-node src/server.ts\"",
+    "dev:user": "npm run dev",
+    "dev:admin": "npm run dev",
     "lint": "eslint",
     "typecheck": "tsc --noEmit --incremental false",
     "test": "node --test -r ts-node/register src/user/services/*.test.ts"

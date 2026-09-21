@@ -20,7 +20,7 @@ class ExamManagementService {
   constructor() {
     this.apiClient = axios.create(apiConfig);
     this.apiClient.interceptors.request.use((config) => {
-      const token = Cookies.get("adminAccessToken");
+      const token = Cookies.get("accessToken");
       if (token) config.headers.Authorization = `Bearer ${token}`;
       return config;
     });

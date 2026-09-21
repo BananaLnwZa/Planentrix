@@ -3,9 +3,9 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/services/auth.store";
 import authService from "@/services/auth.service";
+import { redirectToRoleHome } from "@/services/role-navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
@@ -26,12 +26,10 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginForm() {
-  const router = useRouter();
   const {
     login,
     isLoading,
     error: authError,
-    isAuthenticated,
     checkAuthStatus,
   } = useAuthStore();
   const [formError, setFormError] = useState<string | null>(null);
@@ -48,32 +46,38 @@ export default function LoginForm() {
   });
 
   useEffect(() => {
-    const syncSession = () => checkAuthStatus();
+    let isActive = true;
 
-    syncSession();
-    window.addEventListener("focus", syncSession);
-    window.addEventListener("storage", syncSession);
+    const validateStoredSession = async () => {
+      const session = await authService.validateCurrentSession();
+      if (!isActive) return;
+
+      checkAuthStatus();
+      if (!session) return;
+
+      if (!redirectToRoleHome(session.user.role)) {
+        authService.clearAuth();
+        checkAuthStatus();
+      }
+    };
+
+    void validateStoredSession();
 
     return () => {
-      window.removeEventListener("focus", syncSession);
-      window.removeEventListener("storage", syncSession);
+      isActive = false;
     };
   }, [checkAuthStatus]);
-
-  // Redirect only when the persisted state is backed by a real token.
-  useEffect(() => {
-    if (isAuthenticated && authService.getAccessToken()) {
-      router.replace("/Main");
-    }
-  }, [isAuthenticated, router]);
 
   const onSubmit = async (data: LoginFormData) => {
     setFormError(null);
 
     try {
-      await login(data.user_name, data.user_password);
+      const response = await login(data.user_name, data.user_password);
       reset();
-      router.push("/Main");
+      if (!redirectToRoleHome(response.role)) {
+        authService.clearAuth();
+        throw new Error("This account role does not have a destination page.");
+      }
     } catch (err: unknown) {
       setFormError(
         err instanceof Error ? err.message : "Login failed. Please try again."
@@ -99,8 +103,9 @@ export default function LoginForm() {
           text-black
         "
       >
-        LogIn
+        Log In
       </h2>
+
 
       {/* Error Message */}
       {displayError && (

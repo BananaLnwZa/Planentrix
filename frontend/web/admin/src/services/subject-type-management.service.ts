@@ -16,7 +16,7 @@ class SubjectTypeManagementService {
   constructor() {
     this.apiClient = axios.create(apiConfig);
     this.apiClient.interceptors.request.use((config) => {
-      const accessToken = Cookies.get("adminAccessToken");
+      const accessToken = Cookies.get("accessToken");
       if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
       return config;
     });

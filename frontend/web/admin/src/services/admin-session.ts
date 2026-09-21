@@ -4,13 +4,18 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { AdminProfile } from "@/interfaces/auth.interface";
 import { apiConfig, apiEndpoints } from "@/services/api.config";
+import { getSharedLoginUrl } from "@/services/auth-navigation";
 
-export async function requireAdminSession(): Promise<AdminProfile> {
+type StaffRole = "university_staff" | "instructor";
+
+const requireStaffSession = async (
+  expectedRole: StaffRole,
+): Promise<AdminProfile> => {
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get("adminAccessToken")?.value;
+  const accessToken = cookieStore.get("accessToken")?.value;
 
   if (!accessToken) {
-    redirect("/LogIn");
+    redirect(getSharedLoginUrl());
   }
 
   const response = await fetch(`${apiConfig.baseURL}${apiEndpoints.auth.profile}`, {
@@ -22,13 +27,27 @@ export async function requireAdminSession(): Promise<AdminProfile> {
   });
 
   if ([401, 403, 404].includes(response.status)) {
-    redirect("/LogIn");
+    redirect(getSharedLoginUrl());
   }
 
   if (!response.ok) {
-    throw new Error("Unable to verify the administrator session.");
+    throw new Error("Unable to verify the staff session.");
   }
 
-  const data = (await response.json()) as { admin: AdminProfile };
-  return data.admin;
-}
+  const data = (await response.json()) as {
+    admin?: AdminProfile;
+    instructor?: AdminProfile;
+  };
+  const profile =
+    expectedRole === "instructor" ? data.instructor : data.admin;
+  if (!profile || profile.role !== expectedRole) {
+    redirect(getSharedLoginUrl());
+  }
+  return profile;
+};
+
+export const requireAdminSession = (): Promise<AdminProfile> =>
+  requireStaffSession("university_staff");
+
+export const requireInstructorSession = (): Promise<AdminProfile> =>
+  requireStaffSession("instructor");

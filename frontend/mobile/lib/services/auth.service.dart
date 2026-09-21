@@ -40,8 +40,8 @@ class AuthService {
       );
 
       final response = await _apiService.post(
-        '/user/auth/login',
-        data: request.toJson(),
+        '/auth/login',
+        data: {...request.toJson(), 'role': 'user'},
       );
 
       final loginResponse = LoginResponse.fromJson(
@@ -79,7 +79,7 @@ class AuthService {
   /// Register a new user account with optional constraints and busy days.
   Future<void> register(RegisterRequest request) async {
     try {
-      await _apiService.post('/user/auth/register', data: request.toJson());
+      await _apiService.post('/auth/register', data: request.toJson());
     } on DioException catch (error) {
       throw _toAuthException(
         error,
@@ -103,7 +103,7 @@ class AuthService {
     try {
       final request = RefreshTokenRequest(refreshToken: storedRefreshToken);
       final response = await _apiService.post(
-        '/user/auth/refresh-token',
+        '/auth/refresh-token',
         data: request.toJson(),
       );
 
@@ -143,7 +143,7 @@ class AuthService {
   /// Notifies the backend to invalidate the refresh token and clears local storage.
   Future<void> logout() async {
     try {
-      await _apiService.post('/user/auth/logout');
+      await _apiService.post('/auth/logout');
     } catch (_) {
       // Even if the backend call fails, still clear local session
     } finally {
@@ -158,7 +158,7 @@ class AuthService {
 
   /// Delete the current user's account and clear the local session.
   Future<void> deleteAccount() async {
-    await _apiService.delete('/user/auth/me');
+    await _apiService.delete('/auth/me');
     await _storageService.clearSession();
     await _cancelHomeworkReminders();
   }

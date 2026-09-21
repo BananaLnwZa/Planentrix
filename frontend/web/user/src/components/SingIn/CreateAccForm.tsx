@@ -1,14 +1,28 @@
 "use client";
 
-import { useState, useRef, forwardRef, useImperativeHandle } from "react";
+import {
+  useEffect,
+  useState,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import { Eye, EyeOff } from "lucide-react";
 import GenderSelect from "@/components/common/GenderSelect";
 import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
+import type { FacultyOption } from "@/interfaces/auth.interface";
+import authService from "@/services/auth.service";
 
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*[\W_]).{8,}$/;
+const emailRegex = /^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
 type AccountField =
   | "username"
+  | "firstName"
+  | "lastName"
+  | "email"
+  | "faculty"
+  | "department"
   | "password"
   | "confirmPassword"
   | "birthdate"
@@ -25,6 +39,10 @@ const toLocalDateValue = (date: Date) => {
 export interface CreateAccFormHandle {
   getFormData: () => Promise<{
     user_name: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    department_id: number;
     user_password: string;
     user_birthdate: string | null;
     user_gender: "male" | "female" | "other" | null;
@@ -35,14 +53,58 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
   const [errors, setErrors] = useState<AccountErrors>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [faculties, setFaculties] = useState<FacultyOption[]>([]);
+  const [selectedFacultyId, setSelectedFacultyId] = useState("");
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
+  const [isOptionsLoading, setIsOptionsLoading] = useState(true);
+  const [optionsError, setOptionsError] = useState("");
 
   const usernameRef = useRef<HTMLInputElement>(null);
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmPasswordRef = useRef<HTMLInputElement>(null);
   const birthdateRef = useRef<HTMLInputElement>(null);
   const [selectedGender, setSelectedGender] = useState<
     "male" | "female" | "other" | null
   >(null);
+
+  const selectedFaculty = faculties.find(
+    (faculty) => String(faculty.faculty_id) === selectedFacultyId
+  );
+  const availableDepartments = selectedFaculty?.departments ?? [];
+
+  useEffect(() => {
+    let isActive = true;
+
+    authService
+      .getRegistrationOptions()
+      .then((response) => {
+        if (!isActive) return;
+        setFaculties(response.faculties);
+        setOptionsError(
+          response.faculties.length === 0
+            ? "ยังไม่มีข้อมูลคณะและสาขา กรุณาติดต่อผู้ดูแลระบบ"
+            : ""
+        );
+      })
+      .catch((error: unknown) => {
+        if (!isActive) return;
+        setOptionsError(
+          error instanceof Error
+            ? error.message
+            : "ไม่สามารถโหลดข้อมูลคณะและสาขาได้"
+        );
+      })
+      .finally(() => {
+        if (isActive) setIsOptionsLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   const clearError = (field: AccountField) => {
     setErrors((current) => {
@@ -56,6 +118,10 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
   useImperativeHandle(ref, () => ({
     getFormData: async () => {
       const username = usernameRef.current?.value?.trim() ?? "";
+      const firstName = firstNameRef.current?.value?.trim() ?? "";
+      const lastName = lastNameRef.current?.value?.trim() ?? "";
+      const email = emailRef.current?.value?.trim() ?? "";
+      const departmentId = Number(selectedDepartmentId);
       const password = passwordRef.current?.value ?? "";
       const confirmPassword = confirmPasswordRef.current?.value ?? "";
       const birthdate = birthdateRef.current?.value;
@@ -63,6 +129,28 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
 
       if (!username) {
         nextErrors.username = "กรุณาป้อนชื่อผู้ใช้";
+      }
+
+      if (!firstName) {
+        nextErrors.firstName = "กรุณาป้อนชื่อ";
+      }
+
+      if (!lastName) {
+        nextErrors.lastName = "กรุณาป้อนนามสกุล";
+      }
+
+      if (!email) {
+        nextErrors.email = "กรุณาป้อนอีเมล";
+      } else if (!emailRegex.test(email)) {
+        nextErrors.email = "รูปแบบอีเมลไม่ถูกต้อง";
+      }
+
+      if (!selectedFacultyId) {
+        nextErrors.faculty = "กรุณาเลือกคณะ";
+      }
+
+      if (!Number.isInteger(departmentId) || departmentId <= 0) {
+        nextErrors.department = "กรุณาเลือกสาขา";
       }
 
       if (!password) {
@@ -93,6 +181,10 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
 
       return {
         user_name: username,
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        department_id: departmentId,
         user_password: password,
         user_birthdate: birthdate || null,
         user_gender: selectedGender!,
@@ -196,6 +288,247 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
             </p>
           )}
         </div>
+
+        {/* Student name */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label
+              htmlFor="signup-first-name"
+              className="mb-2 block text-xs text-gray-700 sm:text-sm"
+            >
+              First name
+            </label>
+            <input
+              id="signup-first-name"
+              ref={firstNameRef}
+              type="text"
+              placeholder="Enter first name"
+              autoComplete="given-name"
+              required
+              aria-invalid={Boolean(errors.firstName)}
+              aria-describedby={
+                errors.firstName ? "signup-first-name-error" : undefined
+              }
+              onChange={() => clearError("firstName")}
+              className={`
+                w-full rounded-full border px-4 py-2.5 text-[11px]
+                text-gray-500 outline-none sm:px-5 sm:py-3 sm:text-[12px]
+                md:text-[14px]
+                ${
+                  errors.firstName
+                    ? "border-red-400 bg-red-50/40"
+                    : "border-gray-300 bg-white"
+                }
+              `}
+            />
+            {errors.firstName && (
+              <p
+                id="signup-first-name-error"
+                className="mt-1.5 text-xs text-red-600"
+                role="alert"
+              >
+                {errors.firstName}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label
+              htmlFor="signup-last-name"
+              className="mb-2 block text-xs text-gray-700 sm:text-sm"
+            >
+              Last name
+            </label>
+            <input
+              id="signup-last-name"
+              ref={lastNameRef}
+              type="text"
+              placeholder="Enter last name"
+              autoComplete="family-name"
+              required
+              aria-invalid={Boolean(errors.lastName)}
+              aria-describedby={
+                errors.lastName ? "signup-last-name-error" : undefined
+              }
+              onChange={() => clearError("lastName")}
+              className={`
+                w-full rounded-full border px-4 py-2.5 text-[11px]
+                text-gray-500 outline-none sm:px-5 sm:py-3 sm:text-[12px]
+                md:text-[14px]
+                ${
+                  errors.lastName
+                    ? "border-red-400 bg-red-50/40"
+                    : "border-gray-300 bg-white"
+                }
+              `}
+            />
+            {errors.lastName && (
+              <p
+                id="signup-last-name-error"
+                className="mt-1.5 text-xs text-red-600"
+                role="alert"
+              >
+                {errors.lastName}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Email */}
+        <div>
+          <label
+            htmlFor="signup-email"
+            className="mb-2 block text-xs text-gray-700 sm:text-sm"
+          >
+            Email
+          </label>
+          <input
+            id="signup-email"
+            ref={emailRef}
+            type="email"
+            placeholder="Enter email"
+            autoComplete="email"
+            required
+            aria-invalid={Boolean(errors.email)}
+            aria-describedby={errors.email ? "signup-email-error" : undefined}
+            onChange={() => clearError("email")}
+            className={`
+              w-full rounded-full border px-4 py-2.5 text-[11px]
+              text-gray-500 outline-none sm:px-5 sm:py-3 sm:text-[12px]
+              md:text-[14px]
+              ${
+                errors.email
+                  ? "border-red-400 bg-red-50/40"
+                  : "border-gray-300 bg-white"
+              }
+            `}
+          />
+          {errors.email && (
+            <p
+              id="signup-email-error"
+              className="mt-1.5 text-xs text-red-600"
+              role="alert"
+            >
+              {errors.email}
+            </p>
+          )}
+        </div>
+
+        {/* Faculty and department */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label
+              htmlFor="signup-faculty"
+              className="mb-2 block text-xs text-gray-700 sm:text-sm"
+            >
+              คณะ
+            </label>
+            <select
+              id="signup-faculty"
+              value={selectedFacultyId}
+              required
+              disabled={isOptionsLoading || faculties.length === 0}
+              aria-invalid={Boolean(errors.faculty)}
+              aria-describedby={
+                errors.faculty ? "signup-faculty-error" : undefined
+              }
+              onChange={(event) => {
+                setSelectedFacultyId(event.target.value);
+                setSelectedDepartmentId("");
+                clearError("faculty");
+                clearError("department");
+              }}
+              className={`
+                h-[44px] w-full rounded-full border bg-white px-4
+                text-[11px] text-gray-500 outline-none disabled:cursor-not-allowed
+                disabled:bg-gray-100 sm:h-[48px] sm:px-5 sm:text-[12px]
+                md:text-[14px]
+                ${errors.faculty ? "border-red-400" : "border-gray-300"}
+              `}
+            >
+              <option value="">
+                {isOptionsLoading ? "กำลังโหลด..." : "เลือกคณะ"}
+              </option>
+              {faculties.map((faculty) => (
+                <option key={faculty.faculty_id} value={faculty.faculty_id}>
+                  {faculty.faculty_name}
+                </option>
+              ))}
+            </select>
+            {errors.faculty && (
+              <p
+                id="signup-faculty-error"
+                className="mt-1.5 text-xs text-red-600"
+                role="alert"
+              >
+                {errors.faculty}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label
+              htmlFor="signup-department"
+              className="mb-2 block text-xs text-gray-700 sm:text-sm"
+            >
+              สาขา
+            </label>
+            <select
+              id="signup-department"
+              value={selectedDepartmentId}
+              required
+              disabled={
+                !selectedFacultyId || availableDepartments.length === 0
+              }
+              aria-invalid={Boolean(errors.department)}
+              aria-describedby={
+                errors.department ? "signup-department-error" : undefined
+              }
+              onChange={(event) => {
+                setSelectedDepartmentId(event.target.value);
+                clearError("department");
+              }}
+              className={`
+                h-[44px] w-full rounded-full border bg-white px-4
+                text-[11px] text-gray-500 outline-none disabled:cursor-not-allowed
+                disabled:bg-gray-100 sm:h-[48px] sm:px-5 sm:text-[12px]
+                md:text-[14px]
+                ${errors.department ? "border-red-400" : "border-gray-300"}
+              `}
+            >
+              <option value="">
+                {!selectedFacultyId
+                  ? "เลือกคณะก่อน"
+                  : availableDepartments.length === 0
+                    ? "คณะนี้ยังไม่มีสาขา"
+                    : "เลือกสาขา"}
+              </option>
+              {availableDepartments.map((department) => (
+                <option
+                  key={department.department_id}
+                  value={department.department_id}
+                >
+                  {department.department_name}
+                </option>
+              ))}
+            </select>
+            {errors.department && (
+              <p
+                id="signup-department-error"
+                className="mt-1.5 text-xs text-red-600"
+                role="alert"
+              >
+                {errors.department}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {optionsError && (
+          <p className="text-xs text-red-600" role="alert">
+            {optionsError}
+          </p>
+        )}
 
         {/* Password */}
         <div>

@@ -81,7 +81,7 @@ const isAdmin = (req: AuthenticatedRequest, res: Response): boolean => {
     return false;
   }
 
-  if (req.user.role !== "admin") {
+  if (req.user.role !== "university_staff") {
     res.status(403).json({ message: "Forbidden: Admin access required" });
     return false;
   }

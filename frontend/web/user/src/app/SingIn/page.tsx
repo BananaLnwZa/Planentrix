@@ -7,7 +7,9 @@ import { authService } from "@/services/auth.service";
 import type { RegisterRequest } from "@/interfaces/auth.interface";
 import AuthNotebook from "@/components/common/AuthNotebook";
 import LogoSection from "@/components/common/LogoSection";
-import CreateAccForm from "@/components/SingIn/CreateAccForm";
+import CreateAccForm, {
+  type CreateAccFormHandle,
+} from "@/components/SingIn/CreateAccForm";
 import Constraint from "@/components/SingIn/constraintForm";
 import SignInBtn from "@/components/SingIn/SignInBtn";
 
@@ -34,14 +36,7 @@ export default function LoginPage() {
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   // Refs to access child component data
-  const createAccFormRef = useRef<{
-    getFormData: () => Promise<{
-      user_name: string;
-      user_password: string;
-      user_birthdate: string | null;
-      user_gender: "male" | "female" | "other" | null;
-    } | null>;
-  }>(null);
+  const createAccFormRef = useRef<CreateAccFormHandle>(null);
 
   const constraintFormRef = useRef<{
     getFormData: () => Promise<{
@@ -72,6 +67,10 @@ export default function LoginPage() {
       // Register user with all data
       const payload: RegisterRequest = {
         user_name: accData.user_name,
+        first_name: accData.first_name,
+        last_name: accData.last_name,
+        email: accData.email,
+        department_id: accData.department_id,
         user_password: accData.user_password,
         user_birthdate: accData.user_birthdate,
         user_gender: accData.user_gender,

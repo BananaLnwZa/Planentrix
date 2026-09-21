@@ -6,6 +6,7 @@ import {
   LogoutResponse,
   DeleteAccountResponse,
   ApiResponse,
+  RegistrationOptionsResponse,
   UpdateConstraintRequest,
   UpdateConstraintResponse,
 } from "@/interfaces/auth.interface";
@@ -22,7 +23,18 @@ import {
  * Handles all authentication-related API calls
  */
 class AuthService {
-  private readonly authEndpoint = "/user/auth";
+  private readonly authEndpoint = "/auth";
+
+  async getRegistrationOptions(): Promise<RegistrationOptionsResponse> {
+    try {
+      const response = await publicApiClient.get<RegistrationOptionsResponse>(
+        `${this.authEndpoint}/registration-options`
+      );
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
 
   /**
    * Register a new user
@@ -46,7 +58,7 @@ class AuthService {
     try {
       const response = await publicApiClient.post<LoginResponse>(
         `${this.authEndpoint}/login`,
-        { ...data, platform: "web" }
+        data
       );
 
       const { accessToken } = response.data;
@@ -102,6 +114,33 @@ class AuthService {
 
   getSession(): AuthSession | null {
     return getStoredAuthSession();
+  }
+
+  /**
+   * Confirm that the locally stored token still belongs to an active account.
+   * This prevents a stale token from bouncing between the login page and a
+   * protected role page forever.
+   */
+  async validateCurrentSession(): Promise<AuthSession | null> {
+    const session = getStoredAuthSession();
+    if (!session) return null;
+
+    try {
+      await publicApiClient.get(`${this.authEndpoint}/me`, {
+        headers: {
+          Authorization: `Bearer ${session.token}`,
+        },
+      });
+      return session;
+    } catch (error: unknown) {
+      if (
+        axios.isAxiosError(error) &&
+        [401, 403, 404].includes(error.response?.status ?? 0)
+      ) {
+        clearStoredAuth();
+      }
+      return null;
+    }
   }
 
   /**

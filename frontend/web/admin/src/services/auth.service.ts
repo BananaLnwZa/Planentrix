@@ -3,8 +3,6 @@ import Cookies from "js-cookie";
 import {
   AdminAuthErrorResponse,
   AdminProfileResponse,
-  LoginAdminRequest,
-  LoginAdminResponse,
   LogoutAdminResponse,
   RegisterAdminRequest,
   RegisterAdminResponse,
@@ -19,7 +17,7 @@ class AdminAuthService {
     this.apiClient = axios.create(apiConfig);
 
     this.apiClient.interceptors.request.use((config) => {
-      const accessToken = Cookies.get("adminAccessToken");
+      const accessToken = Cookies.get("accessToken");
 
       if (accessToken) {
         config.headers.Authorization = `Bearer ${accessToken}`;
@@ -42,41 +40,8 @@ class AdminAuthService {
     }
   }
 
-  async login(data: LoginAdminRequest): Promise<LoginAdminResponse> {
-    try {
-      const response = await this.apiClient.post<LoginAdminResponse>(
-        apiEndpoints.auth.login,
-        data,
-      );
-
-      if (response.data.role !== "admin") {
-        throw new Error("This account does not have administrator access.");
-      }
-
-      Cookies.set("adminAccessToken", response.data.accessToken, {
-        expires: 1,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-      });
-      Cookies.set("adminName", data.admin_name, {
-        expires: 1,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-      });
-      Cookies.set("adminId", String(response.data.adminId), {
-        expires: 1,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-      });
-
-      return response.data;
-    } catch (error: unknown) {
-      throw this.handleError(error);
-    }
-  }
-
   getAccessToken(): string | undefined {
-    return Cookies.get("adminAccessToken");
+    return Cookies.get("accessToken");
   }
 
   isAuthenticated(): boolean {

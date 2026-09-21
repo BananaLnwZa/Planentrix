@@ -24,10 +24,10 @@ export const apiConfig = {
 // API Endpoints
 export const apiEndpoints = {
   auth: {
-    register: "/user/auth/register",
-    login: "/user/auth/login",
-    logout: "/user/auth/logout",
-    deleteAccount: "/user/auth/me",
+    register: "/auth/register",
+    login: "/auth/login",
+    logout: "/auth/logout",
+    deleteAccount: "/auth/me",
   },
   // Add more endpoint groups as needed
   // user: {

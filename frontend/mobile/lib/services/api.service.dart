@@ -43,9 +43,9 @@ class ApiService {
               error.requestOptions.extra['isRetry'] != true) {
             // Avoid refreshing if this was already a refresh-token call to prevent loops
             if (error.requestOptions.path.contains(
-                  '/user/auth/refresh-token',
+                  '/auth/refresh-token',
                 ) ||
-                error.requestOptions.path.contains('/user/auth/login')) {
+                error.requestOptions.path.contains('/auth/login')) {
               return handler.next(error);
             }
 
@@ -58,7 +58,7 @@ class ApiService {
                 // Perform token refresh using a clean Dio instance to avoid interceptor recursion
                 final refreshDio = Dio(BaseOptions(baseUrl: _getBaseUrl()));
                 final response = await refreshDio.post(
-                  '/user/auth/refresh-token',
+                  '/auth/refresh-token',
                   data: {'refreshToken': refreshToken},
                 );
 

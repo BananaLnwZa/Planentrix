@@ -47,7 +47,7 @@ const adminSignInSchema = z.object({
     ),
   address: z.string().trim(),
 }).superRefine((data, context) => {
-  if (data.role === "teacher" && !data.major) {
+  if (data.role === "instructor" && !data.major) {
     context.addIssue({
       code: "custom",
       path: ["major"],
@@ -203,19 +203,19 @@ export default function AdminSignInForm() {
                   tone="violet"
                   options={[
                     {
-                      value: "admin",
-                      label: "ผู้ดูแลระบบ",
+                      value: "university_staff",
+                      label: "เจ้าหน้าที่มหาวิทยาลัย",
                       description: "จัดการข้อมูลและการตั้งค่าระบบ",
                     },
                     {
-                      value: "teacher",
+                      value: "instructor",
                       label: "อาจารย์",
                       description: "ดูแลรายวิชาและข้อสอบ",
                     },
                   ]}
                   onChange={(value) => {
                     field.onChange(value);
-                    if (value !== "teacher") {
+                    if (value !== "instructor") {
                       setValue("major", "", { shouldValidate: true });
                     }
                     setPreviewReady(false);
@@ -226,7 +226,7 @@ export default function AdminSignInForm() {
             />
           </FormField>
 
-          {selectedRole === "teacher" && (
+          {selectedRole === "instructor" && (
             <FormField
               id="new-admin-major"
               label="Major"

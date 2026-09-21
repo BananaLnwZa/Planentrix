@@ -7,6 +7,10 @@
 // ==============================
 export interface RegisterRequest {
   user_name: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  department_id: number;
   user_password: string;
   user_birthdate?: string | null;
   user_gender?: "male" | "female" | "other" | null;
@@ -25,16 +29,37 @@ export interface RegisterRequest {
 // ==============================
 // LOGIN REQUEST & RESPONSE
 // ==============================
+export type AuthRole = "user" | "instructor" | "university_staff";
+
 export interface LoginRequest {
-  user_name: string;
-  user_password: string;
+  username: string;
+  password: string;
   platform: "web";
+}
+
+export interface DepartmentOption {
+  department_id: number;
+  department_code: string;
+  department_name: string;
+}
+
+export interface FacultyOption {
+  faculty_id: number;
+  faculty_code: string;
+  faculty_name: string;
+  departments: DepartmentOption[];
+}
+
+export interface RegistrationOptionsResponse {
+  faculties: FacultyOption[];
 }
 
 export interface LoginResponse {
   message: string;
-  role: string;
-  userId: number;
+  role: AuthRole;
+  accountId: number;
+  userId?: number;
+  adminId?: number;
   accessToken: string;
   expiresIn: string;
 }
@@ -81,7 +106,7 @@ export interface AuthState {
 
 export interface AuthUser {
   userId: number;
-  role: string;
+  role: AuthRole;
   username?: string;
 }
 

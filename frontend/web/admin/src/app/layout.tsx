@@ -20,8 +20,8 @@ const sansation = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Planentrix Admin - Schedule Planner",
-  description: "Planentrix administration and schedule management system",
+  title: "Planentrix Staff - Schedule Planner",
+  description: "Planentrix staff and instructor management system",
 };
 
 export default function RootLayout({

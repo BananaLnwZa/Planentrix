@@ -1,15 +1,26 @@
 import Cookies from "js-cookie";
-import type { AuthUser } from "@/interfaces/auth.interface";
+import type { AuthRole, AuthUser } from "@/interfaces/auth.interface";
 
 const ACCESS_TOKEN_COOKIE = "accessToken";
 const AUTH_STORE_KEY = "auth-store";
 const EXPIRY_CLOCK_SKEW_SECONDS = 5;
+const AUTH_COOKIE_DOMAIN = process.env.NEXT_PUBLIC_AUTH_COOKIE_DOMAIN;
+
+const cookieScope = {
+  path: "/",
+  ...(AUTH_COOKIE_DOMAIN ? { domain: AUTH_COOKIE_DOMAIN } : {}),
+};
 
 interface AccessTokenPayload {
   id?: unknown;
   role?: unknown;
   exp?: unknown;
 }
+
+const isAuthRole = (value: unknown): value is AuthRole =>
+  value === "user" ||
+  value === "instructor" ||
+  value === "university_staff";
 
 export interface AuthSession {
   token: string;
@@ -40,7 +51,7 @@ export const readAuthSession = (token: string): AuthSession | null => {
   const payload = decodeAccessToken(token);
   const userId = Number(payload?.id);
   const expiresAtSeconds = Number(payload?.exp);
-  const role = typeof payload?.role === "string" ? payload.role : "";
+  const role = payload?.role;
   const nowSeconds = Date.now() / 1000;
 
   if (
@@ -48,7 +59,7 @@ export const readAuthSession = (token: string): AuthSession | null => {
     userId <= 0 ||
     !Number.isFinite(expiresAtSeconds) ||
     expiresAtSeconds <= nowSeconds + EXPIRY_CLOCK_SKEW_SECONDS ||
-    !role
+    !isAuthRole(role)
   ) {
     return null;
   }
@@ -61,7 +72,8 @@ export const readAuthSession = (token: string): AuthSession | null => {
 };
 
 export const clearStoredAuth = (): void => {
-  Cookies.remove(ACCESS_TOKEN_COOKIE, { path: "/" });
+  Cookies.remove(ACCESS_TOKEN_COOKIE, cookieScope);
+  Cookies.remove("adminAccessToken", { path: "/" });
 
   if (typeof window !== "undefined") {
     window.localStorage.removeItem(AUTH_STORE_KEY);
@@ -86,7 +98,7 @@ export const storeAccessToken = (token: string): AuthSession => {
 
   Cookies.set(ACCESS_TOKEN_COOKIE, token, {
     expires: session.expiresAt,
-    path: "/",
+    ...cookieScope,
     secure:
       typeof window !== "undefined" && window.location.protocol === "https:",
     sameSite: "strict",

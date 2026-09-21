@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/services/auth.store";
 import authService from "@/services/auth.service";
+import { redirectToRoleHome } from "@/services/role-navigation";
 import MainNotebook from "./MainNotebook";
 import NotebookTabs, { type NotebookTabId } from "./NotebookTabs";
 
@@ -22,13 +23,21 @@ export default function MainNotebookScreen({
   children?: ReactNode;
 }) {
   const router = useRouter();
-  const { accessToken, isAuthenticated, checkAuthStatus } = useAuthStore();
+  const { user, accessToken, isAuthenticated, checkAuthStatus } = useAuthStore();
 
   useEffect(() => {
     const validateSession = () => {
       checkAuthStatus();
 
       if (!authService.isAuthenticated()) {
+        router.replace("/LogIn");
+        return;
+      }
+
+      const session = authService.getSession();
+      if (session?.user.role !== "user") {
+        if (session && redirectToRoleHome(session.user.role)) return;
+        authService.clearAuth();
         router.replace("/LogIn");
       }
     };
@@ -56,7 +65,7 @@ export default function MainNotebookScreen({
     router.push(tabRoutes[tab]);
   };
 
-  if (!accessToken || !isAuthenticated) {
+  if (!accessToken || !isAuthenticated || user?.role !== "user") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[url('/images/bg.png')] bg-cover bg-center">
         <span className="text-sm text-[#6A8795]">กำลังตรวจสอบการเข้าสู่ระบบ...</span>

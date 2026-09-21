@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { AuthState, AuthUser } from "@/interfaces/auth.interface";
+import {
+  AuthState,
+  AuthUser,
+  LoginResponse,
+} from "@/interfaces/auth.interface";
 import authService from "@/services/auth.service";
 import homeworkReminderService from "@/services/homework-reminder.service";
 
@@ -11,9 +15,13 @@ interface AuthStore extends AuthState {
   setIsLoading: (loading: boolean) => void;
 
   // Async actions
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<LoginResponse>;
   register: (
     username: string,
+    firstName: string,
+    lastName: string,
+    email: string,
+    departmentId: number,
     password: string,
     birthdate?: string,
     gender?: "male" | "female" | "other"
@@ -62,14 +70,14 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true, error: null });
         try {
           const response = await authService.login({
-            user_name: username,
-            user_password: password,
+            username,
+            password,
             platform: "web",
           });
 
           set({
             user: {
-              userId: response.userId,
+              userId: response.accountId,
               role: response.role,
               username: username,
             },
@@ -78,6 +86,7 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
             error: null,
           });
+          return response;
         } catch (error: unknown) {
           set({
             error: error instanceof Error ? error.message : "Login failed",
@@ -88,11 +97,24 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       // Register
-      register: async (username, password, birthdate, gender) => {
+      register: async (
+        username,
+        firstName,
+        lastName,
+        email,
+        departmentId,
+        password,
+        birthdate,
+        gender
+      ) => {
         set({ isLoading: true, error: null });
         try {
           await authService.register({
             user_name: username,
+            first_name: firstName,
+            last_name: lastName,
+            email,
+            department_id: departmentId,
             user_password: password,
             user_birthdate: birthdate,
             user_gender: gender,
