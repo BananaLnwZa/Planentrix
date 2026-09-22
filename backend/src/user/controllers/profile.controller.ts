@@ -5,6 +5,10 @@ import multer from "multer";
 import fs from "fs";
 import { safelyGenerateRecommendation } from "../services/recommendation.engine";
 import { validateConstraintForSave } from "../services/constraint-validation";
+import {
+  constraintDayToDatabase,
+  constraintDayToNumber,
+} from "../services/constraint-day";
 
 // ==============================
 // ฟังก์ชัน Helper สำหรับ format DATE เป็น YYYY-MM-DD
@@ -55,14 +59,55 @@ export const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 });
 
-const getCurrentAcademicYear = async (userId: number) => {
-  const [terms] = (await db.query(
-    `SELECT academic_year FROM terms
-     WHERE user_id = ? AND term_status = 1
-     ORDER BY term_id DESC LIMIT 1`,
+const getProfilePageData = async (req: Request, userId: number) => {
+  const [users] = (await db.query(
+    `SELECT
+       account.user_id,
+       account.user_name,
+       account.first_name,
+       account.last_name,
+       CONCAT_WS(' ', account.first_name, account.last_name) AS full_name,
+       account.email,
+       account.user_pic,
+       account.birthdate AS user_birthdate,
+       account.gender AS user_gender,
+       account.status AS account_status,
+       DATE_FORMAT(account.created_at, '%Y-%m-%d %H:%i:%s') AS account_created_at,
+       DATE_FORMAT(account.last_login, '%Y-%m-%d %H:%i:%s') AS last_login,
+       department.department_id,
+       department.department_code,
+       department.department_name,
+       faculty.faculty_id,
+       faculty.faculty_name,
+       student_term.student_term_id,
+       student_term.year_level,
+       academic_term.academic_year,
+       academic_term.semester_no,
+       student_term.status AS student_term_status
+     FROM user account
+     LEFT JOIN departments department
+       ON department.department_id = account.department_id
+     LEFT JOIN faculties faculty
+       ON faculty.faculty_id = department.faculty_id
+     LEFT JOIN student_terms student_term
+       ON student_term.user_id = account.user_id
+      AND student_term.status = 'active'
+     LEFT JOIN academic_terms academic_term
+       ON academic_term.academic_term_id = student_term.academic_term_id
+     WHERE account.user_id = ?
+     ORDER BY student_term.student_term_id DESC
+     LIMIT 1`,
     [userId]
   )) as any;
-  return terms && terms.length > 0 ? terms[0].academic_year : null;
+
+  if (!users?.length) return null;
+  const profile = users[0];
+  profile.user_birthdate = formatDateToString(profile.user_birthdate);
+  profile.user_pic_url = profile.user_pic
+    ? `${req.protocol}://${req.get("host")}/uploads/${profile.user_pic}`
+    : null;
+  delete profile.user_pic;
+  return profile;
 };
 
 // ==============================
@@ -76,7 +121,9 @@ export const getUserProfile = async (req: Request, res: Response) => {
     }
 
     const [users] = (await db.query(
-      "SELECT user_id, user_name, user_pic, user_birthdate, user_gender FROM user WHERE user_id = ?",
+      `SELECT user_id, user_name, user_pic,
+              birthdate AS user_birthdate, gender AS user_gender
+       FROM user WHERE user_id = ?`,
       [userId]
     )) as any;
 
@@ -113,30 +160,10 @@ export const getUserProfilePage = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const [users] = (await db.query(
-      "SELECT user_id, user_name, user_pic, user_birthdate, user_gender FROM user WHERE user_id = ?",
-      [userId]
-    )) as any;
-
-    if (!users || users.length === 0) {
+    const profilePageData = await getProfilePageData(req, userId);
+    if (!profilePageData) {
       return res.status(404).json({ message: "User not found" });
     }
-
-    const user = users[0];
-    const academicYear = await getCurrentAcademicYear(userId);
-
-    if (user.user_birthdate) {
-      user.user_birthdate = formatDateToString(user.user_birthdate);
-    }
-
-    const profilePageData = {
-      user_id: user.user_id,
-      user_name: user.user_name,
-      user_gender: user.user_gender,
-      user_birthdate: user.user_birthdate || null,
-      user_pic_url: user.user_pic ? `${req.protocol}://${req.get("host")}/uploads/${user.user_pic}` : null,
-      academic_year: academicYear,
-    };
 
     res.json(profilePageData);
   } catch (error) {
@@ -214,11 +241,11 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       updateValues.push(user_name);
     }
     if (user_birthdate) {
-      updateFields.push("user_birthdate = ?");
+      updateFields.push("birthdate = ?");
       updateValues.push(user_birthdate);
     }
     if (user_gender) {
-      updateFields.push("user_gender = ?");
+      updateFields.push("gender = ?");
       updateValues.push(user_gender);
     }
 
@@ -231,19 +258,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
     const query = `UPDATE user SET ${updateFields.join(", ")} WHERE user_id = ?`;
     await db.query(query, updateValues);
 
-    // ดึงข้อมูลที่อัปเดทแล้ว
-    const [updatedUsers] = (await db.query(
-      "SELECT user_id, user_name, user_pic, user_birthdate, user_gender FROM user WHERE user_id = ?",
-      [userId]
-    )) as any;
-
-    const updatedUser = updatedUsers[0];
-    if (updatedUser.user_pic) {
-      updatedUser.user_pic_url = `${req.protocol}://${req.get("host")}/uploads/${updatedUser.user_pic}`;
-    }
-    if (updatedUser.user_birthdate) {
-      updatedUser.user_birthdate = formatDateToString(updatedUser.user_birthdate);
-    }
+    const updatedUser = await getProfilePageData(req, userId);
 
     res.json({
       message: "Profile updated successfully",
@@ -324,9 +339,12 @@ export const getConstraints = async (req: Request, res: Response) => {
 
     // ดึงข้อมูล constraints
     const [constraints] = (await db.query(
-      `SELECT constraint_id, user_id, day_off, continuous_working_duration, \`break\`, 
-              start_time, end_time
-       FROM \`constraint\` WHERE user_id = ?`,
+      `SELECT constraint_id, user_id, day_off,
+              continuous_working_minutes AS continuous_working_duration,
+              break_minutes AS \`break\`,
+              TIME_FORMAT(available_start_time, '%H:%i:%s') AS start_time,
+              TIME_FORMAT(available_end_time, '%H:%i:%s') AS end_time
+       FROM user_constraints WHERE user_id = ?`,
       [userId]
     )) as any;
 
@@ -338,12 +356,18 @@ export const getConstraints = async (req: Request, res: Response) => {
 
     // Fetch multiple recurring busy times
     const [recurringBusyItems] = (await db.query(
-      `SELECT recurring_busy_day as day, recurring_busy_time_start as start, recurring_busy_time_end as end
+      `SELECT day_of_week AS day,
+              TIME_FORMAT(start_time, '%H:%i:%s') AS start,
+              TIME_FORMAT(end_time, '%H:%i:%s') AS end
        FROM recurring_busy WHERE constraint_id = ?`,
       [constraintData.constraint_id]
     )) as any;
 
-    constraintData.busy_days = recurringBusyItems || [];
+    constraintData.day_off = constraintDayToNumber(constraintData.day_off);
+    constraintData.busy_days = (recurringBusyItems || []).map((item: any) => ({
+      ...item,
+      day: constraintDayToNumber(item.day),
+    }));
 
     res.json(constraintData);
   } catch (error) {
@@ -445,7 +469,7 @@ export const updateConstraints = async (req: Request, res: Response) => {
 
     // ตรวจสอบว่า constraint มีอยู่หรือไม่
     const [existingConstraints] = (await db.query(
-      "SELECT constraint_id FROM `constraint` WHERE user_id = ?",
+      "SELECT constraint_id FROM user_constraints WHERE user_id = ?",
       [userId]
     )) as any;
 
@@ -454,22 +478,22 @@ export const updateConstraints = async (req: Request, res: Response) => {
 
     if (day_off !== undefined) {
       updateFields.push("day_off = ?");
-      updateValues.push(day_off);
+      updateValues.push(constraintDayToDatabase(day_off == null ? null : Number(day_off)));
     }
     if (continuous_working_duration !== undefined) {
-      updateFields.push("continuous_working_duration = ?");
+      updateFields.push("continuous_working_minutes = ?");
       updateValues.push(continuous_working_duration);
     }
     if (breakTime !== undefined) {
-      updateFields.push("`break` = ?");
+      updateFields.push("break_minutes = ?");
       updateValues.push(breakTime);
     }
     if (start_time !== undefined) {
-      updateFields.push("start_time = ?");
+      updateFields.push("available_start_time = ?");
       updateValues.push(start_time);
     }
     if (end_time !== undefined) {
-      updateFields.push("end_time = ?");
+      updateFields.push("available_end_time = ?");
       updateValues.push(end_time);
     }
     if (updateFields.length === 0 && (!busy_days || !Array.isArray(busy_days))) {
@@ -482,22 +506,39 @@ export const updateConstraints = async (req: Request, res: Response) => {
       constraintIdForItems = existingConstraints[0].constraint_id;
       if (updateFields.length > 0) {
         updateValues.push(userId);
-        const query = `UPDATE \`constraint\` SET ${updateFields.join(", ")} WHERE user_id = ?`;
+        const query = `UPDATE user_constraints SET ${updateFields.join(", ")} WHERE user_id = ?`;
         await db.query(query, updateValues);
       }
     } else {
       const insertFields = ["user_id"];
-      const insertValues = [userId];
+      const insertValues: unknown[] = [userId];
 
-      day_off !== undefined && (insertFields.push("day_off"), insertValues.push(day_off));
-      continuous_working_duration !== undefined && (insertFields.push("continuous_working_duration"), insertValues.push(continuous_working_duration));
-      breakTime !== undefined && (insertFields.push("`break`"), insertValues.push(breakTime));
-      start_time !== undefined && (insertFields.push("start_time"), insertValues.push(start_time));
-      end_time !== undefined && (insertFields.push("end_time"), insertValues.push(end_time));
+      if (day_off !== undefined) {
+        insertFields.push("day_off");
+        insertValues.push(
+          constraintDayToDatabase(day_off == null ? null : Number(day_off)),
+        );
+      }
+      if (continuous_working_duration !== undefined) {
+        insertFields.push("continuous_working_minutes");
+        insertValues.push(continuous_working_duration);
+      }
+      if (breakTime !== undefined) {
+        insertFields.push("break_minutes");
+        insertValues.push(breakTime);
+      }
+      if (start_time !== undefined) {
+        insertFields.push("available_start_time");
+        insertValues.push(start_time);
+      }
+      if (end_time !== undefined) {
+        insertFields.push("available_end_time");
+        insertValues.push(end_time);
+      }
 
       if (insertFields.length > 1) { // More than just user_id
         const placeholders = insertFields.map(() => "?").join(", ");
-        const query = `INSERT INTO \`constraint\` (${insertFields.join(", ")}) VALUES (${placeholders})`;
+        const query = `INSERT INTO user_constraints (${insertFields.join(", ")}) VALUES (${placeholders})`;
         const [insertResult]: any = await db.query(query, insertValues);
         constraintIdForItems = insertResult.insertId;
       }
@@ -510,30 +551,39 @@ export const updateConstraints = async (req: Request, res: Response) => {
       for (const bd of busy_days) {
         await db.query(
           `INSERT INTO recurring_busy
-            (constraint_id, recurring_busy_day, recurring_busy_time_start, recurring_busy_time_end)
+            (constraint_id, day_of_week, start_time, end_time)
            VALUES (?, ?, ?, ?)`,
-          [constraintIdForItems, bd.day, bd.start, bd.end]
+          [constraintIdForItems, constraintDayToDatabase(Number(bd.day)), bd.start, bd.end]
         );
       }
     }
 
     // ดึงข้อมูล constraint ที่อัปเดทแล้ว
     const [updatedConstraints] = (await db.query(
-      `SELECT constraint_id, user_id, day_off, continuous_working_duration, \`break\`, 
-              start_time, end_time
-       FROM \`constraint\` WHERE user_id = ?`,
+      `SELECT constraint_id, user_id, day_off,
+              continuous_working_minutes AS continuous_working_duration,
+              break_minutes AS \`break\`,
+              TIME_FORMAT(available_start_time, '%H:%i:%s') AS start_time,
+              TIME_FORMAT(available_end_time, '%H:%i:%s') AS end_time
+       FROM user_constraints WHERE user_id = ?`,
       [userId]
     )) as any;
 
     const constraintData = updatedConstraints[0];
 
     const [updatedRecurringBusyItems] = (await db.query(
-      `SELECT recurring_busy_day as day, recurring_busy_time_start as start, recurring_busy_time_end as end
+      `SELECT day_of_week AS day,
+              TIME_FORMAT(start_time, '%H:%i:%s') AS start,
+              TIME_FORMAT(end_time, '%H:%i:%s') AS end
        FROM recurring_busy WHERE constraint_id = ?`,
       [constraintData.constraint_id]
     )) as any;
 
-    constraintData.busy_days = updatedRecurringBusyItems || [];
+    constraintData.day_off = constraintDayToNumber(constraintData.day_off);
+    constraintData.busy_days = (updatedRecurringBusyItems || []).map((item: any) => ({
+      ...item,
+      day: constraintDayToNumber(item.day),
+    }));
 
     const recommendationResult = await safelyGenerateRecommendation({
       userId: Number(userId),

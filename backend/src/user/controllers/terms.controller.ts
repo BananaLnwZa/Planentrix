@@ -1,306 +1,244 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import db from "../../config/db";
 
-const CLASS_SCHEDULE_TYPE_ID = 1;
-
-interface TermRow extends RowDataPacket {
+interface CurrentTermRow extends RowDataPacket {
   term_id: number;
   user_id: number;
   term: number;
-  semester: string;
   academic_year: number;
-  start_midterm: Date | null;
-  end_midterm: Date | null;
-  start_final: Date | null;
-  end_final: Date | null;
+  semester: string;
+  start_midterm: string | null;
+  end_midterm: string | null;
+  start_final: string | null;
+  end_final: string | null;
   term_status: 0 | 1;
 }
 
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: number;
-    role?: string;
-  };
+interface AcademicTermRow extends RowDataPacket {
+  academic_term_id: number;
 }
 
-const isValidDateString = (value: unknown) => {
-  if (typeof value !== "string") return false;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return (
-    !Number.isNaN(date.getTime()) &&
-    date.toISOString().slice(0, 10) === value
-  );
+interface UserDepartmentRow extends RowDataPacket {
+  department_id: number;
+}
+
+const currentTermSelect = `
+  SELECT student_term.student_term_id AS term_id,
+         student_term.user_id,
+         academic_term.semester_no AS term,
+         student_term.year_level AS academic_year,
+         CAST(academic_term.academic_year AS CHAR) AS semester,
+         DATE_FORMAT(academic_term.midterm_start_date, '%Y-%m-%d') AS start_midterm,
+         DATE_FORMAT(academic_term.midterm_end_date, '%Y-%m-%d') AS end_midterm,
+         DATE_FORMAT(academic_term.final_start_date, '%Y-%m-%d') AS start_final,
+         DATE_FORMAT(academic_term.final_end_date, '%Y-%m-%d') AS end_final,
+         IF(student_term.status = 'active', 1, 0) AS term_status
+  FROM student_terms student_term
+  INNER JOIN academic_terms academic_term
+    ON academic_term.academic_term_id = student_term.academic_term_id
+  WHERE student_term.user_id = ? AND student_term.status = 'active'
+  ORDER BY student_term.student_term_id DESC
+  LIMIT 1`;
+
+const authenticatedUserId = (req: Request, res: Response): number | null => {
+  if (!req.user?.id) {
+    res.status(401).json({ message: "Unauthorized: Missing user ID" });
+    return null;
+  }
+  if (req.user.role && req.user.role !== "user") {
+    res.status(403).json({ message: "Forbidden: user role required" });
+    return null;
+  }
+  return Number(req.user.id);
 };
 
-// ==============================
-// ADD NEW TERM
-// ==============================
-export const addTerm = async (req: AuthenticatedRequest, res: Response) => {
+const validDate = (value: unknown): value is string => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+};
+
+export const addTerm = async (req: Request, res: Response) => {
+  const userId = authenticatedUserId(req, res);
+  if (userId === null) return;
+
+  const yearLevel = Number(req.body.academic_year);
+  const academicYear = Number(req.body.semester);
+  const semesterNo = Number(req.body.term);
+  const midtermStart = req.body.start_midterm;
+  const midtermEnd = req.body.end_midterm;
+  const finalStart = req.body.start_final;
+  const finalEnd = req.body.end_final;
+
+  if (
+    !Number.isInteger(yearLevel) ||
+    yearLevel < 1 ||
+    yearLevel > 4 ||
+    !Number.isInteger(academicYear) ||
+    academicYear < 2000 ||
+    academicYear > 9999 ||
+    ![1, 2].includes(semesterNo) ||
+    !validDate(midtermStart) ||
+    !validDate(midtermEnd) ||
+    !validDate(finalStart) ||
+    !validDate(finalEnd)
+  ) {
+    return res.status(400).json({
+      message: "กรุณาระบุชั้นปี ปีการศึกษา เทอม และช่วงวันสอบให้ถูกต้อง",
+    });
+  }
+  if (midtermEnd <= midtermStart || finalEnd <= finalStart || finalStart <= midtermEnd) {
+    return res.status(400).json({ message: "ช่วงวันสอบเรียงลำดับไม่ถูกต้อง" });
+  }
+
+  const connection = await db.getConnection();
   try {
-    const authUser = req.user;
-    if (!authUser?.id) {
-      return res.status(401).json({ message: "Unauthorized: Missing user ID" });
-    }
-    if (authUser.role && authUser.role !== "user") {
-      return res.status(403).json({ message: "Forbidden: user role required" });
-    }
-    const userId = authUser.id;
-
-    const {
-      academic_year,
-      semester,
-      term,
-      start_midterm,
-      end_midterm,
-      start_final,
-      end_final,
-    } = req.body;
-
-    if (
-      !academic_year ||
-      !semester ||
-      !term ||
-      !start_midterm ||
-      !end_midterm ||
-      !start_final ||
-      !end_final
-    ) {
-      return res.status(400).json({
-        message:
-          "academic_year, semester, term, start_midterm, end_midterm, start_final, and end_final are required",
-      });
-    }
-
-    const academicYearNumber = Number(academic_year);
-    const termNumber = Number(term);
-
-    if (
-      !Number.isInteger(academicYearNumber) ||
-      academicYearNumber < 1 ||
-      academicYearNumber > 4
-    ) {
-      return res.status(400).json({
-        message: "academic_year must be an integer between 1 and 4",
-      });
-    }
-
-    if (!Number.isInteger(termNumber) || termNumber < 1 || termNumber > 2) {
-      return res.status(400).json({
-        message: "term must be an integer between 1 and 2",
-      });
-    }
-
-    if (typeof semester !== "string" || !/^\d{4}$/.test(semester)) {
-      return res.status(400).json({
-        message: "semester must contain exactly 4 digits",
-      });
-    }
-
-    const dateFields = { start_midterm, end_midterm, start_final, end_final };
-    for (const [key, value] of Object.entries(dateFields)) {
-      if (value !== undefined && value !== null && !isValidDateString(value)) {
-        return res.status(400).json({
-          message: `${key} must be a valid date in YYYY-MM-DD format`,
-        });
-      }
-    }
-
-    if (end_midterm <= start_midterm) {
-      return res.status(400).json({
-        message: "end_midterm must be after start_midterm",
-      });
-    }
-
-    if (end_final <= start_final) {
-      return res.status(400).json({
-        message: "end_final must be after start_final",
-      });
-    }
-
-    if (start_final <= end_midterm) {
-      return res.status(400).json({
-        message: "start_final must be after end_midterm",
-      });
-    }
-
-    const connection = await db.getConnection();
-
-    try {
-      await connection.beginTransaction();
-
-      const [result] = await connection.query<ResultSetHeader>(
-        `INSERT INTO terms
-           (user_id, academic_year, semester, term, start_midterm, end_midterm, start_final, end_final, term_status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-        [
-          userId,
-          academicYearNumber,
-          semester,
-          termNumber,
-          start_midterm,
-          end_midterm,
-          start_final,
-          end_final,
-        ]
-      );
-
-      const [scheduleResult] = await connection.query<ResultSetHeader>(
-        `INSERT INTO schedule_time
-           (term_id, user_id, schedule_type_id, subject_id, schedule_day, start_time, end_time, classroom, target_score, note)
-         SELECT ?, ?, ?, subject_id, schedule_day, start_time, end_time, classroom, NULL, NULL
-         FROM subjects
-         WHERE term = ? AND academic_year = ? AND is_active = 1`,
-        [
-          result.insertId,
-          userId,
-          CLASS_SCHEDULE_TYPE_ID,
-          termNumber,
-          academicYearNumber,
-        ]
-      );
-
-      if (scheduleResult.affectedRows === 0) {
-        await connection.rollback();
-        return res.status(404).json({
-          message: "No subjects found for this term/academic_year",
-        });
-      }
-
-      await connection.commit();
-
-      return res.status(201).json({
-        message: "Term and schedule added successfully",
-        term_id: result.insertId,
-        user_id: userId,
-        schedule: {
-          total_subjects_found: scheduleResult.affectedRows,
-          newly_added: scheduleResult.affectedRows,
-          skipped_count: 0,
-        },
-      });
-    } catch (error) {
+    await connection.beginTransaction();
+    const [activeRows] = await connection.query<CurrentTermRow[]>(
+      `${currentTermSelect} FOR UPDATE`,
+      [userId],
+    );
+    if (activeRows[0]) {
       await connection.rollback();
-      throw error;
-    } finally {
-      connection.release();
+      return res.status(409).json({ message: "มีเทอมที่กำลังใช้งานอยู่แล้ว" });
     }
-  } catch (err) {
-    console.error("addTerm error:", err);
-    res.status(500).json({ message: "Internal server error" });
+
+    const [academicTerms] = await connection.query<AcademicTermRow[]>(
+      `SELECT academic_term_id
+       FROM academic_terms
+       WHERE academic_year = ?
+         AND semester_no = ?
+         AND status IN ('draft', 'active')
+       ORDER BY status = 'active' DESC, academic_term_id DESC
+       LIMIT 1`,
+      [academicYear, semesterNo],
+    );
+    if (!academicTerms[0]) {
+      await connection.rollback();
+      return res.status(404).json({
+        message: "ยังไม่มีปีการศึกษาและเทอมนี้ในระบบ กรุณาติดต่อผู้ดูแลระบบ",
+      });
+    }
+
+    const [users] = await connection.query<UserDepartmentRow[]>(
+      "SELECT department_id FROM user WHERE user_id = ? LIMIT 1 FOR UPDATE",
+      [userId],
+    );
+    if (!users[0]) {
+      await connection.rollback();
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const [termResult] = await connection.query<ResultSetHeader>(
+      `INSERT INTO student_terms
+         (user_id, academic_term_id, department_id, year_level, status)
+       VALUES (?, ?, ?, ?, 'active')`,
+      [
+        userId,
+        academicTerms[0].academic_term_id,
+        users[0].department_id,
+        yearLevel,
+      ],
+    );
+
+    const [enrollmentResult] = await connection.query<ResultSetHeader>(
+      `INSERT INTO enrollments
+         (student_term_id, section_id, target_grade_code, status)
+       SELECT ?, selected.section_id, NULL, 'enrolled'
+       FROM (
+         SELECT MIN(section.section_id) AS section_id
+         FROM curriculum_subjects curriculum
+         INNER JOIN course_sections section
+           ON section.subject_id = curriculum.subject_id
+          AND section.academic_term_id = ?
+          AND section.status IN ('open', 'closed')
+         WHERE curriculum.department_id = ?
+           AND curriculum.year_level = ?
+           AND curriculum.semester_no = ?
+           AND curriculum.is_active = 1
+         GROUP BY curriculum.subject_id
+       ) selected`,
+      [
+        termResult.insertId,
+        academicTerms[0].academic_term_id,
+        users[0].department_id,
+        yearLevel,
+        semesterNo,
+      ],
+    );
+    await connection.commit();
+    return res.status(201).json({
+      message: "Term and enrollments added successfully",
+      term_id: termResult.insertId,
+      user_id: userId,
+      schedule: {
+        total_subjects_found: enrollmentResult.affectedRows,
+        newly_added: enrollmentResult.affectedRows,
+        skipped_count: 0,
+      },
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error("addTerm error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  } finally {
+    connection.release();
   }
 };
 
-// ==============================
-// GET CURRENT TERM (status = 1)
-// ==============================
-export const getCurrentTerm = async (
-  req: AuthenticatedRequest,
-  res: Response
-) => {
+export const getCurrentTerm = async (req: Request, res: Response) => {
   try {
-    const authUser = req.user;
-    if (!authUser?.id) {
-      return res.status(401).json({ message: "Unauthorized: Missing user ID" });
-    }
-    if (authUser.role && authUser.role !== "user") {
-      return res.status(403).json({ message: "Forbidden: user role required" });
-    }
-    const userId = authUser.id;
-
-    const [rows] = await db.query<TermRow[]>(
-      `SELECT * FROM terms
-       WHERE user_id = ? AND term_status = 1
-       ORDER BY term_id DESC
-       LIMIT 1`,
-      [userId]
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({ message: "No current term found" });
-    }
-
-    res.json({
+    const userId = authenticatedUserId(req, res);
+    if (userId === null) return;
+    const [rows] = await db.query<CurrentTermRow[]>(currentTermSelect, [userId]);
+    if (!rows[0]) return res.status(404).json({ message: "No current term found" });
+    return res.json({
       message: "Current term retrieved successfully",
       data: rows[0],
     });
-  } catch (err) {
-    console.error("getCurrentTerm error:", err);
-    res.status(500).json({ message: "Internal server error" });
+  } catch (error) {
+    console.error("getCurrentTerm error:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
-// ==============================
-// END CURRENT TERM
-// (หาเทอมปัจจุบัน status = 1 เองแล้วจบให้)
-// ==============================
-export const endCurrentTerm = async (
-  req: AuthenticatedRequest,
-  res: Response
-) => {
+export const endCurrentTerm = async (req: Request, res: Response) => {
   try {
-    const authUser = req.user;
-    if (!authUser?.id) {
-      return res.status(401).json({ message: "Unauthorized: Missing user ID" });
-    }
-    if (authUser.role && authUser.role !== "user") {
-      return res.status(403).json({ message: "Forbidden: user role required" });
-    }
-    const userId = authUser.id;
+    const userId = authenticatedUserId(req, res);
+    if (userId === null) return;
+    const [rows] = await db.query<CurrentTermRow[]>(currentTermSelect, [userId]);
+    const term = rows[0];
+    if (!term) return res.status(404).json({ message: "No current term to end" });
 
-    const [currentTermRows] = await db.query<TermRow[]>(
-      `SELECT * FROM terms
-       WHERE user_id = ? AND term_status = 1
-       ORDER BY term_id DESC
+    const [activeSessions] = await db.query<RowDataPacket[]>(
+      `SELECT session.study_session_id
+       FROM study_sessions session
+       INNER JOIN enrollments enrollment
+         ON enrollment.enrollment_id = session.enrollment_id
+       WHERE enrollment.student_term_id = ?
+         AND session.status IN ('running', 'paused', 'interrupted')
        LIMIT 1`,
-      [userId]
+      [term.term_id],
     );
-
-    if (currentTermRows.length === 0) {
-      return res.status(404).json({ message: "No current term to end" });
-    }
-
-    const currentTerm = currentTermRows[0];
-
-    const [activeStudyRows] = await db.query<RowDataPacket[]>(
-      `SELECT study.study_time_id
-       FROM study_time study
-       INNER JOIN schedule_time schedule
-         ON schedule.schedule_time_id = study.schedule_time_id
-       WHERE schedule.user_id = ?
-         AND schedule.term_id = ?
-         AND (
-           study.session_status IN ('running', 'paused')
-           OR (
-             study.session_status = 'interrupted'
-             AND study.time_spent IS NULL
-           )
-         )
-       LIMIT 1`,
-      [userId, currentTerm.term_id]
-    );
-
-    if (activeStudyRows.length > 0) {
+    if (activeSessions[0]) {
       return res.status(409).json({
         message: "Please finish the active study timer before ending the term",
-        study_time_id: activeStudyRows[0].study_time_id,
+        study_time_id: activeSessions[0].study_session_id,
       });
     }
 
     await db.query(
-      `UPDATE terms
-       SET term_status = 0
-       WHERE term_id = ? AND user_id = ?`,
-      [currentTerm.term_id, userId]
+      `UPDATE student_terms
+       SET status = 'completed', completed_at = NOW()
+       WHERE student_term_id = ? AND user_id = ? AND status = 'active'`,
+      [term.term_id, userId],
     );
-
-    res.json({
-      message: "Term ended successfully",
-      ended_term: currentTerm,
-    });
-  } catch (err) {
-    console.error("endCurrentTerm error:", err);
-    res.status(500).json({ message: "Internal server error" });
+    return res.json({ message: "Term ended successfully", ended_term: term });
+  } catch (error) {
+    console.error("endCurrentTerm error:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };

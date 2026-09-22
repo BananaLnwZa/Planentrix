@@ -15,6 +15,7 @@ import ScoreDashboard from "./ScoreDashboard";
 import {
   CurrentTermRequiredNotebookLayout,
 } from "@/components/common/CurrentTermRequiredState";
+import NotebookErrorState from "@/components/common/NotebookErrorState";
 
 export default function ScoreHomeworkContent() {
   const [data, setData] = useState<SubjectGoalsResponse | null>(null);
@@ -103,13 +104,12 @@ export default function ScoreHomeworkContent() {
           <span className="text-sm">กำลังโหลดข้อมูลคะแนน...</span>
         </div>
       ) : loadError ? (
-        <StateMessage
-          icon={<CircleAlert className="h-7 w-7" />}
-          title="โหลดข้อมูลไม่สำเร็จ"
-          detail={loadError}
-          actionLabel="ลองอีกครั้ง"
-          onAction={() => void loadGoals()}
-        />
+        <div className="flex min-h-[430px] items-center justify-center p-5 text-center">
+          <NotebookErrorState
+            detail={loadError}
+            onRetry={() => void loadGoals()}
+          />
+        </div>
       ) : !data ? (
         <div />
       ) : data.data.length === 0 ? (

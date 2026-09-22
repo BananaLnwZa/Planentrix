@@ -8,7 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { AlertCircle, LoaderCircle, RefreshCw, WifiOff } from "lucide-react";
+import { LoaderCircle, WifiOff } from "lucide-react";
 import type {
   RecoveryAction,
   StudyDashboard,
@@ -26,6 +26,7 @@ import TimerPanel, { type TimerPhase } from "./TimerPanel";
 import {
   CurrentTermRequiredNotebookLayout,
 } from "@/components/common/CurrentTermRequiredState";
+import { NotebookErrorLayout } from "@/components/common/NotebookErrorState";
 
 const HEARTBEAT_INTERVAL_MS = 60_000;
 
@@ -425,26 +426,10 @@ export default function TimerWorkspace() {
       );
     }
     return (
-      <div className="flex h-full min-h-[430px] items-center justify-center">
-        <div>
-          <div className="max-w-sm rounded-[22px] border border-[#eaded4] bg-white/90 p-7 text-center shadow-lg">
-            <AlertCircle className="mx-auto text-[#d5969d]" size={34} />
-            <h1 className="mt-3 text-lg font-bold text-[#5d5055]">
-              โหลดข้อมูลไม่สำเร็จ
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-[#95868b]">
-              {pageError}
-            </p>
-            <button
-              type="button"
-              onClick={() => void loadTimerPage()}
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#8fc8ea] px-4 py-2 text-sm font-semibold text-white"
-            >
-              <RefreshCw size={15} /> ลองอีกครั้ง
-            </button>
-          </div>
-        </div>
-      </div>
+      <NotebookErrorLayout
+        detail={pageError}
+        onRetry={() => void loadTimerPage()}
+      />
     );
   }
 

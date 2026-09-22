@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CircleAlert, LoaderCircle, RefreshCw } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import type {
   ExamAnswer,
   ExamDetail,
@@ -15,6 +15,7 @@ import termService from "@/services/term.service";
 import {
   CurrentTermRequiredNotebookLayout,
 } from "@/components/common/CurrentTermRequiredState";
+import { NotebookErrorLayout } from "@/components/common/NotebookErrorState";
 import ExamListPanel from "./ExamListPanel";
 import ExamHistoryPanel from "./ExamHistoryPanel";
 import FeedbackPanel from "./FeedbackPanel";
@@ -188,15 +189,10 @@ export default function TestWorkspace() {
 
   if (loadError && !exams.length && !history.length && !feedbackSubjects.length) {
     return (
-      <div className="flex h-full items-center justify-center p-5 text-center">
-        <div className="rounded-3xl border border-[#F1BBC8] bg-white/80 px-8 py-7 text-sm text-[#667C86]">
-          <CircleAlert className="mx-auto h-8 w-8 text-[#E27691]" />
-          <p className="mt-3">{loadError}</p>
-          <button type="button" onClick={() => void loadData()} className="mt-4 inline-flex items-center gap-1 rounded-full border border-[#D3A4B1] px-4 py-2 text-xs text-[#B65D78]">
-            <RefreshCw className="h-3.5 w-3.5" /> ลองใหม่
-          </button>
-        </div>
-      </div>
+      <NotebookErrorLayout
+        detail={loadError}
+        onRetry={() => void loadData()}
+      />
     );
   }
 

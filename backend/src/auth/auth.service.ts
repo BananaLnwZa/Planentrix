@@ -7,6 +7,7 @@ import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import db from "../config/db";
 import type { AuthRole } from "../middlewares/verifyToken";
 import { validateConstraintForSave } from "../user/services/constraint-validation";
+import { constraintDayToDatabase } from "../user/services/constraint-day";
 
 type RequestBody = Record<string, unknown>;
 
@@ -49,8 +50,8 @@ interface UserProfileRow extends UserIdRow {
   last_name: string;
   email: string;
   department_id: number;
-  birthdate: string | null;
-  gender: string;
+  user_birthdate: string | null;
+  user_gender: string;
   user_pic: string | null;
   status: string;
   last_login: Date | null;
@@ -564,7 +565,7 @@ export const registerUser = async (input: unknown): Promise<void> => {
        VALUES (?, ?, ?, ?, ?, ?)`,
       [
         userResult.insertId,
-        dayOff,
+        constraintDayToDatabase(dayOff),
         continuousDuration,
         breakDuration,
         startTime,
@@ -577,7 +578,12 @@ export const registerUser = async (input: unknown): Promise<void> => {
         `INSERT INTO recurring_busy
           (constraint_id, day_of_week, start_time, end_time)
          VALUES (?, ?, ?, ?)`,
-        [constraintResult.insertId, busyDay.day, busyDay.start, busyDay.end],
+        [
+          constraintResult.insertId,
+          constraintDayToDatabase(busyDay.day),
+          busyDay.start,
+          busyDay.end,
+        ],
       );
     }
 
@@ -846,7 +852,8 @@ export const getAccountProfile = async (id: number, role: AuthRole) => {
   if (role === "user") {
     const [rows] = await db.query<UserProfileRow[]>(
       `SELECT user_id, user_name, first_name, last_name, email, department_id,
-              birthdate, gender, user_pic, status, last_login
+              birthdate AS user_birthdate, gender AS user_gender,
+              user_pic, status, last_login
        FROM user
        WHERE user_id = ? AND status = 'active'
        LIMIT 1`,
@@ -872,44 +879,65 @@ export const deleteUserAccount = async (id: number): Promise<void> => {
     userPic = rows[0].user_pic;
 
     await connection.query(
-      `DELETE psh FROM part_score_history psh
-       INNER JOIN exam_score_history esh
-         ON esh.exam_score_history_id = psh.exam_score_history_id
-       INNER JOIN schedule_time st
-         ON st.schedule_time_id = esh.schedule_time_id
-       WHERE st.user_id = ?`,
+      `DELETE block FROM weekly_schedule_block block
+       INNER JOIN weekly_recommendation recommendation
+         ON recommendation.recommendation_id = block.recommendation_id
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = recommendation.student_term_id
+       WHERE student_term.user_id = ?`,
       [id],
     );
     await connection.query(
-      `DELETE esh FROM exam_score_history esh
-       INNER JOIN schedule_time st
-         ON st.schedule_time_id = esh.schedule_time_id
-       WHERE st.user_id = ?`,
+      `DELETE recommendation FROM weekly_recommendation recommendation
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = recommendation.student_term_id
+       WHERE student_term.user_id = ?`,
       [id],
     );
     await connection.query(
-      `DELETE sc FROM score sc
-       INNER JOIN workloads w ON w.workload_id = sc.workload_id
-       INNER JOIN schedule_time st ON st.schedule_time_id = w.schedule_time_id
-       WHERE st.user_id = ?`,
+      `DELETE session FROM study_sessions session
+       INNER JOIN enrollments enrollment
+         ON enrollment.enrollment_id = session.enrollment_id
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = enrollment.student_term_id
+       WHERE student_term.user_id = ?`,
       [id],
     );
     await connection.query(
-      `DELETE w FROM workloads w
-       INNER JOIN schedule_time st ON st.schedule_time_id = w.schedule_time_id
-       WHERE st.user_id = ?`,
+      `DELETE checkpoint FROM exam_checkpoints checkpoint
+       INNER JOIN enrollments enrollment
+         ON enrollment.enrollment_id = checkpoint.enrollment_id
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = enrollment.student_term_id
+       WHERE student_term.user_id = ?`,
       [id],
     );
     await connection.query(
-      `DELETE study FROM study_time study
-       INNER JOIN schedule_time st
-         ON st.schedule_time_id = study.schedule_time_id
-       WHERE st.user_id = ?`,
+      `DELETE attempt FROM exam_attempts attempt
+       INNER JOIN enrollments enrollment
+         ON enrollment.enrollment_id = attempt.enrollment_id
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = enrollment.student_term_id
+       WHERE student_term.user_id = ?`,
       [id],
     );
-    await connection.query("DELETE FROM schedule_time WHERE user_id = ?", [id]);
-    await connection.query("DELETE FROM terms WHERE user_id = ?", [id]);
-    await connection.query("DELETE FROM user_constraints WHERE user_id = ?", [id]);
+    await connection.query(
+      `DELETE workload FROM workloads workload
+       INNER JOIN enrollments enrollment
+         ON enrollment.enrollment_id = workload.enrollment_id
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = enrollment.student_term_id
+       WHERE student_term.user_id = ?`,
+      [id],
+    );
+    await connection.query(
+      `DELETE enrollment FROM enrollments enrollment
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = enrollment.student_term_id
+       WHERE student_term.user_id = ?`,
+      [id],
+    );
+    await connection.query("DELETE FROM student_terms WHERE user_id = ?", [id]);
     await connection.query("DELETE FROM user WHERE user_id = ?", [id]);
     await connection.commit();
   } catch (error) {

@@ -210,10 +210,15 @@ export default function StudentCard({
     };
   }, [isOpen]);
 
-  const displayName = profile?.user_name || name || authUser?.username || "Student";
+  const displayName =
+    profile?.full_name?.trim() ||
+    profile?.user_name ||
+    name ||
+    authUser?.username ||
+    "Student";
   const displayGender = gender || formatGender(profile?.user_gender);
   const displayBirthDate = birthDate || formatDate(profile?.user_birthdate);
-  const displayYear = year ?? currentTerm?.academic_year ?? "—";
+  const displayYear = year ?? profile?.year_level ?? currentTerm?.academic_year ?? "—";
   const displayStudentNumber =
     studentNumber || String(profile?.user_id || userId || 1).padStart(2, "0");
   const visibleLoadError =
@@ -488,7 +493,9 @@ export default function StudentCard({
               </div>
               <div>
                 <dt className="text-[10px] leading-tight uppercase text-gray-400">Major</dt>
-                <dd className="truncate text-base leading-tight text-gray-900">COMSCI</dd>
+                <dd className="truncate text-base leading-tight text-gray-900">
+                  {profile?.department_code || profile?.department_name || "—"}
+                </dd>
               </div>
               <div>
                 <dt className="text-[10px] leading-tight uppercase text-gray-400">Year</dt>

@@ -1,8 +1,6 @@
-import { Request, Response } from "express";
-import type { RowDataPacket } from "mysql2";
+import type { Request, Response } from "express";
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
-
-const CLASS_SCHEDULE_TYPE_ID = 1;
 
 const GRADE_TO_GPA: Record<string, number> = {
   A: 4,
@@ -15,7 +13,7 @@ const GRADE_TO_GPA: Record<string, number> = {
   F: 0,
 };
 
-const PERCENT_TO_GRADE: { min: number; grade: string; gpa: number }[] = [
+const PERCENT_TO_GRADE = [
   { min: 80, grade: "A", gpa: 4 },
   { min: 75, grade: "B+", gpa: 3.5 },
   { min: 70, grade: "B", gpa: 3 },
@@ -26,12 +24,9 @@ const PERCENT_TO_GRADE: { min: number; grade: string; gpa: number }[] = [
   { min: 0, grade: "F", gpa: 0 },
 ];
 
-interface AuthenticatedRequest extends Request {
-  user?: { id: number; role?: string };
-}
-
 interface CurrentTermRow extends RowDataPacket {
   term_id: number;
+  user_id: number;
   term: number;
   academic_year: number;
   semester: string;
@@ -43,7 +38,7 @@ interface SubjectGoalRow extends RowDataPacket {
   subject_name: string;
   credits: number | string;
   teacher_name: string;
-  target_score: number | string | null;
+  target_grade_code: string | null;
 }
 
 interface WorkloadRow extends RowDataPacket {
@@ -52,7 +47,7 @@ interface WorkloadRow extends RowDataPacket {
   workload_name: string;
   workload_type_id: number;
   workload_type_name: string;
-  deadline_date: Date | string;
+  deadline_date: string;
   deadline_time: string;
   workload_status: string;
   actual_score: number | string | null;
@@ -66,10 +61,7 @@ interface SubjectScoreSummaryRow extends RowDataPacket {
   total_max: number | string | null;
 }
 
-const getAuthenticatedUserId = (
-  req: AuthenticatedRequest,
-  res: Response
-): number | null => {
+const authenticatedUserId = (req: Request, res: Response): number | null => {
   if (!req.user?.id) {
     res.status(401).json({ message: "Unauthorized: Missing user ID" });
     return null;
@@ -78,36 +70,97 @@ const getAuthenticatedUserId = (
     res.status(403).json({ message: "Forbidden: user role required" });
     return null;
   }
-  return req.user.id;
+  return Number(req.user.id);
 };
 
-const getCurrentTerm = async (userId: number) => {
-  const [rows] = await db.query<CurrentTermRow[]>(
-    `SELECT term_id, term, academic_year, semester
-     FROM terms
-     WHERE user_id = ? AND term_status = 1
-     ORDER BY term_id DESC
-     LIMIT 1`,
-    [userId]
+const termSelect = `
+  SELECT student_term.student_term_id AS term_id,
+         student_term.user_id,
+         academic_term.semester_no AS term,
+         student_term.year_level AS academic_year,
+         CAST(academic_term.academic_year AS CHAR) AS semester
+  FROM student_terms student_term
+  INNER JOIN academic_terms academic_term
+    ON academic_term.academic_term_id = student_term.academic_term_id
+  WHERE student_term.user_id = ? AND student_term.status = 'active'
+  ORDER BY student_term.student_term_id DESC
+  LIMIT 1`;
+
+const getCurrentTerm = async (
+  userId: number,
+  connection: PoolConnection | typeof db = db,
+  lock = false,
+) => {
+  const [rows] = await connection.query<CurrentTermRow[]>(
+    `${termSelect}${lock ? " FOR UPDATE" : ""}`,
+    [userId],
   );
   return rows[0] ?? null;
 };
 
-const percentToGrade = (percent: number) =>
-  PERCENT_TO_GRADE.find((range) => percent >= range.min) ??
-  PERCENT_TO_GRADE[PERCENT_TO_GRADE.length - 1];
+const subjectSelect = `
+  SELECT enrollment.enrollment_id AS schedule_time_id,
+         subject.subject_id,
+         subject.subject_name,
+         subject.credits,
+         COALESCE(
+           GROUP_CONCAT(
+             DISTINCT CONCAT(instructor.first_name, ' ', instructor.last_name)
+             ORDER BY instructor.first_name, instructor.last_name
+             SEPARATOR ', '
+           ),
+           '-'
+         ) AS teacher_name,
+         enrollment.target_grade_code
+  FROM enrollments enrollment
+  INNER JOIN course_sections section ON section.section_id = enrollment.section_id
+  INNER JOIN subjects subject ON subject.subject_id = section.subject_id
+  LEFT JOIN section_instructors section_instructor
+    ON section_instructor.section_id = section.section_id
+  LEFT JOIN admin instructor
+    ON instructor.admin_id = section_instructor.instructor_id
+  WHERE enrollment.student_term_id = ?
+    AND enrollment.status IN ('enrolled', 'completed')
+  GROUP BY enrollment.enrollment_id, subject.subject_id, subject.subject_name,
+           subject.credits, enrollment.target_grade_code
+  ORDER BY subject.subject_name ASC, enrollment.enrollment_id ASC`;
 
-const numberOrNull = (value: number | string | null) =>
-  value === null ? null : Number(value);
-
-const gradeFromGpa = (gpa: number | string | null) => {
-  if (gpa === null) return null;
-  const numericGpa = Number(gpa);
-  return (
-    Object.entries(GRADE_TO_GPA).find(([, value]) => value === numericGpa)?.[0] ??
-    null
-  );
+const loadSubjects = async (
+  termId: number,
+  connection: PoolConnection | typeof db = db,
+) => {
+  const [rows] = await connection.query<SubjectGoalRow[]>(subjectSelect, [termId]);
+  return rows;
 };
+
+const loadWorkloads = async (termId: number, completedOnly = false) => {
+  const [rows] = await db.query<WorkloadRow[]>(
+    `SELECT workload.enrollment_id AS schedule_time_id,
+            workload.workload_id,
+            workload.workload_name,
+            workload.workload_type_id,
+            workload_type.type_name AS workload_type_name,
+            DATE_FORMAT(workload.deadline_date, '%Y-%m-%d') AS deadline_date,
+            TIME_FORMAT(workload.deadline_time, '%H:%i:%s') AS deadline_time,
+            workload.status AS workload_status,
+            score.actual_score,
+            score.max_score
+     FROM workloads workload
+     INNER JOIN workload_types workload_type
+       ON workload_type.workload_type_id = workload.workload_type_id
+     INNER JOIN enrollments enrollment
+       ON enrollment.enrollment_id = workload.enrollment_id
+     LEFT JOIN score ON score.workload_id = workload.workload_id
+     WHERE enrollment.student_term_id = ?
+       ${completedOnly ? "AND workload.status = 'completed'" : ""}
+     ORDER BY workload.deadline_date ASC, workload.deadline_time ASC`,
+    [termId],
+  );
+  return rows;
+};
+
+const gpaForGrade = (grade: string | null) =>
+  grade === null ? null : (GRADE_TO_GPA[grade] ?? null);
 
 const gradeFromGpaBand = (gpa: number) => {
   if (gpa >= 4) return "A";
@@ -125,95 +178,74 @@ export const calculateWeightedGradeSummary = (
     credits: number;
     actualScore: number;
     maximumScore: number;
-  }>
+  }>,
 ) => {
   let totalCredits = 0;
   let weightedGpa = 0;
   let weightedPercent = 0;
   let totalActualScore = 0;
   let totalMaximumScore = 0;
-
   for (const subject of subjects) {
-    const credits = Number.isFinite(subject.credits)
-      ? Math.max(subject.credits, 0)
-      : 0;
+    const credits = Number.isFinite(subject.credits) ? Math.max(subject.credits, 0) : 0;
     const actualScore = Number.isFinite(subject.actualScore)
       ? Math.max(subject.actualScore, 0)
       : 0;
     const maximumScore = Number.isFinite(subject.maximumScore)
       ? Math.max(subject.maximumScore, 0)
       : 0;
-    // Each subject is accumulated directly on a 100-point scale. The sum of
-    // max_score is only used to limit score entry; it must not make an early
-    // 8/10 look like 80/100 before the remaining coursework is graded.
     const percent = Math.min(actualScore, 100);
-    const grade = percentToGrade(percent);
-
+    const grade =
+      PERCENT_TO_GRADE.find((range) => percent >= range.min) ??
+      PERCENT_TO_GRADE[PERCENT_TO_GRADE.length - 1];
     totalCredits += credits;
     weightedGpa += grade.gpa * credits;
     weightedPercent += percent * credits;
     totalActualScore += actualScore;
     totalMaximumScore += maximumScore;
   }
-
   const gpa = totalCredits > 0 ? weightedGpa / totalCredits : 0;
-  const percent = totalCredits > 0 ? weightedPercent / totalCredits : 0;
-
   return {
     gpa,
     grade: gradeFromGpaBand(gpa),
-    percent,
+    percent: totalCredits > 0 ? weightedPercent / totalCredits : 0,
     totalCredits,
     totalActualScore,
     totalMaximumScore,
   };
 };
 
-const loadCurrentSubjectGoals = async (userId: number, termId: number) => {
-  const [rows] = await db.query<SubjectGoalRow[]>(
-    `SELECT
-       st.schedule_time_id,
-       s.subject_id,
-       s.subject_name,
-       s.credits,
-       s.teacher_name,
-       st.target_score
-     FROM schedule_time st
-     INNER JOIN subjects s ON s.subject_id = st.subject_id
-     WHERE st.user_id = ?
-       AND st.term_id = ?
-       AND st.schedule_type_id = ?
-     ORDER BY s.subject_name ASC, st.schedule_time_id ASC`,
-    [userId, termId, CLASS_SCHEDULE_TYPE_ID]
-  );
-  return rows;
-};
+const subjectResponse = (subjects: SubjectGoalRow[], workloads: WorkloadRow[]) =>
+  subjects.map((subject) => ({
+    schedule_time_id: subject.schedule_time_id,
+    subject_id: subject.subject_id,
+    subject_name: subject.subject_name,
+    credits: Number(subject.credits),
+    teacher_name: subject.teacher_name,
+    target_score: gpaForGrade(subject.target_grade_code),
+    target_grade: subject.target_grade_code,
+    workloads: workloads
+      .filter((workload) => workload.schedule_time_id === subject.schedule_time_id)
+      .map((workload) => ({
+        ...workload,
+        actual_score:
+          workload.actual_score === null ? null : Number(workload.actual_score),
+        max_score: workload.max_score === null ? null : Number(workload.max_score),
+      })),
+  }));
 
-export const getAllScheduleTime = async (
-  req: AuthenticatedRequest,
-  res: Response
-) => {
+export const getAllScheduleTime = async (req: Request, res: Response) => {
   try {
-    const userId = getAuthenticatedUserId(req, res);
+    const userId = authenticatedUserId(req, res);
     if (userId === null) return;
-
-    const currentTerm = await getCurrentTerm(userId);
-    if (!currentTerm) {
-      return res.status(404).json({ message: "No current term found" });
-    }
-
-    const rows = await loadCurrentSubjectGoals(userId, currentTerm.term_id);
+    const term = await getCurrentTerm(userId);
+    if (!term) return res.status(404).json({ message: "No current term found" });
+    const subjects = await loadSubjects(term.term_id);
     return res.json({
       message: "Current-term class schedule retrieved successfully",
-      current_term: currentTerm,
-      schedule_type_id: CLASS_SCHEDULE_TYPE_ID,
-      total: rows.length,
-      data: rows.map((row) => ({
-        ...row,
-        credits: Number(row.credits),
-        target_score: numberOrNull(row.target_score),
-        target_grade: gradeFromGpa(row.target_score),
-      })),
+      current_term: term,
+      schedule_type_id: 1,
+      total: subjects.length,
+      data: subjectResponse(subjects, []),
     });
   } catch (error) {
     console.error("getAllScheduleTime error:", error);
@@ -221,55 +253,36 @@ export const getAllScheduleTime = async (
   }
 };
 
-// Legacy single-subject endpoint. Existing targets remain immutable.
-export const saveGrade = async (req: AuthenticatedRequest, res: Response) => {
+export const saveGrade = async (req: Request, res: Response) => {
   try {
-    const userId = getAuthenticatedUserId(req, res);
+    const userId = authenticatedUserId(req, res);
     if (userId === null) return;
-
-    const scheduleTimeId = Number(req.params.id);
-    const normalizedGrade = String(req.body.grade ?? "").toUpperCase();
-    const gpa = GRADE_TO_GPA[normalizedGrade];
-    if (!Number.isInteger(scheduleTimeId) || gpa === undefined) {
-      return res.status(400).json({
-        message: `A valid schedule_time_id and grade (${Object.keys(GRADE_TO_GPA).join(
-          ", "
-        )}) are required`,
-      });
+    const enrollmentId = Number(req.params.id);
+    const grade = String(req.body.grade ?? "").toUpperCase();
+    if (!Number.isInteger(enrollmentId) || GRADE_TO_GPA[grade] === undefined) {
+      return res.status(400).json({ message: "A valid class and grade are required" });
     }
-
-    const currentTerm = await getCurrentTerm(userId);
-    if (!currentTerm) {
-      return res.status(404).json({ message: "No current term found" });
-    }
-
+    const term = await getCurrentTerm(userId);
+    if (!term) return res.status(404).json({ message: "No current term found" });
     const [rows] = await db.query<SubjectGoalRow[]>(
-      `SELECT st.schedule_time_id, st.subject_id, st.target_score,
-              s.subject_name, s.credits, s.teacher_name
-       FROM schedule_time st
-       INNER JOIN subjects s ON s.subject_id = st.subject_id
-       WHERE st.schedule_time_id = ? AND st.user_id = ? AND st.term_id = ?
-         AND st.schedule_type_id = ?
-       LIMIT 1`,
-      [scheduleTimeId, userId, currentTerm.term_id, CLASS_SCHEDULE_TYPE_ID]
+      `${subjectSelect.replace("ORDER BY subject.subject_name ASC, enrollment.enrollment_id ASC", "")}
+       HAVING enrollment.enrollment_id = ?`,
+      [term.term_id, enrollmentId],
     );
-    if (rows.length === 0) {
-      return res.status(404).json({ message: "Current-term class was not found" });
-    }
-    if (rows[0].target_score !== null) {
+    if (!rows[0]) return res.status(404).json({ message: "Current-term class was not found" });
+    if (rows[0].target_grade_code !== null) {
       return res.status(409).json({ message: "Grade goal has already been finalized" });
     }
-
     await db.query(
-      `UPDATE schedule_time SET target_score = ?
-       WHERE schedule_time_id = ? AND user_id = ? AND target_score IS NULL`,
-      [gpa, scheduleTimeId, userId]
+      `UPDATE enrollments SET target_grade_code = ?
+       WHERE enrollment_id = ? AND student_term_id = ? AND target_grade_code IS NULL`,
+      [grade, enrollmentId, term.term_id],
     );
     return res.json({
       message: "Grade goal saved successfully",
-      schedule_time_id: scheduleTimeId,
-      grade: normalizedGrade,
-      target_score: gpa,
+      schedule_time_id: enrollmentId,
+      grade,
+      target_score: GRADE_TO_GPA[grade],
     });
   } catch (error) {
     console.error("saveGrade error:", error);
@@ -277,120 +290,85 @@ export const saveGrade = async (req: AuthenticatedRequest, res: Response) => {
   }
 };
 
-export const saveGradeGoals = async (
-  req: AuthenticatedRequest,
-  res: Response
-) => {
-  const userId = getAuthenticatedUserId(req, res);
+export const saveGradeGoals = async (req: Request, res: Response) => {
+  const userId = authenticatedUserId(req, res);
   if (userId === null) return;
-
-  const goals = req.body?.goals;
-  if (!Array.isArray(goals) || goals.length === 0) {
+  if (!Array.isArray(req.body?.goals) || req.body.goals.length === 0) {
     return res.status(400).json({ message: "goals must be a non-empty array" });
   }
-
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    const [termRows] = await connection.query<CurrentTermRow[]>(
-      `SELECT term_id, term, academic_year, semester
-       FROM terms
-       WHERE user_id = ? AND term_status = 1
-       ORDER BY term_id DESC
-       LIMIT 1
-       FOR UPDATE`,
-      [userId]
-    );
-    const currentTerm = termRows[0];
-    if (!currentTerm) {
+    const term = await getCurrentTerm(userId, connection, true);
+    if (!term) {
       await connection.rollback();
       return res.status(404).json({ message: "No current term found" });
     }
-
-    const [subjects] = await connection.query<SubjectGoalRow[]>(
-      `SELECT st.schedule_time_id, st.subject_id, st.target_score,
-              s.subject_name, s.credits, s.teacher_name
-       FROM schedule_time st
-       INNER JOIN subjects s ON s.subject_id = st.subject_id
-       WHERE st.user_id = ? AND st.term_id = ? AND st.schedule_type_id = ?
-       ORDER BY st.schedule_time_id
-       FOR UPDATE`,
-      [userId, currentTerm.term_id, CLASS_SCHEDULE_TYPE_ID]
-    );
+    const subjects = await loadSubjects(term.term_id, connection);
     if (subjects.length === 0) {
       await connection.rollback();
       return res.status(404).json({ message: "No classes found in the current term" });
     }
-
-    const normalizedGoals = goals.map((goal: unknown) => {
-      const value = goal as { schedule_time_id?: unknown; grade?: unknown };
-      const grade = String(value.grade ?? "").toUpperCase();
+    const goals = req.body.goals.map((value: unknown) => {
+      const goal = value as { schedule_time_id?: unknown; grade?: unknown };
+      const grade = String(goal.grade ?? "").toUpperCase();
       return {
-        schedule_time_id: Number(value.schedule_time_id),
+        schedule_time_id: Number(goal.schedule_time_id),
         grade,
         gpa: GRADE_TO_GPA[grade],
       };
     });
-    const uniqueIds = new Set(normalizedGoals.map((goal) => goal.schedule_time_id));
-    const subjectIds = new Set(subjects.map((subject) => subject.schedule_time_id));
-    const includesEverySubject =
-      normalizedGoals.length === subjects.length &&
-      uniqueIds.size === subjects.length &&
-      normalizedGoals.every(
-        (goal) =>
-          Number.isInteger(goal.schedule_time_id) &&
-          goal.gpa !== undefined &&
-          subjectIds.has(goal.schedule_time_id)
-      );
-    if (!includesEverySubject) {
+    const ids = new Set(goals.map((goal: { schedule_time_id: number }) => goal.schedule_time_id));
+    const validIds = new Set(subjects.map((subject) => subject.schedule_time_id));
+    if (
+      goals.length !== subjects.length ||
+      ids.size !== subjects.length ||
+      goals.some(
+        (goal: { schedule_time_id: number; gpa?: number }) =>
+          !validIds.has(goal.schedule_time_id) || goal.gpa === undefined,
+      )
+    ) {
       await connection.rollback();
       return res.status(400).json({
         message: "Choose one valid grade for every current-term class",
       });
     }
-
     for (const subject of subjects) {
-      const selected = normalizedGoals.find(
-        (goal) => goal.schedule_time_id === subject.schedule_time_id
-      )!;
-      const existingTarget = numberOrNull(subject.target_score);
-      if (existingTarget !== null && existingTarget !== selected.gpa) {
+      const selected = goals.find(
+        (goal: { schedule_time_id: number }) =>
+          goal.schedule_time_id === subject.schedule_time_id,
+      );
+      if (subject.target_grade_code && subject.target_grade_code !== selected.grade) {
         await connection.rollback();
         return res.status(409).json({
           message: `The goal for ${subject.subject_name} has already been finalized`,
         });
       }
-      if (existingTarget === null) {
+      if (!subject.target_grade_code) {
         await connection.query(
-          `UPDATE schedule_time SET target_score = ?
-           WHERE schedule_time_id = ? AND user_id = ? AND term_id = ?
-             AND target_score IS NULL`,
-          [selected.gpa, subject.schedule_time_id, userId, currentTerm.term_id]
+          `UPDATE enrollments SET target_grade_code = ?
+           WHERE enrollment_id = ? AND student_term_id = ?`,
+          [selected.grade, subject.schedule_time_id, term.term_id],
         );
       }
     }
-
-    const totalCredits = subjects.reduce(
-      (sum, subject) => sum + Number(subject.credits),
-      0
-    );
-    const weightedGpa = subjects.reduce((sum, subject) => {
-      const selected = normalizedGoals.find(
-        (goal) => goal.schedule_time_id === subject.schedule_time_id
-      )!;
+    const totalCredits = subjects.reduce((sum, subject) => sum + Number(subject.credits), 0);
+    const weighted = subjects.reduce((sum, subject) => {
+      const selected = goals.find(
+        (goal: { schedule_time_id: number }) => goal.schedule_time_id === subject.schedule_time_id,
+      );
       return sum + selected.gpa * Number(subject.credits);
     }, 0);
-
     await connection.commit();
     return res.status(201).json({
       message: "Grade goals finalized successfully",
-      current_term: currentTerm,
+      current_term: term,
       goals_locked: true,
-      target_gpa: totalCredits > 0 ? Number((weightedGpa / totalCredits).toFixed(2)) : 0,
-      data: normalizedGoals.map(({ schedule_time_id, grade, gpa }) => ({
-        schedule_time_id,
-        grade,
-        target_score: gpa,
+      target_gpa: totalCredits ? Number((weighted / totalCredits).toFixed(2)) : 0,
+      data: goals.map((goal: { schedule_time_id: number; grade: string; gpa: number }) => ({
+        schedule_time_id: goal.schedule_time_id,
+        grade: goal.grade,
+        target_score: goal.gpa,
       })),
     });
   } catch (error) {
@@ -402,54 +380,21 @@ export const saveGradeGoals = async (
   }
 };
 
-export const getSubjectGoals = async (
-  req: AuthenticatedRequest,
-  res: Response
-) => {
+export const getSubjectGoals = async (req: Request, res: Response) => {
   try {
-    const userId = getAuthenticatedUserId(req, res);
+    const userId = authenticatedUserId(req, res);
     if (userId === null) return;
-
-    const currentTerm = await getCurrentTerm(userId);
-    if (!currentTerm) {
-      return res.status(404).json({ message: "No current term found" });
-    }
-    const subjects = await loadCurrentSubjectGoals(userId, currentTerm.term_id);
-    const [workloads] = await db.query<WorkloadRow[]>(
-      `SELECT
-         w.schedule_time_id, w.workload_id, w.workload_name,
-         w.workload_type_id, wt.workload_type_name, w.deadline_date,
-         w.deadline_time, w.workload_status, sc.actual_score, sc.max_score
-       FROM workloads w
-       INNER JOIN workload_types wt ON wt.workload_type_id = w.workload_type_id
-       INNER JOIN schedule_time st ON st.schedule_time_id = w.schedule_time_id
-       LEFT JOIN score sc ON sc.workload_id = w.workload_id
-       WHERE st.user_id = ? AND st.term_id = ? AND st.schedule_type_id = ?
-       ORDER BY w.deadline_date ASC, w.deadline_time ASC`,
-      [userId, currentTerm.term_id, CLASS_SCHEDULE_TYPE_ID]
-    );
-
-    const data = subjects.map((subject) => ({
-      schedule_time_id: subject.schedule_time_id,
-      subject_id: subject.subject_id,
-      subject_name: subject.subject_name,
-      credits: Number(subject.credits),
-      teacher_name: subject.teacher_name,
-      target_score: numberOrNull(subject.target_score),
-      target_grade: gradeFromGpa(subject.target_score),
-      workloads: workloads
-        .filter((workload) => workload.schedule_time_id === subject.schedule_time_id)
-        .map((workload) => ({
-          ...workload,
-          actual_score: numberOrNull(workload.actual_score),
-          max_score: numberOrNull(workload.max_score),
-        })),
-    }));
-    const savedCount = subjects.filter((subject) => subject.target_score !== null).length;
-
+    const term = await getCurrentTerm(userId);
+    if (!term) return res.status(404).json({ message: "No current term found" });
+    const [subjects, workloads] = await Promise.all([
+      loadSubjects(term.term_id),
+      loadWorkloads(term.term_id),
+    ]);
+    const data = subjectResponse(subjects, workloads);
+    const savedCount = subjects.filter((subject) => subject.target_grade_code !== null).length;
     return res.json({
       message: "Current-term subject goals retrieved successfully",
-      current_term: currentTerm,
+      current_term: term,
       total: data.length,
       saved_goal_count: savedCount,
       goals_locked: data.length > 0 && savedCount === data.length,
@@ -461,55 +406,48 @@ export const getSubjectGoals = async (
   }
 };
 
-export const getOverallGradeGoal = async (
-  req: AuthenticatedRequest,
-  res: Response
-) => {
+export const getOverallGradeGoal = async (req: Request, res: Response) => {
   try {
-    const userId = getAuthenticatedUserId(req, res);
+    const userId = authenticatedUserId(req, res);
     if (userId === null) return;
-    const currentTerm = await getCurrentTerm(userId);
-    if (!currentTerm) {
-      return res.status(404).json({ message: "No current term found" });
-    }
-
-    const [targetRows] = await db.query<RowDataPacket[]>(
-      `SELECT
-         SUM(st.target_score * s.credits) / NULLIF(SUM(s.credits), 0) AS target_gpa
-       FROM schedule_time st
-       INNER JOIN subjects s ON s.subject_id = st.subject_id
-       WHERE st.user_id = ? AND st.term_id = ? AND st.schedule_type_id = ?
-         AND st.target_score IS NOT NULL`,
-      [userId, currentTerm.term_id, CLASS_SCHEDULE_TYPE_ID]
-    );
+    const term = await getCurrentTerm(userId);
+    if (!term) return res.status(404).json({ message: "No current term found" });
+    const subjects = await loadSubjects(term.term_id);
     const [scoreRows] = await db.query<SubjectScoreSummaryRow[]>(
-      `SELECT
-         st.schedule_time_id,
-         s.credits,
-         COALESCE(SUM(sc.actual_score), 0) AS total_actual,
-         COALESCE(SUM(sc.max_score), 0) AS total_max
-       FROM schedule_time st
-       INNER JOIN subjects s ON s.subject_id = st.subject_id
-       LEFT JOIN workloads w ON w.schedule_time_id = st.schedule_time_id
-       LEFT JOIN score sc ON sc.workload_id = w.workload_id
-       WHERE st.user_id = ? AND st.term_id = ? AND st.schedule_type_id = ?
-       GROUP BY st.schedule_time_id, s.credits
-       ORDER BY st.schedule_time_id`,
-      [userId, currentTerm.term_id, CLASS_SCHEDULE_TYPE_ID]
+      `SELECT enrollment.enrollment_id AS schedule_time_id,
+              subject.credits,
+              COALESCE(SUM(score.actual_score), 0) AS total_actual,
+              COALESCE(SUM(score.max_score), 0) AS total_max
+       FROM enrollments enrollment
+       INNER JOIN course_sections section ON section.section_id = enrollment.section_id
+       INNER JOIN subjects subject ON subject.subject_id = section.subject_id
+       LEFT JOIN workloads workload ON workload.enrollment_id = enrollment.enrollment_id
+       LEFT JOIN score ON score.workload_id = workload.workload_id
+       WHERE enrollment.student_term_id = ?
+         AND enrollment.status IN ('enrolled', 'completed')
+       GROUP BY enrollment.enrollment_id, subject.credits`,
+      [term.term_id],
     );
-
     const actual = calculateWeightedGradeSummary(
       scoreRows.map((row) => ({
         credits: Number(row.credits) || 0,
         actualScore: Number(row.total_actual) || 0,
         maximumScore: Number(row.total_max) || 0,
-      }))
+      })),
     );
-
+    const targetCredits = subjects.reduce((sum, subject) => {
+      return subject.target_grade_code ? sum + Number(subject.credits) : sum;
+    }, 0);
+    const targetPoints = subjects.reduce((sum, subject) => {
+      const gpa = gpaForGrade(subject.target_grade_code);
+      return gpa === null ? sum : sum + gpa * Number(subject.credits);
+    }, 0);
     return res.json({
       message: "Current-term overall grade goal retrieved successfully",
-      current_term: currentTerm,
-      overall_target_gpa: Number(Number(targetRows[0]?.target_gpa || 0).toFixed(2)),
+      current_term: term,
+      overall_target_gpa: targetCredits
+        ? Number((targetPoints / targetCredits).toFixed(2))
+        : 0,
       overall_actual_gpa: Number(actual.gpa.toFixed(2)),
       overall_grade: actual.grade,
       overall_percent: Number(actual.percent.toFixed(2)),
@@ -527,47 +465,25 @@ export const getOverallGradeGoal = async (
 };
 
 export const getSubjectGoalsWithCompleted = async (
-  req: AuthenticatedRequest,
-  res: Response
+  req: Request,
+  res: Response,
 ) => {
   try {
-    const userId = getAuthenticatedUserId(req, res);
+    const userId = authenticatedUserId(req, res);
     if (userId === null) return;
-    const currentTerm = await getCurrentTerm(userId);
-    if (!currentTerm) {
-      return res.status(404).json({ message: "No current term found" });
-    }
-    const subjects = await loadCurrentSubjectGoals(userId, currentTerm.term_id);
-    const [workloads] = await db.query<WorkloadRow[]>(
-      `SELECT
-         w.schedule_time_id, w.workload_id, w.workload_name,
-         w.workload_type_id, wt.workload_type_name, w.deadline_date,
-         w.deadline_time, w.workload_status, sc.actual_score, sc.max_score
-       FROM workloads w
-       INNER JOIN workload_types wt ON wt.workload_type_id = w.workload_type_id
-       INNER JOIN schedule_time st ON st.schedule_time_id = w.schedule_time_id
-       LEFT JOIN score sc ON sc.workload_id = w.workload_id
-       WHERE st.user_id = ? AND st.term_id = ? AND st.schedule_type_id = ?
-         AND w.workload_status = 'completed'
-       ORDER BY w.deadline_date ASC, w.deadline_time ASC`,
-      [userId, currentTerm.term_id, CLASS_SCHEDULE_TYPE_ID]
-    );
-
+    const term = await getCurrentTerm(userId);
+    if (!term) return res.status(404).json({ message: "No current term found" });
+    const [subjects, workloads] = await Promise.all([
+      loadSubjects(term.term_id),
+      loadWorkloads(term.term_id, true),
+    ]);
     return res.json({
       message: "Completed current-term workloads retrieved successfully",
-      current_term: currentTerm,
+      current_term: term,
       total: subjects.length,
-      data: subjects.map((subject) => ({
-        schedule_time_id: subject.schedule_time_id,
-        subject_id: subject.subject_id,
-        subject_name: subject.subject_name,
-        credits: Number(subject.credits),
-        teacher_name: subject.teacher_name,
-        target_score: numberOrNull(subject.target_score),
-        target_grade: gradeFromGpa(subject.target_score),
-        completed_workloads: workloads.filter(
-          (workload) => workload.schedule_time_id === subject.schedule_time_id
-        ),
+      data: subjectResponse(subjects, workloads).map((subject) => ({
+        ...subject,
+        completed_workloads: subject.workloads,
       })),
     });
   } catch (error) {

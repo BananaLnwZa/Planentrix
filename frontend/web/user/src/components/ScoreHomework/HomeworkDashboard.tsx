@@ -17,6 +17,7 @@ import type {
 } from "@/interfaces/homework.interface";
 import homeworkService from "@/services/homework.service";
 import CurrentTermRequiredState from "@/components/common/CurrentTermRequiredState";
+import NotebookErrorState from "@/components/common/NotebookErrorState";
 import AddHomeworkModal from "./AddHomeworkModal";
 import HomeworkDetailsModal from "./HomeworkDetailsModal";
 import {
@@ -177,17 +178,12 @@ export default function HomeworkDashboard({
             <p>กำลังโหลดรายการงาน...</p>
           </HomeworkState>
         ) : loadError ? (
-          <HomeworkState>
-            <CircleAlert className="h-7 w-7 text-[#E56B8A]" />
-            <p className="max-w-[300px] text-center">{loadError}</p>
-            <button
-              type="button"
-              onClick={() => void loadTasks()}
-              className="inline-flex items-center gap-1 rounded-full border border-[#D5A4B5] px-3 py-1.5 text-xs text-[#B45F7D]"
-            >
-              <RefreshCw className="h-3.5 w-3.5" /> ลองใหม่
-            </button>
-          </HomeworkState>
+          <div className="flex min-h-[430px] items-center justify-center p-5 text-center">
+            <NotebookErrorState
+              detail={loadError}
+              onRetry={() => void loadTasks()}
+            />
+          </div>
         ) : !hasCurrentTerm ? (
           <div className="flex min-h-[430px] items-center justify-center">
             <CurrentTermRequiredState detail="กรุณาสร้างเทอมและตารางเรียนก่อนเพิ่มงาน" />

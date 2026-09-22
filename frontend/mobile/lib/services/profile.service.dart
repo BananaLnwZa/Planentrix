@@ -116,6 +116,13 @@ class ProfileService implements ProfileRepository {
 
   ProfileException _exception(DioException error, String fallback) {
     final data = error.response?.data;
+    if (data is Map) {
+      final errors = data['errors'];
+      if (errors is List) {
+        final messages = errors.whereType<String>().toList(growable: false);
+        if (messages.isNotEmpty) return ProfileException(messages.first);
+      }
+    }
     if (data is Map && data['message'] is String) {
       return ProfileException(data['message'] as String);
     }

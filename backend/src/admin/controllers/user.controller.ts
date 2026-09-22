@@ -334,44 +334,65 @@ export const deleteManagedUser = async (req: Request, res: Response) => {
     userPicture = users[0].user_pic;
 
     await connection.query(
-      `DELETE psh FROM part_score_history psh
-       INNER JOIN exam_score_history esh
-         ON esh.exam_score_history_id = psh.exam_score_history_id
-       INNER JOIN schedule_time st
-         ON st.schedule_time_id = esh.schedule_time_id
-       WHERE st.user_id = ?`,
+      `DELETE block FROM weekly_schedule_block block
+       INNER JOIN weekly_recommendation recommendation
+         ON recommendation.recommendation_id = block.recommendation_id
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = recommendation.student_term_id
+       WHERE student_term.user_id = ?`,
       [userId],
     );
     await connection.query(
-      `DELETE esh FROM exam_score_history esh
-       INNER JOIN schedule_time st
-         ON st.schedule_time_id = esh.schedule_time_id
-       WHERE st.user_id = ?`,
+      `DELETE recommendation FROM weekly_recommendation recommendation
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = recommendation.student_term_id
+       WHERE student_term.user_id = ?`,
       [userId],
     );
     await connection.query(
-      `DELETE sc FROM score sc
-       INNER JOIN workloads w ON w.workload_id = sc.workload_id
-       INNER JOIN schedule_time st ON st.schedule_time_id = w.schedule_time_id
-       WHERE st.user_id = ?`,
+      `DELETE session FROM study_sessions session
+       INNER JOIN enrollments enrollment
+         ON enrollment.enrollment_id = session.enrollment_id
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = enrollment.student_term_id
+       WHERE student_term.user_id = ?`,
       [userId],
     );
     await connection.query(
-      `DELETE w FROM workloads w
-       INNER JOIN schedule_time st ON st.schedule_time_id = w.schedule_time_id
-       WHERE st.user_id = ?`,
+      `DELETE checkpoint FROM exam_checkpoints checkpoint
+       INNER JOIN enrollments enrollment
+         ON enrollment.enrollment_id = checkpoint.enrollment_id
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = enrollment.student_term_id
+       WHERE student_term.user_id = ?`,
       [userId],
     );
     await connection.query(
-      `DELETE study FROM study_time study
-       INNER JOIN schedule_time st
-         ON st.schedule_time_id = study.schedule_time_id
-       WHERE st.user_id = ?`,
+      `DELETE attempt FROM exam_attempts attempt
+       INNER JOIN enrollments enrollment
+         ON enrollment.enrollment_id = attempt.enrollment_id
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = enrollment.student_term_id
+       WHERE student_term.user_id = ?`,
       [userId],
     );
-    await connection.query("DELETE FROM schedule_time WHERE user_id = ?", [userId]);
-    await connection.query("DELETE FROM terms WHERE user_id = ?", [userId]);
-    await connection.query("DELETE FROM `constraint` WHERE user_id = ?", [userId]);
+    await connection.query(
+      `DELETE workload FROM workloads workload
+       INNER JOIN enrollments enrollment
+         ON enrollment.enrollment_id = workload.enrollment_id
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = enrollment.student_term_id
+       WHERE student_term.user_id = ?`,
+      [userId],
+    );
+    await connection.query(
+      `DELETE enrollment FROM enrollments enrollment
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = enrollment.student_term_id
+       WHERE student_term.user_id = ?`,
+      [userId],
+    );
+    await connection.query("DELETE FROM student_terms WHERE user_id = ?", [userId]);
     await connection.query("DELETE FROM user WHERE user_id = ?", [userId]);
 
     await connection.commit();

@@ -206,6 +206,18 @@ class AuthService {
     required String fallbackMessage,
   }) {
     final data = error.response?.data;
+    if (data is Map) {
+      final errors = data['errors'];
+      if (errors is List) {
+        final messages = errors.whereType<String>().toList(growable: false);
+        if (messages.isNotEmpty) {
+          return AuthException(
+            messages.first,
+            statusCode: error.response?.statusCode,
+          );
+        }
+      }
+    }
     if (data is Map && data['message'] is String) {
       return AuthException(
         data['message'] as String,

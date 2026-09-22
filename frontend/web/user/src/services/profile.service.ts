@@ -90,7 +90,16 @@ class ProfileService {
 
   private toError(error: unknown, fallbackMessage: string): Error {
     if (axios.isAxiosError(error)) {
-      const message = error.response?.data?.message || error.message;
+      const payload = error.response?.data as
+        | { message?: unknown; errors?: unknown }
+        | undefined;
+      const validationErrors = Array.isArray(payload?.errors)
+        ? payload.errors.filter((item): item is string => typeof item === "string")
+        : [];
+      const message =
+        validationErrors[0] ||
+        (typeof payload?.message === "string" ? payload.message : undefined) ||
+        error.message;
       return new Error(message || fallbackMessage);
     }
 

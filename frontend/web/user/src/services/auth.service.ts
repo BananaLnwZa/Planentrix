@@ -155,8 +155,8 @@ class AuthService {
    */
   async updateConstraints(data: UpdateConstraintRequest): Promise<UpdateConstraintResponse> {
     try {
-      const response = await authenticatedApiClient.patch<UpdateConstraintResponse>(
-        `${this.authEndpoint}/constraints`,
+      const response = await authenticatedApiClient.put<UpdateConstraintResponse>(
+        "/user/profile/constraints",
         data
       );
       return response.data;
@@ -177,8 +177,15 @@ class AuthService {
    */
   private handleError(error: unknown): Error {
     if (axios.isAxiosError(error)) {
+      const payload = error.response?.data as
+        | { message?: unknown; errors?: unknown }
+        | undefined;
+      const validationErrors = Array.isArray(payload?.errors)
+        ? payload.errors.filter((item): item is string => typeof item === "string")
+        : [];
       const message =
-        error.response?.data?.message ||
+        validationErrors[0] ||
+        (typeof payload?.message === "string" ? payload.message : undefined) ||
         error.message ||
         "An unexpected error occurred";
       

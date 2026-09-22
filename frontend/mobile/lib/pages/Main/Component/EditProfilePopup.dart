@@ -344,10 +344,26 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
             : UserProfile(
                 userId: updatedProfile.userId,
                 userName: updatedProfile.userName,
+                firstName: updatedProfile.firstName,
+                lastName: updatedProfile.lastName,
+                fullName: updatedProfile.fullName,
+                email: updatedProfile.email,
                 userPicUrl: imageUrl,
                 birthdate: updatedProfile.birthdate,
                 gender: updatedProfile.gender,
                 academicYear: updatedProfile.academicYear,
+                departmentId: updatedProfile.departmentId,
+                departmentCode: updatedProfile.departmentCode,
+                departmentName: updatedProfile.departmentName,
+                facultyId: updatedProfile.facultyId,
+                facultyName: updatedProfile.facultyName,
+                studentTermId: updatedProfile.studentTermId,
+                yearLevel: updatedProfile.yearLevel,
+                semesterNo: updatedProfile.semesterNo,
+                studentTermStatus: updatedProfile.studentTermStatus,
+                accountStatus: updatedProfile.accountStatus,
+                accountCreatedAt: updatedProfile.accountCreatedAt,
+                lastLogin: updatedProfile.lastLogin,
               ),
         constraint: results[1] as UserConstraint,
       ));
@@ -410,7 +426,7 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
         child: Column(
           children: [
             _EditHeader(
-              name: widget.profile.userName,
+              name: _profileFullName(widget.profile),
               photoUrl: widget.profile.userPicUrl,
               pendingPhotoBytes: _pendingPhotoBytes,
               saving: _saving,
@@ -430,46 +446,76 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
                   children: [
                     if (_activePanel == _EditProfilePanel.profile) ...[
                       const _SectionTitle('ข้อมูลส่วนตัว'),
-                      _TextField(
+                      _ReadOnlyProfileField(
+                        label: 'ชื่อ–นามสกุล',
+                        value: _profileFullName(widget.profile),
+                      ),
+                      const SizedBox(height: 10),
+                      _ProfileTextField(
                         key: const Key('edit-profile-name'),
-                        label: 'Username',
+                        label: 'ชื่อผู้ใช้',
                         controller: _name,
                       ),
                       const SizedBox(height: 10),
-                      _SelectField<String>(
-                        label: 'เพศ',
-                        value: _gender,
-                        items: const [
-                          AppDropdownItem(
-                            value: 'male',
-                            label: 'Male',
-                            accentColor: Color(0xFF73B6DD),
-                            borderColor: Color(0xFFBBDEF4),
-                          ),
-                          AppDropdownItem(
-                            value: 'female',
-                            label: 'Female',
-                            accentColor: Color(0xFFDE7898),
-                            borderColor: Color(0xFFF5B8CA),
-                          ),
-                          AppDropdownItem(
-                            value: 'other',
-                            label: 'Other',
-                            accentColor: Color(0xFFAE79C8),
-                            borderColor: Color(0xFFD8B8E8),
-                          ),
-                        ],
-                        onChanged: (value) => setState(() => _gender = value),
+                      _ReadOnlyProfileField(
+                        label: 'อีเมล',
+                        value: _profileText(widget.profile.email),
                       ),
                       const SizedBox(height: 10),
-                      _ValueButton(
-                        label: 'วันเกิด',
-                        value: _birthdate == null
-                            ? 'ไม่ระบุ'
-                            : _formatDate(_birthdate!),
-                        onTap: _pickBirthdate,
-                        icon: Icons.calendar_month_rounded,
-                        iconColor: const Color(0xFFF080A7),
+                      _ReadOnlyProfileField(
+                        label: 'คณะ',
+                        value: _profileText(widget.profile.facultyName),
+                      ),
+                      const SizedBox(height: 10),
+                      _ReadOnlyProfileField(
+                        label: 'สาขาวิชา',
+                        value: _profileDepartment(widget.profile),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _ProfileValueButton(
+                              label: 'วันเกิด',
+                              value: _birthdate == null
+                                  ? 'ไม่ระบุ'
+                                  : _formatDate(_birthdate!),
+                              onTap: _pickBirthdate,
+                              icon: Icons.calendar_month_rounded,
+                              iconColor: const Color(0xFFF080A7),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _ProfileSelectField<String>(
+                              label: 'เพศ',
+                              value: _gender,
+                              items: const [
+                                AppDropdownItem(
+                                  value: 'male',
+                                  label: 'ชาย',
+                                  accentColor: Color(0xFF73B6DD),
+                                  borderColor: Color(0xFFBBDEF4),
+                                ),
+                                AppDropdownItem(
+                                  value: 'female',
+                                  label: 'หญิง',
+                                  accentColor: Color(0xFFDE7898),
+                                  borderColor: Color(0xFFF5B8CA),
+                                ),
+                                AppDropdownItem(
+                                  value: 'other',
+                                  label: 'อื่น ๆ',
+                                  accentColor: Color(0xFFAE79C8),
+                                  borderColor: Color(0xFFD8B8E8),
+                                ),
+                              ],
+                              onChanged: (value) =>
+                                  setState(() => _gender = value),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 18),
                     ] else ...[
@@ -1153,6 +1199,174 @@ class _TextField extends StatelessWidget {
   );
 }
 
+class _ReadOnlyProfileField extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _ReadOnlyProfileField({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _ProfileFieldLabel(label),
+      const SizedBox(height: 5),
+      Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(minHeight: 46),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+        decoration: _profileFieldDecoration(),
+        child: Text(
+          value,
+          style: const TextStyle(fontSize: 14, color: Color(0xFF374151)),
+        ),
+      ),
+    ],
+  );
+}
+
+class _ProfileTextField extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+
+  const _ProfileTextField({
+    super.key,
+    required this.label,
+    required this.controller,
+  });
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _ProfileFieldLabel(label),
+      const SizedBox(height: 5),
+      TextField(
+        controller: controller,
+        style: const TextStyle(fontSize: 14, color: Color(0xFF374151)),
+        decoration: _profileInputDecoration(),
+      ),
+    ],
+  );
+}
+
+class _ProfileValueButton extends StatelessWidget {
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+  final IconData icon;
+  final Color iconColor;
+
+  const _ProfileValueButton({
+    required this.label,
+    required this.value,
+    required this.onTap,
+    required this.icon,
+    required this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _ProfileFieldLabel(label),
+      const SizedBox(height: 5),
+      InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: _profileFieldDecoration(),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF374151),
+                  ),
+                ),
+              ),
+              Icon(icon, size: 17, color: iconColor),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+class _ProfileSelectField<T> extends StatelessWidget {
+  final String label;
+  final T? value;
+  final List<AppDropdownItem<T>> items;
+  final ValueChanged<T?> onChanged;
+
+  const _ProfileSelectField({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _ProfileFieldLabel(label),
+      const SizedBox(height: 5),
+      AppDropdown<T>(
+        value: value,
+        items: items,
+        onChanged: onChanged,
+        hintText: 'เลือก$label',
+        fieldHeight: 46,
+        borderRadius: 23,
+        maxMenuHeight: 280,
+      ),
+    ],
+  );
+}
+
+class _ProfileFieldLabel extends StatelessWidget {
+  final String text;
+
+  const _ProfileFieldLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
+  );
+}
+
+BoxDecoration _profileFieldDecoration() => BoxDecoration(
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(24),
+  border: Border.all(color: const Color(0xFFD1D5DB)),
+);
+
+InputDecoration _profileInputDecoration() {
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(24),
+    borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+  );
+  return InputDecoration(
+    isDense: true,
+    filled: true,
+    fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+    border: border,
+    enabledBorder: border,
+    focusedBorder: border.copyWith(
+      borderSide: const BorderSide(color: Color(0xFF9CC5F9), width: 1.5),
+    ),
+  );
+}
+
 class _SelectField<T> extends StatelessWidget {
   final String label;
   final T? value;
@@ -1264,6 +1478,30 @@ class _ConstraintNotice extends StatelessWidget {
 }
 
 String _formatDate(DateTime value) => formatDisplayDate(value);
+
+String _profileText(String? value) {
+  final text = value?.trim() ?? '';
+  return text.isEmpty ? '—' : text;
+}
+
+String _profileFullName(UserProfile profile) {
+  final fullName = profile.fullName?.trim() ?? '';
+  if (fullName.isNotEmpty) return fullName;
+  final name = [
+    profile.firstName?.trim(),
+    profile.lastName?.trim(),
+  ].whereType<String>().where((part) => part.isNotEmpty).join(' ');
+  return name.isEmpty ? profile.userName : name;
+}
+
+String _profileDepartment(UserProfile profile) {
+  final name = profile.departmentName?.trim() ?? '';
+  final code = profile.departmentCode?.trim() ?? '';
+  if (name.isNotEmpty && code.isNotEmpty) return '$name ($code)';
+  if (name.isNotEmpty) return name;
+  if (code.isNotEmpty) return code;
+  return '—';
+}
 
 const _dayNames = [
   'วันจันทร์',

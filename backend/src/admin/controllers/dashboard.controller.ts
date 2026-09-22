@@ -320,74 +320,76 @@ export const getPopularConstraints = async (
       await Promise.all([
         db.query<ConstraintModeRow[]>(
           `SELECT
-             day_off AS popular_value,
+             FIELD(day_off, 'monday', 'tuesday', 'wednesday', 'thursday',
+                   'friday', 'saturday', 'sunday') AS popular_value,
              COUNT(*) AS selected_count,
-             (SELECT COUNT(*) FROM \`constraint\` WHERE day_off BETWEEN 1 AND 7) AS response_count
-           FROM \`constraint\`
-           WHERE day_off BETWEEN 1 AND 7
+             (SELECT COUNT(*) FROM user_constraints WHERE day_off IS NOT NULL) AS response_count
+           FROM user_constraints
+           WHERE day_off IS NOT NULL
            GROUP BY day_off
            ORDER BY selected_count DESC, day_off ASC
            LIMIT 1`,
         ),
         db.query<ConstraintModeRow[]>(
           `SELECT
-             continuous_working_duration AS popular_value,
+             continuous_working_minutes AS popular_value,
              COUNT(*) AS selected_count,
              (
                SELECT COUNT(*)
-               FROM \`constraint\`
-               WHERE continuous_working_duration > 0
+               FROM user_constraints
+               WHERE continuous_working_minutes > 0
              ) AS response_count
-           FROM \`constraint\`
-           WHERE continuous_working_duration > 0
-           GROUP BY continuous_working_duration
-           ORDER BY selected_count DESC, continuous_working_duration ASC
+           FROM user_constraints
+           WHERE continuous_working_minutes > 0
+           GROUP BY continuous_working_minutes
+           ORDER BY selected_count DESC, continuous_working_minutes ASC
            LIMIT 1`,
         ),
         db.query<ConstraintModeRow[]>(
           `SELECT
-             \`break\` AS popular_value,
+             break_minutes AS popular_value,
              COUNT(*) AS selected_count,
-             (SELECT COUNT(*) FROM \`constraint\` WHERE \`break\` > 0) AS response_count
-           FROM \`constraint\`
-           WHERE \`break\` > 0
-           GROUP BY \`break\`
-           ORDER BY selected_count DESC, \`break\` ASC
+             (SELECT COUNT(*) FROM user_constraints WHERE break_minutes > 0) AS response_count
+           FROM user_constraints
+           WHERE break_minutes > 0
+           GROUP BY break_minutes
+           ORDER BY selected_count DESC, break_minutes ASC
            LIMIT 1`,
         ),
         db.query<ConstraintModeRow[]>(
           `SELECT
-             TIME_FORMAT(start_time, '%H:%i') AS popular_value,
-             TIME_FORMAT(end_time, '%H:%i') AS secondary_value,
+             TIME_FORMAT(available_start_time, '%H:%i') AS popular_value,
+             TIME_FORMAT(available_end_time, '%H:%i') AS secondary_value,
              COUNT(*) AS selected_count,
              (
                SELECT COUNT(*)
-               FROM \`constraint\`
-               WHERE start_time IS NOT NULL
-                 AND end_time IS NOT NULL
-                 AND start_time < end_time
+               FROM user_constraints
+               WHERE available_start_time IS NOT NULL
+                 AND available_end_time IS NOT NULL
+                 AND available_start_time < available_end_time
              ) AS response_count
-           FROM \`constraint\`
-           WHERE start_time IS NOT NULL
-             AND end_time IS NOT NULL
-             AND start_time < end_time
-           GROUP BY start_time, end_time
-           ORDER BY selected_count DESC, start_time ASC, end_time ASC
+           FROM user_constraints
+           WHERE available_start_time IS NOT NULL
+             AND available_end_time IS NOT NULL
+             AND available_start_time < available_end_time
+           GROUP BY available_start_time, available_end_time
+           ORDER BY selected_count DESC, available_start_time ASC, available_end_time ASC
            LIMIT 1`,
         ),
         db.query<ConstraintModeRow[]>(
           `SELECT
-             recurring_busy_day AS popular_value,
+             FIELD(day_of_week, 'monday', 'tuesday', 'wednesday', 'thursday',
+                   'friday', 'saturday', 'sunday') AS popular_value,
              COUNT(DISTINCT constraint_id) AS selected_count,
              (
                SELECT COUNT(DISTINCT constraint_id)
                FROM recurring_busy
-               WHERE recurring_busy_day BETWEEN 1 AND 7
+               WHERE day_of_week IS NOT NULL
              ) AS response_count
            FROM recurring_busy
-           WHERE recurring_busy_day BETWEEN 1 AND 7
-           GROUP BY recurring_busy_day
-           ORDER BY selected_count DESC, recurring_busy_day ASC
+           WHERE day_of_week IS NOT NULL
+           GROUP BY day_of_week
+           ORDER BY selected_count DESC, day_of_week ASC
            LIMIT 1`,
         ),
       ]);

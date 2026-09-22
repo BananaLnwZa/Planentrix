@@ -1,27 +1,75 @@
 class UserProfile {
   final int userId;
   final String userName;
+  final String? firstName;
+  final String? lastName;
+  final String? fullName;
+  final String? email;
   final String? userPicUrl;
   final DateTime? birthdate;
   final String? gender;
   final dynamic academicYear;
+  final int? departmentId;
+  final String? departmentCode;
+  final String? departmentName;
+  final int? facultyId;
+  final String? facultyName;
+  final int? studentTermId;
+  final int? yearLevel;
+  final int? semesterNo;
+  final String? studentTermStatus;
+  final String? accountStatus;
+  final String? accountCreatedAt;
+  final String? lastLogin;
 
   const UserProfile({
     required this.userId,
     required this.userName,
+    this.firstName,
+    this.lastName,
+    this.fullName,
+    this.email,
     this.userPicUrl,
     this.birthdate,
     this.gender,
     this.academicYear,
+    this.departmentId,
+    this.departmentCode,
+    this.departmentName,
+    this.facultyId,
+    this.facultyName,
+    this.studentTermId,
+    this.yearLevel,
+    this.semesterNo,
+    this.studentTermStatus,
+    this.accountStatus,
+    this.accountCreatedAt,
+    this.lastLogin,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
     userId: _asInt(json['user_id']),
     userName: '${json['user_name'] ?? ''}',
+    firstName: json['first_name']?.toString(),
+    lastName: json['last_name']?.toString(),
+    fullName: json['full_name']?.toString(),
+    email: json['email']?.toString(),
     userPicUrl: json['user_pic_url']?.toString(),
     birthdate: _asDate(json['user_birthdate']),
     gender: json['user_gender']?.toString(),
     academicYear: json['academic_year'],
+    departmentId: _nullableInt(json['department_id']),
+    departmentCode: json['department_code']?.toString(),
+    departmentName: json['department_name']?.toString(),
+    facultyId: _nullableInt(json['faculty_id']),
+    facultyName: json['faculty_name']?.toString(),
+    studentTermId: _nullableInt(json['student_term_id']),
+    yearLevel: _nullableInt(json['year_level']),
+    semesterNo: _nullableInt(json['semester_no']),
+    studentTermStatus: json['student_term_status']?.toString(),
+    accountStatus: json['account_status']?.toString(),
+    accountCreatedAt: json['account_created_at']?.toString(),
+    lastLogin: json['last_login']?.toString(),
   );
 }
 

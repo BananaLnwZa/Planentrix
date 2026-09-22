@@ -373,6 +373,18 @@ export default function StudentCardPopup({
                 className="grid grid-cols-2 gap-3"
               >
                 <div className="col-span-2">
+                  <label htmlFor="profile-full-name" className="text-sm text-gray-800">
+                    ชื่อ–นามสกุล
+                  </label>
+                  <input
+                    id="profile-full-name"
+                    type="text"
+                    readOnly
+                    value={profile?.full_name || displayName}
+                    className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-5 py-2 text-base text-gray-800 outline-none"
+                  />
+                </div>
+                <div className="col-span-2">
                   <label htmlFor="profile-username" className="text-sm text-gray-800">
                     ชื่อผู้ใช้
                   </label>
@@ -389,6 +401,46 @@ export default function StudentCardPopup({
                       }))
                     }
                     className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-5 py-2 text-base text-gray-800 outline-none focus:border-[#9CC5F9]"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label htmlFor="profile-email" className="text-sm text-gray-800">
+                    อีเมล
+                  </label>
+                  <input
+                    id="profile-email"
+                    type="text"
+                    readOnly
+                    value={profile?.email || "—"}
+                    className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-5 py-2 text-base text-gray-800 outline-none"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label htmlFor="profile-faculty" className="text-sm text-gray-800">
+                    คณะ
+                  </label>
+                  <input
+                    id="profile-faculty"
+                    type="text"
+                    readOnly
+                    value={profile?.faculty_name || "—"}
+                    className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-5 py-2 text-base text-gray-800 outline-none"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label htmlFor="profile-department" className="text-sm text-gray-800">
+                    สาขาวิชา
+                  </label>
+                  <input
+                    id="profile-department"
+                    type="text"
+                    readOnly
+                    value={
+                      profile?.department_name
+                        ? `${profile.department_name}${profile.department_code ? ` (${profile.department_code})` : ""}`
+                        : "—"
+                    }
+                    className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-5 py-2 text-base text-gray-800 outline-none"
                   />
                 </div>
                 <div>
@@ -431,9 +483,35 @@ export default function StudentCardPopup({
             ) : (
               <dl className="grid grid-cols-2 gap-3">
                 <div className="col-span-2 rounded-2xl border border-gray-200 bg-white/80 p-3">
+                  <dt className="text-sm text-gray-500">ชื่อ–นามสกุล</dt>
+                  <dd className="mt-1 break-words text-base text-[#314553]">
+                    {profile?.full_name || displayName}
+                  </dd>
+                </div>
+                <div className="col-span-2 rounded-2xl border border-gray-200 bg-white/80 p-3">
                   <dt className="text-sm text-gray-500">ชื่อผู้ใช้</dt>
                   <dd className="mt-1 break-words text-base text-[#314553]">
-                    {displayName}
+                    {profile?.user_name || "—"}
+                  </dd>
+                </div>
+                <div className="col-span-2 rounded-2xl border border-gray-200 bg-white/80 p-3">
+                  <dt className="text-sm text-gray-500">อีเมล</dt>
+                  <dd className="mt-1 break-all text-base text-[#314553]">
+                    {profile?.email || "—"}
+                  </dd>
+                </div>
+                <div className="col-span-2 rounded-2xl border border-gray-200 bg-white/80 p-3">
+                  <dt className="text-sm text-gray-500">คณะ</dt>
+                  <dd className="mt-1 break-words text-base text-[#314553]">
+                    {profile?.faculty_name || "—"}
+                  </dd>
+                </div>
+                <div className="col-span-2 rounded-2xl border border-gray-200 bg-white/80 p-3">
+                  <dt className="text-sm text-gray-500">สาขาวิชา</dt>
+                  <dd className="mt-1 break-words text-base text-[#314553]">
+                    {profile?.department_name
+                      ? `${profile.department_name}${profile.department_code ? ` (${profile.department_code})` : ""}`
+                      : "—"}
                   </dd>
                 </div>
                 <div className="rounded-2xl border border-gray-200 bg-white/80 p-3">

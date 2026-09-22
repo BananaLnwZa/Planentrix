@@ -5,10 +5,11 @@ enum StudentPopupPanel { profile, constraint }
 Future<void> showStudentCardPopup(
   BuildContext context, {
   required String name,
-  required String studentNumber,
+  String username = '—',
+  String email = '—',
+  String faculty = '—',
   String gender = '—',
   String major = 'COMSCI',
-  String year = '—',
   String birthDate = '—',
   String dayOff = '—',
   String workingDuration = '—',
@@ -26,10 +27,11 @@ Future<void> showStudentCardPopup(
     builder: (context) {
       return StudentCardPopup(
         name: name,
-        studentNumber: studentNumber,
+        username: username,
+        email: email,
+        faculty: faculty,
         gender: gender,
         major: major,
-        year: year,
         birthDate: birthDate,
         dayOff: dayOff,
         workingDuration: workingDuration,
@@ -47,10 +49,11 @@ Future<void> showStudentCardPopup(
 
 class StudentCardPopup extends StatefulWidget {
   final String name;
-  final String studentNumber;
+  final String username;
+  final String email;
+  final String faculty;
   final String gender;
   final String major;
-  final String year;
   final String birthDate;
   final String dayOff;
   final String workingDuration;
@@ -65,10 +68,11 @@ class StudentCardPopup extends StatefulWidget {
   const StudentCardPopup({
     super.key,
     required this.name,
-    required this.studentNumber,
+    this.username = '—',
+    this.email = '—',
+    this.faculty = '—',
     this.gender = '—',
     this.major = 'COMSCI',
-    this.year = '—',
     this.birthDate = '—',
     this.dayOff = '—',
     this.workingDuration = '—',
@@ -126,7 +130,6 @@ class _StudentCardPopupState extends State<StudentCardPopup> {
             children: [
               _PopupHeader(
                 name: widget.name,
-                studentNumber: widget.studentNumber,
                 photo: widget.photo,
                 onClose: () => Navigator.of(context).pop(),
                 onEditProfile: widget.onEditProfile,
@@ -147,6 +150,10 @@ class _StudentCardPopupState extends State<StudentCardPopup> {
                   child: _activePanel == StudentPopupPanel.profile
                       ? _ProfilePanel(
                           name: widget.name,
+                          username: widget.username,
+                          email: widget.email,
+                          faculty: widget.faculty,
+                          major: widget.major,
                           birthDate: widget.birthDate,
                           gender: widget.gender,
                         )
@@ -173,7 +180,6 @@ class _StudentCardPopupState extends State<StudentCardPopup> {
 
 class _PopupHeader extends StatelessWidget {
   final String name;
-  final String studentNumber;
   final ImageProvider<Object>? photo;
   final VoidCallback onClose;
   final VoidCallback? onEditProfile;
@@ -181,7 +187,6 @@ class _PopupHeader extends StatelessWidget {
 
   const _PopupHeader({
     required this.name,
-    required this.studentNumber,
     required this.photo,
     required this.onClose,
     required this.onEditProfile,
@@ -217,16 +222,6 @@ class _PopupHeader extends StatelessWidget {
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
                           height: 1.05,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'ID $studentNumber',
-                        style: const TextStyle(
-                          color: Color(0xFF526773),
-                          fontFamily: 'Sansation',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w400,
                         ),
                       ),
                       const SizedBox(height: 7),
@@ -448,11 +443,19 @@ class _TabButton extends StatelessWidget {
 
 class _ProfilePanel extends StatelessWidget {
   final String name;
+  final String username;
+  final String email;
+  final String faculty;
+  final String major;
   final String birthDate;
   final String gender;
 
   const _ProfilePanel({
     required this.name,
+    required this.username,
+    required this.email,
+    required this.faculty,
+    required this.major,
     required this.birthDate,
     required this.gender,
   });
@@ -463,7 +466,15 @@ class _ProfilePanel extends StatelessWidget {
       key: const Key('profile-panel'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _ProfileInfoCard(label: 'ชื่อผู้ใช้', value: name),
+        _ProfileInfoCard(label: 'ชื่อ–นามสกุล', value: name),
+        const SizedBox(height: 9),
+        _ProfileInfoCard(label: 'ชื่อผู้ใช้', value: username),
+        const SizedBox(height: 9),
+        _ProfileInfoCard(label: 'อีเมล', value: email),
+        const SizedBox(height: 9),
+        _ProfileInfoCard(label: 'คณะ', value: faculty),
+        const SizedBox(height: 9),
+        _ProfileInfoCard(label: 'สาขาวิชา', value: major),
         const SizedBox(height: 9),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -274,7 +274,25 @@ class _MainPageState extends State<MainPage> {
     super.dispose();
   }
 
-  String get _displayName => _username ?? 'Student';
+  String get _displayName {
+    final fullName = _profile?.fullName?.trim();
+    if (fullName != null && fullName.isNotEmpty) return fullName;
+    return _username ?? 'Student';
+  }
+
+  String get _displayMajor {
+    final name = _profile?.departmentName?.trim();
+    final code = _profile?.departmentCode?.trim();
+    if (name != null && name.isNotEmpty) {
+      return code != null && code.isNotEmpty ? '$name ($code)' : name;
+    }
+    return code == null || code.isEmpty ? '—' : code;
+  }
+
+  String _profileText(String? value) {
+    final text = value?.trim();
+    return text == null || text.isEmpty ? '—' : text;
+  }
 
   String get _displayStudentNumber => (_userId ?? 1).toString().padLeft(2, '0');
 
@@ -319,9 +337,11 @@ class _MainPageState extends State<MainPage> {
     await showStudentCardPopup(
       context,
       name: _displayName,
-      studentNumber: _displayStudentNumber,
+      username: _profile?.userName ?? _username ?? '—',
+      email: _profileText(_profile?.email),
+      faculty: _profileText(_profile?.facultyName),
       gender: _displayGender,
-      year: _currentTerm?.yearLevel ?? '—',
+      major: _displayMajor,
       birthDate: _displayBirthdate,
       dayOff: _dayName(constraint?.dayOff),
       workingDuration: _formatMinutes(constraint?.continuousWorkingDuration),
@@ -427,7 +447,8 @@ class _MainPageState extends State<MainPage> {
         StudentCard(
           name: _displayName,
           studentNumber: _displayStudentNumber,
-          year: _currentTerm?.yearLevel ?? '—',
+          major: _profile?.departmentCode ?? _displayMajor,
+          year: _profile?.yearLevel?.toString() ?? _currentTerm?.yearLevel ?? '—',
           gender: _displayGender,
           birthDate: _displayBirthdate,
           photo: _photo,

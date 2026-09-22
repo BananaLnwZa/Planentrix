@@ -77,7 +77,8 @@ const port = Number(
 );
 
 console.log("Starting Planentrix server...");
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`Planentrix server listening on http://localhost:${port}`);
   startRecommendationScheduler();
 });
+server.ref();
