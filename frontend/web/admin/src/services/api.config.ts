@@ -67,6 +67,16 @@ export const apiEndpoints = {
     choiceById: (choiceId: number) =>
       `/admin/exams/choices/${choiceId}`,
   },
+  instructorExams: {
+    workspace: "/instructor/exam-workspace",
+    questionBanks: "/instructor/question-banks",
+    questionBankById: (questionBankId: number) =>
+      `/instructor/question-banks/${questionBankId}`,
+    questions: (questionBankId: number) =>
+      `/instructor/question-banks/${questionBankId}/questions`,
+    importFile: (questionBankId: number) =>
+      `/instructor/question-banks/${questionBankId}/import`,
+  },
   dashboard: {
     studyTime: "/admin/dashboard/study-time",
     constraints: "/admin/dashboard/constraints",

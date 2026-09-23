@@ -11,14 +11,17 @@ import {
   FileText,
   FolderPlus,
   Layers3,
+  LoaderCircle,
   Plus,
   Search,
   Trash2,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, DragEvent, FormEvent } from "react";
+import type { InstructorQuestionBank } from "@/interfaces/instructor-exam.interface";
+import instructorExamService from "@/services/instructor-exam.service";
 
 type ExamPeriod = "midterm" | "final";
 type ModalName = "part" | "exam" | null;
@@ -30,12 +33,13 @@ interface PartItem {
   subjectLabel: string;
   examPeriod: ExamPeriod;
   createdAt: string;
+  questionCount: number;
 }
 
 interface ExamItem {
   id: string;
   fileName: string;
-  fileSize: number;
+  questionCount: number;
   subjectId: string;
   subjectLabel: string;
   partId: string;
@@ -47,21 +51,8 @@ interface ExamItem {
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const ACCEPTED_EXTENSIONS = [
   ".pdf",
-  ".doc",
   ".docx",
-  ".xls",
-  ".xlsx",
-  ".csv",
-  ".json",
-  ".txt",
 ];
-
-const previewSubjects = [
-  {
-    value: "frontend-preview-subject",
-    label: "รายวิชาตัวอย่าง (รอเชื่อม Backend)",
-  },
-] as const;
 
 const examPeriodOptions = [
   { value: "midterm", label: "กลางภาค" },
@@ -196,16 +187,38 @@ function getPeriodLabel(period: ExamPeriod) {
   return period === "midterm" ? "กลางภาค" : "ปลายภาค";
 }
 
-function createLocalId(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function getCreatedDate() {
+function formatCreatedDate(value: string) {
   return new Intl.DateTimeFormat("th-TH", {
     day: "numeric",
     month: "short",
     year: "numeric",
-  }).format(new Date());
+  }).format(new Date(value));
+}
+
+function mapQuestionBankToPart(bank: InstructorQuestionBank): PartItem {
+  return {
+    id: String(bank.question_bank_id),
+    name: bank.bank_name,
+    subjectId: bank.subject_id,
+    subjectLabel: `${bank.subject_id} · ${bank.subject_name}`,
+    examPeriod: bank.exam_period,
+    createdAt: formatCreatedDate(bank.created_at),
+    questionCount: bank.question_count,
+  };
+}
+
+function mapQuestionBankToExam(bank: InstructorQuestionBank): ExamItem {
+  return {
+    id: String(bank.question_bank_id),
+    fileName: bank.bank_name,
+    questionCount: bank.question_count,
+    subjectId: bank.subject_id,
+    subjectLabel: `${bank.subject_id} · ${bank.subject_name}`,
+    partId: String(bank.question_bank_id),
+    partName: bank.bank_name,
+    examPeriod: bank.exam_period,
+    createdAt: formatCreatedDate(bank.updated_at),
+  };
 }
 
 export default function ExamUploadClient() {
@@ -218,8 +231,14 @@ export default function ExamUploadClient() {
   );
   const [filterSubjectId, setFilterSubjectId] = useState("");
   const [filterPartId, setFilterPartId] = useState("");
+  const [subjectOptions, setSubjectOptions] = useState<
+    Array<{ value: string; label: string }>
+  >([]);
   const [parts, setParts] = useState<PartItem[]>([]);
   const [exams, setExams] = useState<ExamItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [workspaceError, setWorkspaceError] = useState("");
 
   const [partName, setPartName] = useState("");
   const [partSubjectId, setPartSubjectId] = useState("");
@@ -233,6 +252,40 @@ export default function ExamUploadClient() {
   const [isDragging, setIsDragging] = useState(false);
   const [examError, setExamError] = useState("");
   const [notice, setNotice] = useState("");
+
+  const loadWorkspace = useCallback(async () => {
+    setIsLoading(true);
+    setWorkspaceError("");
+    try {
+      const response = await instructorExamService.getWorkspace();
+      setSubjectOptions(
+        response.subjects.map((subject) => ({
+          value: subject.subject_id,
+          label: `${subject.subject_id} · ${subject.subject_name}`,
+        })),
+      );
+      setParts(response.question_banks.map(mapQuestionBankToPart));
+      setExams(
+        response.question_banks
+          .filter((bank) => bank.question_count > 0)
+          .map(mapQuestionBankToExam),
+      );
+    } catch (error) {
+      setWorkspaceError(
+        error instanceof Error ? error.message : "ไม่สามารถโหลดข้อมูลข้อสอบได้",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadWorkspace();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadWorkspace]);
 
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase("th");
 
@@ -308,7 +361,7 @@ export default function ExamUploadClient() {
     setIsDragging(false);
   };
 
-  const handleCreatePart = (event: FormEvent<HTMLFormElement>) => {
+  const handleCreatePart = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedPartName = partName.trim();
 
@@ -330,22 +383,25 @@ export default function ExamUploadClient() {
       return;
     }
 
-    const subject = previewSubjects.find(
-      (subjectOption) => subjectOption.value === partSubjectId,
-    );
-    const newPart: PartItem = {
-      id: createLocalId("part"),
-      name: normalizedPartName,
-      subjectId: partSubjectId,
-      subjectLabel: subject?.label ?? partSubjectId,
-      examPeriod: partPeriod,
-      createdAt: getCreatedDate(),
-    };
-
-    setParts((currentParts) => [newPart, ...currentParts]);
-    setNotice(`สร้างพาร์ท “${newPart.name}” แล้ว`);
-    resetPartForm();
-    closeModal();
+    setIsSaving(true);
+    setPartError("");
+    try {
+      const response = await instructorExamService.createQuestionBank({
+        subject_id: partSubjectId,
+        bank_name: normalizedPartName,
+        exam_period: partPeriod,
+      });
+      setNotice(`สร้างพาร์ท “${response.question_bank.bank_name}” แล้ว`);
+      resetPartForm();
+      closeModal();
+      await loadWorkspace();
+    } catch (error) {
+      setPartError(
+        error instanceof Error ? error.message : "ไม่สามารถสร้างพาร์ทได้",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const selectFile = (file?: File) => {
@@ -354,7 +410,7 @@ export default function ExamUploadClient() {
     const extension = getFileExtension(file.name);
     if (!ACCEPTED_EXTENSIONS.includes(extension)) {
       setSelectedFile(null);
-      setExamError("รองรับไฟล์ PDF, Word, Excel, CSV, JSON และ TXT เท่านั้น");
+      setExamError("รองรับเฉพาะไฟล์ PDF และ Word (.docx) เท่านั้น");
       return;
     }
 
@@ -379,7 +435,7 @@ export default function ExamUploadClient() {
     selectFile(event.dataTransfer.files?.[0]);
   };
 
-  const handleCreateExam = (event: FormEvent<HTMLFormElement>) => {
+  const handleCreateExam = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!examSubjectId || !examPartId || !selectedFile) {
@@ -388,49 +444,59 @@ export default function ExamUploadClient() {
     }
 
     const selectedPart = parts.find((part) => part.id === examPartId);
-    const subject = previewSubjects.find(
-      (subjectOption) => subjectOption.value === examSubjectId,
-    );
 
     if (!selectedPart) {
       setExamError("ไม่พบพาร์ทที่เลือก กรุณาเลือกใหม่อีกครั้ง");
       return;
     }
 
-    const newExam: ExamItem = {
-      id: createLocalId("exam"),
-      fileName: selectedFile.name,
-      fileSize: selectedFile.size,
-      subjectId: examSubjectId,
-      subjectLabel: subject?.label ?? examSubjectId,
-      partId: selectedPart.id,
-      partName: selectedPart.name,
-      examPeriod,
-      createdAt: getCreatedDate(),
-    };
-
-    setExams((currentExams) => [newExam, ...currentExams]);
-    setNotice(`เพิ่มข้อสอบ “${newExam.fileName}” แล้ว`);
-    resetExamForm();
-    closeModal();
+    setIsSaving(true);
+    setExamError("");
+    try {
+      const response = await instructorExamService.importExamFile(
+        Number(selectedPart.id),
+        selectedFile,
+      );
+      setNotice(
+        `นำเข้าไฟล์ “${selectedFile.name}” สำเร็จ ${response.total_questions_imported} ข้อ`,
+      );
+      resetExamForm();
+      closeModal();
+      await loadWorkspace();
+    } catch (error) {
+      setExamError(
+        error instanceof Error ? error.message : "ไม่สามารถนำเข้าไฟล์ข้อสอบได้",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const removePart = (partId: string) => {
-    setParts((currentParts) =>
-      currentParts.filter((part) => part.id !== partId),
-    );
-    setExams((currentExams) =>
-      currentExams.filter((exam) => exam.partId !== partId),
-    );
-    if (filterPartId === partId) setFilterPartId("");
-    setNotice("ลบพาร์ทและข้อสอบที่อยู่ในพาร์ทนี้แล้ว");
+  const removePart = async (partId: string) => {
+    setWorkspaceError("");
+    try {
+      await instructorExamService.deleteQuestionBank(Number(partId));
+      if (filterPartId === partId) setFilterPartId("");
+      setNotice("ลบพาร์ทและข้อสอบที่อยู่ในพาร์ทนี้แล้ว");
+      await loadWorkspace();
+    } catch (error) {
+      setWorkspaceError(
+        error instanceof Error ? error.message : "ไม่สามารถลบพาร์ทได้",
+      );
+    }
   };
 
-  const removeExam = (examId: string) => {
-    setExams((currentExams) =>
-      currentExams.filter((exam) => exam.id !== examId),
-    );
-    setNotice("ลบข้อสอบแล้ว");
+  const removeExam = async (examId: string) => {
+    setWorkspaceError("");
+    try {
+      await instructorExamService.clearQuestions(Number(examId));
+      setNotice("ลบคำถามทั้งหมดออกจากพาร์ทแล้ว");
+      await loadWorkspace();
+    } catch (error) {
+      setWorkspaceError(
+        error instanceof Error ? error.message : "ไม่สามารถลบข้อสอบได้",
+      );
+    }
   };
 
   return (
@@ -447,22 +513,24 @@ export default function ExamUploadClient() {
           <div className="flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
+              disabled={isLoading || isSaving || subjectOptions.length === 0}
               onClick={() => {
                 resetPartForm();
                 setActiveModal("part");
               }}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#9fc8d6] bg-white px-5 text-sm font-medium text-[#3f7d93] transition hover:-translate-y-0.5 hover:bg-[#edf8fb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#dceff5]"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#9fc8d6] bg-white px-5 text-sm font-medium text-[#3f7d93] transition hover:-translate-y-0.5 hover:bg-[#edf8fb] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#dceff5] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
               <FolderPlus aria-hidden="true" size={18} />
               สร้างพาร์ท
             </button>
             <button
               type="button"
+              disabled={isLoading || isSaving || parts.length === 0}
               onClick={() => {
                 resetExamForm();
                 setActiveModal("exam");
               }}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#5794aa] px-5 text-sm font-medium text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#477f93] hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#cfe7ef]"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#5794aa] px-5 text-sm font-medium text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#477f93] hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#cfe7ef] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
               <Plus aria-hidden="true" size={18} />
               สร้างข้อสอบ
@@ -480,10 +548,33 @@ export default function ExamUploadClient() {
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="ค้นหาชื่อพาร์ท ชื่อไฟล์ วิชา หรือช่วงสอบ"
+            placeholder="ค้นหาชื่อพาร์ท วิชา หรือช่วงสอบ"
             className="h-12 w-full rounded-2xl border border-[#cfdee4] bg-[#fbfdfe] pl-11 pr-4 text-sm text-[#3d555f] outline-none transition placeholder:text-[#9aa8ad] focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]"
           />
         </div>
+
+        {isLoading && (
+          <div className="mt-4 flex items-center gap-2 rounded-2xl border border-[#d6e7ec] bg-[#f5fafc] px-4 py-3 text-sm text-[#607983]">
+            <LoaderCircle aria-hidden="true" className="animate-spin" size={18} />
+            กำลังโหลดข้อมูลจากระบบ
+          </div>
+        )}
+
+        {workspaceError && (
+          <div
+            role="alert"
+            className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#efcaca] bg-[#fff6f6] px-4 py-3 text-sm text-[#a65353] sm:flex-row sm:items-center sm:justify-between"
+          >
+            <span>{workspaceError}</span>
+            <button
+              type="button"
+              onClick={() => void loadWorkspace()}
+              className="shrink-0 rounded-full border border-[#e4baba] bg-white px-3 py-1.5 text-xs font-medium hover:bg-[#fff0f0]"
+            >
+              ลองใหม่
+            </button>
+          </div>
+        )}
 
         {notice && (
           <div
@@ -491,7 +582,7 @@ export default function ExamUploadClient() {
             className="mt-4 flex items-start gap-2 rounded-2xl border border-[#c8e4d5] bg-[#f3fbf6] px-4 py-3 text-sm text-[#43755a]"
           >
             <CheckCircle2 aria-hidden="true" className="shrink-0" size={18} />
-            <span>{notice} ข้อมูลนี้ยังอยู่เฉพาะในหน้าเว็บ</span>
+            <span>{notice}</span>
           </div>
         )}
       </section>
@@ -515,7 +606,7 @@ export default function ExamUploadClient() {
               icon={BookOpen}
               options={[
                 { value: "", label: "ทุกวิชา" },
-                ...previewSubjects,
+                ...subjectOptions,
               ]}
               placeholder="ทุกวิชา"
               onValueChange={setPartFilterSubjectId}
@@ -577,6 +668,7 @@ export default function ExamUploadClient() {
                     <span className="rounded-full bg-[#eef6f8] px-2.5 py-1">
                       {getPeriodLabel(part.examPeriod)}
                     </span>
+                    <span>{part.questionCount} ข้อ</span>
                     <span>{part.createdAt}</span>
                   </div>
                 </div>
@@ -601,7 +693,7 @@ export default function ExamUploadClient() {
             <h3 className="mt-1 text-xl text-[#304b56]">ข้อสอบที่มีอยู่</h3>
           </div>
           <span className="rounded-full bg-[#eaf6fa] px-3 py-1.5 text-xs font-medium text-[#4f879c]">
-            {filteredExams.length} ไฟล์
+            {filteredExams.length} ชุด
           </span>
         </div>
 
@@ -613,7 +705,7 @@ export default function ExamUploadClient() {
               icon={BookOpen}
               options={[
                 { value: "", label: "ทุกวิชา" },
-                ...previewSubjects,
+                ...subjectOptions,
               ]}
               placeholder="ทุกวิชา"
               onValueChange={(nextValue) => {
@@ -682,7 +774,7 @@ export default function ExamUploadClient() {
                   <span className="rounded-full bg-[#eef6f8] px-2.5 py-1">
                     {getPeriodLabel(exam.examPeriod)}
                   </span>
-                  <span>{formatFileSize(exam.fileSize)}</span>
+                  <span>{exam.questionCount} ข้อ</span>
                   <span>{exam.createdAt}</span>
                 </div>
                 <button
@@ -706,7 +798,7 @@ export default function ExamUploadClient() {
           aria-modal="true"
           aria-labelledby="create-part-title"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeModal();
+            if (event.target === event.currentTarget && !isSaving) closeModal();
           }}
         >
           <div className="w-full max-w-lg rounded-[26px] border border-white/70 bg-white p-6 shadow-[0_28px_80px_rgba(28,54,65,0.25)] sm:p-7">
@@ -725,8 +817,9 @@ export default function ExamUploadClient() {
               <button
                 type="button"
                 onClick={closeModal}
+                disabled={isSaving}
                 aria-label="ปิด"
-                className="rounded-full p-2 text-[#7d9098] transition hover:bg-[#edf4f6]"
+                className="rounded-full p-2 text-[#7d9098] transition hover:bg-[#edf4f6] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <X aria-hidden="true" size={19} />
               </button>
@@ -738,7 +831,7 @@ export default function ExamUploadClient() {
                 <CuteSelect
                   value={partSubjectId}
                   icon={BookOpen}
-                  options={previewSubjects}
+                  options={subjectOptions}
                   placeholder="เลือกวิชา"
                   onValueChange={(nextValue) => {
                     setPartSubjectId(nextValue);
@@ -804,23 +897,29 @@ export default function ExamUploadClient() {
               )}
 
               <p className="text-xs leading-5 text-[#8b999e]">
-                ตอนนี้พาร์ทจะเก็บในหน้าเว็บก่อน เมื่อ Backend พร้อมจึงเชื่อมบันทึกจริง
+                พาร์ทที่สร้างจะถูกบันทึกลงคลังข้อสอบของอาจารย์ทันที
               </p>
 
               <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="rounded-xl px-4 py-2.5 text-sm text-[#687b84] transition hover:bg-[#eef4f6]"
+                  disabled={isSaving}
+                  className="rounded-xl px-4 py-2.5 text-sm text-[#687b84] transition hover:bg-[#eef4f6] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#5794aa] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#477f93]"
+                  disabled={isSaving}
+                  className="inline-flex min-w-32 items-center justify-center gap-2 rounded-xl bg-[#5794aa] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#477f93] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <FolderPlus aria-hidden="true" size={17} />
-                  สร้างพาร์ท
+                  {isSaving ? (
+                    <LoaderCircle aria-hidden="true" className="animate-spin" size={17} />
+                  ) : (
+                    <FolderPlus aria-hidden="true" size={17} />
+                  )}
+                  {isSaving ? "กำลังสร้าง" : "สร้างพาร์ท"}
                 </button>
               </div>
             </form>
@@ -835,7 +934,7 @@ export default function ExamUploadClient() {
           aria-modal="true"
           aria-labelledby="create-exam-title"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeModal();
+            if (event.target === event.currentTarget && !isSaving) closeModal();
           }}
         >
           <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[26px] border border-white/70 bg-white p-6 shadow-[0_28px_80px_rgba(28,54,65,0.25)] sm:p-7">
@@ -854,8 +953,9 @@ export default function ExamUploadClient() {
               <button
                 type="button"
                 onClick={closeModal}
+                disabled={isSaving}
                 aria-label="ปิด"
-                className="rounded-full p-2 text-[#7d9098] transition hover:bg-[#edf4f6]"
+                className="rounded-full p-2 text-[#7d9098] transition hover:bg-[#edf4f6] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <X aria-hidden="true" size={19} />
               </button>
@@ -868,7 +968,7 @@ export default function ExamUploadClient() {
                   <CuteSelect
                     value={examSubjectId}
                     icon={BookOpen}
-                    options={previewSubjects}
+                    options={subjectOptions}
                     placeholder="เลือกวิชา"
                     onValueChange={(nextValue) => {
                       setExamSubjectId(nextValue);
@@ -965,7 +1065,7 @@ export default function ExamUploadClient() {
                   เลือกไฟล์
                 </button>
                 <p className="mt-3 text-xs text-[#8a989e]">
-                  PDF, Word, Excel, CSV, JSON หรือ TXT ขนาดไม่เกิน 20 MB
+                  PDF หรือ Word (.docx) ขนาดไม่เกิน 20 MB
                 </p>
               </div>
 
@@ -1006,23 +1106,29 @@ export default function ExamUploadClient() {
 
               <div className="flex items-center gap-2 rounded-xl bg-[#f5f8f9] px-3.5 py-3 text-xs leading-5 text-[#7d8d93]">
                 <CalendarDays aria-hidden="true" className="shrink-0" size={16} />
-                ไฟล์จะยังไม่ส่งเข้าเซิร์ฟเวอร์จนกว่าจะเชื่อม Backend
+                ระบบจะแยกคำถาม ตัวเลือก เฉลย และรูปภาพลงในพาร์ทที่เลือก
               </div>
 
               <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="rounded-xl px-4 py-2.5 text-sm text-[#687b84] transition hover:bg-[#eef4f6]"
+                  disabled={isSaving}
+                  className="rounded-xl px-4 py-2.5 text-sm text-[#687b84] transition hover:bg-[#eef4f6] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#5794aa] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#477f93]"
+                  disabled={isSaving}
+                  className="inline-flex min-w-36 items-center justify-center gap-2 rounded-xl bg-[#5794aa] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#477f93] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <ClipboardCheck aria-hidden="true" size={17} />
-                  สร้างข้อสอบ
+                  {isSaving ? (
+                    <LoaderCircle aria-hidden="true" className="animate-spin" size={17} />
+                  ) : (
+                    <ClipboardCheck aria-hidden="true" size={17} />
+                  )}
+                  {isSaving ? "กำลังนำเข้า" : "สร้างข้อสอบ"}
                 </button>
               </div>
             </form>

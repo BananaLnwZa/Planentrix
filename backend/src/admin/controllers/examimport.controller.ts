@@ -1,12 +1,20 @@
 import { Request, Response } from "express";
 import fs from "fs";
 import path from "path";
+import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
 import {
   parseDocxExamFile,
   parsePdfExamFile,
   ParsedQuestion,
 } from "../../services/examParser.service";
+
+interface QuestionBankImportRow extends RowDataPacket {
+  question_bank_id: number;
+  owner_instructor_id: number;
+  bank_name: string;
+  exam_period: "midterm" | "final";
+}
 
 export const importExamFile = async (req: Request, res: Response) => {
   try {
@@ -15,8 +23,9 @@ export const importExamFile = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Unauthorized: Missing user ID" });
     }
 
-    // 2. ปรับให้รองรับ role ทั้ง university_staff และ admin ตามที่ตั้งไว้ใน Route
-    const allowedRoles = ["admin", "university_staff"];
+    // ใช้ controller เดียวกันได้ทั้งเจ้าหน้าที่และอาจารย์ แต่ตรวจเจ้าของคลัง
+    // เพิ่มเติมเมื่อเรียกจากเส้นทางของอาจารย์
+    const allowedRoles = ["university_staff", "instructor"];
     if (!req.user?.role || !allowedRoles.includes(req.user.role)) {
       return res.status(403).json({ message: "Forbidden: Insufficient permissions" });
     }
@@ -32,8 +41,9 @@ export const importExamFile = async (req: Request, res: Response) => {
     }
 
     // 3. ตรวจสอบและเชื่อมตาราง question_banks ว่ามี ID นี้อยู่จริงหรือไม่
-    const [bankRows]: any = await db.query(
-      `SELECT question_bank_id, bank_name, exam_period FROM question_banks WHERE question_bank_id = ?`,
+    const [bankRows] = await db.query<QuestionBankImportRow[]>(
+      `SELECT question_bank_id, owner_instructor_id, bank_name, exam_period
+       FROM question_banks WHERE question_bank_id = ?`,
       [question_bank_id]
     );
 
@@ -46,6 +56,18 @@ export const importExamFile = async (req: Request, res: Response) => {
 
     const currentBank = bankRows[0];
 
+    if (
+      req.user.role === "instructor" &&
+      Number(currentBank.owner_instructor_id) !== req.user.id
+    ) {
+      if (fs.existsSync(req.file.path)) {
+        fs.unlink(req.file.path, () => {});
+      }
+      return res.status(403).json({
+        message: "Forbidden: This question bank belongs to another instructor",
+      });
+    }
+
     // 4. กำหนดโฟลเดอร์สำหรับเก็บรูปภาพและสร้างหากยังไม่มี
     const outputImageDir = path.join(__dirname, "../../uploads/questions");
     if (!fs.existsSync(outputImageDir)) {
@@ -55,7 +77,7 @@ export const importExamFile = async (req: Request, res: Response) => {
     const ext = path.extname(req.file.originalname).toLowerCase();
 
     let parsedQuestions: ParsedQuestion[] = [];
-    let warnings: any[] = [];
+    let warnings: unknown[] = [];
 
     // 5. แยกประมวลผลตามนามสกุลไฟล์
     if (ext === ".docx") {
@@ -93,7 +115,7 @@ export const importExamFile = async (req: Request, res: Response) => {
 
       for (const q of parsedQuestions) {
         // บันทึกลงตาราง question (เชื่อมกับ question_bank_id)
-        const [qResult]: any = await connection.query(
+        const [qResult] = await connection.query<ResultSetHeader>(
           `INSERT INTO question (question_bank_id, question_text, question_image_path) VALUES (?, ?, ?)`,
           [question_bank_id, q.question_text, q.question_image_path ?? null]
         );
@@ -104,13 +126,14 @@ export const importExamFile = async (req: Request, res: Response) => {
         for (let i = 0; i < q.choices.length; i++) {
           const choice = q.choices[i];
           await connection.query(
-            `INSERT INTO choice (question_id, choice_order, choice_text, choice_image, is_correct)
+            `INSERT INTO choice
+              (question_id, choice_order, choice_text, choice_image_path, is_correct)
              VALUES (?, ?, ?, ?, ?)`,
             [
               questionId,
               i + 1,
               choice.choice_text,
-              choice.choice_image ?? null,
+              choice.choice_image_path ?? null,
               choice.is_correct ? 1 : 0,
             ]
           );
@@ -123,6 +146,16 @@ export const importExamFile = async (req: Request, res: Response) => {
           choice_count: q.choices.length,
         });
       }
+
+      await connection.query(
+        `UPDATE question_banks
+         SET default_draw_count = (
+           SELECT COUNT(*) FROM question
+           WHERE question_bank_id = ? AND is_active = 1
+         )
+         WHERE question_bank_id = ?`,
+        [question_bank_id, question_bank_id],
+      );
 
       await connection.commit();
     } catch (dbErr) {

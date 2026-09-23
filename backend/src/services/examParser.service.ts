@@ -1,13 +1,11 @@
 import mammoth from "mammoth";
 import fs from "fs";
 import path from "path";
-
-// แก้ไขปัญหา Type Definition ของ pdf-parse ใน TypeScript
-const pdfParse = require("pdf-parse");
+import { PDFParse } from "pdf-parse";
 
 export interface ParsedChoice {
   choice_text: string;
-  choice_image: string | null;
+  choice_image_path: string | null;
   is_correct: boolean;
 }
 
@@ -61,7 +59,7 @@ export function parseExamHtml(html: string): ParsedQuestion[] {
       const isCorrect = choiceMatch[1] === "*";
       currentQuestion.choices.push({
         choice_text: choiceMatch[3].trim(),
-        choice_image: imgSrc,
+        choice_image_path: imgSrc,
         is_correct: isCorrect,
       });
     } else if (currentQuestion && imgSrc && !choiceMatch) {
@@ -119,9 +117,12 @@ export async function parsePdfExamFile(filePath: string, outputImageDir: string)
     fs.mkdirSync(outputImageDir, { recursive: true });
   }
 
+  let parser: PDFParse | null = null;
+
   try {
     const dataBuffer = fs.readFileSync(filePath);
-    const pdfData = await pdfParse(dataBuffer);
+    parser = new PDFParse({ data: dataBuffer });
+    const pdfData = await parser.getText();
 
     if (!pdfData || !pdfData.text) {
       return { questions: [], warnings: ["Cannot extract text from this PDF file."] };
@@ -136,8 +137,13 @@ export async function parsePdfExamFile(filePath: string, outputImageDir: string)
 
     const questions = parseExamHtml(formattedHtml);
     return { questions, warnings: [] };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("parsePdfExamFile Error:", error);
-    return { questions: [], warnings: [error.message || "Failed to parse PDF file."] };
+    const message = error instanceof Error
+      ? error.message
+      : "Failed to parse PDF file.";
+    return { questions: [], warnings: [message] };
+  } finally {
+    await parser?.destroy();
   }
 }
