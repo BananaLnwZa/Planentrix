@@ -74,8 +74,8 @@ export default function UserFilters({
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder={
               accountTab === "student"
-                ? "ค้นหาชื่อ รหัสนักศึกษา Username หรือ Email"
-                : "ค้นหาชื่อ รหัสอาจารย์ Username Email หรือเบอร์โทร"
+                ? "ค้นหาชื่อ Username หรือ Email"
+                : "ค้นหาชื่อ Username Email หรือเบอร์โทร"
             }
             aria-label="ค้นหาบัญชี"
             className="h-11 w-full rounded-xl border border-[#dce7eb] bg-[#f9fcfd] pl-10 pr-4 text-sm text-[#334b56] outline-none transition placeholder:text-[#9cabb1] focus:border-[#79bdd4] focus:ring-4 focus:ring-[#dff3fa]"

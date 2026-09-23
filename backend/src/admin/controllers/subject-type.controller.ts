@@ -103,8 +103,10 @@ export const createSubjectType = async (req: Request, res: Response) => {
     }
 
     const [result] = await db.query<ResultSetHeader>(
-      "INSERT INTO subject_types (subject_type_name) VALUES (?)",
-      [validation.name],
+      `INSERT INTO subject_types
+        (subject_type_name, is_active, created_by_admin_id)
+       VALUES (?, 1, ?)`,
+      [validation.name, req.user!.id],
     );
     const subjectType = await getSubjectTypeById(result.insertId);
 

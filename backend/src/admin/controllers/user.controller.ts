@@ -102,6 +102,35 @@ FROM user u
 INNER JOIN departments d ON d.department_id = u.department_id
 INNER JOIN faculties f ON f.faculty_id = d.faculty_id`;
 
+const managedInstructorSelect = `SELECT
+  a.admin_id,
+  a.admin_name,
+  a.first_name,
+  a.last_name,
+  a.admin_email,
+  a.phone,
+  a.address,
+  a.department_id,
+  d.department_code,
+  d.department_name,
+  f.faculty_id,
+  f.faculty_code,
+  f.faculty_name,
+  a.status,
+  a.last_login,
+  DATE_FORMAT(a.updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version,
+  CASE
+    WHEN a.last_login IS NULL OR a.last_login < DATE_SUB(NOW(), INTERVAL 1 YEAR)
+    THEN 1 ELSE 0
+  END AS is_inactive,
+  CASE
+    WHEN a.last_login IS NULL THEN NULL
+    ELSE TIMESTAMPDIFF(DAY, a.last_login, NOW())
+  END AS inactive_days
+FROM admin a
+LEFT JOIN departments d ON d.department_id = a.department_id
+LEFT JOIN faculties f ON f.faculty_id = d.faculty_id`;
+
 const isAdmin = (req: Request, res: Response): boolean => {
   if (!req.user?.id) {
     res.status(401).json({ message: "Unauthorized: Missing admin ID" });
@@ -127,6 +156,17 @@ const parseUserId = (req: Request, res: Response): number | null => {
   return userId;
 };
 
+const parseInstructorId = (req: Request, res: Response): number | null => {
+  const instructorId = Number(req.params.instructorId);
+
+  if (!Number.isInteger(instructorId) || instructorId <= 0) {
+    res.status(400).json({ message: "Invalid instructor ID" });
+    return null;
+  }
+
+  return instructorId;
+};
+
 export const getManagedUsers = async (req: Request, res: Response) => {
   try {
     if (!isAdmin(req, res)) return;
@@ -136,34 +176,7 @@ export const getManagedUsers = async (req: Request, res: Response) => {
        ORDER BY is_inactive DESC, u.user_id ASC`,
     );
     const [instructors] = await db.query<ManagedInstructorRow[]>(
-      `SELECT
-        a.admin_id,
-        a.admin_name,
-        a.first_name,
-        a.last_name,
-        a.admin_email,
-        a.phone,
-        a.address,
-        a.department_id,
-        d.department_code,
-        d.department_name,
-        f.faculty_id,
-        f.faculty_code,
-        f.faculty_name,
-        a.status,
-        a.last_login,
-        DATE_FORMAT(a.updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version,
-        CASE
-          WHEN a.last_login IS NULL OR a.last_login < DATE_SUB(NOW(), INTERVAL 1 YEAR)
-          THEN 1 ELSE 0
-        END AS is_inactive,
-        CASE
-          WHEN a.last_login IS NULL THEN NULL
-          ELSE TIMESTAMPDIFF(DAY, a.last_login, NOW())
-        END AS inactive_days
-       FROM admin a
-       LEFT JOIN departments d ON d.department_id = a.department_id
-       LEFT JOIN faculties f ON f.faculty_id = d.faculty_id
+      `${managedInstructorSelect}
        WHERE a.role = 'instructor'
        ORDER BY is_inactive DESC, a.admin_id ASC`,
     );
@@ -204,9 +217,8 @@ export const updateManagedUser = async (req: Request, res: Response) => {
     const userId = parseUserId(req, res);
     if (!userId) return;
 
-    const { user_name, user_birthdate, user_gender, version } = req.body;
-    const normalizedUserName = String(user_name ?? "").trim();
-    const usernameRegex = /^(?=.*[a-zA-Z])[a-zA-Z0-9]{3,50}$/;
+    const { department_id, version } = req.body;
+    const departmentId = Number(department_id);
 
     if (
       typeof version !== "string" ||
@@ -215,53 +227,28 @@ export const updateManagedUser = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "A valid user version is required" });
     }
 
-    if (!usernameRegex.test(normalizedUserName)) {
-      return res.status(400).json({
-        message:
-          "Username must be 3-50 characters, contain a letter, and use only letters or numbers",
-      });
+    if (!Number.isInteger(departmentId) || departmentId <= 0) {
+      return res.status(400).json({ message: "A valid department is required" });
     }
 
-    if (!["male", "female", "other", "unspecified"].includes(user_gender)) {
-      return res.status(400).json({ message: "Invalid gender" });
-    }
-
-    if (user_birthdate !== null && user_birthdate !== "") {
-      const birthdateValue = String(user_birthdate);
-      const parsedBirthdate = new Date(`${birthdateValue}T00:00:00.000Z`);
-      const today = new Date().toISOString().slice(0, 10);
-
-      if (
-        !/^\d{4}-\d{2}-\d{2}$/.test(birthdateValue) ||
-        Number.isNaN(parsedBirthdate.getTime()) ||
-        parsedBirthdate.toISOString().slice(0, 10) !== birthdateValue ||
-        birthdateValue > today
-      ) {
-        return res.status(400).json({ message: "Invalid birthdate" });
-      }
-    }
-
-    const [duplicateRows] = await db.query<RowDataPacket[]>(
-      "SELECT user_id FROM user WHERE BINARY user_name = ? AND user_id <> ? LIMIT 1",
-      [normalizedUserName, userId],
+    const [departments] = await db.query<RowDataPacket[]>(
+      `SELECT d.department_id
+       FROM departments d
+       INNER JOIN faculties f ON f.faculty_id = d.faculty_id
+       WHERE d.department_id = ?
+       LIMIT 1`,
+      [departmentId],
     );
-
-    if (duplicateRows.length > 0) {
-      return res.status(409).json({ message: "Username already exists" });
+    if (departments.length === 0) {
+      return res.status(400).json({ message: "Department not found" });
     }
 
     const [result] = await db.query<ResultSetHeader>(
       `UPDATE user
-       SET user_name = ?, birthdate = ?, gender = ?
+       SET department_id = ?
        WHERE user_id = ?
          AND updated_at = STR_TO_DATE(?, '%Y-%m-%d %H:%i:%s.%f')`,
-      [
-        normalizedUserName,
-        user_birthdate || null,
-        user_gender,
-        userId,
-        version,
-      ],
+      [departmentId, userId, version],
     );
 
     if (result.affectedRows === 0) {
@@ -306,6 +293,179 @@ export const updateManagedUser = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("updateManagedUser error:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const updateManagedInstructor = async (req: Request, res: Response) => {
+  try {
+    if (!isAdmin(req, res)) return;
+
+    const instructorId = parseInstructorId(req, res);
+    if (!instructorId) return;
+
+    const {
+      admin_name,
+      admin_email,
+      first_name,
+      last_name,
+      phone,
+      address,
+      department_id,
+      version,
+    } = req.body;
+    const normalizedName = String(admin_name ?? "").trim();
+    const normalizedEmail = String(admin_email ?? "").trim().toLowerCase();
+    const normalizedFirstName = String(first_name ?? "").trim();
+    const normalizedLastName = String(last_name ?? "").trim();
+    const normalizedPhone = String(phone ?? "").trim() || null;
+    const normalizedAddress = String(address ?? "").trim() || null;
+    const departmentId = Number(department_id);
+
+    if (
+      typeof version !== "string" ||
+      !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/.test(version)
+    ) {
+      return res.status(400).json({ message: "A valid instructor version is required" });
+    }
+
+    if (!/^(?=.*[a-zA-Z])[a-zA-Z0-9]{3,50}$/.test(normalizedName)) {
+      return res.status(400).json({
+        message:
+          "Username must be 3-50 characters, contain a letter, and use only letters or numbers",
+      });
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail) || normalizedEmail.length > 255) {
+      return res.status(400).json({ message: "Invalid email" });
+    }
+
+    if (
+      !normalizedFirstName ||
+      !normalizedLastName ||
+      normalizedFirstName.length > 100 ||
+      normalizedLastName.length > 100
+    ) {
+      return res.status(400).json({ message: "First name and last name are required" });
+    }
+
+    if (
+      (normalizedPhone && normalizedPhone.length > 20) ||
+      (normalizedAddress && normalizedAddress.length > 255)
+    ) {
+      return res.status(400).json({ message: "Phone or address is too long" });
+    }
+
+    if (!Number.isInteger(departmentId) || departmentId <= 0) {
+      return res.status(400).json({ message: "A valid department is required" });
+    }
+
+    const [departments] = await db.query<RowDataPacket[]>(
+      "SELECT department_id FROM departments WHERE department_id = ? LIMIT 1",
+      [departmentId],
+    );
+    if (departments.length === 0) {
+      return res.status(400).json({ message: "Department not found" });
+    }
+
+    const [duplicates] = await db.query<RowDataPacket[]>(
+      `SELECT admin_id
+       FROM admin
+       WHERE admin_id <> ?
+         AND (BINARY admin_name = ? OR LOWER(admin_email) = ?)
+       LIMIT 1`,
+      [instructorId, normalizedName, normalizedEmail],
+    );
+    if (duplicates.length > 0) {
+      return res.status(409).json({ message: "Username or email already exists" });
+    }
+
+    const [result] = await db.query<ResultSetHeader>(
+      `UPDATE admin
+       SET admin_name = ?, admin_email = ?, first_name = ?, last_name = ?,
+           phone = ?, address = ?, department_id = ?
+       WHERE admin_id = ?
+         AND role = 'instructor'
+         AND updated_at = STR_TO_DATE(?, '%Y-%m-%d %H:%i:%s.%f')`,
+      [
+        normalizedName,
+        normalizedEmail,
+        normalizedFirstName,
+        normalizedLastName,
+        normalizedPhone,
+        normalizedAddress,
+        departmentId,
+        instructorId,
+        version,
+      ],
+    );
+
+    if (result.affectedRows === 0) {
+      const [currentInstructors] = await db.query<ManagedInstructorRow[]>(
+        `SELECT admin_id,
+                DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version
+         FROM admin
+         WHERE admin_id = ? AND role = 'instructor'
+         LIMIT 1`,
+        [instructorId],
+      );
+      if (currentInstructors.length === 0) {
+        return res.status(404).json({ message: "Instructor not found" });
+      }
+      if (currentInstructors[0].version !== version) {
+        return res.status(409).json({
+          code: "EDIT_CONFLICT",
+          message:
+            "ข้อมูลอาจารย์นี้ถูกแก้ไขโดยผู้ดูแลระบบคนอื่นแล้ว กรุณาปิดหน้าต่างและเปิดใหม่เพื่อตรวจสอบข้อมูลล่าสุด",
+        });
+      }
+    }
+
+    const [updatedInstructors] = await db.query<ManagedInstructorRow[]>(
+      `${managedInstructorSelect}
+       WHERE a.admin_id = ? AND a.role = 'instructor'
+       LIMIT 1`,
+      [instructorId],
+    );
+    const updatedInstructor = updatedInstructors[0];
+    res.json({
+      message: "Instructor updated successfully",
+      instructor: {
+        ...updatedInstructor,
+        is_inactive: Boolean(updatedInstructor.is_inactive),
+      },
+    });
+  } catch (error) {
+    console.error("updateManagedInstructor error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const deleteManagedInstructor = async (req: Request, res: Response) => {
+  try {
+    if (!isAdmin(req, res)) return;
+
+    const instructorId = parseInstructorId(req, res);
+    if (!instructorId) return;
+
+    const [result] = await db.query<ResultSetHeader>(
+      "DELETE FROM admin WHERE admin_id = ? AND role = 'instructor'",
+      [instructorId],
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Instructor not found" });
+    }
+
+    res.json({ message: "Instructor deleted successfully" });
+  } catch (error) {
+    const databaseError = error as { code?: string };
+    if (databaseError.code === "ER_ROW_IS_REFERENCED_2") {
+      return res.status(409).json({
+        message:
+          "ไม่สามารถลบบัญชีอาจารย์นี้ได้ เนื่องจากยังเชื่อมกับรายวิชา คลังข้อสอบ หรือข้อมูลทางการศึกษาอื่น",
+      });
+    }
+    console.error("deleteManagedInstructor error:", error);
+    res.status(500).json({ message: "Unable to delete instructor" });
   }
 };
 

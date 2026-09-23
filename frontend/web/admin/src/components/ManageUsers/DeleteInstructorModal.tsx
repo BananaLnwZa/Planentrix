@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { AlertTriangle, LoaderCircle, Trash2, X } from "lucide-react";
-import { ManagedUser } from "@/interfaces/user-management.interface";
+import type { ManagedInstructor } from "@/interfaces/user-management.interface";
 
-interface DeleteUserModalProps {
-  user: ManagedUser;
+interface DeleteInstructorModalProps {
+  instructor: ManagedInstructor;
   onClose: () => void;
   onConfirm: () => Promise<void>;
 }
 
-export default function DeleteUserModal({ user, onClose, onConfirm }: DeleteUserModalProps) {
+export default function DeleteInstructorModal({ instructor, onClose, onConfirm }: DeleteInstructorModalProps) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
@@ -33,32 +33,16 @@ export default function DeleteUserModal({ user, onClose, onConfirm }: DeleteUser
     }
   };
 
+  const displayName = [instructor.first_name, instructor.last_name].filter(Boolean).join(" ") || instructor.admin_name;
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#243b45]/45 p-4 backdrop-blur-sm"
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="delete-user-title"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !deleting) onClose();
-      }}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#243b45]/45 p-4 backdrop-blur-sm" role="alertdialog" aria-modal="true" aria-labelledby="delete-instructor-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !deleting) onClose(); }}>
       <div className="w-full max-w-md rounded-[26px] border border-white/70 bg-white p-6 text-center shadow-[0_28px_80px_rgba(28,54,65,0.25)] sm:p-7">
-        <button type="button" onClick={onClose} disabled={deleting} aria-label="ปิด" className="ml-auto block rounded-full p-2 text-[#7d9098] transition hover:bg-[#edf4f6] disabled:opacity-50">
-          <X size={19} />
-        </button>
-        <span className="mx-auto mt-1 flex size-16 items-center justify-center rounded-full bg-[#fff0e9] text-[#d46f52]">
-          <AlertTriangle size={30} aria-hidden="true" />
-        </span>
-        <h2 id="delete-user-title" className="mt-5 text-xl font-semibold text-[#334a54]">ยืนยันการลบบัญชี?</h2>
-        <p className="mt-2 text-sm leading-6 text-[#6e7f87]">
-          คุณกำลังจะลบ <strong className="font-semibold text-[#3e5660]">{user.user_name}</strong> พร้อมข้อมูลตารางเรียน งาน และคะแนนที่เกี่ยวข้อง
-        </p>
-        {user.is_inactive && (
-          <p className="mt-3 rounded-xl bg-[#fff8f4] px-3 py-2.5 text-xs text-[#a45e49]">
-            บัญชีนี้{user.last_login ? `ไม่ได้เข้าใช้งานมา ${user.inactive_days?.toLocaleString("th-TH") ?? "มากกว่า 365"} วัน` : "ยังไม่เคยเข้าสู่ระบบ"}
-          </p>
-        )}
+        <button type="button" onClick={onClose} disabled={deleting} aria-label="ปิด" className="ml-auto block rounded-full p-2 text-[#7d9098] transition hover:bg-[#edf4f6] disabled:opacity-50"><X size={19} /></button>
+        <span className="mx-auto mt-1 flex size-16 items-center justify-center rounded-full bg-[#fff0e9] text-[#d46f52]"><AlertTriangle size={30} aria-hidden="true" /></span>
+        <h2 id="delete-instructor-title" className="mt-5 text-xl font-semibold text-[#334a54]">ยืนยันการลบบัญชีอาจารย์?</h2>
+        <p className="mt-2 text-sm leading-6 text-[#6e7f87]">คุณกำลังจะลบบัญชีของ <strong className="font-semibold text-[#3e5660]">{displayName}</strong></p>
+        <p className="mt-3 rounded-xl bg-[#fff8f4] px-3 py-2.5 text-xs text-[#a45e49]">หากบัญชียังเชื่อมกับรายวิชาหรือคลังข้อสอบ ระบบจะไม่อนุญาตให้ลบ</p>
         <p className="mt-3 text-xs font-medium text-[#c15e47]">เมื่อลบแล้วจะไม่สามารถกู้คืนผ่านหน้า admin ได้</p>
         {error && <p role="alert" className="mt-3 rounded-xl bg-[#fff0ec] px-3 py-2.5 text-sm text-[#a9503c]">{error}</p>}
         <div className="mt-6 grid grid-cols-2 gap-3">

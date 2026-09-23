@@ -1,9 +1,36 @@
-import { Presentation, UserRound } from "lucide-react";
+import { Pencil, Presentation, Trash2, UserRound } from "lucide-react";
 import type { ManagedInstructor } from "@/interfaces/user-management.interface";
 import { formatDisplayDateTime } from "@/utils/dateTime";
 import UserStatusBadge from "./UserStatusBadge";
 
-export default function InstructorTable({ instructors }: { instructors: ManagedInstructor[] }) {
+interface InstructorTableProps {
+  instructors: ManagedInstructor[];
+  onEdit: (instructor: ManagedInstructor) => void;
+  onDelete: (instructor: ManagedInstructor) => void;
+}
+
+function ActionButtons({
+  instructor,
+  onEdit,
+  onDelete,
+}: {
+  instructor: ManagedInstructor;
+  onEdit: (instructor: ManagedInstructor) => void;
+  onDelete: (instructor: ManagedInstructor) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <button type="button" onClick={() => onEdit(instructor)} aria-label={`แก้ไขอาจารย์ ${instructor.admin_name}`} className="inline-flex size-9 items-center justify-center rounded-xl bg-[#f0eef9] text-[#7468a8] transition hover:bg-[#e5e1f4]">
+        <Pencil size={16} aria-hidden="true" />
+      </button>
+      <button type="button" onClick={() => onDelete(instructor)} aria-label={`ลบอาจารย์ ${instructor.admin_name}`} className="inline-flex size-9 items-center justify-center rounded-xl bg-[#fff0ec] text-[#c6644d] transition hover:bg-[#ffe1d9]">
+        <Trash2 size={16} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
+export default function InstructorTable({ instructors, onEdit, onDelete }: InstructorTableProps) {
   if (instructors.length === 0) {
     return (
       <div className="flex min-h-72 flex-col items-center justify-center px-6 text-center">
@@ -22,7 +49,6 @@ export default function InstructorTable({ instructors }: { instructors: ManagedI
         <table className="w-full min-w-[980px] border-collapse text-left">
           <thead>
             <tr className="bg-[#f7fafb] text-xs font-medium uppercase tracking-wide text-[#73858d]">
-              <th className="px-5 py-3.5">ID</th>
               <th className="px-5 py-3.5">อาจารย์</th>
               <th className="px-5 py-3.5">คณะ / สาขา</th>
               <th className="px-5 py-3.5">เบอร์โทร</th>
@@ -38,7 +64,6 @@ export default function InstructorTable({ instructors }: { instructors: ManagedI
                   instructor.is_inactive ? "bg-[#fffaf7]" : "bg-white"
                 }`}
               >
-                <td className="px-5 py-4 text-sm font-medium text-[#58707a]">#{instructor.admin_id}</td>
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#f0eef9] font-semibold text-[#7468a8]">
@@ -66,7 +91,12 @@ export default function InstructorTable({ instructors }: { instructors: ManagedI
                     <p className="mt-0.5 text-xs text-[#9a8b84]">{instructor.inactive_days.toLocaleString("th-TH")} วันที่แล้ว</p>
                   )}
                 </td>
-                <td className="px-5 py-4"><UserStatusBadge user={instructor} /></td>
+                <td className="px-5 py-4">
+                  <div className="flex items-center gap-2">
+                    <UserStatusBadge user={instructor} />
+                    <ActionButtons instructor={instructor} onEdit={onEdit} onDelete={onDelete} />
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -76,14 +106,17 @@ export default function InstructorTable({ instructors }: { instructors: ManagedI
       <div className="divide-y divide-[#e8eef1] md:hidden">
         {instructors.map((instructor) => (
           <article key={instructor.admin_id} className={instructor.is_inactive ? "bg-[#fffaf7] p-4" : "bg-white p-4"}>
-            <div className="flex items-start justify-between gap-3">
+            <div>
               <div className="min-w-0">
                 <p className="truncate font-medium text-[#334b56]">
                   {[instructor.first_name, instructor.last_name].filter(Boolean).join(" ") || instructor.admin_name}
                 </p>
-                <p className="text-xs text-[#8b9aa1]">#{instructor.admin_id} · @{instructor.admin_name}</p>
+                <p className="text-xs text-[#8b9aa1]">@{instructor.admin_name}</p>
               </div>
-              <UserStatusBadge user={instructor} />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <UserStatusBadge user={instructor} />
+                <ActionButtons instructor={instructor} onEdit={onEdit} onDelete={onDelete} />
+              </div>
             </div>
             <dl className="mt-4 grid gap-3 text-sm">
               <div><dt className="text-xs text-[#94a2a8]">คณะ / สาขา</dt><dd className="mt-0.5 text-[#536a74]">{instructor.faculty_name || "—"} · {instructor.department_name || "—"}</dd></div>

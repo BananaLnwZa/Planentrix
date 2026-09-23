@@ -27,6 +27,8 @@ export const apiEndpoints = {
   users: {
     list: "/admin/users",
     byId: (userId: number) => `/admin/users/${userId}`,
+    instructorById: (instructorId: number) =>
+      `/admin/users/instructors/${instructorId}`,
   },
   subjects: {
     list: "/admin/subjects",

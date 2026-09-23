@@ -52,7 +52,7 @@ export default function SubjectHierarchy({ subjects, onEdit, onStatusChange }: S
                       <span className="rounded-full bg-[#fff0ea] px-2 py-0.5 text-[11px] font-medium text-[#a86651]">{termSubjects.length.toLocaleString("th-TH")} วิชา</span>
                     </div>
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                      {termSubjects.map((subject) => <SubjectCard key={subject.subject_id} subject={subject} onEdit={onEdit} onStatusChange={onStatusChange} />)}
+                      {termSubjects.map((subject) => <SubjectCard key={subject.curriculum_subject_id} subject={subject} onEdit={onEdit} onStatusChange={onStatusChange} />)}
                     </div>
                   </section>
                 );

@@ -1,4 +1,5 @@
-import { BookOpenCheck } from "lucide-react";
+import { BookOpenCheck, Shapes } from "lucide-react";
+import Link from "next/link";
 
 export default function SubjectHeader() {
   return (
@@ -9,13 +10,18 @@ export default function SubjectHeader() {
           จัดการวิชา
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6c7f88] sm:text-base">
-          จัดหลักสูตรตามชั้นปีและภาคการศึกษา พร้อมกำหนดประเภทวิชา ผู้สอน และเวลาเรียน
+          จัดวิชาเข้าหลักสูตรของแต่ละคณะและสาขา แยกตามชั้นปีและภาคการศึกษา
         </p>
       </div>
 
-      <div className="flex max-w-md items-start gap-3 rounded-2xl border border-[#cfe8f0] bg-[#f2fbfe] px-4 py-3 text-sm text-[#547783]">
-        <BookOpenCheck className="mt-0.5 shrink-0 text-[#4e98b1]" size={19} />
-        <p>ประเภทวิชาทั้งหมดในหน้านี้ดึงจากตาราง subject_types และใช้ร่วมกับข้อมูลวิชาในฐานข้อมูล</p>
+      <div className="flex max-w-md flex-col gap-3 rounded-2xl border border-[#cfe8f0] bg-[#f2fbfe] px-4 py-3 text-sm text-[#547783]">
+        <div className="flex items-start gap-3">
+          <BookOpenCheck className="mt-0.5 shrink-0 text-[#4e98b1]" size={19} />
+          <p>ข้อมูลเชื่อมจากรายการวิชา ประเภทวิชา และโครงสร้างหลักสูตรในฐานข้อมูลโดยตรง</p>
+        </div>
+        <Link href="/SubjectType" className="inline-flex w-fit items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-medium text-[#4b8296] shadow-sm transition hover:bg-[#e8f6fa]">
+          <Shapes size={15} /> จัดการประเภทวิชา
+        </Link>
       </div>
     </header>
   );

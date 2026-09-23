@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, LoaderCircle, RefreshCw, X } from "lucide-react";
-import { Subject, SubjectPayload, SubjectType } from "@/interfaces/subject-management.interface";
+import {
+  Subject,
+  SubjectDepartment,
+  SubjectFaculty,
+  SubjectPayload,
+  SubjectType,
+} from "@/interfaces/subject-management.interface";
 import { subjectManagementService } from "@/services/subject-management.service";
 import SubjectStatusModal from "./SubjectStatusModal";
 import SubjectFormModal from "./SubjectFormModal";
@@ -22,6 +28,8 @@ const sortSubjects = (subjects: Subject[]) =>
 export default function SubjectManagementClient() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [subjectTypes, setSubjectTypes] = useState<SubjectType[]>([]);
+  const [faculties, setFaculties] = useState<SubjectFaculty[]>([]);
+  const [departments, setDepartments] = useState<SubjectDepartment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -39,6 +47,8 @@ export default function SubjectManagementClient() {
       const response = await subjectManagementService.getSubjects();
       setSubjects(sortSubjects(response.subjects));
       setSubjectTypes(response.subject_types);
+      setFaculties(response.faculties);
+      setDepartments(response.departments);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "ไม่สามารถโหลดข้อมูลวิชาได้");
     } finally {
@@ -54,6 +64,8 @@ export default function SubjectManagementClient() {
         if (!active) return;
         setSubjects(sortSubjects(response.subjects));
         setSubjectTypes(response.subject_types);
+        setFaculties(response.faculties);
+        setDepartments(response.departments);
       })
       .catch((loadError: unknown) => {
         if (active) setError(loadError instanceof Error ? loadError.message : "ไม่สามารถโหลดข้อมูลวิชาได้");
@@ -74,8 +86,9 @@ export default function SubjectManagementClient() {
         !query ||
         subject.subject_id.toLocaleLowerCase().includes(query) ||
         subject.subject_name.toLocaleLowerCase().includes(query) ||
-        subject.teacher_name.toLocaleLowerCase().includes(query) ||
-        subject.classroom.toLocaleLowerCase().includes(query);
+        subject.faculty_name.toLocaleLowerCase().includes(query) ||
+        subject.department_name.toLocaleLowerCase().includes(query) ||
+        subject.department_code.toLocaleLowerCase().includes(query);
       const matchesType =
         selectedType === "all" || subject.subject_type_id === Number(selectedType);
       const matchesStatus =
@@ -105,7 +118,7 @@ export default function SubjectManagementClient() {
       setSubjects((current) =>
         sortSubjects(
           current.map((subject) =>
-            subject.subject_id === response.subject.subject_id
+            subject.curriculum_subject_id === response.subject.curriculum_subject_id
               ? response.subject
               : subject,
           ),
@@ -135,7 +148,7 @@ export default function SubjectManagementClient() {
       sortSubjects(
         current.map((subject) =>
           subject.subject_id === response.subject.subject_id
-            ? response.subject
+            ? { ...subject, is_active: response.subject.is_active }
             : subject,
         ),
       ),
@@ -196,6 +209,8 @@ export default function SubjectManagementClient() {
           key={editingSubject?.subject_id ?? "new-subject"}
           subject={editingSubject}
           subjectTypes={subjectTypes}
+          faculties={faculties}
+          departments={departments}
           onClose={() => { setFormOpen(false); setEditingSubject(null); }}
           onSave={handleSave}
         />

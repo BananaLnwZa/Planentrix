@@ -15,7 +15,7 @@ export default function ManageUsersHeader() {
 
       <div className="flex max-w-md items-start gap-3 rounded-2xl border border-[#f1d4c9] bg-[#fff8f4] px-4 py-3 text-sm text-[#815c50]">
         <ShieldAlert className="mt-0.5 shrink-0 text-[#dd8065]" size={19} />
-        <p>การแก้ไขและลบบัญชียังเปิดให้ใช้ในแท็บนักศึกษา โปรดตรวจสอบข้อมูลให้ครบถ้วนก่อนดำเนินการ</p>
+        <p>สามารถแก้ไขและลบบัญชีนักศึกษาหรืออาจารย์ได้ โปรดตรวจสอบข้อมูลให้ครบถ้วนก่อนดำเนินการ</p>
       </div>
     </header>
   );

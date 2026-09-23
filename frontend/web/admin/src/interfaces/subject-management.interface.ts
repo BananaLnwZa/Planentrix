@@ -4,39 +4,55 @@ export interface SubjectType {
 }
 
 export interface Subject {
+  curriculum_subject_id: number;
   subject_id: string;
   subject_name: string;
   credits: number;
-  classroom: string;
-  teacher_name: string;
-  schedule_day: number;
-  start_time: string;
-  end_time: string;
   term: number;
   academic_year: number;
   subject_type_id: number;
   subject_type_name: string;
+  department_id: number;
+  department_code: string;
+  department_name: string;
+  faculty_id: number;
+  faculty_code: string;
+  faculty_name: string;
+  is_required: boolean;
   is_active: boolean;
 }
 
 export interface SubjectPayload {
   subject_id?: string;
+  curriculum_subject_id?: number;
   subject_name: string;
   credits: number;
-  classroom: string;
-  teacher_name: string;
-  schedule_day: number;
-  start_time: string;
-  end_time: string;
   term: number;
   academic_year: number;
   subject_type_id: number;
+  department_id: number;
+  is_required: boolean;
+}
+
+export interface SubjectFaculty {
+  faculty_id: number;
+  faculty_code: string;
+  faculty_name: string;
+}
+
+export interface SubjectDepartment {
+  department_id: number;
+  department_code: string;
+  department_name: string;
+  faculty_id: number;
 }
 
 export interface SubjectsResponse {
   message: string;
   subjects: Subject[];
   subject_types: SubjectType[];
+  faculties: SubjectFaculty[];
+  departments: SubjectDepartment[];
 }
 
 export interface SubjectMutationResponse {

@@ -4,6 +4,7 @@ import {
   Building2,
   ClipboardList,
   Landmark,
+  Shapes,
   UserPlus,
   UsersRound,
 } from "lucide-react";
@@ -16,6 +17,7 @@ const navItems = [
   { label: "เพิ่มแอดมิน", href: "/SignInAdmin", icon: UserPlus },
   { label: "ข้อสอบ", href: "/Exam", icon: ClipboardList },
   { label: "วิชา", href: "/Subject", icon: BookOpen },
+  { label: "ประเภทวิชา", href: "/SubjectType", icon: Shapes },
   { label: "คณะ", href: "/Faculty", icon: Landmark },
   { label: "สาขา", href: "/Department", icon: Building2 },
 ];

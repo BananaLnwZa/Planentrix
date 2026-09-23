@@ -71,16 +71,14 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
   return (
     <>
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[1050px] border-collapse text-left">
+        <table className="w-full min-w-[980px] border-collapse text-left">
           <thead>
             <tr className="bg-[#f7fafb] text-xs font-medium uppercase tracking-wide text-[#73858d]">
-              <th className="px-5 py-3.5">ID</th>
               <th className="px-5 py-3.5">นักศึกษา</th>
               <th className="px-5 py-3.5">คณะ / สาขา</th>
               <th className="px-5 py-3.5 text-center">ชั้นปี</th>
               <th className="px-5 py-3.5">เข้าใช้ล่าสุด</th>
               <th className="px-5 py-3.5">สถานะ</th>
-              <th className="px-5 py-3.5 text-right">จัดการ</th>
             </tr>
           </thead>
           <tbody>
@@ -91,9 +89,6 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                   user.is_inactive ? "bg-[#fffaf7]" : "bg-white"
                 }`}
               >
-                <td className="px-5 py-4 text-sm font-medium text-[#58707a]">
-                  #{user.user_id}
-                </td>
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
                     <UserAvatar userName={user.user_name} />
@@ -121,8 +116,12 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                     </p>
                   )}
                 </td>
-                <td className="px-5 py-4"><UserStatusBadge user={user} /></td>
-                <td className="px-5 py-4"><ActionButtons user={user} onEdit={onEdit} onDelete={onDelete} /></td>
+                <td className="px-5 py-4">
+                  <div className="flex items-center gap-2">
+                    <UserStatusBadge user={user} />
+                    <ActionButtons user={user} onEdit={onEdit} onDelete={onDelete} />
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -135,22 +134,22 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
             <div className="flex items-start gap-3">
               <UserAvatar userName={user.user_name} />
               <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate font-medium text-[#334b56]">
                       {[user.first_name, user.last_name].filter(Boolean).join(" ") || user.user_name}
                     </p>
-                    <p className="text-xs text-[#8b9aa1]">#{user.user_id} · @{user.user_name}</p>
+                    <p className="text-xs text-[#8b9aa1]">@{user.user_name}</p>
                   </div>
-                  <UserStatusBadge user={user} />
-                </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <UserStatusBadge user={user} />
+                    <ActionButtons user={user} onEdit={onEdit} onDelete={onDelete} />
+                  </div>
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <div className="col-span-2"><dt className="text-xs text-[#94a2a8]">คณะ / สาขา</dt><dd className="mt-0.5 text-[#536a74]">{user.faculty_name} · {user.department_name}</dd></div>
                   <div><dt className="text-xs text-[#94a2a8]">ชั้นปี</dt><dd className="mt-0.5 text-[#536a74]">{user.year_level ?? "—"}</dd></div>
                   <div><dt className="text-xs text-[#94a2a8]">เพศ</dt><dd className="mt-0.5 text-[#536a74]">{genderLabels[user.user_gender]}</dd></div>
                   <div className="col-span-2"><dt className="text-xs text-[#94a2a8]">Email</dt><dd className="mt-0.5 truncate text-[#536a74]">{user.email}</dd></div>
                 </dl>
-                <div className="mt-4"><ActionButtons user={user} onEdit={onEdit} onDelete={onDelete} /></div>
               </div>
             </div>
           </article>

@@ -15,6 +15,7 @@ import type {
   ManagedAccountActivity,
   ManagedInstructor,
   ManagedUser,
+  UpdateManagedInstructorRequest,
   UpdateManagedUserRequest,
   UserDepartmentFilterOption,
   UserFacultyFilterOption,
@@ -24,6 +25,8 @@ import {
   userManagementService,
 } from "@/services/user-management.service";
 import DeleteUserModal from "./DeleteUserModal";
+import DeleteInstructorModal from "./DeleteInstructorModal";
+import EditInstructorModal from "./EditInstructorModal";
 import EditUserModal from "./EditUserModal";
 import InstructorTable from "./InstructorTable";
 import UserFilters, { type AccountTab, type UserFilter } from "./UserFilters";
@@ -91,6 +94,10 @@ export default function ManageUsersClient() {
   const [page, setPage] = useState(1);
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
   const [deletingUser, setDeletingUser] = useState<ManagedUser | null>(null);
+  const [editingInstructor, setEditingInstructor] =
+    useState<ManagedInstructor | null>(null);
+  const [deletingInstructor, setDeletingInstructor] =
+    useState<ManagedInstructor | null>(null);
 
   const applyResponse = useCallback(
     (response: Awaited<ReturnType<typeof userManagementService.getUsers>>) => {
@@ -157,7 +164,6 @@ export default function ManageUsersClient() {
 
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
-    const idQuery = query.replace(/^#/, "");
     return users.filter((user) => {
       const searchable = [
         user.user_name,
@@ -172,8 +178,7 @@ export default function ManageUsersClient() {
       ]
         .join(" ")
         .toLocaleLowerCase();
-      const matchesSearch =
-        !query || searchable.includes(query) || String(user.user_id).includes(idQuery);
+      const matchesSearch = !query || searchable.includes(query);
       const matchesFaculty =
         !facultyId || user.faculty_id === Number(facultyId);
       const matchesDepartment =
@@ -191,7 +196,6 @@ export default function ManageUsersClient() {
 
   const filteredInstructors = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
-    const idQuery = query.replace(/^#/, "");
     return instructors.filter((instructor) => {
       const searchable = [
         instructor.admin_name,
@@ -208,9 +212,7 @@ export default function ManageUsersClient() {
         .join(" ")
         .toLocaleLowerCase();
       const matchesSearch =
-        !query ||
-        searchable.includes(query) ||
-        String(instructor.admin_id).includes(idQuery);
+        !query || searchable.includes(query);
       const matchesFaculty =
         !facultyId || instructor.faculty_id === Number(facultyId);
       const matchesDepartment =
@@ -280,6 +282,47 @@ export default function ManageUsersClient() {
     );
     setNotice(`ลบบัญชี ${deletingUser.user_name} เรียบร้อยแล้ว`);
     setDeletingUser(null);
+  };
+
+  const handleInstructorUpdate = async (
+    data: UpdateManagedInstructorRequest,
+  ) => {
+    if (!editingInstructor) return;
+    try {
+      const response = await userManagementService.updateInstructor(
+        editingInstructor.admin_id,
+        data,
+      );
+      setInstructors((current) =>
+        sortInstructors(
+          current.map((instructor) =>
+            instructor.admin_id === response.instructor.admin_id
+              ? response.instructor
+              : instructor,
+          ),
+        ),
+      );
+      setEditingInstructor(null);
+      setNotice(`บันทึกข้อมูลของ ${response.instructor.admin_name} แล้ว`);
+    } catch (updateError) {
+      if (updateError instanceof UserEditConflictError) {
+        await loadUsers();
+        throw new Error(`${updateError.message} ระบบโหลดรายการล่าสุดให้แล้ว`);
+      }
+      throw updateError;
+    }
+  };
+
+  const handleInstructorDelete = async () => {
+    if (!deletingInstructor) return;
+    await userManagementService.deleteInstructor(deletingInstructor.admin_id);
+    setInstructors((current) =>
+      current.filter(
+        (instructor) => instructor.admin_id !== deletingInstructor.admin_id,
+      ),
+    );
+    setNotice(`ลบบัญชี ${deletingInstructor.admin_name} เรียบร้อยแล้ว`);
+    setDeletingInstructor(null);
   };
 
   return (
@@ -364,7 +407,11 @@ export default function ManageUsersClient() {
             {accountTab === "student" ? (
               <UserTable users={visibleUsers} onEdit={setEditingUser} onDelete={setDeletingUser} />
             ) : (
-              <InstructorTable instructors={visibleInstructors} />
+              <InstructorTable
+                instructors={visibleInstructors}
+                onEdit={setEditingInstructor}
+                onDelete={setDeletingInstructor}
+              />
             )}
             {filteredCount > PAGE_SIZE && (
               <div className="flex items-center justify-between border-t border-[#e8eef1] px-4 py-3 sm:px-5">
@@ -379,8 +426,35 @@ export default function ManageUsersClient() {
         )}
       </section>
 
-      {editingUser && <EditUserModal key={editingUser.user_id} user={editingUser} onClose={() => setEditingUser(null)} onSave={handleUpdate} />}
+      {editingUser && (
+        <EditUserModal
+          key={editingUser.user_id}
+          user={editingUser}
+          faculties={faculties}
+          departments={departments}
+          onClose={() => setEditingUser(null)}
+          onSave={handleUpdate}
+        />
+      )}
       {deletingUser && <DeleteUserModal key={deletingUser.user_id} user={deletingUser} onClose={() => setDeletingUser(null)} onConfirm={handleDelete} />}
+      {editingInstructor && (
+        <EditInstructorModal
+          key={editingInstructor.admin_id}
+          instructor={editingInstructor}
+          departments={departments}
+          faculties={faculties}
+          onClose={() => setEditingInstructor(null)}
+          onSave={handleInstructorUpdate}
+        />
+      )}
+      {deletingInstructor && (
+        <DeleteInstructorModal
+          key={deletingInstructor.admin_id}
+          instructor={deletingInstructor}
+          onClose={() => setDeletingInstructor(null)}
+          onConfirm={handleInstructorDelete}
+        />
+      )}
     </>
   );
 }

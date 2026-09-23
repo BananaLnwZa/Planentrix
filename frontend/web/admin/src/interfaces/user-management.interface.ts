@@ -66,15 +66,29 @@ export interface ManagedUsersResponse {
 }
 
 export interface UpdateManagedUserRequest {
-  user_name: string;
-  user_birthdate: string | null;
-  user_gender: UserGender;
+  department_id: number;
   version: string;
 }
 
 export interface UpdateManagedUserResponse {
   message: string;
   user: ManagedUser;
+}
+
+export interface UpdateManagedInstructorRequest {
+  admin_name: string;
+  admin_email: string;
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  address: string | null;
+  department_id: number;
+  version: string;
+}
+
+export interface UpdateManagedInstructorResponse {
+  message: string;
+  instructor: ManagedInstructor;
 }
 
 export interface DeleteManagedUserResponse {

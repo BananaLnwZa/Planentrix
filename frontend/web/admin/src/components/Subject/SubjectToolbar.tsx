@@ -34,7 +34,7 @@ export default function SubjectToolbar({
             type="search"
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="ค้นหารหัสวิชา ชื่อวิชา ผู้สอน หรือห้องเรียน"
+            placeholder="ค้นหารหัสวิชา ชื่อวิชา คณะ หรือสาขา"
             aria-label="ค้นหาวิชา"
             className="h-11 w-full rounded-xl border border-[#dce7eb] bg-[#f9fcfd] pl-10 pr-4 text-sm text-[#334b56] outline-none transition placeholder:text-[#9cabb1] focus:border-[#79bdd4] focus:ring-4 focus:ring-[#dff3fa]"
           />
