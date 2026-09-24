@@ -1,5 +1,4 @@
-import { BookOpenCheck, Shapes } from "lucide-react";
-import Link from "next/link";
+import { BookOpenCheck } from "lucide-react";
 
 export default function SubjectHeader() {
   return (
@@ -14,14 +13,9 @@ export default function SubjectHeader() {
         </p>
       </div>
 
-      <div className="flex max-w-md flex-col gap-3 rounded-2xl border border-[#cfe8f0] bg-[#f2fbfe] px-4 py-3 text-sm text-[#547783]">
-        <div className="flex items-start gap-3">
-          <BookOpenCheck className="mt-0.5 shrink-0 text-[#4e98b1]" size={19} />
-          <p>ข้อมูลเชื่อมจากรายการวิชา ประเภทวิชา และโครงสร้างหลักสูตรในฐานข้อมูลโดยตรง</p>
-        </div>
-        <Link href="/SubjectType" className="inline-flex w-fit items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-medium text-[#4b8296] shadow-sm transition hover:bg-[#e8f6fa]">
-          <Shapes size={15} /> จัดการประเภทวิชา
-        </Link>
+      <div className="flex max-w-md items-start gap-3 rounded-2xl border border-[#cfe8f0] bg-[#f2fbfe] px-4 py-3 text-sm text-[#547783]">
+        <BookOpenCheck className="mt-0.5 shrink-0 text-[#4e98b1]" size={19} />
+        <p>ประเภทวิชากำหนดไว้ 3 แบบ: ทฤษฎี ปฏิบัติ และทฤษฎีร่วมกับปฏิบัติ</p>
       </div>
     </header>
   );

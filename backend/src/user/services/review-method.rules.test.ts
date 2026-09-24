@@ -16,23 +16,9 @@ test("weak-topic rule remains separate from the review-method mapping", () => {
 });
 
 test("maps each known subject type to its review-method rule", () => {
-  assert.equal(getMappedStudyTypeName("ทฤษฎีและหลักการ"), "reading");
-  assert.equal(getMappedStudyTypeName("เขียนโปรแกรม"), "practice");
-  assert.equal(
-    getMappedStudyTypeName("ออกแบบและวิเคราะห์ระบบ"),
-    "review",
-  );
-  assert.equal(getMappedStudyTypeName("ฐานข้อมูล"), "practice");
-  assert.equal(
-    getMappedStudyTypeName("เครือข่ายและความปลอดภัย"),
-    "video",
-  );
-  assert.equal(
-    getMappedStudyTypeName("ปัญญาประดิษฐ์และข้อมูล"),
-    "practice",
-  );
-  assert.equal(getMappedStudyTypeName("เว็บและแอปพลิเคชัน"), "practice");
-  assert.equal(getMappedStudyTypeName("โครงงานและฝึกงาน"), "review");
+  assert.equal(getMappedStudyTypeName("ทฤษฎี"), "reading");
+  assert.equal(getMappedStudyTypeName("ปฏิบัติ"), "practice");
+  assert.equal(getMappedStudyTypeName("ทฤษฎีร่วมกับปฏิบัติ"), "review");
 });
 
 test("leaves unknown subject types for the review fallback", () => {

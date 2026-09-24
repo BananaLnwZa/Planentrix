@@ -2,10 +2,8 @@ import {
   BarChart3,
   BookOpen,
   Building2,
-  ClipboardList,
   CalendarRange,
   Landmark,
-  Shapes,
   UserPlus,
   UsersRound,
 } from "lucide-react";
@@ -16,10 +14,8 @@ const navItems = [
   { label: "สถิติ", href: "/Main", icon: BarChart3 },
   { label: "ผู้ใช้งาน", href: "/ManageUsers", icon: UsersRound },
   { label: "เพิ่มแอดมิน", href: "/SignInAdmin", icon: UserPlus },
-  { label: "ข้อสอบ", href: "/Exam", icon: ClipboardList },
   { label: "วิชา", href: "/Subject", icon: BookOpen },
   { label: "การเปิดสอน", href: "/Teaching", icon: CalendarRange },
-  { label: "ประเภทวิชา", href: "/SubjectType", icon: Shapes },
   { label: "คณะ", href: "/Faculty", icon: Landmark },
   { label: "สาขา", href: "/Department", icon: Building2 },
 ];

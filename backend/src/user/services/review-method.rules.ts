@@ -2,14 +2,9 @@ export const WEAK_TOPIC_PERCENTAGE = 50;
 export const FALLBACK_STUDY_TYPE_NAME = "review";
 
 const SUBJECT_REVIEW_METHOD_RULES: Readonly<Record<string, string>> = {
-  "ทฤษฎีและหลักการ": "reading",
-  "เขียนโปรแกรม": "practice",
-  "ออกแบบและวิเคราะห์ระบบ": "review",
-  "ฐานข้อมูล": "practice",
-  "เครือข่ายและความปลอดภัย": "video",
-  "ปัญญาประดิษฐ์และข้อมูล": "practice",
-  "เว็บและแอปพลิเคชัน": "practice",
-  "โครงงานและฝึกงาน": "review",
+  ทฤษฎี: "reading",
+  ปฏิบัติ: "practice",
+  ทฤษฎีร่วมกับปฏิบัติ: "review",
 };
 
 export interface ReviewMethodChoice {

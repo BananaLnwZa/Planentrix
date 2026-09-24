@@ -37,11 +37,6 @@ export const apiEndpoints = {
     status: (subjectId: string) =>
       `/admin/subjects/${encodeURIComponent(subjectId)}/status`,
   },
-  subjectTypes: {
-    list: "/admin/subject-types",
-    byId: (subjectTypeId: number) =>
-      `/admin/subject-types/${subjectTypeId}`,
-  },
   faculties: {
     list: "/admin/faculties",
     byId: (facultyId: number) => `/admin/faculties/${facultyId}`,
@@ -61,20 +56,6 @@ export const apiEndpoints = {
       `/admin/teaching/sections/${sectionId}`,
     sectionStatus: (sectionId: number) =>
       `/admin/teaching/sections/${sectionId}/status`,
-  },
-  exams: {
-    list: "/admin/exams",
-    byId: (examId: number) => `/admin/exams/${examId}`,
-    parts: (examId: number) => `/admin/exams/${examId}/parts`,
-    partById: (partId: number) => `/admin/exams/parts/${partId}`,
-    questions: (partId: number) =>
-      `/admin/exams/parts/${partId}/questions`,
-    questionById: (questionId: number) =>
-      `/admin/exams/questions/${questionId}`,
-    choices: (questionId: number) =>
-      `/admin/exams/questions/${questionId}/choices`,
-    choiceById: (choiceId: number) =>
-      `/admin/exams/choices/${choiceId}`,
   },
   instructorExams: {
     workspace: "/instructor/exam-workspace",

@@ -279,7 +279,7 @@ export default function AdminSignInForm() {
                     {
                       value: "instructor",
                       label: "อาจารย์",
-                      description: "ดูแลรายวิชาและข้อสอบ",
+                      description: "ดูแลรายวิชาและการเปิดสอน",
                     },
                   ]}
                   onChange={(value) => {

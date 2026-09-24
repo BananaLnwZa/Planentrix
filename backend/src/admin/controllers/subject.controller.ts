@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
+import {
+  ensureFixedSubjectTypes,
+  FIXED_SUBJECT_TYPE_NAMES,
+} from "../subject-types";
 
 interface SubjectRow extends RowDataPacket {
   curriculum_subject_id: number;
@@ -139,8 +143,12 @@ const validateReferences = async (
   connection: DatabaseConnection = db,
 ): Promise<string | null> => {
   const [subjectTypes] = await connection.query<RowDataPacket[]>(
-    "SELECT subject_type_id FROM subject_types WHERE subject_type_id = ? AND is_active = 1 LIMIT 1",
-    [subjectTypeId],
+    `SELECT subject_type_id
+     FROM subject_types
+     WHERE subject_type_id = ? AND is_active = 1
+       AND subject_type_name IN (?, ?, ?)
+     LIMIT 1`,
+    [subjectTypeId, ...FIXED_SUBJECT_TYPE_NAMES],
   );
   if (subjectTypes.length === 0) return "ไม่พบประเภทวิชาที่เลือกหรือประเภทถูกปิดใช้งาน";
 
@@ -172,6 +180,7 @@ const getSubjectRow = async (
 export const getSubjects = async (req: Request, res: Response) => {
   try {
     if (!isAdmin(req, res)) return;
+    await ensureFixedSubjectTypes(req.user!.id);
 
     const [subjects] = await db.query<SubjectRow[]>(
       `${subjectSelect}
@@ -180,8 +189,9 @@ export const getSubjects = async (req: Request, res: Response) => {
     const [subjectTypes] = await db.query<RowDataPacket[]>(
       `SELECT subject_type_id, subject_type_name
        FROM subject_types
-       WHERE is_active = 1
-       ORDER BY subject_type_name ASC`,
+       WHERE is_active = 1 AND subject_type_name IN (?, ?, ?)
+       ORDER BY FIELD(subject_type_name, ?, ?, ?)`,
+      [...FIXED_SUBJECT_TYPE_NAMES, ...FIXED_SUBJECT_TYPE_NAMES],
     );
     const [faculties] = await db.query<RowDataPacket[]>(
       `SELECT faculty_id, faculty_code, faculty_name
@@ -211,6 +221,7 @@ export const getSubjects = async (req: Request, res: Response) => {
 
 export const createSubject = async (req: Request, res: Response) => {
   if (!isAdmin(req, res)) return;
+  await ensureFixedSubjectTypes(req.user!.id);
   const validation = validateSubjectPayload(req.body, true);
   if (!validation.data) return res.status(400).json({ message: validation.message });
   const subject = validation.data;
@@ -278,6 +289,7 @@ export const createSubject = async (req: Request, res: Response) => {
 
 export const updateSubject = async (req: Request, res: Response) => {
   if (!isAdmin(req, res)) return;
+  await ensureFixedSubjectTypes(req.user!.id);
   const subjectId = String(req.params.subjectId ?? "").trim().toUpperCase();
   if (!/^[A-Z0-9_-]{1,20}$/.test(subjectId)) {
     return res.status(400).json({ message: "รหัสวิชาไม่ถูกต้อง" });
