@@ -2,6 +2,7 @@
 
 import { KeyboardEvent, useCallback, useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { createPortal } from "react-dom";
 
 export interface AdminSelectOption {
@@ -20,6 +21,8 @@ interface AdminSelectProps {
   className?: string;
   disabled?: boolean;
   tone?: "blue" | "violet";
+  appearance?: "default" | "cute";
+  icon?: LucideIcon;
 }
 
 interface MenuPosition {
@@ -38,6 +41,8 @@ export default function AdminSelect({
   className = "",
   disabled = false,
   tone = "blue",
+  appearance = "default",
+  icon: Icon,
 }: AdminSelectProps) {
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -143,7 +148,11 @@ export default function AdminSelect({
         disabled={disabled}
         onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={handleKeyDown}
-        className={`group flex h-11 w-full items-center gap-2.5 rounded-xl border bg-[#fbfdfe] pl-3.5 pr-2 text-left text-sm shadow-[0_2px_7px_rgba(55,88,102,0.04)] outline-none transition disabled:cursor-not-allowed disabled:opacity-55 ${
+        className={`group flex w-full items-center text-left text-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-55 ${
+          appearance === "cute"
+            ? "h-12 gap-3 rounded-2xl border bg-[linear-gradient(135deg,#ffffff_0%,#f1f9fc_100%)] p-1.5 pr-2 shadow-[0_7px_20px_rgba(76,135,156,0.1)] hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(76,135,156,0.14)]"
+            : "h-11 gap-2.5 rounded-xl border bg-[#fbfdfe] pl-3.5 pr-2 shadow-[0_2px_7px_rgba(55,88,102,0.04)]"
+        } ${
           open
             ? tone === "violet"
               ? "border-[#9b90c5] ring-4 ring-[#efecfa]"
@@ -151,11 +160,20 @@ export default function AdminSelect({
             : "border-[#dbe6ea] hover:border-[#b9d5df] hover:bg-white"
         }`}
       >
+        {Icon && appearance === "cute" && (
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#dff1f6] text-[#4b879c] shadow-[inset_0_0_0_1px_rgba(121,189,212,0.12)] transition group-hover:bg-[#d3edf4]">
+            <Icon size={17} strokeWidth={1.9} aria-hidden="true" />
+          </span>
+        )}
         <span className={`min-w-0 flex-1 truncate ${selectedOption ? "text-[#405862]" : "text-[#94a2a8]"}`}>
           {selectedOption?.label ?? placeholder}
         </span>
         <span
-          className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#edf4f6] text-[#6f8791] transition group-hover:bg-[#e3eff3]"
+          className={`flex shrink-0 items-center justify-center text-[#6f8791] transition group-hover:bg-[#e3eff3] ${
+            appearance === "cute"
+              ? "size-8 rounded-xl bg-white shadow-[0_3px_9px_rgba(71,117,134,0.1)]"
+              : "size-7 rounded-lg bg-[#edf4f6]"
+          }`}
         >
           <ChevronDown
             size={16}
@@ -172,7 +190,9 @@ export default function AdminSelect({
             id={listboxId}
             role="listbox"
             aria-label={ariaLabel}
-            className="fixed z-[200] overflow-y-auto rounded-2xl border border-white/90 bg-white/95 p-1.5 shadow-[0_18px_48px_rgba(36,65,77,0.22)] backdrop-blur-xl"
+            className={`fixed z-[200] overflow-y-auto border border-white/90 bg-white/95 shadow-[0_18px_48px_rgba(36,65,77,0.22)] backdrop-blur-xl ${
+              appearance === "cute" ? "rounded-[20px] p-2" : "rounded-2xl p-1.5"
+            }`}
             style={{
               left: position.left,
               top: position.top,
@@ -193,7 +213,9 @@ export default function AdminSelect({
                   disabled={option.disabled}
                   onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => selectOption(index)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                  className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                    appearance === "cute" ? "rounded-2xl" : "rounded-xl"
+                  } ${
                     selected
                       ? tone === "violet"
                         ? "bg-[#f0eef9] text-[#665a98]"

@@ -32,9 +32,10 @@ const ACCESSIBLE_EXAM_SQL=`SELECT qb.question_bank_id AS exam_repository_id,e.en
   qb.time_limit_minutes AS time_limit,qb.exam_period
  FROM question_banks qb
  INNER JOIN subjects s ON s.subject_id=qb.subject_id
- INNER JOIN course_sections cs ON cs.subject_id=qb.subject_id
+ INNER JOIN course_sections cs ON cs.subject_id=qb.subject_id AND cs.status IN ('open','closed')
+ INNER JOIN section_instructors si ON si.section_id=cs.section_id AND si.instructor_id=qb.owner_instructor_id
  INNER JOIN enrollments e ON e.section_id=cs.section_id AND e.status='enrolled'
- INNER JOIN student_terms st ON st.student_term_id=e.student_term_id AND st.status='active'
+ INNER JOIN student_terms st ON st.student_term_id=e.student_term_id AND st.academic_term_id=cs.academic_term_id AND st.status='active'
  LEFT JOIN question q ON q.question_bank_id=qb.question_bank_id
  WHERE st.user_id=? AND qb.status='published'`;
 

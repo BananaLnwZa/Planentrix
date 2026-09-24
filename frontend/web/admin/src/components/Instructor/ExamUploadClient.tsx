@@ -6,12 +6,14 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
   ClipboardCheck,
   CloudUpload,
   FileText,
   FolderPlus,
   Layers3,
   LoaderCircle,
+  Pencil,
   Plus,
   Search,
   Trash2,
@@ -20,8 +22,14 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, DragEvent, FormEvent } from "react";
-import type { InstructorQuestionBank } from "@/interfaces/instructor-exam.interface";
+import type {
+  InstructorExamQuestion,
+  InstructorQuestionBank,
+  InstructorQuestionBankDetailResponse,
+  UpdateInstructorQuestionRequest,
+} from "@/interfaces/instructor-exam.interface";
 import instructorExamService from "@/services/instructor-exam.service";
+import InstructorQuestionEditModal from "@/components/Instructor/InstructorQuestionEditModal";
 
 type ExamPeriod = "midterm" | "final";
 type ModalName = "part" | "exam" | null;
@@ -34,18 +42,6 @@ interface PartItem {
   examPeriod: ExamPeriod;
   createdAt: string;
   questionCount: number;
-}
-
-interface ExamItem {
-  id: string;
-  fileName: string;
-  questionCount: number;
-  subjectId: string;
-  subjectLabel: string;
-  partId: string;
-  partName: string;
-  examPeriod: ExamPeriod;
-  createdAt: string;
 }
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -195,6 +191,17 @@ function formatCreatedDate(value: string) {
   }).format(new Date(value));
 }
 
+function getChoiceLabel(choiceOrder: number, choiceIndex: number) {
+  const thaiChoiceLabels = ["ก", "ข", "ค", "ง", "จ", "ฉ"];
+  return thaiChoiceLabels[choiceOrder - 1] ??
+    thaiChoiceLabels[choiceIndex] ??
+    String(choiceOrder || choiceIndex + 1);
+}
+
+function formatScore(score: number) {
+  return Number.isInteger(score) ? String(score) : score.toFixed(2);
+}
+
 function mapQuestionBankToPart(bank: InstructorQuestionBank): PartItem {
   return {
     id: String(bank.question_bank_id),
@@ -207,20 +214,6 @@ function mapQuestionBankToPart(bank: InstructorQuestionBank): PartItem {
   };
 }
 
-function mapQuestionBankToExam(bank: InstructorQuestionBank): ExamItem {
-  return {
-    id: String(bank.question_bank_id),
-    fileName: bank.bank_name,
-    questionCount: bank.question_count,
-    subjectId: bank.subject_id,
-    subjectLabel: `${bank.subject_id} · ${bank.subject_name}`,
-    partId: String(bank.question_bank_id),
-    partName: bank.bank_name,
-    examPeriod: bank.exam_period,
-    createdAt: formatCreatedDate(bank.updated_at),
-  };
-}
-
 export default function ExamUploadClient() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeModal, setActiveModal] = useState<ModalName>(null);
@@ -229,13 +222,10 @@ export default function ExamUploadClient() {
   const [partFilterPeriod, setPartFilterPeriod] = useState<ExamPeriod | "">(
     "",
   );
-  const [filterSubjectId, setFilterSubjectId] = useState("");
-  const [filterPartId, setFilterPartId] = useState("");
   const [subjectOptions, setSubjectOptions] = useState<
     Array<{ value: string; label: string }>
   >([]);
   const [parts, setParts] = useState<PartItem[]>([]);
-  const [exams, setExams] = useState<ExamItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [workspaceError, setWorkspaceError] = useState("");
@@ -252,6 +242,17 @@ export default function ExamUploadClient() {
   const [isDragging, setIsDragging] = useState(false);
   const [examError, setExamError] = useState("");
   const [notice, setNotice] = useState("");
+  const [selectedPart, setSelectedPart] = useState<PartItem | null>(null);
+  const [partDetail, setPartDetail] =
+    useState<InstructorQuestionBankDetailResponse | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
+  const [isClearingQuestions, setIsClearingQuestions] = useState(false);
+  const [editingQuestion, setEditingQuestion] =
+    useState<InstructorExamQuestion | null>(null);
+  const [deletingQuestionId, setDeletingQuestionId] = useState<number | null>(
+    null,
+  );
 
   const loadWorkspace = useCallback(async () => {
     setIsLoading(true);
@@ -265,11 +266,6 @@ export default function ExamUploadClient() {
         })),
       );
       setParts(response.question_banks.map(mapQuestionBankToPart));
-      setExams(
-        response.question_banks
-          .filter((bank) => bank.question_count > 0)
-          .map(mapQuestionBankToExam),
-      );
     } catch (error) {
       setWorkspaceError(
         error instanceof Error ? error.message : "ไม่สามารถโหลดข้อมูลข้อสอบได้",
@@ -304,34 +300,6 @@ export default function ExamUploadClient() {
       return matchesSubject && matchesPeriod && matchesSearch;
     });
   }, [normalizedSearch, partFilterPeriod, partFilterSubjectId, parts]);
-
-  const filteredExams = useMemo(() => {
-    return exams.filter((exam) => {
-      const matchesSubject =
-        !filterSubjectId || exam.subjectId === filterSubjectId;
-      const matchesPart = !filterPartId || exam.partId === filterPartId;
-      const matchesSearch =
-        !normalizedSearch ||
-        [
-          exam.fileName,
-          exam.partName,
-          exam.subjectLabel,
-          getPeriodLabel(exam.examPeriod),
-        ].some((value) =>
-          value.toLocaleLowerCase("th").includes(normalizedSearch),
-        );
-
-      return matchesSubject && matchesPart && matchesSearch;
-    });
-  }, [exams, filterPartId, filterSubjectId, normalizedSearch]);
-
-  const filterableParts = useMemo(
-    () =>
-      parts.filter(
-        (part) => !filterSubjectId || part.subjectId === filterSubjectId,
-      ),
-    [filterSubjectId, parts],
-  );
 
   const selectableParts = parts.filter(
     (part) =>
@@ -476,7 +444,10 @@ export default function ExamUploadClient() {
     setWorkspaceError("");
     try {
       await instructorExamService.deleteQuestionBank(Number(partId));
-      if (filterPartId === partId) setFilterPartId("");
+      if (selectedPart?.id === partId) {
+        setSelectedPart(null);
+        setPartDetail(null);
+      }
       setNotice("ลบพาร์ทและข้อสอบที่อยู่ในพาร์ทนี้แล้ว");
       await loadWorkspace();
     } catch (error) {
@@ -486,16 +457,129 @@ export default function ExamUploadClient() {
     }
   };
 
-  const removeExam = async (examId: string) => {
-    setWorkspaceError("");
+  const openPartDetail = async (part: PartItem) => {
+    setSelectedPart(part);
+    setPartDetail(null);
+    setDetailError("");
+    setIsDetailLoading(true);
     try {
-      await instructorExamService.clearQuestions(Number(examId));
-      setNotice("ลบคำถามทั้งหมดออกจากพาร์ทแล้ว");
+      const detail = await instructorExamService.getQuestionBankDetail(
+        Number(part.id),
+      );
+      setPartDetail(detail);
+    } catch (error) {
+      setDetailError(
+        error instanceof Error ? error.message : "ไม่สามารถโหลดข้อสอบได้",
+      );
+    } finally {
+      setIsDetailLoading(false);
+    }
+  };
+
+  const closePartDetail = () => {
+    if (isClearingQuestions || deletingQuestionId !== null) return;
+    setSelectedPart(null);
+    setPartDetail(null);
+    setDetailError("");
+    setEditingQuestion(null);
+  };
+
+  const saveQuestionChanges = async (
+    payload: UpdateInstructorQuestionRequest,
+  ) => {
+    if (!selectedPart || !editingQuestion) return;
+    await instructorExamService.updateQuestion(
+      Number(selectedPart.id),
+      editingQuestion.question_id,
+      payload,
+    );
+    const updatedDetail = await instructorExamService.getQuestionBankDetail(
+      Number(selectedPart.id),
+    );
+    setPartDetail(updatedDetail);
+    setEditingQuestion(null);
+    setNotice("บันทึกการแก้ไขข้อสอบแล้ว");
+  };
+
+  const deleteQuestion = async (question: InstructorExamQuestion) => {
+    if (!selectedPart) return;
+    if (!window.confirm("ต้องการลบข้อสอบข้อนี้ใช่ไหม")) return;
+
+    setDeletingQuestionId(question.question_id);
+    setDetailError("");
+    try {
+      await instructorExamService.deleteQuestion(
+        Number(selectedPart.id),
+        question.question_id,
+      );
+      setPartDetail((currentDetail) =>
+        currentDetail
+          ? {
+              ...currentDetail,
+              question_bank: {
+                ...currentDetail.question_bank,
+                question_count: Math.max(
+                  0,
+                  currentDetail.question_bank.question_count - 1,
+                ),
+              },
+              questions: currentDetail.questions.filter(
+                (currentQuestion) =>
+                  currentQuestion.question_id !== question.question_id,
+              ),
+            }
+          : currentDetail,
+      );
+      setSelectedPart((currentPart) =>
+        currentPart
+          ? {
+              ...currentPart,
+              questionCount: Math.max(0, currentPart.questionCount - 1),
+            }
+          : currentPart,
+      );
+      setNotice("ลบข้อสอบข้อนี้แล้ว");
       await loadWorkspace();
     } catch (error) {
-      setWorkspaceError(
+      setDetailError(
+        error instanceof Error ? error.message : "ไม่สามารถลบข้อสอบข้อนี้ได้",
+      );
+    } finally {
+      setDeletingQuestionId(null);
+    }
+  };
+
+  const clearSelectedPartQuestions = async () => {
+    if (!selectedPart) return;
+    if (!window.confirm("ต้องการลบข้อสอบทั้งหมดในพาร์ทนี้ใช่ไหม")) return;
+
+    setIsClearingQuestions(true);
+    setDetailError("");
+    try {
+      await instructorExamService.clearQuestions(Number(selectedPart.id));
+      setNotice("ลบคำถามทั้งหมดออกจากพาร์ทแล้ว");
+      setPartDetail((currentDetail) =>
+        currentDetail
+          ? {
+              ...currentDetail,
+              question_bank: {
+                ...currentDetail.question_bank,
+                question_count: 0,
+              },
+              questions: [],
+            }
+          : currentDetail,
+      );
+      setSelectedPart((currentPart) =>
+        currentPart ? { ...currentPart, questionCount: 0 } : currentPart,
+      );
+      await loadWorkspace();
+    } catch (error) {
+      setDetailError(
         error instanceof Error ? error.message : "ไม่สามารถลบข้อสอบได้",
       );
+    } finally {
+      setIsClearingQuestions(false);
     }
   };
 
@@ -652,29 +736,44 @@ export default function ExamUploadClient() {
             {filteredParts.map((part) => (
               <article
                 key={part.id}
-                className="flex items-start gap-4 rounded-2xl border border-[#dce8ec] bg-[#fbfdfe] p-4"
+                className="group flex items-center gap-2 rounded-2xl border border-[#dce8ec] bg-[#fbfdfe] p-2 transition hover:-translate-y-0.5 hover:border-[#acd0dc] hover:bg-white hover:shadow-[0_10px_28px_rgba(67,112,129,0.10)]"
               >
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#e8f6fa] text-[#4f8da3]">
-                  <FolderPlus aria-hidden="true" size={21} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <h4 className="truncate text-sm font-medium text-[#38535e]">
-                    {part.name}
-                  </h4>
-                  <p className="mt-1 truncate text-xs text-[#7d8f96]">
-                    {part.subjectLabel}
-                  </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[#70838b]">
-                    <span className="rounded-full bg-[#eef6f8] px-2.5 py-1">
-                      {getPeriodLabel(part.examPeriod)}
-                    </span>
-                    <span>{part.questionCount} ข้อ</span>
-                    <span>{part.createdAt}</span>
-                  </div>
-                </div>
                 <button
                   type="button"
-                  onClick={() => removePart(part.id)}
+                  onClick={() => void openPartDetail(part)}
+                  className="flex min-w-0 flex-1 items-start gap-4 rounded-xl p-2 text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#dceff5]"
+                  aria-label={`เปิดข้อสอบในพาร์ท ${part.name}`}
+                >
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#e8f6fa] text-[#4f8da3] transition group-hover:bg-[#dff2f7]">
+                    <FolderPlus aria-hidden="true" size={21} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="truncate text-sm font-medium text-[#38535e]">
+                      {part.name}
+                    </h4>
+                    <p className="mt-1 truncate text-xs text-[#7d8f96]">
+                      {part.subjectLabel}
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[#70838b]">
+                      <span className="rounded-full bg-[#eef6f8] px-2.5 py-1">
+                        {getPeriodLabel(part.examPeriod)}
+                      </span>
+                      <span>{part.questionCount} ข้อ</span>
+                      <span>{part.createdAt}</span>
+                    </div>
+                    <p className="mt-2 text-xs font-medium text-[#5794aa]">
+                      กดเพื่อดูข้อสอบแยกเป็นข้อ
+                    </p>
+                  </div>
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="mt-3 shrink-0 text-[#8eb3c0] transition group-hover:translate-x-0.5 group-hover:text-[#5794aa]"
+                    size={19}
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void removePart(part.id)}
                   aria-label={`ลบพาร์ท ${part.name}`}
                   className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#a76262] transition hover:bg-[#f7e5e5] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#f1d7d7]"
                 >
@@ -686,110 +785,239 @@ export default function ExamUploadClient() {
         )}
       </section>
 
-      <section className="rounded-[26px] border border-[#dcebf0] bg-white/85 p-5 shadow-sm sm:p-7">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-[#4f879c]">Question Files</p>
-            <h3 className="mt-1 text-xl text-[#304b56]">ข้อสอบที่มีอยู่</h3>
-          </div>
-          <span className="rounded-full bg-[#eaf6fa] px-3 py-1.5 text-xs font-medium text-[#4f879c]">
-            {filteredExams.length} ชุด
-          </span>
-        </div>
-
-        <div className="mt-5 grid gap-4 rounded-2xl border border-[#e0ecef] bg-[#f8fcfd] p-4 sm:grid-cols-2">
-          <label className="block text-sm font-medium text-[#4c626c]">
-            กรองตามวิชา
-            <CuteSelect
-              value={filterSubjectId}
-              icon={BookOpen}
-              options={[
-                { value: "", label: "ทุกวิชา" },
-                ...subjectOptions,
-              ]}
-              placeholder="ทุกวิชา"
-              onValueChange={(nextValue) => {
-                setFilterSubjectId(nextValue);
-                setFilterPartId("");
-              }}
-            />
-          </label>
-
-          <label className="block text-sm font-medium text-[#4c626c]">
-            กรองตามพาร์ท
-            <CuteSelect
-              value={filterPartId}
-              icon={Layers3}
-              options={[
-                { value: "", label: "ทุกพาร์ท" },
-                ...filterableParts.map((part) => ({
-                  value: part.id,
-                  label: part.name,
-                })),
-              ]}
-              placeholder="ทุกพาร์ท"
-              onValueChange={setFilterPartId}
-            />
-          </label>
-        </div>
-
-        {filteredExams.length === 0 ? (
-          <div className="mt-5 rounded-2xl border border-dashed border-[#cbdde3] bg-[#f8fbfc] px-5 py-10 text-center">
-            <ClipboardCheck
-              aria-hidden="true"
-              className="mx-auto text-[#91afba]"
-              size={29}
-              strokeWidth={1.6}
-            />
-            <p className="mt-3 text-sm font-medium text-[#637982]">
-              {exams.length === 0
-                ? "ยังไม่มีไฟล์ข้อสอบ"
-                : "ไม่พบข้อสอบที่ค้นหา"}
-            </p>
-            <p className="mt-1 text-xs text-[#95a3a8]">
-              {exams.length === 0
-                ? "สร้างพาร์ทก่อน แล้วกดปุ่มสร้างข้อสอบ"
-                : "ลองเปลี่ยนคำค้นหาหรือตัวกรองอีกครั้ง"}
-            </p>
-          </div>
-        ) : (
-          <div className="mt-5 space-y-3">
-            {filteredExams.map((exam) => (
-              <article
-                key={exam.id}
-                className="flex flex-col gap-4 rounded-2xl border border-[#dce8ec] bg-[#fbfdfe] p-4 sm:flex-row sm:items-center"
-              >
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#edf5ed] text-[#5e916d]">
-                  <FileText aria-hidden="true" size={21} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <h4 className="truncate text-sm font-medium text-[#38535e]">
-                    {exam.fileName}
-                  </h4>
-                  <p className="mt-1 truncate text-xs text-[#7d8f96]">
-                    {exam.subjectLabel} · {exam.partName}
+      {selectedPart && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#243b45]/45 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="part-detail-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closePartDetail();
+          }}
+        >
+          <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border border-white/70 bg-[#fafdfe] shadow-[0_28px_80px_rgba(28,54,65,0.25)]">
+            <div className="border-b border-[#dce9ed] bg-white px-5 py-5 sm:px-7">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#4f879c]">
+                    Questions in Part
                   </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-[#70838b] sm:justify-end">
-                  <span className="rounded-full bg-[#eef6f8] px-2.5 py-1">
-                    {getPeriodLabel(exam.examPeriod)}
-                  </span>
-                  <span>{exam.questionCount} ข้อ</span>
-                  <span>{exam.createdAt}</span>
+                  <h3
+                    id="part-detail-title"
+                    className="mt-1 truncate text-xl font-semibold text-[#304852]"
+                  >
+                    {selectedPart.name}
+                  </h3>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[#6e838c]">
+                    <span className="rounded-full bg-[#eaf6fa] px-3 py-1.5 text-[#477f93]">
+                      {selectedPart.subjectLabel}
+                    </span>
+                    <span className="rounded-full bg-[#f1f5f6] px-3 py-1.5">
+                      {getPeriodLabel(selectedPart.examPeriod)}
+                    </span>
+                    <span className="rounded-full bg-[#f1f5f6] px-3 py-1.5">
+                      {partDetail?.questions.length ?? selectedPart.questionCount} ข้อ
+                    </span>
+                  </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => removeExam(exam.id)}
-                  aria-label={`ลบข้อสอบ ${exam.fileName}`}
-                  className="flex size-9 shrink-0 items-center justify-center self-end rounded-full text-[#a76262] transition hover:bg-[#f7e5e5] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#f1d7d7] sm:self-auto"
+                  onClick={closePartDetail}
+                  disabled={isClearingQuestions}
+                  aria-label="ปิดรายละเอียดพาร์ท"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-full text-[#71858d] transition hover:bg-[#edf4f6] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#dceff5] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <Trash2 aria-hidden="true" size={17} />
+                  <X aria-hidden="true" size={20} />
                 </button>
-              </article>
-            ))}
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7">
+              {isDetailLoading && (
+                <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-[#cbdde3] bg-white text-[#607983]">
+                  <LoaderCircle
+                    aria-hidden="true"
+                    className="animate-spin text-[#5794aa]"
+                    size={28}
+                  />
+                  <p className="mt-3 text-sm">กำลังโหลดข้อสอบในพาร์ท</p>
+                </div>
+              )}
+
+              {!isDetailLoading && detailError && (
+                <div
+                  role="alert"
+                  className="rounded-2xl border border-[#efcaca] bg-[#fff6f6] px-5 py-6 text-center text-sm text-[#a65353]"
+                >
+                  <p>{detailError}</p>
+                  <button
+                    type="button"
+                    onClick={() => void openPartDetail(selectedPart)}
+                    className="mt-4 rounded-full border border-[#e4baba] bg-white px-4 py-2 text-xs font-medium transition hover:bg-[#fff0f0]"
+                  >
+                    ลองโหลดอีกครั้ง
+                  </button>
+                </div>
+              )}
+
+              {!isDetailLoading && !detailError && partDetail?.questions.length === 0 && (
+                <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-[#cbdde3] bg-white px-5 text-center">
+                  <ClipboardCheck
+                    aria-hidden="true"
+                    className="text-[#91afba]"
+                    size={31}
+                    strokeWidth={1.6}
+                  />
+                  <p className="mt-3 text-sm font-medium text-[#637982]">
+                    พาร์ทนี้ยังไม่มีข้อสอบ
+                  </p>
+                  <p className="mt-1 text-xs text-[#95a3a8]">
+                    ปิดหน้าต่างนี้ แล้วกดปุ่มสร้างข้อสอบเพื่อเพิ่มไฟล์
+                  </p>
+                </div>
+              )}
+
+              {!isDetailLoading &&
+                !detailError &&
+                partDetail &&
+                partDetail.questions.length > 0 && (
+                  <div className="space-y-4">
+                    {partDetail.questions.map((question, questionIndex) => (
+                      <article
+                        key={question.question_id}
+                        className="rounded-2xl border border-[#dce8ec] bg-white p-5 shadow-[0_5px_16px_rgba(67,112,129,0.05)] sm:p-6"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex min-w-0 items-start gap-3">
+                            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#e8f6fa] text-xs font-semibold text-[#477f93]">
+                              {questionIndex + 1}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-[#6e939f]">
+                                ข้อ {questionIndex + 1}
+                              </p>
+                              <p className="mt-1 whitespace-pre-wrap text-[15px] leading-7 text-[#304852]">
+                                {question.question_text}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <span className="rounded-full bg-[#fff4dc] px-3 py-1.5 text-xs font-medium text-[#946f2f]">
+                              {formatScore(question.question_score)} คะแนน
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setEditingQuestion(question)}
+                              disabled={deletingQuestionId !== null}
+                              aria-label={`แก้ไขข้อสอบข้อ ${questionIndex + 1}`}
+                              title="แก้ไขข้อสอบ"
+                              className="flex size-8 items-center justify-center rounded-full text-[#4f879c] transition hover:bg-[#e6f4f8] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#dceff5] disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <Pencil aria-hidden="true" size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void deleteQuestion(question)}
+                              disabled={deletingQuestionId !== null}
+                              aria-label={`ลบข้อสอบข้อ ${questionIndex + 1}`}
+                              title="ลบข้อสอบ"
+                              className="flex size-8 items-center justify-center rounded-full text-[#ad6262] transition hover:bg-[#f9eaea] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#f1d7d7] disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {deletingQuestionId === question.question_id ? (
+                                <LoaderCircle
+                                  aria-hidden="true"
+                                  className="animate-spin"
+                                  size={15}
+                                />
+                              ) : (
+                                <Trash2 aria-hidden="true" size={15} />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {question.choices.length === 0 ? (
+                          <p className="ml-11 mt-4 rounded-xl bg-[#f5f8f9] px-4 py-3 text-sm text-[#84949a]">
+                            ข้อนี้ไม่มีตัวเลือก
+                          </p>
+                        ) : (
+                          <div className="ml-0 mt-5 grid gap-2.5 sm:ml-11">
+                            {question.choices.map((choice, choiceIndex) => (
+                              <div
+                                key={choice.choice_id}
+                                className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
+                                  choice.is_correct
+                                    ? "border-[#aed8bd] bg-[#f0faf4] text-[#356b49]"
+                                    : "border-[#e0e8eb] bg-[#fbfdfe] text-[#526871]"
+                                }`}
+                              >
+                                <span
+                                  className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                                    choice.is_correct
+                                      ? "bg-[#cdebd8] text-[#2f7549]"
+                                      : "bg-[#edf3f5] text-[#617780]"
+                                  }`}
+                                >
+                                  {getChoiceLabel(choice.choice_order, choiceIndex)}
+                                </span>
+                                <span className="min-w-0 flex-1 whitespace-pre-wrap pt-0.5 leading-6">
+                                  {choice.choice_text}
+                                </span>
+                                {choice.is_correct && (
+                                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#d9f0e2] px-2.5 py-1 text-xs font-medium text-[#35724c]">
+                                    <CheckCircle2 aria-hidden="true" size={14} />
+                                    ข้อถูก
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                )}
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-[#dce9ed] bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+              <button
+                type="button"
+                onClick={() => void clearSelectedPartQuestions()}
+                disabled={
+                  isDetailLoading ||
+                  isClearingQuestions ||
+                  !partDetail ||
+                  partDetail.questions.length === 0
+                }
+                className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm text-[#a45d5d] transition hover:bg-[#f9eaea] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#f1d7d7] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isClearingQuestions ? (
+                  <LoaderCircle aria-hidden="true" className="animate-spin" size={17} />
+                ) : (
+                  <Trash2 aria-hidden="true" size={17} />
+                )}
+                {isClearingQuestions ? "กำลังลบ" : "ลบข้อสอบทั้งหมด"}
+              </button>
+              <button
+                type="button"
+                onClick={closePartDetail}
+                disabled={isClearingQuestions}
+                className="rounded-xl bg-[#5794aa] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#477f93] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#cfe7ef] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                ปิด
+              </button>
+            </div>
           </div>
-        )}
-      </section>
+        </div>
+      )}
+
+      {editingQuestion && (
+        <InstructorQuestionEditModal
+          question={editingQuestion}
+          onClose={() => setEditingQuestion(null)}
+          onSave={saveQuestionChanges}
+        />
+      )}
 
       {activeModal === "part" && (
         <div

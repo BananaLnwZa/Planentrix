@@ -26,6 +26,38 @@ export interface InstructorExamWorkspaceResponse {
   question_banks: InstructorQuestionBank[];
 }
 
+export interface InstructorExamChoice {
+  choice_id: number;
+  choice_order: number;
+  choice_text: string;
+  choice_image_path: string | null;
+  is_correct: boolean;
+}
+
+export interface InstructorExamQuestion {
+  question_id: number;
+  question_text: string;
+  question_image_path: string | null;
+  question_score: number;
+  choices: InstructorExamChoice[];
+}
+
+export interface InstructorQuestionBankDetailResponse {
+  message: string;
+  question_bank: InstructorQuestionBank;
+  questions: InstructorExamQuestion[];
+}
+
+export interface UpdateInstructorQuestionRequest {
+  question_text: string;
+  question_score: number;
+  choices: Array<{
+    choice_id?: number;
+    choice_text: string;
+    is_correct: boolean;
+  }>;
+}
+
 export interface CreateInstructorQuestionBankRequest {
   subject_id: string;
   bank_name: string;

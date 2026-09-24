@@ -53,6 +53,15 @@ export const apiEndpoints = {
     status: (departmentId: number) =>
       `/admin/departments/${departmentId}/status`,
   },
+  teaching: {
+    workspace: "/admin/teaching",
+    terms: "/admin/teaching/terms",
+    sections: "/admin/teaching/sections",
+    sectionById: (sectionId: number) =>
+      `/admin/teaching/sections/${sectionId}`,
+    sectionStatus: (sectionId: number) =>
+      `/admin/teaching/sections/${sectionId}/status`,
+  },
   exams: {
     list: "/admin/exams",
     byId: (examId: number) => `/admin/exams/${examId}`,
@@ -74,8 +83,13 @@ export const apiEndpoints = {
       `/instructor/question-banks/${questionBankId}`,
     questions: (questionBankId: number) =>
       `/instructor/question-banks/${questionBankId}/questions`,
+    questionById: (questionBankId: number, questionId: number) =>
+      `/instructor/question-banks/${questionBankId}/questions/${questionId}`,
     importFile: (questionBankId: number) =>
       `/instructor/question-banks/${questionBankId}/import`,
+  },
+  instructorWorkspace: {
+    dashboard: "/instructor/dashboard",
   },
   dashboard: {
     studyTime: "/admin/dashboard/study-time",

@@ -7,6 +7,8 @@ import type {
   InstructorExamErrorResponse,
   InstructorExamMessageResponse,
   InstructorExamWorkspaceResponse,
+  InstructorQuestionBankDetailResponse,
+  UpdateInstructorQuestionRequest,
 } from "@/interfaces/instructor-exam.interface";
 import { apiConfig, apiEndpoints } from "@/services/api.config";
 import { expireAdminSession } from "@/services/admin-session.client";
@@ -41,6 +43,16 @@ class InstructorExamService {
       this.apiClient.post<CreateInstructorQuestionBankResponse>(
         apiEndpoints.instructorExams.questionBanks,
         data,
+      ),
+    );
+  }
+
+  async getQuestionBankDetail(
+    questionBankId: number,
+  ): Promise<InstructorQuestionBankDetailResponse> {
+    return this.request(() =>
+      this.apiClient.get<InstructorQuestionBankDetailResponse>(
+        apiEndpoints.instructorExams.questionBankById(questionBankId),
       ),
     );
   }
@@ -80,6 +92,30 @@ class InstructorExamService {
     return this.request(() =>
       this.apiClient.delete<InstructorExamMessageResponse>(
         apiEndpoints.instructorExams.questions(questionBankId),
+      ),
+    );
+  }
+
+  async updateQuestion(
+    questionBankId: number,
+    questionId: number,
+    data: UpdateInstructorQuestionRequest,
+  ): Promise<InstructorExamMessageResponse> {
+    return this.request(() =>
+      this.apiClient.patch<InstructorExamMessageResponse>(
+        apiEndpoints.instructorExams.questionById(questionBankId, questionId),
+        data,
+      ),
+    );
+  }
+
+  async deleteQuestion(
+    questionBankId: number,
+    questionId: number,
+  ): Promise<InstructorExamMessageResponse> {
+    return this.request(() =>
+      this.apiClient.delete<InstructorExamMessageResponse>(
+        apiEndpoints.instructorExams.questionById(questionBankId, questionId),
       ),
     );
   }

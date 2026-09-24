@@ -1,13 +1,14 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { LoaderCircle, Save, X } from "lucide-react";
+import { Building2, GraduationCap, LoaderCircle, Save, X } from "lucide-react";
 import type {
   ManagedUser,
   UpdateManagedUserRequest,
   UserDepartmentFilterOption,
   UserFacultyFilterOption,
 } from "@/interfaces/user-management.interface";
+import AdminSelect from "@/components/ui/AdminSelect";
 
 interface EditUserModalProps {
   user: ManagedUser;
@@ -87,43 +88,47 @@ export default function EditUserModal({
         <form onSubmit={handleSubmit} className="mt-6 space-y-5">
           <label className="block text-sm font-medium text-[#4c626c]">
             คณะ
-            <select
-              autoFocus
+            <AdminSelect
               value={facultyId}
-              onChange={(event) => {
-                setFacultyId(event.target.value);
+              onChange={(value) => {
+                setFacultyId(value);
                 setDepartmentId("");
                 setError("");
               }}
-              className="mt-2 h-11 w-full rounded-xl border border-[#dbe6ea] bg-[#fbfdfe] px-3.5 font-normal text-[#304852] outline-none focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]"
-            >
-              <option value="">เลือกคณะ</option>
-              {faculties.map((faculty) => (
-                <option key={faculty.faculty_id} value={faculty.faculty_id}>
-                  {faculty.faculty_name} ({faculty.faculty_code})
-                </option>
-              ))}
-            </select>
+              options={faculties.map((faculty) => ({
+                value: String(faculty.faculty_id),
+                label: faculty.faculty_name,
+                description: faculty.faculty_code,
+              }))}
+              ariaLabel="เลือกคณะ"
+              placeholder="เลือกคณะ"
+              className="mt-2"
+              disabled={saving}
+              appearance="cute"
+              icon={Building2}
+            />
           </label>
 
           <label className="block text-sm font-medium text-[#4c626c]">
             สาขาวิชา
-            <select
+            <AdminSelect
               value={departmentId}
-              onChange={(event) => {
-                setDepartmentId(event.target.value);
+              onChange={(value) => {
+                setDepartmentId(value);
                 setError("");
               }}
-              disabled={!facultyId}
-              className="mt-2 h-11 w-full rounded-xl border border-[#dbe6ea] bg-[#fbfdfe] px-3.5 font-normal text-[#304852] outline-none focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa] disabled:cursor-not-allowed disabled:bg-[#f0f3f4]"
-            >
-              <option value="">เลือกสาขาวิชา</option>
-              {availableDepartments.map((department) => (
-                <option key={department.department_id} value={department.department_id}>
-                  {department.department_name} ({department.department_code})
-                </option>
-              ))}
-            </select>
+              options={availableDepartments.map((department) => ({
+                value: String(department.department_id),
+                label: department.department_name,
+                description: department.department_code,
+              }))}
+              ariaLabel="เลือกสาขาวิชา"
+              placeholder={facultyId ? "เลือกสาขาวิชา" : "เลือกคณะก่อน"}
+              className="mt-2"
+              disabled={!facultyId || saving}
+              appearance="cute"
+              icon={GraduationCap}
+            />
           </label>
 
           {error && <p role="alert" className="rounded-xl bg-[#fff0ec] px-3.5 py-3 text-sm text-[#a9503c]">{error}</p>}
