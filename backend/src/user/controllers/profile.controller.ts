@@ -78,6 +78,7 @@ const getProfilePageData = async (req: Request, userId: number) => {
        department.department_code,
        department.department_name,
        faculty.faculty_id,
+       faculty.faculty_code,
        faculty.faculty_name,
        student_term.student_term_id,
        student_term.year_level,

@@ -28,8 +28,7 @@ type AccountField =
   | "department"
   | "password"
   | "confirmPassword"
-  | "birthdate"
-  | "gender";
+  | "birthdate";
 type AccountErrors = Partial<Record<AccountField, string>>;
 
 const toLocalDateValue = (date: Date) => {
@@ -180,10 +179,6 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
         nextErrors.confirmPassword = "รหัสผ่านไม่ตรงกัน";
       }
 
-      if (!selectedGender) {
-        nextErrors.gender = "กรุณาเลือกเพศ";
-      }
-
       if (birthdate && birthdate > toLocalDateValue(new Date())) {
         nextErrors.birthdate = "วันเกิดต้องไม่เป็นวันในอนาคต";
       }
@@ -201,7 +196,7 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
         department_id: departmentId,
         user_password: password,
         user_birthdate: birthdate || null,
-        user_gender: selectedGender!,
+        user_gender: selectedGender,
       };
     },
   }));
@@ -751,16 +746,9 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
         <div className="w-full sm:w-1/2">
           <GenderSelect
             value={selectedGender}
-            onChange={(value) => {
-              setSelectedGender(value);
-              clearError("gender");
-            }}
+            label="gender (optional)"
+            onChange={setSelectedGender}
           />
-          {errors.gender && (
-            <p className="mt-1.5 text-xs text-red-600" role="alert">
-              {errors.gender}
-            </p>
-          )}
         </div>
       </div>
     </div>

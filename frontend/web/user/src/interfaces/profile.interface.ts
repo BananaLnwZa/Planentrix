@@ -1,4 +1,5 @@
 export type ProfileGender = "male" | "female" | "other";
+export type StoredProfileGender = ProfileGender | "unspecified";
 
 export interface UserProfile {
   user_id: number;
@@ -10,12 +11,13 @@ export interface UserProfile {
   user_pic?: string | null;
   user_pic_url: string | null;
   user_birthdate: string | null;
-  user_gender: ProfileGender | null;
+  user_gender: StoredProfileGender | null;
   academic_year?: string | number | null;
   department_id?: number | null;
   department_code?: string | null;
   department_name?: string | null;
   faculty_id?: number | null;
+  faculty_code?: string | null;
   faculty_name?: string | null;
   student_term_id?: number | null;
   year_level?: number | null;

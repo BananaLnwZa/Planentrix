@@ -13,7 +13,6 @@ import type {
   UserConstraint,
   UserProfile,
 } from "@/interfaces/profile.interface";
-import type { CurrentTerm } from "@/interfaces/term.interface";
 import { useAuthStore } from "@/services/auth.store";
 import profileService from "@/services/profile.service";
 import {
@@ -30,7 +29,6 @@ import StudentCardPopup, {
 type StudentCardProps = {
   name?: string;
   gender?: string;
-  year?: string | number;
   birthDate?: string;
   studentNumber?: string;
   onEditProfile?: () => void;
@@ -58,7 +56,7 @@ const dayNames: Record<number, string> = {
 };
 
 function formatGender(value?: string | null) {
-  if (!value) return "—";
+  if (!value || value === "unspecified") return "—";
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
@@ -106,7 +104,6 @@ function StudentCardPhoto({ imageUrl }: { imageUrl?: string | null }) {
 export default function StudentCard({
   name,
   gender,
-  year,
   birthDate,
   studentNumber,
   onEditProfile,
@@ -122,7 +119,6 @@ export default function StudentCard({
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [constraint, setConstraint] = useState<UserConstraint | null>(null);
-  const [currentTerm, setCurrentTerm] = useState<CurrentTerm | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [constraintError, setConstraintError] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -160,8 +156,7 @@ export default function StudentCard({
     Promise.allSettled([
       profileService.getProfile(),
       profileService.getConstraints(),
-      profileService.getCurrentTerm(),
-    ]).then(([profileResult, constraintResult, termResult]) => {
+    ]).then(([profileResult, constraintResult]) => {
       if (!isActive) return;
 
       if (profileResult.status === "fulfilled") {
@@ -176,10 +171,6 @@ export default function StudentCard({
         setConstraintError(
           constraintResult.reason.message || "Unable to load constraints"
         );
-      }
-
-      if (termResult.status === "fulfilled") {
-        setCurrentTerm(termResult.value.data);
       }
 
       setIsLoading(false);
@@ -210,15 +201,29 @@ export default function StudentCard({
     };
   }, [isOpen]);
 
-  const displayName =
-    profile?.full_name?.trim() ||
+  const fallbackNameParts = (name || profile?.full_name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const displayFirstName =
+    profile?.first_name?.trim() ||
+    fallbackNameParts[0] ||
     profile?.user_name ||
+    authUser?.username ||
+    "Student";
+  const displayLastName =
+    profile?.last_name?.trim() || fallbackNameParts.slice(1).join(" ") || "—";
+  const displayName =
+    [profile?.first_name?.trim(), profile?.last_name?.trim()]
+      .filter(Boolean)
+      .join(" ") ||
+    profile?.full_name?.trim() ||
     name ||
+    profile?.user_name ||
     authUser?.username ||
     "Student";
   const displayGender = gender || formatGender(profile?.user_gender);
   const displayBirthDate = birthDate || formatDate(profile?.user_birthdate);
-  const displayYear = year ?? profile?.year_level ?? currentTerm?.academic_year ?? "—";
   const displayStudentNumber =
     studentNumber || String(profile?.user_id || userId || 1).padStart(2, "0");
   const visibleLoadError =
@@ -247,7 +252,10 @@ export default function StudentCard({
     setEditValues({
       userName: profile?.user_name || displayName,
       birthDate: profile?.user_birthdate?.slice(0, 10) || "",
-      gender: profile?.user_gender || "",
+      gender:
+        profile?.user_gender && profile.user_gender !== "unspecified"
+          ? profile.user_gender
+          : "",
     });
     setEditConstraintValues(createEditConstraintValues(constraint));
     setIsEditing(true);
@@ -482,28 +490,26 @@ export default function StudentCard({
               <StudentCardPhoto imageUrl={profile?.user_pic_url} />
             </div>
 
-            <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
               <div>
-                <dt className="text-[10px] leading-tight uppercase text-gray-400">Name</dt>
-                <dd className="truncate text-base leading-tight text-gray-900">{displayName}</dd>
+                <dt className="text-[10px] leading-tight uppercase text-gray-400">First name</dt>
+                <dd className="truncate text-base leading-tight text-gray-900">{displayFirstName}</dd>
               </div>
               <div>
-                <dt className="text-[10px] leading-tight uppercase text-gray-400">Gender</dt>
-                <dd className="truncate text-base leading-tight text-gray-900">{displayGender}</dd>
+                <dt className="text-[10px] leading-tight uppercase text-gray-400">Last name</dt>
+                <dd className="truncate text-base leading-tight text-gray-900">{displayLastName}</dd>
               </div>
               <div>
-                <dt className="text-[10px] leading-tight uppercase text-gray-400">Major</dt>
+                <dt className="text-[10px] leading-tight uppercase text-gray-400">Faculty</dt>
                 <dd className="truncate text-base leading-tight text-gray-900">
-                  {profile?.department_code || profile?.department_name || "—"}
+                  {profile?.faculty_code || "—"}
                 </dd>
               </div>
               <div>
-                <dt className="text-[10px] leading-tight uppercase text-gray-400">Year</dt>
-                <dd className="truncate text-base leading-tight text-gray-900">{displayYear}</dd>
-              </div>
-              <div className="col-span-2">
-                <dt className="text-[10px] leading-tight uppercase text-gray-400">Birthday</dt>
-                <dd className="truncate text-base leading-tight text-gray-900">{displayBirthDate}</dd>
+                <dt className="text-[10px] leading-tight uppercase text-gray-400">Department</dt>
+                <dd className="truncate text-base leading-tight text-gray-900">
+                  {profile?.department_code || "—"}
+                </dd>
               </div>
             </dl>
           </div>

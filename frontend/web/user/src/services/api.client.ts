@@ -1,8 +1,9 @@
 import axios from "axios";
 import { expireAuthSession, getStoredAuthSession } from "./auth.session";
+import { getApiBaseURL } from "./api.config";
 
 const clientOptions = {
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000",
+  baseURL: getApiBaseURL(),
   timeout: 10000,
 };
 

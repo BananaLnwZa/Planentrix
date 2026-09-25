@@ -226,6 +226,11 @@ export default function StudentCardPopup({
   const breakDurationErrors = constraintValidation.errors.filter((message) =>
     message.startsWith("ระยะเวลาพัก")
   );
+  const fallbackNameParts = displayName.trim().split(/\s+/).filter(Boolean);
+  const displayFirstName =
+    profile?.first_name?.trim() || fallbackNameParts[0] || "—";
+  const displayLastName =
+    profile?.last_name?.trim() || fallbackNameParts.slice(1).join(" ") || "—";
 
   return createPortal(
     <div
@@ -372,16 +377,28 @@ export default function StudentCardPopup({
                 onSubmit={onEditFormSubmit}
                 className="grid grid-cols-2 gap-3"
               >
-                <div className="col-span-2">
-                  <label htmlFor="profile-full-name" className="text-sm text-gray-800">
-                    ชื่อ–นามสกุล
+                <div>
+                  <label htmlFor="profile-first-name" className="text-sm text-gray-500">
+                    ชื่อ
                   </label>
                   <input
-                    id="profile-full-name"
+                    id="profile-first-name"
                     type="text"
                     readOnly
-                    value={profile?.full_name || displayName}
-                    className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-5 py-2 text-base text-gray-800 outline-none"
+                    value={displayFirstName}
+                    className="mt-1 block w-full cursor-not-allowed rounded-full border border-gray-200 bg-[#EEF1F3] px-5 py-2 text-base text-[#8A969C] outline-none"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="profile-last-name" className="text-sm text-gray-500">
+                    นามสกุล
+                  </label>
+                  <input
+                    id="profile-last-name"
+                    type="text"
+                    readOnly
+                    value={displayLastName}
+                    className="mt-1 block w-full cursor-not-allowed rounded-full border border-gray-200 bg-[#EEF1F3] px-5 py-2 text-base text-[#8A969C] outline-none"
                   />
                 </div>
                 <div className="col-span-2">
@@ -404,7 +421,7 @@ export default function StudentCardPopup({
                   />
                 </div>
                 <div className="col-span-2">
-                  <label htmlFor="profile-email" className="text-sm text-gray-800">
+                  <label htmlFor="profile-email" className="text-sm text-gray-500">
                     อีเมล
                   </label>
                   <input
@@ -412,11 +429,11 @@ export default function StudentCardPopup({
                     type="text"
                     readOnly
                     value={profile?.email || "—"}
-                    className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-5 py-2 text-base text-gray-800 outline-none"
+                    className="mt-1 block w-full cursor-not-allowed rounded-full border border-gray-200 bg-[#EEF1F3] px-5 py-2 text-base text-[#8A969C] outline-none"
                   />
                 </div>
                 <div className="col-span-2">
-                  <label htmlFor="profile-faculty" className="text-sm text-gray-800">
+                  <label htmlFor="profile-faculty" className="text-sm text-gray-500">
                     คณะ
                   </label>
                   <input
@@ -424,11 +441,11 @@ export default function StudentCardPopup({
                     type="text"
                     readOnly
                     value={profile?.faculty_name || "—"}
-                    className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-5 py-2 text-base text-gray-800 outline-none"
+                    className="mt-1 block w-full cursor-not-allowed rounded-full border border-gray-200 bg-[#EEF1F3] px-5 py-2 text-base text-[#8A969C] outline-none"
                   />
                 </div>
                 <div className="col-span-2">
-                  <label htmlFor="profile-department" className="text-sm text-gray-800">
+                  <label htmlFor="profile-department" className="text-sm text-gray-500">
                     สาขาวิชา
                   </label>
                   <input
@@ -440,7 +457,7 @@ export default function StudentCardPopup({
                         ? `${profile.department_name}${profile.department_code ? ` (${profile.department_code})` : ""}`
                         : "—"
                     }
-                    className="mt-1 block w-full rounded-full border border-gray-300 bg-white px-5 py-2 text-base text-gray-800 outline-none"
+                    className="mt-1 block w-full cursor-not-allowed rounded-full border border-gray-200 bg-[#EEF1F3] px-5 py-2 text-base text-[#8A969C] outline-none"
                   />
                 </div>
                 <div>
@@ -482,10 +499,16 @@ export default function StudentCardPopup({
               </form>
             ) : (
               <dl className="grid grid-cols-2 gap-3">
-                <div className="col-span-2 rounded-2xl border border-gray-200 bg-white/80 p-3">
-                  <dt className="text-sm text-gray-500">ชื่อ–นามสกุล</dt>
+                <div className="rounded-2xl border border-gray-200 bg-white/80 p-3">
+                  <dt className="text-sm text-gray-500">ชื่อ</dt>
                   <dd className="mt-1 break-words text-base text-[#314553]">
-                    {profile?.full_name || displayName}
+                    {displayFirstName}
+                  </dd>
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-white/80 p-3">
+                  <dt className="text-sm text-gray-500">นามสกุล</dt>
+                  <dd className="mt-1 break-words text-base text-[#314553]">
+                    {displayLastName}
                   </dd>
                 </div>
                 <div className="col-span-2 rounded-2xl border border-gray-200 bg-white/80 p-3">

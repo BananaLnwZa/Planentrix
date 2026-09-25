@@ -3,18 +3,16 @@
  */
 
 // Get the base URL from environment variables
-const getBaseURL = (): string => {
+export const getApiBaseURL = (): string => {
   if (typeof window === "undefined") {
-    // Server-side
-    return process.env.API_URL || "http://localhost:4000";
+    return process.env.API_URL || "http://127.0.0.1:4000";
   }
 
-  // Client-side
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  return process.env.NEXT_PUBLIC_API_URL || "/backend-api";
 };
 
 export const apiConfig = {
-  baseURL: getBaseURL(),
+  baseURL: getApiBaseURL(),
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
