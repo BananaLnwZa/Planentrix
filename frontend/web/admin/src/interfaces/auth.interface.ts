@@ -50,6 +50,12 @@ export interface AdminProfile {
   department_id: number | null;
   role: "university_staff" | "instructor";
   status: string;
+  must_change_password: boolean;
+}
+
+export interface ChangeFirstLoginPasswordResponse {
+  message: string;
+  mustChangePassword: false;
 }
 
 export interface AdminProfileResponse {

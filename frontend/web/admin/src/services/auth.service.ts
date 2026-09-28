@@ -3,6 +3,7 @@ import Cookies from "js-cookie";
 import {
   AdminAuthErrorResponse,
   AdminProfileResponse,
+  ChangeFirstLoginPasswordResponse,
   LogoutAdminResponse,
   RegisterAdminRequest,
   RegisterAdminResponse,
@@ -80,6 +81,21 @@ class AdminAuthService {
         apiEndpoints.auth.profile,
       );
 
+      return response.data;
+    } catch (error: unknown) {
+      throw this.handleError(error);
+    }
+  }
+
+  async changeFirstLoginPassword(
+    newPassword: string,
+  ): Promise<ChangeFirstLoginPasswordResponse> {
+    try {
+      const response =
+        await this.apiClient.post<ChangeFirstLoginPasswordResponse>(
+          apiEndpoints.auth.firstLoginPassword,
+          { new_password: newPassword },
+        );
       return response.data;
     } catch (error: unknown) {
       throw this.handleError(error);

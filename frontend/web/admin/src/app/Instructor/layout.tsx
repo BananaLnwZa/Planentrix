@@ -1,6 +1,7 @@
 import { GraduationCap } from "lucide-react";
 import type { ReactNode } from "react";
 import InstructorWorkspaceNav from "@/components/Instructor/InstructorWorkspaceNav";
+import FirstLoginPasswordModal from "@/components/Instructor/FirstLoginPasswordModal";
 import AdminLogoutButton from "@/components/Main/AdminLogoutButton";
 import { requireInstructorSession } from "@/services/admin-session";
 
@@ -37,6 +38,11 @@ export default async function InstructorLayout({
       <InstructorWorkspaceNav />
 
       <main className="mx-auto w-full max-w-6xl pb-10 pt-5">{children}</main>
+
+      <FirstLoginPasswordModal
+        instructorName={displayName}
+        required={instructor.must_change_password}
+      />
     </div>
   );
 }

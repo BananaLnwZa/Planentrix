@@ -38,6 +38,7 @@ interface AdminLoginRow extends AdminIdRow {
   admin_name: string;
   admin_password: string;
   role: "university_staff" | "instructor";
+  must_change_password: number;
 }
 
 interface UserRefreshRow extends UserIdRow {
@@ -67,6 +68,12 @@ interface AdminProfileRow extends AdminIdRow {
   department_id: number | null;
   role: "university_staff" | "instructor";
   status: string;
+  must_change_password: number;
+}
+
+interface InstructorPasswordRow extends AdminIdRow {
+  admin_password: string;
+  must_change_password: number;
 }
 
 interface DepartmentRow extends RowDataPacket {
@@ -100,6 +107,7 @@ interface AccountCandidate {
   username: string;
   passwordHash: string;
   role: AuthRole;
+  mustChangePassword: boolean;
 }
 
 export interface LoginResult {
@@ -111,6 +119,7 @@ export interface LoginResult {
   accessToken: string;
   refreshToken?: string;
   expiresIn: "30m" | "24h";
+  mustChangePassword: boolean;
 }
 
 export class AuthServiceError extends Error {
@@ -315,13 +324,15 @@ const loadLoginCandidates = async (
         username: rows[0].user_name,
         passwordHash: rows[0].user_password,
         role: "user",
+        mustChangePassword: false,
       });
     }
   }
 
   if (!role || role === "university_staff" || role === "instructor") {
     const [rows] = await db.query<AdminLoginRow[]>(
-      `SELECT admin_id, admin_name, admin_password, role
+      `SELECT admin_id, admin_name, admin_password, role,
+              must_change_password
        FROM admin
        WHERE BINARY admin_name = ?
          AND status = 'active'
@@ -335,6 +346,7 @@ const loadLoginCandidates = async (
         username: rows[0].admin_name,
         passwordHash: rows[0].admin_password,
         role: accountRole,
+        mustChangePassword: Boolean(rows[0].must_change_password),
       });
     }
   }
@@ -377,6 +389,7 @@ export const authenticate = async (input: unknown): Promise<LoginResult> => {
     accountId: account.id,
     accessToken,
     expiresIn,
+    mustChangePassword: account.mustChangePassword,
     ...(account.role === "user" ? { userId: account.id } : { adminId: account.id }),
   };
 
@@ -696,8 +709,8 @@ export const registerAdmin = async (
   await db.query(
     `INSERT INTO admin
       (admin_name, admin_email, admin_password, first_name, last_name, phone,
-       address, department_id, role)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       address, department_id, role, must_change_password)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       adminName,
       adminEmail,
@@ -708,6 +721,7 @@ export const registerAdmin = async (
       address,
       departmentId,
       accountRole,
+      accountRole === "instructor" ? 1 : 0,
     ],
   );
   return accountRole;
@@ -827,7 +841,8 @@ export const getAccountProfile = async (id: number, role: AuthRole) => {
   if (role === "university_staff" || role === "instructor") {
     const [rows] = await db.query<AdminProfileRow[]>(
       `SELECT admin_id, admin_name, admin_email, first_name, last_name,
-              phone AS phone_number, address, department_id, role, status
+              phone AS phone_number, address, department_id, role, status,
+              must_change_password
        FROM admin
        WHERE admin_id = ? AND status = 'active'
        LIMIT 1`,
@@ -841,7 +856,10 @@ export const getAccountProfile = async (id: number, role: AuthRole) => {
     return role === "instructor"
       ? {
           message: "Instructor profile retrieved successfully",
-          instructor: account,
+          instructor: {
+            ...account,
+            must_change_password: Boolean(account.must_change_password),
+          },
         }
       : {
           message: "University staff profile retrieved successfully",
@@ -864,6 +882,56 @@ export const getAccountProfile = async (id: number, role: AuthRole) => {
   }
 
   throw new AuthServiceError("Unsupported account role", 403);
+};
+
+export const changeInstructorFirstLoginPassword = async (
+  id: number,
+  input: unknown,
+): Promise<void> => {
+  const body = asBody(input);
+  const newPassword = requiredString(
+    body.new_password ?? body.newPassword,
+    "new_password",
+  );
+
+  if (!passwordPattern.test(newPassword)) {
+    throw new AuthServiceError(
+      "Password must be 8+ chars, include at least one letter & one special character",
+      400,
+    );
+  }
+
+  const [rows] = await db.query<InstructorPasswordRow[]>(
+    `SELECT admin_id, admin_password, must_change_password
+     FROM admin
+     WHERE admin_id = ? AND role = 'instructor' AND status = 'active'
+     LIMIT 1`,
+    [id],
+  );
+  const instructor = rows[0];
+  if (!instructor) {
+    throw new AuthServiceError("Instructor account not found or inactive", 404);
+  }
+  if (!instructor.must_change_password) {
+    throw new AuthServiceError("Password has already been changed", 409);
+  }
+  if (await bcrypt.compare(newPassword, instructor.admin_password)) {
+    throw new AuthServiceError(
+      "New password must be different from the temporary password",
+      400,
+    );
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  const [result] = await db.query<ResultSetHeader>(
+    `UPDATE admin
+     SET admin_password = ?, must_change_password = 0, updated_at = NOW()
+     WHERE admin_id = ? AND role = 'instructor' AND must_change_password = 1`,
+    [passwordHash, id],
+  );
+  if (result.affectedRows !== 1) {
+    throw new AuthServiceError("Unable to update password", 409);
+  }
 };
 
 export const deleteUserAccount = async (id: number): Promise<void> => {

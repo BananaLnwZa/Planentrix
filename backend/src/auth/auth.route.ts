@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   bootstrapAdmin,
+  changeFirstLoginPassword,
   deleteOwnAccount,
   getCurrentAccount,
   listRegistrationOptions,
@@ -28,6 +29,12 @@ router.post("/login", login);
 router.post("/refresh-token", refreshToken);
 router.post("/logout", verifyToken, logout);
 router.get("/me", verifyToken, getCurrentAccount);
+router.post(
+  "/first-login-password",
+  verifyToken,
+  requireRole("instructor"),
+  changeFirstLoginPassword,
+);
 router.delete("/me", verifyToken, requireRole("user"), deleteOwnAccount);
 
 export default router;

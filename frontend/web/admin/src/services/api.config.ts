@@ -23,6 +23,7 @@ export const apiEndpoints = {
     registrationOptions: "/auth/registration-options",
     logout: "/auth/logout",
     profile: "/auth/me",
+    firstLoginPassword: "/auth/first-login-password",
   },
   users: {
     list: "/admin/users",

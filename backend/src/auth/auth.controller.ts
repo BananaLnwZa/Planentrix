@@ -4,6 +4,7 @@ import {
   AuthServiceError,
   authenticate,
   bootstrapFirstAdmin,
+  changeInstructorFirstLoginPassword,
   deleteUserAccount,
   getAccountProfile,
   getRegistrationOptions,
@@ -143,6 +144,24 @@ export const getCurrentAccount = async (
     res.json(await getAccountProfile(account.id, account.role));
   } catch (error) {
     handleAuthError(res, error, "getCurrentAccount");
+  }
+};
+
+export const changeFirstLoginPassword = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const account = authenticatedAccount(req, res);
+  if (!account) return;
+
+  try {
+    await changeInstructorFirstLoginPassword(account.id, req.body);
+    res.json({
+      message: "Password changed successfully",
+      mustChangePassword: false,
+    });
+  } catch (error) {
+    handleAuthError(res, error, "changeFirstLoginPassword");
   }
 };
 
