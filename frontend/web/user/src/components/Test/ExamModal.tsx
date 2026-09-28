@@ -166,6 +166,16 @@ export default function ExamModal({
             <div className="mt-6 rounded-2xl border border-[#DCE4E7] bg-white p-5">
               <p className="text-xs text-[#92A1A7]">{question.partName}</p>
               <h3 className="mt-2 text-base leading-7 text-[#405B69]">{question.text}</h3>
+              {question.imageUrl && (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={question.imageUrl}
+                    alt={`รูปประกอบคำถามข้อ ${currentIndex + 1}`}
+                    className="mt-4 max-h-64 w-full rounded-xl bg-[#f7fafb] object-contain"
+                  />
+                </>
+              )}
               <div className="mt-5 space-y-2.5">
                 {question.choices.map((choice) => {
                   const selected = answers[question.questionId] === choice.choiceId;
@@ -182,7 +192,19 @@ export default function ExamModal({
                       <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${selected ? "bg-[#6FA64C] text-white" : "bg-[#DCE8ED] text-[#536D78]"}`}>
                         {String.fromCharCode(64 + Math.min(Math.max(choice.order, 1), 26))}
                       </span>
-                      {choice.text}
+                      <span className="min-w-0 flex-1">
+                        <span className="block">{choice.text}</span>
+                        {choice.imageUrl && (
+                          <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={choice.imageUrl}
+                              alt={`รูปตัวเลือก ${choice.order}`}
+                              className="mt-2 max-h-40 w-full rounded-lg bg-white object-contain"
+                            />
+                          </>
+                        )}
+                      </span>
                     </button>
                   );
                 })}

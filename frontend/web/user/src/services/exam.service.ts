@@ -47,6 +47,7 @@ const choiceFromJson = (value: unknown): ExamChoice => {
     choiceId: number(json.choice_id),
     order: number(json.choice_order),
     text: text(json.choice_text),
+    imageUrl: json.choice_image_url ? text(json.choice_image_url) : null,
   };
 };
 
@@ -132,6 +133,9 @@ class ExamService {
             questionId: number(question.question_id),
             order: number(question.question_order),
             text: text(question.question_text),
+            imageUrl: question.question_image_url
+              ? text(question.question_image_url)
+              : null,
             score: number(question.question_score),
             partName: text(part.exam_part_name),
             choices: list(question.choices).map(choiceFromJson),

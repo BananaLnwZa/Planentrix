@@ -3,12 +3,17 @@ import Cookies from "js-cookie";
 import type {
   CreateInstructorQuestionBankRequest,
   CreateInstructorQuestionBankResponse,
+  CreateInstructorQuestionRequest,
+  CreateInstructorQuestionResponse,
   ImportInstructorExamResponse,
   InstructorExamErrorResponse,
   InstructorExamMessageResponse,
   InstructorExamWorkspaceResponse,
   InstructorQuestionBankDetailResponse,
+  UpdateInstructorQuestionBankSettingsRequest,
+  UpdateInstructorQuestionBankSettingsResponse,
   UpdateInstructorQuestionRequest,
+  UploadInstructorQuestionImageResponse,
 } from "@/interfaces/instructor-exam.interface";
 import { apiConfig, apiEndpoints } from "@/services/api.config";
 import { expireAdminSession } from "@/services/admin-session.client";
@@ -53,6 +58,48 @@ class InstructorExamService {
     return this.request(() =>
       this.apiClient.get<InstructorQuestionBankDetailResponse>(
         apiEndpoints.instructorExams.questionBankById(questionBankId),
+      ),
+    );
+  }
+
+  async updateQuestionBankSettings(
+    questionBankId: number,
+    data: UpdateInstructorQuestionBankSettingsRequest,
+  ): Promise<UpdateInstructorQuestionBankSettingsResponse> {
+    return this.request(() =>
+      this.apiClient.patch<UpdateInstructorQuestionBankSettingsResponse>(
+        apiEndpoints.instructorExams.questionBankById(questionBankId),
+        data,
+      ),
+    );
+  }
+
+  async createQuestion(
+    questionBankId: number,
+    data: CreateInstructorQuestionRequest,
+  ): Promise<CreateInstructorQuestionResponse> {
+    return this.request(() =>
+      this.apiClient.post<CreateInstructorQuestionResponse>(
+        apiEndpoints.instructorExams.questions(questionBankId),
+        data,
+      ),
+    );
+  }
+
+  async uploadQuestionImage(
+    questionBankId: number,
+    file: File,
+  ): Promise<UploadInstructorQuestionImageResponse> {
+    const formData = new FormData();
+    formData.append("image", file);
+    return this.request(() =>
+      this.apiClient.post<UploadInstructorQuestionImageResponse>(
+        `${apiEndpoints.instructorExams.questionBankById(questionBankId)}/images`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+          timeout: 30_000,
+        },
       ),
     );
   }

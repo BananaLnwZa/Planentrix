@@ -37,11 +37,13 @@ class ExamChoice {
   final int choiceId;
   final int order;
   final String text;
+  final String? imageUrl;
 
   const ExamChoice({
     required this.choiceId,
     required this.order,
     required this.text,
+    this.imageUrl,
   });
 
   factory ExamChoice.fromJson(Map<String, dynamic> json) {
@@ -49,6 +51,7 @@ class ExamChoice {
       choiceId: _asInt(json['choice_id']),
       order: _asInt(json['choice_order']),
       text: '${json['choice_text'] ?? ''}',
+      imageUrl: _asNullableText(json['choice_image_url']),
     );
   }
 }
@@ -57,6 +60,7 @@ class ExamQuestion {
   final int questionId;
   final int order;
   final String text;
+  final String? imageUrl;
   final double score;
   final String partName;
   final List<ExamChoice> choices;
@@ -65,6 +69,7 @@ class ExamQuestion {
     required this.questionId,
     required this.order,
     required this.text,
+    this.imageUrl,
     required this.score,
     required this.partName,
     required this.choices,
@@ -79,6 +84,7 @@ class ExamQuestion {
       questionId: _asInt(json['question_id']),
       order: _asInt(json['question_order']),
       text: '${json['question_text'] ?? ''}',
+      imageUrl: _asNullableText(json['question_image_url']),
       score: _asDouble(json['question_score']),
       partName: partName,
       choices: choices is List
@@ -416,4 +422,10 @@ int _asInt(dynamic value, {int fallback = 0}) {
 double _asDouble(dynamic value) {
   if (value is num) return value.toDouble();
   return double.tryParse('$value') ?? 0;
+}
+
+String? _asNullableText(dynamic value) {
+  if (value == null) return null;
+  final text = '$value'.trim();
+  return text.isEmpty ? null : text;
 }

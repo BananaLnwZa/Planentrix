@@ -1,4 +1,7 @@
 import type { Request, Response } from "express";
+import { randomUUID } from "crypto";
+import { promises as fs } from "fs";
+import path from "path";
 import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
 import { importExamFile } from "../../admin/controllers/examimport.controller";
@@ -45,7 +48,14 @@ interface InstructorQuestionChoiceInput {
   choice_id: number | null;
   choice_order: number;
   choice_text: string;
+  choice_image_path: string | null;
+  image_path_provided: boolean;
   is_correct: boolean;
+}
+
+interface QuestionIdentityRow extends RowDataPacket {
+  question_id: number;
+  question_image_path: string | null;
 }
 
 interface InstructorSectionRow extends RowDataPacket {
@@ -145,6 +155,61 @@ const validateQuestionScore = (value: unknown): number | null => {
   return score;
 };
 
+const allowedQuestionImageExtensions = new Set([
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".gif",
+]);
+
+const hasValidImageSignature = (buffer: Buffer, mimeType: string) => {
+  if (mimeType === "image/jpeg") {
+    return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  }
+  if (mimeType === "image/png") {
+    return (
+      buffer.length >= 8 &&
+      buffer.subarray(0, 8).equals(
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      )
+    );
+  }
+  if (mimeType === "image/gif") {
+    const signature = buffer.subarray(0, 6).toString("ascii");
+    return signature === "GIF87a" || signature === "GIF89a";
+  }
+  if (mimeType === "image/webp") {
+    return (
+      buffer.length >= 12 &&
+      buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+      buffer.subarray(8, 12).toString("ascii") === "WEBP"
+    );
+  }
+  return false;
+};
+
+const normalizeQuestionImagePath = (
+  value: unknown,
+): string | null | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  if (typeof value !== "string") return undefined;
+
+  const withoutQuery = value.trim().split(/[?#]/, 1)[0];
+  const filename = withoutQuery.split(/[\\/]/).pop() ?? "";
+  const extension = path.extname(filename).toLowerCase();
+  if (
+    !filename ||
+    filename.length > 255 ||
+    !/^[A-Za-z0-9._-]+$/.test(filename) ||
+    !allowedQuestionImageExtensions.has(extension)
+  ) {
+    return undefined;
+  }
+  return filename;
+};
+
 const validateInstructorQuestionChoices = (
   value: unknown,
 ):
@@ -168,6 +233,13 @@ const validateInstructorQuestionChoices = (
         ? null
         : Number(rawChoiceId);
     const choiceText = String(input.choice_text ?? "").trim();
+    const imagePathProvided = Object.prototype.hasOwnProperty.call(
+      input,
+      "choice_image_path",
+    );
+    const choiceImagePath = imagePathProvided
+      ? normalizeQuestionImagePath(input.choice_image_path)
+      : undefined;
     if (
       choiceId !== null &&
       (!Number.isInteger(choiceId) || choiceId <= 0 || usedChoiceIds.has(choiceId))
@@ -176,6 +248,9 @@ const validateInstructorQuestionChoices = (
     }
     if (choiceText.length > 65_535) {
       return { valid: false, error: `ตัวเลือกที่ ${index + 1} ยาวเกินกำหนด` };
+    }
+    if (imagePathProvided && choiceImagePath === undefined) {
+      return { valid: false, error: `รูปตัวเลือกที่ ${index + 1} ไม่ถูกต้อง` };
     }
     if (typeof input.is_correct !== "boolean") {
       return { valid: false, error: "สถานะคำตอบที่ถูกต้องไม่ถูกต้อง" };
@@ -186,6 +261,8 @@ const validateInstructorQuestionChoices = (
       choice_id: choiceId,
       choice_order: index + 1,
       choice_text: choiceText,
+      choice_image_path: choiceImagePath ?? null,
+      image_path_provided: imagePathProvided,
       is_correct: input.is_correct,
     });
   }
@@ -533,6 +610,13 @@ export const updateInstructorQuestion = async (
   const questionId = Number(req.params.questionId);
   const questionText = String(req.body.question_text ?? "").trim();
   const questionScore = validateQuestionScore(req.body.question_score);
+  const questionImagePathProvided = Object.prototype.hasOwnProperty.call(
+    req.body,
+    "question_image_path",
+  );
+  const requestedQuestionImagePath = questionImagePathProvided
+    ? normalizeQuestionImagePath(req.body.question_image_path)
+    : undefined;
   const choiceValidation = validateInstructorQuestionChoices(req.body.choices);
   if (
     !Number.isInteger(questionBankId) ||
@@ -548,6 +632,9 @@ export const updateInstructorQuestion = async (
   if (questionScore === null) {
     return res.status(400).json({ message: "คะแนนต้องอยู่ระหว่าง 0.01-999.99" });
   }
+  if (questionImagePathProvided && requestedQuestionImagePath === undefined) {
+    return res.status(400).json({ message: "รูปประกอบคำถามไม่ถูกต้อง" });
+  }
   if (!choiceValidation.valid) {
     return res.status(400).json({ message: choiceValidation.error });
   }
@@ -555,14 +642,15 @@ export const updateInstructorQuestion = async (
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    const [questions] = await connection.query<RowDataPacket[]>(
-      `SELECT question.question_id
+    const [questions] = await connection.query<QuestionIdentityRow[]>(
+      `SELECT question.question_id, question.question_image_path
        FROM question
        INNER JOIN question_banks bank
          ON bank.question_bank_id = question.question_bank_id
        WHERE question.question_id = ?
          AND question.question_bank_id = ?
          AND bank.owner_instructor_id = ?
+         AND question.is_active = 1
        LIMIT 1 FOR UPDATE`,
       [questionId, questionBankId, instructorId],
     );
@@ -570,12 +658,15 @@ export const updateInstructorQuestion = async (
       await connection.rollback();
       return res.status(404).json({ message: "ไม่พบคำถามที่ต้องการแก้ไข" });
     }
+    const questionImagePath = questionImagePathProvided
+      ? requestedQuestionImagePath ?? null
+      : questions[0].question_image_path;
 
     const [existingChoices] = await connection.query<ChoiceDetailRow[]>(
       `SELECT choice_id, question_id, choice_order, choice_text,
          choice_image_path, is_correct
        FROM choice
-       WHERE question_id = ?
+       WHERE question_id = ? AND is_active = 1
        FOR UPDATE`,
       [questionId],
     );
@@ -595,9 +686,11 @@ export const updateInstructorQuestion = async (
         return res.status(400).json({ message: "พบตัวเลือกที่ไม่อยู่ในคำถามนี้" });
       }
       const preservedImagePath =
-        choice.choice_id === null
-          ? null
-          : existingChoiceImages.get(choice.choice_id) ?? null;
+        choice.image_path_provided
+          ? choice.choice_image_path
+          : choice.choice_id === null
+            ? null
+            : existingChoiceImages.get(choice.choice_id) ?? null;
       if (!choice.choice_text && !preservedImagePath) {
         await connection.rollback();
         return res.status(400).json({
@@ -608,22 +701,24 @@ export const updateInstructorQuestion = async (
 
     await connection.query(
       `UPDATE question
-       SET question_text = ?, question_score = ?
+       SET question_text = ?, question_image_path = ?, question_score = ?
        WHERE question_id = ?`,
-      [questionText, questionScore, questionId],
+      [questionText, questionImagePath, questionScore, questionId],
     );
-    await connection.query("DELETE FROM choice WHERE question_id = ?", [
+    await connection.query("UPDATE choice SET is_active = 0 WHERE question_id = ?", [
       questionId,
     ]);
     for (const choice of choiceValidation.choices) {
       const choiceImagePath =
-        choice.choice_id === null
-          ? null
-          : existingChoiceImages.get(choice.choice_id) ?? null;
+        choice.image_path_provided
+          ? choice.choice_image_path
+          : choice.choice_id === null
+            ? null
+            : existingChoiceImages.get(choice.choice_id) ?? null;
       await connection.query(
         `INSERT INTO choice
-          (question_id, choice_order, choice_text, choice_image_path, is_correct)
-         VALUES (?, ?, ?, ?, ?)`,
+          (question_id, choice_order, choice_text, choice_image_path, is_correct, is_active)
+         VALUES (?, ?, ?, ?, ?, 1)`,
         [
           questionId,
           choice.choice_order,
@@ -642,6 +737,195 @@ export const updateInstructorQuestion = async (
     return res.status(500).json({ message: "Unable to update question" });
   } finally {
     connection.release();
+  }
+};
+
+export const createInstructorQuestion = async (
+  req: Request,
+  res: Response,
+) => {
+  const instructorId = requireInstructor(req, res);
+  if (!instructorId) return;
+
+  const questionBankId = Number(req.params.bankId);
+  const questionText = String(req.body.question_text ?? "").trim();
+  const questionScore = validateQuestionScore(req.body.question_score);
+  const questionImagePathProvided = Object.prototype.hasOwnProperty.call(
+    req.body,
+    "question_image_path",
+  );
+  const questionImagePath = questionImagePathProvided
+    ? normalizeQuestionImagePath(req.body.question_image_path)
+    : null;
+  const choiceValidation = validateInstructorQuestionChoices(req.body.choices);
+
+  if (!Number.isInteger(questionBankId) || questionBankId <= 0) {
+    return res.status(400).json({ message: "รหัสพาร์ทไม่ถูกต้อง" });
+  }
+  if (!questionText || questionText.length > 65_535) {
+    return res.status(400).json({ message: "กรุณากรอกโจทย์คำถามให้ถูกต้อง" });
+  }
+  if (questionScore === null) {
+    return res.status(400).json({ message: "คะแนนต้องอยู่ระหว่าง 0.01-999.99" });
+  }
+  if (questionImagePathProvided && questionImagePath === undefined) {
+    return res.status(400).json({ message: "รูปประกอบคำถามไม่ถูกต้อง" });
+  }
+  if (!choiceValidation.valid) {
+    return res.status(400).json({ message: choiceValidation.error });
+  }
+  if (choiceValidation.choices.some((choice) => choice.choice_id !== null)) {
+    return res.status(400).json({ message: "คำถามใหม่ต้องไม่มีรหัสตัวเลือกเดิม" });
+  }
+  const emptyChoiceIndex = choiceValidation.choices.findIndex(
+    (choice) => !choice.choice_text && !choice.choice_image_path,
+  );
+  if (emptyChoiceIndex >= 0) {
+    return res.status(400).json({
+      message: `กรุณากรอกข้อความหรือเลือกรูปสำหรับตัวเลือกที่ ${emptyChoiceIndex + 1}`,
+    });
+  }
+
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [banks] = await connection.query<RowDataPacket[]>(
+      `SELECT question_bank_id
+       FROM question_banks
+       WHERE question_bank_id = ? AND owner_instructor_id = ?
+         AND status <> 'archived'
+       LIMIT 1 FOR UPDATE`,
+      [questionBankId, instructorId],
+    );
+    if (banks.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: "ไม่พบพาร์ทที่ต้องการเพิ่มคำถาม" });
+    }
+
+    const [questionResult] = await connection.query<ResultSetHeader>(
+      `INSERT INTO question
+        (question_bank_id, question_text, question_image_path, question_score, is_active)
+       VALUES (?, ?, ?, ?, 1)`,
+      [questionBankId, questionText, questionImagePath, questionScore],
+    );
+    for (const choice of choiceValidation.choices) {
+      await connection.query(
+        `INSERT INTO choice
+          (question_id, choice_order, choice_text, choice_image_path, is_correct, is_active)
+         VALUES (?, ?, ?, ?, ?, 1)`,
+        [
+          questionResult.insertId,
+          choice.choice_order,
+          choice.choice_text,
+          choice.choice_image_path,
+          choice.is_correct ? 1 : 0,
+        ],
+      );
+    }
+
+    await connection.commit();
+    return res.status(201).json({
+      message: "Question created successfully",
+      question_id: questionResult.insertId,
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error("createInstructorQuestion error:", error);
+    return res.status(500).json({ message: "Unable to create question" });
+  } finally {
+    connection.release();
+  }
+};
+
+export const updateInstructorQuestionBankSettings = async (
+  req: Request,
+  res: Response,
+) => {
+  const instructorId = requireInstructor(req, res);
+  if (!instructorId) return;
+
+  const questionBankId = Number(req.params.bankId);
+  const timeLimitMinutes = Number(req.body.time_limit_minutes);
+  if (!Number.isInteger(questionBankId) || questionBankId <= 0) {
+    return res.status(400).json({ message: "รหัสพาร์ทไม่ถูกต้อง" });
+  }
+  if (
+    !Number.isInteger(timeLimitMinutes) ||
+    timeLimitMinutes < 1 ||
+    timeLimitMinutes > 1440
+  ) {
+    return res.status(400).json({ message: "เวลาทำข้อสอบต้องอยู่ระหว่าง 1-1,440 นาที" });
+  }
+
+  try {
+    const bank = await getOwnedQuestionBank(questionBankId, instructorId);
+    if (!bank || bank.status === "archived") {
+      return res.status(404).json({ message: "ไม่พบพาร์ทที่ต้องการแก้ไข" });
+    }
+    const [result] = await db.query<ResultSetHeader>(
+      `UPDATE question_banks
+       SET time_limit_minutes = ?
+       WHERE question_bank_id = ? AND owner_instructor_id = ?
+         AND status <> 'archived'`,
+      [timeLimitMinutes, questionBankId, instructorId],
+    );
+    void result;
+    const updated = await getOwnedQuestionBank(questionBankId, instructorId);
+    return res.json({
+      message: "Question bank settings updated successfully",
+      question_bank: updated ? serializeQuestionBank(updated) : null,
+    });
+  } catch (error) {
+    console.error("updateInstructorQuestionBankSettings error:", error);
+    return res.status(500).json({ message: "Unable to update question bank settings" });
+  }
+};
+
+export const uploadInstructorQuestionImage = async (
+  req: Request,
+  res: Response,
+) => {
+  const instructorId = requireInstructor(req, res);
+  if (!instructorId) return;
+
+  const questionBankId = Number(req.params.bankId);
+  if (!Number.isInteger(questionBankId) || questionBankId <= 0) {
+    return res.status(400).json({ message: "รหัสพาร์ทไม่ถูกต้อง" });
+  }
+  if (!req.file) {
+    return res.status(400).json({ message: "กรุณาเลือกรูปภาพ" });
+  }
+
+  try {
+    const bank = await getOwnedQuestionBank(questionBankId, instructorId);
+    if (!bank || bank.status === "archived") {
+      return res.status(404).json({ message: "ไม่พบพาร์ทสำหรับอัปโหลดรูป" });
+    }
+
+    const extensionByMimeType: Record<string, string> = {
+      "image/jpeg": ".jpg",
+      "image/png": ".png",
+      "image/webp": ".webp",
+      "image/gif": ".gif",
+    };
+    const extension = extensionByMimeType[req.file.mimetype];
+    if (!extension || !hasValidImageSignature(req.file.buffer, req.file.mimetype)) {
+      return res.status(400).json({ message: "ชนิดรูปภาพไม่รองรับ" });
+    }
+
+    const filename = `question_${randomUUID()}${extension}`;
+    const outputDirectory = path.join(__dirname, "../../uploads/questions");
+    await fs.mkdir(outputDirectory, { recursive: true });
+    await fs.writeFile(path.join(outputDirectory, filename), req.file.buffer);
+
+    return res.status(201).json({
+      message: "Question image uploaded successfully",
+      image_path: filename,
+      image_url: `${req.protocol}://${req.get("host")}/uploads/questions/${encodeURIComponent(filename)}`,
+    });
+  } catch (error) {
+    console.error("uploadInstructorQuestionImage error:", error);
+    return res.status(500).json({ message: "Unable to upload question image" });
   }
 };
 
@@ -674,6 +958,7 @@ export const deleteInstructorQuestion = async (
        WHERE question.question_id = ?
          AND question.question_bank_id = ?
          AND bank.owner_instructor_id = ?
+         AND question.is_active = 1
        LIMIT 1 FOR UPDATE`,
       [questionId, questionBankId, instructorId],
     );
@@ -682,37 +967,19 @@ export const deleteInstructorQuestion = async (
       return res.status(404).json({ message: "ไม่พบคำถามที่ต้องการลบ" });
     }
 
-    await connection.query("DELETE FROM choice WHERE question_id = ?", [
+    await connection.query("UPDATE choice SET is_active = 0 WHERE question_id = ?", [
       questionId,
     ]);
-    await connection.query("DELETE FROM question WHERE question_id = ?", [
+    await connection.query("UPDATE question SET is_active = 0 WHERE question_id = ?", [
       questionId,
     ]);
-    await connection.query(
-      `UPDATE question_banks
-       SET default_draw_count = GREATEST(1, (
-         SELECT COUNT(*) FROM question
-         WHERE question_bank_id = ? AND is_active = 1
-       ))
-       WHERE question_bank_id = ?`,
-      [questionBankId, questionBankId],
-    );
 
     await connection.commit();
-    return res.json({ message: "Question deleted successfully" });
+    return res.json({ message: "Question archived successfully" });
   } catch (error: unknown) {
     await connection.rollback();
-    const code =
-      typeof error === "object" && error !== null && "code" in error
-        ? String((error as { code?: unknown }).code ?? "")
-        : "";
-    if (code === "ER_ROW_IS_REFERENCED_2") {
-      return res.status(409).json({
-        message: "ไม่สามารถลบคำถามที่มีประวัติการทำข้อสอบแล้วได้",
-      });
-    }
     console.error("deleteInstructorQuestion error:", error);
-    return res.status(500).json({ message: "Unable to delete question" });
+    return res.status(500).json({ message: "Unable to archive question" });
   } finally {
     connection.release();
   }
@@ -846,28 +1113,28 @@ export const deleteInstructorQuestionBank = async (
     }
 
     await connection.query(
-      `DELETE FROM question WHERE question_bank_id = ?`,
+      `UPDATE choice
+       SET is_active = 0
+       WHERE question_id IN (
+         SELECT question_id FROM question WHERE question_bank_id = ?
+       )`,
       [questionBankId],
     );
     await connection.query(
-      `DELETE FROM question_banks WHERE question_bank_id = ?`,
+      "UPDATE question SET is_active = 0 WHERE question_bank_id = ?",
+      [questionBankId],
+    );
+    await connection.query(
+      `UPDATE question_banks SET status = 'archived'
+       WHERE question_bank_id = ?`,
       [questionBankId],
     );
     await connection.commit();
-    return res.json({ message: "Question bank deleted successfully" });
+    return res.json({ message: "Question bank archived successfully" });
   } catch (error: unknown) {
     await connection.rollback();
-    const code =
-      typeof error === "object" && error !== null && "code" in error
-        ? String((error as { code?: unknown }).code ?? "")
-        : "";
-    if (code === "ER_ROW_IS_REFERENCED_2") {
-      return res.status(409).json({
-        message: "ไม่สามารถลบพาร์ทที่มีประวัติการทำข้อสอบแล้วได้",
-      });
-    }
     console.error("deleteInstructorQuestionBank error:", error);
-    return res.status(500).json({ message: "Unable to delete question bank" });
+    return res.status(500).json({ message: "Unable to archive question bank" });
   } finally {
     connection.release();
   }
@@ -885,27 +1152,40 @@ export const clearInstructorQuestionBankQuestions = async (
     return res.status(400).json({ message: "รหัสพาร์ทไม่ถูกต้อง" });
   }
 
+  const connection = await db.getConnection();
   try {
-    const bank = await getOwnedQuestionBank(questionBankId, instructorId);
-    if (!bank) {
+    await connection.beginTransaction();
+    const [banks] = await connection.query<RowDataPacket[]>(
+      `SELECT question_bank_id FROM question_banks
+       WHERE question_bank_id = ? AND owner_instructor_id = ?
+         AND status <> 'archived'
+       LIMIT 1 FOR UPDATE`,
+      [questionBankId, instructorId],
+    );
+    if (banks.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ message: "ไม่พบพาร์ทที่ต้องการแก้ไข" });
     }
-    await db.query("DELETE FROM question WHERE question_bank_id = ?", [
-      questionBankId,
-    ]);
-    return res.json({ message: "Question bank questions cleared successfully" });
+    await connection.query(
+      `UPDATE choice
+       SET is_active = 0
+       WHERE question_id IN (
+         SELECT question_id FROM question WHERE question_bank_id = ?
+       )`,
+      [questionBankId],
+    );
+    await connection.query(
+      "UPDATE question SET is_active = 0 WHERE question_bank_id = ?",
+      [questionBankId],
+    );
+    await connection.commit();
+    return res.json({ message: "Question bank questions archived successfully" });
   } catch (error: unknown) {
-    const code =
-      typeof error === "object" && error !== null && "code" in error
-        ? String((error as { code?: unknown }).code ?? "")
-        : "";
-    if (code === "ER_ROW_IS_REFERENCED_2") {
-      return res.status(409).json({
-        message: "ไม่สามารถลบข้อสอบที่มีประวัติการทำแล้วได้",
-      });
-    }
+    await connection.rollback();
     console.error("clearInstructorQuestionBankQuestions error:", error);
-    return res.status(500).json({ message: "Unable to clear questions" });
+    return res.status(500).json({ message: "Unable to archive questions" });
+  } finally {
+    connection.release();
   }
 };
 

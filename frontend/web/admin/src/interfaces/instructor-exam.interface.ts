@@ -12,7 +12,6 @@ export interface InstructorQuestionBank {
   owner_instructor_id: number;
   bank_name: string;
   exam_period: InstructorExamPeriod;
-  default_draw_count: number;
   time_limit_minutes: number;
   status: "draft" | "published" | "archived";
   question_count: number;
@@ -50,19 +49,42 @@ export interface InstructorQuestionBankDetailResponse {
 
 export interface UpdateInstructorQuestionRequest {
   question_text: string;
+  question_image_path: string | null;
   question_score: number;
   choices: Array<{
     choice_id?: number;
     choice_text: string;
+    choice_image_path: string | null;
     is_correct: boolean;
   }>;
+}
+
+export type CreateInstructorQuestionRequest = UpdateInstructorQuestionRequest;
+
+export interface CreateInstructorQuestionResponse {
+  message: string;
+  question_id: number;
+}
+
+export interface UpdateInstructorQuestionBankSettingsRequest {
+  time_limit_minutes: number;
+}
+
+export interface UpdateInstructorQuestionBankSettingsResponse {
+  message: string;
+  question_bank: InstructorQuestionBank;
+}
+
+export interface UploadInstructorQuestionImageResponse {
+  message: string;
+  image_path: string;
+  image_url: string;
 }
 
 export interface CreateInstructorQuestionBankRequest {
   subject_id: string;
   bank_name: string;
   exam_period: InstructorExamPeriod;
-  default_draw_count?: number;
   time_limit_minutes?: number;
 }
 

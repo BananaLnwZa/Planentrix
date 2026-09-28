@@ -46,6 +46,27 @@ class ExamQuestionCard extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
+          if (question.imageUrl != null) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                question.imageUrl!,
+                width: double.infinity,
+                height: 190,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 90,
+                  alignment: Alignment.center,
+                  color: const Color(0xFFF4F7F8),
+                  child: const Text(
+                    'ไม่สามารถแสดงรูปคำถามได้',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF8A9BA2)),
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 17),
           for (var index = 0; index < question.choices.length; index++) ...[
             ExamChoiceButton(

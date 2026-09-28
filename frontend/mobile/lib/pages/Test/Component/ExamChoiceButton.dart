@@ -66,14 +66,45 @@ class ExamChoiceButton extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    choice.text,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: selected
-                          ? const Color(0xFF365327)
-                          : const Color(0xFF405B69),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (choice.text.isNotEmpty)
+                        Text(
+                          choice.text,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: selected
+                                ? const Color(0xFF365327)
+                                : const Color(0xFF405B69),
+                          ),
+                        ),
+                      if (choice.imageUrl != null) ...[
+                        if (choice.text.isNotEmpty) const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(9),
+                          child: Image.network(
+                            choice.imageUrl!,
+                            width: double.infinity,
+                            height: 120,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  height: 64,
+                                  alignment: Alignment.center,
+                                  color: Colors.white.withValues(alpha: 0.65),
+                                  child: const Text(
+                                    'ไม่สามารถแสดงรูปได้',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFF8A9BA2),
+                                    ),
+                                  ),
+                                ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],

@@ -13,12 +13,14 @@ export interface ExamChoice {
   choiceId: number;
   order: number;
   text: string;
+  imageUrl: string | null;
 }
 
 export interface ExamQuestion {
   questionId: number;
   order: number;
   text: string;
+  imageUrl: string | null;
   score: number;
   partName: string;
   choices: ExamChoice[];

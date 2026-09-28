@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   clearInstructorQuestionBankQuestions,
+  createInstructorQuestion,
   createInstructorQuestionBank,
   deleteInstructorQuestion,
   deleteInstructorQuestionBank,
@@ -8,9 +9,12 @@ import {
   getInstructorExamWorkspace,
   getInstructorQuestionBankDetail,
   importInstructorExamFile,
+  updateInstructorQuestionBankSettings,
   updateInstructorQuestion,
+  uploadInstructorQuestionImage,
 } from "../controllers/instructor.controller";
 import { examFileUpload } from "../../middlewares/examFileUpload";
+import { uploadQuestionImage } from "../../middlewares/questionImageUpload";
 import {
   createInstructorGradingDraft,
   getInstructorGradingWorkspace,
@@ -31,6 +35,19 @@ router.post(
 router.get("/exam-workspace", getInstructorExamWorkspace);
 router.get("/question-banks/:bankId", getInstructorQuestionBankDetail);
 router.post("/question-banks", createInstructorQuestionBank);
+router.patch(
+  "/question-banks/:bankId",
+  updateInstructorQuestionBankSettings,
+);
+router.post(
+  "/question-banks/:bankId/questions",
+  createInstructorQuestion,
+);
+router.post(
+  "/question-banks/:bankId/images",
+  uploadQuestionImage,
+  uploadInstructorQuestionImage,
+);
 router.patch(
   "/question-banks/:bankId/questions/:questionId",
   updateInstructorQuestion,

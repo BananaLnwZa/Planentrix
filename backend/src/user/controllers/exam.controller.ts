@@ -14,8 +14,17 @@ interface QuestionRow extends RowDataPacket {
 }
 interface ChoiceRow extends RowDataPacket {
   choice_id: number; question_id: number; choice_order: number;
-  choice_text: string; is_correct: 0 | 1;
+  choice_text: string; choice_image_path: string | null; is_correct: 0 | 1;
 }
+
+const questionImageUrl = (req: Request, imagePath: string | null) => {
+  if (!imagePath) return null;
+  if (/^https?:\/\//i.test(imagePath)) return imagePath;
+  const filename = imagePath.split(/[\\/]/).pop();
+  return filename
+    ? `${req.protocol}://${req.get("host")}/uploads/questions/${encodeURIComponent(filename)}`
+    : null;
+};
 
 const userIdFrom = (req: Request, res: Response) => {
   const user=(req as UserRequest).user;
@@ -49,7 +58,7 @@ const getQuestions=async(examId:number,connection:PoolConnection|typeof db=db)=>
   const [questions]=await connection.query<QuestionRow[]>(`SELECT q.question_id,q.question_text,q.question_image_path,q.question_score,
     ROW_NUMBER() OVER(ORDER BY q.question_id) AS question_order FROM question q
     WHERE q.question_bank_id=? AND q.is_active=1 ORDER BY q.question_id`,[examId]);
-  const [choices]=questions.length?await connection.query<ChoiceRow[]>(`SELECT c.choice_id,c.question_id,c.choice_order,c.choice_text,c.is_correct
+  const [choices]=questions.length?await connection.query<ChoiceRow[]>(`SELECT c.choice_id,c.question_id,c.choice_order,c.choice_text,c.choice_image_path,c.is_correct
     FROM choice c INNER JOIN question q ON q.question_id=c.question_id
     WHERE q.question_bank_id=? AND q.is_active=1 AND c.is_active=1 ORDER BY q.question_id,c.choice_order`,[examId]):[[] as ChoiceRow[],[] as unknown[]];
   return {questions,choices:choices as ChoiceRow[]};
@@ -66,7 +75,7 @@ export const getExamsForCurrentTerm=async(req:Request,res:Response)=>{
 export const getExamDetail=async(req:Request,res:Response)=>{
   try{const userId=userIdFrom(req,res);if(!userId)return;const examId=examIdFrom(req,res);if(!examId)return;const exam=await getAccessibleExam(userId,examId);if(!exam)return res.status(404).json({message:"Exam was not found for the current term"});
     const {questions,choices}=await getQuestions(examId);const byQuestion=new Map<number,ChoiceRow[]>();for(const choice of choices){const list=byQuestion.get(Number(choice.question_id))??[];list.push(choice);byQuestion.set(Number(choice.question_id),list);}
-    const part={exam_part_id:examId,part_order:1,exam_part_name:exam.exam_name,questions:questions.map(question=>({question_id:Number(question.question_id),question_order:Number(question.question_order),question_text:question.question_text,question_score:Number(question.question_score),choices:(byQuestion.get(Number(question.question_id))??[]).map(choice=>({choice_id:Number(choice.choice_id),choice_order:Number(choice.choice_order),choice_text:choice.choice_text}))}))};
+    const part={exam_part_id:examId,part_order:1,exam_part_name:exam.exam_name,questions:questions.map(question=>({question_id:Number(question.question_id),question_order:Number(question.question_order),question_text:question.question_text,question_image_url:questionImageUrl(req,question.question_image_path),question_score:Number(question.question_score),choices:(byQuestion.get(Number(question.question_id))??[]).map(choice=>({choice_id:Number(choice.choice_id),choice_order:Number(choice.choice_order),choice_text:choice.choice_text,choice_image_url:questionImageUrl(req,choice.choice_image_path)}))}))};
     return res.json({message:"Exam detail retrieved successfully",data:{...exam,parts:[part]}});
   }catch(error){console.error("getExamDetail error:",error);return res.status(500).json({message:"Internal server error"});}
 };
@@ -120,7 +129,7 @@ export const submitExam=async(req:Request,res:Response)=>{
     const percentage=maximum>0?(actual/maximum)*100:0;const weak=percentage<50;const [attempt]=await connection.query<ResultSetHeader>(`INSERT INTO exam_attempts(enrollment_id,exam_period,started_at,submitted_at,actual_score,max_score,weak_topic_count,status)
       VALUES(?,?,NOW(),NOW(),?,?,?,'submitted')`,[exam.schedule_time_id,exam.exam_period,actual,maximum,weak?1:0]);
     for(const result of results){await connection.query(`INSERT INTO exam_attempt_questions(exam_attempt_id,source_question_id,source_bank_id,display_order,question_text_snapshot,image_path_snapshot,question_score_snapshot,choices_snapshot,selected_choice_order,is_correct,awarded_score,answered_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,NOW())`,[attempt.insertId,result.question.question_id,examId,result.question.question_order,result.question.question_text,result.question.question_image_path,Number(result.question.question_score),JSON.stringify(result.options.map(option=>({choice_order:Number(option.choice_order),choice_text:option.choice_text}))),result.chosen?Number(result.chosen.choice_order):null,result.isCorrect?1:0,result.awarded]);}
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,NOW())`,[attempt.insertId,result.question.question_id,examId,result.question.question_order,result.question.question_text,result.question.question_image_path,Number(result.question.question_score),JSON.stringify(result.options.map(option=>({choice_order:Number(option.choice_order),choice_text:option.choice_text,choice_image_path:option.choice_image_path}))),result.chosen?Number(result.chosen.choice_order):null,result.isCorrect?1:0,result.awarded]);}
     await connection.query(`INSERT INTO exam_attempt_bank_results(exam_attempt_id,question_bank_id,bank_name_snapshot,actual_score,max_score,percentage,is_weak_topic)
       VALUES(?,?,?,?,?,?,?)`,[attempt.insertId,examId,exam.exam_name,actual,maximum,Number(percentage.toFixed(2)),weak?1:0]);
     let nextCheckpointAt:Date|null=null;let intervalWeeks=0;if(weak){intervalWeeks=checkpointWeeks(percentage);nextCheckpointAt=new Date();nextCheckpointAt.setDate(nextCheckpointAt.getDate()+intervalWeeks*7);await connection.query(`UPDATE exam_checkpoints SET status='superseded',updated_at=NOW() WHERE enrollment_id=? AND exam_period=? AND status='pending'`,[exam.schedule_time_id,exam.exam_period]);await connection.query(`INSERT INTO exam_checkpoints(enrollment_id,source_exam_attempt_id,exam_period,weak_topic_count,interval_weeks,next_checkpoint_at,status) VALUES(?,?,?,?,?,?,'pending')`,[exam.schedule_time_id,attempt.insertId,exam.exam_period,1,intervalWeeks,nextCheckpointAt]);}

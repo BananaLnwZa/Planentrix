@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -10,45 +10,143 @@ import {
   Plus,
   Save,
   Trash2,
+  Upload,
   X,
 } from "lucide-react";
 import type {
   InstructorExamQuestion,
   UpdateInstructorQuestionRequest,
+  UploadInstructorQuestionImageResponse,
 } from "@/interfaces/instructor-exam.interface";
+import { getQuestionImageUrl } from "@/utils/questionImage";
 
 interface EditableChoice {
   choice_id?: number;
   choice_text: string;
   choice_image_path: string | null;
+  image_file: File | null;
+  local_preview_url: string | null;
   is_correct: boolean;
 }
 
 interface InstructorQuestionEditModalProps {
-  question: InstructorExamQuestion;
+  question?: InstructorExamQuestion | null;
   onClose: () => void;
+  onUploadImage: (file: File) => Promise<UploadInstructorQuestionImageResponse>;
   onSave: (payload: UpdateInstructorQuestionRequest) => Promise<void>;
 }
+
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const ACCEPTED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
 
 export default function InstructorQuestionEditModal({
   question,
   onClose,
+  onUploadImage,
   onSave,
 }: InstructorQuestionEditModalProps) {
-  const [questionText, setQuestionText] = useState(question.question_text);
+  const objectUrlsRef = useRef(new Set<string>());
+  const isEditing = Boolean(question);
+  const [questionText, setQuestionText] = useState(question?.question_text ?? "");
   const [questionScore, setQuestionScore] = useState(
-    String(question.question_score),
+    String(question?.question_score ?? 1),
+  );
+  const [questionImagePath, setQuestionImagePath] = useState(
+    question?.question_image_path ?? null,
+  );
+  const [questionImageFile, setQuestionImageFile] = useState<File | null>(null);
+  const [questionImagePreview, setQuestionImagePreview] = useState<string | null>(
+    null,
   );
   const [choices, setChoices] = useState<EditableChoice[]>(() =>
-    question.choices.map((choice) => ({
-      choice_id: choice.choice_id,
-      choice_text: choice.choice_text,
-      choice_image_path: choice.choice_image_path,
-      is_correct: choice.is_correct,
-    })),
+    question
+      ? question.choices.map((choice) => ({
+          choice_id: choice.choice_id,
+          choice_text: choice.choice_text,
+          choice_image_path: choice.choice_image_path,
+          image_file: null,
+          local_preview_url: null,
+          is_correct: choice.is_correct,
+        }))
+      : [
+          {
+            choice_text: "",
+            choice_image_path: null,
+            image_file: null,
+            local_preview_url: null,
+            is_correct: true,
+          },
+          {
+            choice_text: "",
+            choice_image_path: null,
+            image_file: null,
+            local_preview_url: null,
+            is_correct: false,
+          },
+        ],
   );
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const objectUrls = objectUrlsRef.current;
+    return () => {
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+
+  const createPreviewUrl = (file: File) => {
+    const previewUrl = URL.createObjectURL(file);
+    objectUrlsRef.current.add(previewUrl);
+    return previewUrl;
+  };
+
+  const validateImage = (file: File) => {
+    if (!ACCEPTED_IMAGE_TYPES.has(file.type)) {
+      return "รองรับเฉพาะรูป JPG, PNG, WEBP และ GIF";
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      return "รูปภาพต้องมีขนาดไม่เกิน 5 MB";
+    }
+    return "";
+  };
+
+  const handleQuestionImageChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const validationError = validateImage(file);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setQuestionImageFile(file);
+    setQuestionImagePreview(createPreviewUrl(file));
+    setError("");
+  };
+
+  const handleChoiceImageChange = (
+    index: number,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const validationError = validateImage(file);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    updateChoice(index, {
+      image_file: file,
+      local_preview_url: createPreviewUrl(file),
+    });
+  };
 
   const updateChoice = (index: number, updates: Partial<EditableChoice>) => {
     setChoices((currentChoices) =>
@@ -76,6 +174,8 @@ export default function InstructorQuestionEditModal({
       {
         choice_text: "",
         choice_image_path: null,
+        image_file: null,
+        local_preview_url: null,
         is_correct: false,
       },
     ]);
@@ -127,12 +227,24 @@ export default function InstructorQuestionEditModal({
     setIsSaving(true);
     setError("");
     try {
+      const uploadedQuestionImage = questionImageFile
+        ? await onUploadImage(questionImageFile)
+        : null;
+      const uploadedChoiceImages = await Promise.all(
+        choices.map((choice) =>
+          choice.image_file ? onUploadImage(choice.image_file) : null,
+        ),
+      );
       await onSave({
         question_text: normalizedQuestionText,
+        question_image_path:
+          uploadedQuestionImage?.image_path ?? questionImagePath,
         question_score: score,
-        choices: choices.map((choice) => ({
+        choices: choices.map((choice, index) => ({
           ...(choice.choice_id ? { choice_id: choice.choice_id } : {}),
           choice_text: choice.choice_text.trim(),
+          choice_image_path:
+            uploadedChoiceImages[index]?.image_path ?? choice.choice_image_path,
           is_correct: choice.is_correct,
         })),
       });
@@ -147,6 +259,9 @@ export default function InstructorQuestionEditModal({
     }
   };
 
+  const displayedQuestionImage =
+    questionImagePreview ?? getQuestionImageUrl(questionImagePath);
+
   return (
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center bg-[#243b45]/55 p-3 backdrop-blur-sm sm:p-4"
@@ -158,13 +273,13 @@ export default function InstructorQuestionEditModal({
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#e5eef1] px-5 py-4 sm:px-6">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-[#5594aa]">
-              Edit Question
+              {isEditing ? "Edit Question" : "New Question"}
             </p>
             <h2
               id="edit-instructor-question-title"
               className="mt-1 text-xl font-semibold text-[#334b55]"
             >
-              แก้ไขข้อสอบ
+              {isEditing ? "แก้ไขข้อสอบ" : "สร้างคำถามใหม่"}
             </h2>
           </div>
           <button
@@ -183,9 +298,12 @@ export default function InstructorQuestionEditModal({
           className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6"
         >
           <div className="grid gap-4 sm:grid-cols-[1fr_170px]">
-            <label className="block text-sm font-medium text-[#4c626c]">
-              โจทย์ <span className="text-[#c76450]">*</span>
+            <div className="block text-sm font-medium text-[#4c626c]">
+              <label htmlFor="instructor-question-text">
+                โจทย์ <span className="text-[#c76450]">*</span>
+              </label>
               <textarea
+                id="instructor-question-text"
                 autoFocus
                 rows={4}
                 value={questionText}
@@ -195,13 +313,47 @@ export default function InstructorQuestionEditModal({
                 }}
                 className="mt-2 w-full resize-y rounded-2xl border border-[#dbe6ea] bg-[#fbfdfe] px-3.5 py-3 font-normal leading-6 text-[#405862] outline-none transition focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]"
               />
-              {question.question_image_path && (
-                <span className="mt-2 inline-flex items-center gap-1.5 text-xs font-normal text-[#6f8e99]">
-                  <ImageIcon aria-hidden="true" size={14} />
-                  รูปประกอบโจทย์เดิมจะยังคงอยู่
+              <span className="mt-3 block rounded-2xl border border-[#dbe6ea] bg-[#f7fbfc] p-3">
+                {displayedQuestionImage && (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={displayedQuestionImage}
+                      alt="รูปประกอบคำถาม"
+                      className="mb-3 max-h-48 w-full rounded-xl object-contain"
+                    />
+                  </>
+                )}
+                <span className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#cfe4eb] bg-white px-3 py-2 text-xs font-medium text-[#47849a] transition hover:bg-[#eef8fb]">
+                    <Upload aria-hidden="true" size={14} />
+                    {displayedQuestionImage ? "เปลี่ยนรูป" : "เพิ่มรูปคำถาม"}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={handleQuestionImageChange}
+                      className="sr-only"
+                    />
+                  </label>
+                  {displayedQuestionImage && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuestionImagePath(null);
+                        setQuestionImageFile(null);
+                        setQuestionImagePreview(null);
+                      }}
+                      className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-xs text-[#b45d4d] hover:bg-[#fff0ec]"
+                    >
+                      <Trash2 aria-hidden="true" size={14} /> นำรูปออก
+                    </button>
+                  )}
                 </span>
-              )}
-            </label>
+                <span className="mt-2 block text-[11px] font-normal text-[#81939a]">
+                  JPG, PNG, WEBP หรือ GIF ขนาดไม่เกิน 5 MB
+                </span>
+              </span>
+            </div>
 
             <label className="block text-sm font-medium text-[#4c626c]">
               คะแนน <span className="text-[#c76450]">*</span>
@@ -243,7 +395,11 @@ export default function InstructorQuestionEditModal({
             </div>
 
             <div className="mt-3 space-y-2.5">
-              {choices.map((choice, index) => (
+              {choices.map((choice, index) => {
+                const displayedChoiceImage =
+                  choice.local_preview_url ??
+                  getQuestionImageUrl(choice.choice_image_path);
+                return (
                 <div
                   key={choice.choice_id ?? `new-${index}`}
                   className={`grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl border p-3 transition ${
@@ -269,7 +425,7 @@ export default function InstructorQuestionEditModal({
                       className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-[#7b8d95]"
                     >
                       ตัวเลือก {index + 1}
-                      {choice.choice_image_path && (
+                      {displayedChoiceImage && (
                         <span className="inline-flex items-center gap-1 text-[#5d91a3]">
                           <ImageIcon aria-hidden="true" size={12} /> มีรูปเดิม
                         </span>
@@ -288,6 +444,45 @@ export default function InstructorQuestionEditModal({
                       }
                       className="h-10 w-full rounded-xl border border-[#dbe6ea] bg-white px-3 text-sm font-normal text-[#405862] outline-none transition focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]"
                     />
+                    {displayedChoiceImage && (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={displayedChoiceImage}
+                          alt={`รูปตัวเลือก ${index + 1}`}
+                          className="mt-2 max-h-32 w-full rounded-xl bg-white object-contain"
+                        />
+                      </>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[#cfe4eb] bg-white px-2.5 py-1.5 text-[11px] font-medium text-[#47849a] hover:bg-[#eef8fb]">
+                        <ImageIcon aria-hidden="true" size={13} />
+                        {displayedChoiceImage ? "เปลี่ยนรูป" : "เพิ่มรูป"}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          onChange={(event) =>
+                            handleChoiceImageChange(index, event)
+                          }
+                          className="sr-only"
+                        />
+                      </label>
+                      {displayedChoiceImage && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateChoice(index, {
+                              choice_image_path: null,
+                              image_file: null,
+                              local_preview_url: null,
+                            })
+                          }
+                          className="rounded-lg px-2.5 py-1.5 text-[11px] text-[#b45d4d] hover:bg-[#fff0ec]"
+                        >
+                          นำรูปออก
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -299,7 +494,8 @@ export default function InstructorQuestionEditModal({
                     <Trash2 aria-hidden="true" size={15} />
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <button
@@ -349,7 +545,11 @@ export default function InstructorQuestionEditModal({
               ) : (
                 <Save aria-hidden="true" size={17} />
               )}
-              {isSaving ? "กำลังบันทึก" : "บันทึกการแก้ไข"}
+              {isSaving
+                ? "กำลังบันทึก"
+                : isEditing
+                  ? "บันทึกการแก้ไข"
+                  : "สร้างคำถาม"}
             </button>
           </div>
         </form>
