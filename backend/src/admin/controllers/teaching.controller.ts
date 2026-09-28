@@ -5,6 +5,10 @@ import type {
   RowDataPacket,
 } from "mysql2/promise";
 import db from "../../config/db";
+import {
+  createSectionGradingSchemeFromDefault,
+  ensureSubjectDefaultGradingScheme,
+} from "../../services/gradingScheme.service";
 
 type TermStatus = "draft" | "active" | "completed" | "archived";
 type SectionStatus = "draft" | "open" | "closed" | "completed" | "cancelled";
@@ -848,6 +852,11 @@ export const createCourseSection = async (req: Request, res: Response) => {
       await connection.rollback();
       return res.status(400).json({ message: referenceError });
     }
+    const sourceSchemeId = await ensureSubjectDefaultGradingScheme(
+      connection,
+      payload.subjectId,
+      adminId,
+    );
     const [result] = await connection.query<ResultSetHeader>(
       `INSERT INTO course_sections
         (subject_id, academic_term_id, section_number, capacity,
@@ -863,6 +872,13 @@ export const createCourseSection = async (req: Request, res: Response) => {
       ],
     );
     await saveAssignments(connection, result.insertId, payload, adminId);
+    await createSectionGradingSchemeFromDefault(
+      connection,
+      payload.subjectId,
+      result.insertId,
+      adminId,
+      sourceSchemeId,
+    );
     await connection.commit();
     return res.status(201).json({
       message: "Course section and instructors created successfully",

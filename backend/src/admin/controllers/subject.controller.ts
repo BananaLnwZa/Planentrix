@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
+import { ensureSubjectDefaultGradingScheme } from "../../services/gradingScheme.service";
 import {
   ensureFixedSubjectTypes,
   FIXED_SUBJECT_TYPE_NAMES,
@@ -356,6 +357,11 @@ export const createSubject = async (req: Request, res: Response) => {
         subject.is_required ? 1 : 0,
         req.user!.id,
       ],
+    );
+    await ensureSubjectDefaultGradingScheme(
+      connection,
+      subject.subject_id!,
+      req.user!.id,
     );
     await connection.commit();
 

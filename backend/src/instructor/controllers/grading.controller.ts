@@ -5,23 +5,13 @@ import type {
   RowDataPacket,
 } from "mysql2/promise";
 import db from "../../config/db";
-
-const GRADE_CODES = ["A", "B+", "B", "C+", "C", "D+", "D", "F"] as const;
-type GradeCode = (typeof GRADE_CODES)[number];
-
-const DEFAULT_BOUNDARIES: Array<{
-  grade_code: GradeCode;
-  minimum_percentage: number;
-}> = [
-  { grade_code: "A", minimum_percentage: 80 },
-  { grade_code: "B+", minimum_percentage: 75 },
-  { grade_code: "B", minimum_percentage: 70 },
-  { grade_code: "C+", minimum_percentage: 65 },
-  { grade_code: "C", minimum_percentage: 60 },
-  { grade_code: "D+", minimum_percentage: 55 },
-  { grade_code: "D", minimum_percentage: 50 },
-  { grade_code: "F", minimum_percentage: 0 },
-];
+import {
+  DEFAULT_GRADE_BOUNDARIES,
+  GRADE_CODES,
+  insertGradeBoundaries,
+  type GradeBoundaryInput,
+  type GradeCode,
+} from "../../services/gradingScheme.service";
 
 interface GradingSectionRow extends RowDataPacket {
   section_id: number;
@@ -68,12 +58,6 @@ interface SchemeAccessRow extends GradingSchemeRow {
   instructor_role: "owner" | "co_instructor";
 }
 
-interface BoundaryInput {
-  grade_code: GradeCode;
-  minimum_percentage: number;
-  display_order: number;
-}
-
 const requireInstructor = (req: Request, res: Response): number | null => {
   if (!req.user?.id) {
     res.status(401).json({ message: "Unauthorized: Missing instructor ID" });
@@ -93,7 +77,9 @@ const positiveId = (value: unknown): number | null => {
 
 const validateBoundaries = (
   value: unknown,
-): { valid: true; boundaries: BoundaryInput[] } | { valid: false; error: string } => {
+):
+  | { valid: true; boundaries: GradeBoundaryInput[] }
+  | { valid: false; error: string } => {
   if (!Array.isArray(value) || value.length !== GRADE_CODES.length) {
     return {
       valid: false,
@@ -219,26 +205,6 @@ const getSchemeAccess = async (
     [instructorId, schemeId],
   );
   return rows[0];
-};
-
-const insertBoundaries = async (
-  connection: PoolConnection,
-  schemeId: number,
-  boundaries: BoundaryInput[],
-) => {
-  const placeholders = boundaries.map(() => "(?, ?, ?, ?)").join(", ");
-  const values = boundaries.flatMap((boundary) => [
-    schemeId,
-    boundary.grade_code,
-    boundary.minimum_percentage,
-    boundary.display_order,
-  ]);
-  await connection.query(
-    `INSERT INTO grade_boundaries
-      (grading_scheme_id, grade_code, minimum_percentage, display_order)
-     VALUES ${placeholders}`,
-    values,
-  );
 };
 
 export const getInstructorGradingWorkspace = async (
@@ -413,13 +379,10 @@ export const createInstructorGradingDraft = async (
         [result.insertId, source.grading_scheme_id],
       );
     } else {
-      await insertBoundaries(
+      await insertGradeBoundaries(
         connection,
         result.insertId,
-        DEFAULT_BOUNDARIES.map((boundary, index) => ({
-          ...boundary,
-          display_order: index + 1,
-        })),
+        DEFAULT_GRADE_BOUNDARIES,
       );
     }
 
@@ -478,7 +441,7 @@ export const updateInstructorGradingDraft = async (
       "DELETE FROM grade_boundaries WHERE grading_scheme_id = ?",
       [schemeId],
     );
-    await insertBoundaries(connection, schemeId, validation.boundaries);
+    await insertGradeBoundaries(connection, schemeId, validation.boundaries);
     await connection.query(
       `UPDATE grading_schemes
        SET updated_by_admin_id = ?, updated_at = NOW()
