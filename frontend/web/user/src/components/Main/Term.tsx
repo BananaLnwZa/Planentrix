@@ -3,12 +3,16 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays, Plus, X } from "lucide-react";
-import type { CurrentTerm } from "@/interfaces/term.interface";
+import type {
+  AvailableTermSubject,
+  CurrentTerm,
+} from "@/interfaces/term.interface";
 import termService from "@/services/term.service";
 import TermDetailsPopup from "@/components/Main/TermDetailsPopup";
 import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
 import CustomSelect from "@/components/common/CustomSelect";
 import { formatDisplayDate } from "@/utils/dateTime";
+import TermSectionPicker from "@/components/Main/TermSectionPicker";
 
 export type TermFormValues = {
   academicYear: string;
@@ -79,6 +83,39 @@ function getTermValidationError(values: TermFormValues) {
 
 function formatThaiExamDate(date?: string | null) {
   return formatDisplayDate(date);
+}
+
+function getScheduleConflict(
+  subjects: AvailableTermSubject[],
+  selectedSectionIds: Record<string, number>,
+) {
+  const selectedSections = subjects.flatMap((subject) =>
+    subject.sections.filter(
+      (section) => selectedSectionIds[subject.subject_id] === section.section_id,
+    ),
+  );
+  for (let firstIndex = 0; firstIndex < selectedSections.length; firstIndex += 1) {
+    const firstSection = selectedSections[firstIndex];
+    for (
+      let secondIndex = firstIndex + 1;
+      secondIndex < selectedSections.length;
+      secondIndex += 1
+    ) {
+      const secondSection = selectedSections[secondIndex];
+      for (const firstMeeting of firstSection.meetings) {
+        const conflict = secondSection.meetings.some(
+          (secondMeeting) =>
+            firstMeeting.day_of_week === secondMeeting.day_of_week &&
+            firstMeeting.start_time < secondMeeting.end_time &&
+            firstMeeting.end_time > secondMeeting.start_time,
+        );
+        if (conflict) {
+          return `เวลาเรียนชนกันระหว่าง ${firstSection.subject_name} กลุ่ม ${firstSection.section_number} และ ${secondSection.subject_name} กลุ่ม ${secondSection.section_number}`;
+        }
+      }
+    }
+  }
+  return "";
 }
 
 function SelectField({
@@ -188,6 +225,14 @@ export default function Term({
   const [isLoadingTerm, setIsLoadingTerm] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEndingTerm, setIsEndingTerm] = useState(false);
+  const [availableSubjects, setAvailableSubjects] = useState<
+    AvailableTermSubject[]
+  >([]);
+  const [selectedSectionIds, setSelectedSectionIds] = useState<
+    Record<string, number>
+  >({});
+  const [isLoadingSections, setIsLoadingSections] = useState(false);
+  const [sectionLoadError, setSectionLoadError] = useState("");
   const [dialogPosition, setDialogPosition] = useState({
     left: 16,
     top: 16,
@@ -196,7 +241,33 @@ export default function Term({
 
   const isFormComplete = Object.values(termFormValues).every(Boolean);
   const validationError = getTermValidationError(termFormValues);
-  const canSubmit = isFormComplete && !validationError && !isSubmitting;
+  const sectionSelectionReady =
+    Boolean(termFormValues.academicYear) &&
+    /^\d{4}$/.test(termFormValues.semester) &&
+    Boolean(termFormValues.term);
+  const allSectionsSelected =
+    availableSubjects.length > 0 &&
+    availableSubjects.every(
+      (subject) =>
+        subject.sections.length > 0 &&
+        subject.sections.some(
+          (section) =>
+            !section.is_full &&
+            selectedSectionIds[subject.subject_id] === section.section_id,
+        ),
+    );
+  const scheduleConflict = getScheduleConflict(
+    availableSubjects,
+    selectedSectionIds,
+  );
+  const canSubmit =
+    isFormComplete &&
+    !validationError &&
+    allSectionsSelected &&
+    !scheduleConflict &&
+    !isLoadingSections &&
+    !sectionLoadError &&
+    !isSubmitting;
 
   const updateTermFormValue = (
     field: keyof TermFormValues,
@@ -206,6 +277,12 @@ export default function Term({
       ...currentValues,
       [field]: value,
     }));
+    if (["academicYear", "semester", "term"].includes(field)) {
+      setSelectedSectionIds({});
+      setAvailableSubjects([]);
+      setSectionLoadError("");
+      setIsLoadingSections(false);
+    }
     setFormError("");
   };
 
@@ -234,6 +311,45 @@ export default function Term({
   }, []);
 
   useEffect(() => {
+    if (!isOpen || !sectionSelectionReady) return;
+
+    let active = true;
+    const loadSections = async () => {
+      setIsLoadingSections(true);
+      setSectionLoadError("");
+      try {
+        const response = await termService.getAvailableSections({
+          year_level: Number(termFormValues.academicYear),
+          academic_year: Number(termFormValues.semester),
+          semester_no: Number(termFormValues.term),
+        });
+        if (active) setAvailableSubjects(response.subjects);
+      } catch (error) {
+        if (active) {
+          setSectionLoadError(
+            error instanceof Error
+              ? error.message
+              : "ไม่สามารถโหลดกลุ่มเรียนได้",
+          );
+        }
+      } finally {
+        if (active) setIsLoadingSections(false);
+      }
+    };
+    void loadSections();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    isOpen,
+    sectionSelectionReady,
+    termFormValues.academicYear,
+    termFormValues.semester,
+    termFormValues.term,
+  ]);
+
+  useEffect(() => {
     if (!isOpen && !isDetailsOpen) return;
 
     const previousOverflow = document.body.style.overflow;
@@ -243,10 +359,7 @@ export default function Term({
 
       const rect = card.getBoundingClientRect();
       const pagePadding = 16;
-      const width = Math.min(
-        compact ? 440 : rect.width,
-        window.innerWidth - pagePadding * 2
-      );
+      const width = Math.min(620, window.innerWidth - pagePadding * 2);
 
       setDialogPosition({
         left: Math.max(
@@ -326,6 +439,9 @@ export default function Term({
         end_midterm: values.midtermEndDate,
         start_final: values.finalStartDate,
         end_final: values.finalEndDate,
+        section_ids: availableSubjects.map(
+          (subject) => selectedSectionIds[subject.subject_id],
+        ),
       });
 
       setCurrentTerm({
@@ -342,6 +458,8 @@ export default function Term({
       });
       onConfirm?.(values);
       setTermFormValues(emptyTermFormValues);
+      setAvailableSubjects([]);
+      setSelectedSectionIds({});
       setIsOpen(false);
     } catch (error) {
       setFormError(
@@ -539,7 +657,7 @@ export default function Term({
                   สร้างเทอมใหม่
                 </p>
                 <p className="mt-1 text-xs text-[#8AA0AA]">
-                  ระบุข้อมูลเทอมและช่วงสัปดาห์สอบให้ครบถ้วน
+                  ระบุข้อมูลเทอม เลือกกลุ่มเรียน และช่วงสัปดาห์สอบให้ครบถ้วน
                 </p>
               </div>
 
@@ -608,6 +726,27 @@ export default function Term({
                   </div>
                 </div>
 
+                <TermSectionPicker
+                  subjects={availableSubjects}
+                  selectedSectionIds={selectedSectionIds}
+                  loading={isLoadingSections}
+                  error={sectionLoadError}
+                  ready={sectionSelectionReady}
+                  onSelect={(subjectId, sectionId) => {
+                    setSelectedSectionIds((current) => ({
+                      ...current,
+                      [subjectId]: sectionId,
+                    }));
+                    setFormError("");
+                  }}
+                />
+
+                {scheduleConflict && (
+                  <p className="rounded-xl border border-[#F2C9C0] bg-[#FFF5F2] px-3 py-2 text-center text-xs text-[#B25D49]">
+                    {scheduleConflict} กรุณาเลือกกลุ่มอื่น
+                  </p>
+                )}
+
                 <div className="space-y-3 rounded-2xl border border-[#D7E7EE] bg-[#F7FBFD] p-3">
                   <p className="text-sm font-medium text-[#6D8996]">
                     ช่วงสัปดาห์สอบ
@@ -652,11 +791,13 @@ export default function Term({
                   </p>
                 )}
 
-                {!isFormComplete && !validationError && (
+                {(!isFormComplete || !allSectionsSelected) &&
+                  !validationError &&
+                  !sectionLoadError && (
                   <p className="text-center text-xs text-[#8AA0AA]">
-                    *กรุณากรอกข้อมูลทุกช่องก่อนสร้างเทอม
+                    *กรุณากรอกข้อมูลและเลือกกลุ่มเรียนให้ครบทุกวิชาก่อนสร้างเทอม
                   </p>
-                )}
+                  )}
 
                 {formError && (
                   <p

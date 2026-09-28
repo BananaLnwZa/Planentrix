@@ -26,6 +26,60 @@ export interface CreateTermRequest {
   end_midterm: string;
   start_final: string;
   end_final: string;
+  section_ids: number[];
+}
+
+export interface AvailableSectionInstructor {
+  instructor_id: number;
+  instructor_role: "owner" | "co_instructor";
+  first_name: string;
+  last_name: string;
+  admin_name: string;
+}
+
+export interface AvailableSectionMeeting {
+  class_meeting_id: number;
+  day_of_week:
+    | "monday"
+    | "tuesday"
+    | "wednesday"
+    | "thursday"
+    | "friday"
+    | "saturday"
+    | "sunday";
+  start_time: string;
+  end_time: string;
+  classroom: string | null;
+}
+
+export interface AvailableCourseSection {
+  section_id: number;
+  subject_id: string;
+  subject_name: string;
+  section_number: string;
+  capacity: number | null;
+  enrolled_count: number;
+  is_full: boolean;
+  instructors: AvailableSectionInstructor[];
+  meetings: AvailableSectionMeeting[];
+}
+
+export interface AvailableTermSubject {
+  subject_id: string;
+  subject_name: string;
+  sections: AvailableCourseSection[];
+}
+
+export interface AvailableTermSectionsResponse {
+  message: string;
+  academic_term_id: number;
+  subjects: AvailableTermSubject[];
+}
+
+export interface AvailableTermSectionsRequest {
+  year_level: number;
+  academic_year: number;
+  semester_no: number;
 }
 
 export interface CreateTermResponse {

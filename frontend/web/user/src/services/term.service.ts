@@ -1,5 +1,7 @@
 import axios from "axios";
 import type {
+  AvailableTermSectionsRequest,
+  AvailableTermSectionsResponse,
   CreateTermRequest,
   CreateTermResponse,
   CurrentTerm,
@@ -34,6 +36,20 @@ class TermService {
       return response.data;
     } catch (error) {
       throw this.toError(error, "Unable to create term");
+    }
+  }
+
+  async getAvailableSections(
+    params: AvailableTermSectionsRequest,
+  ): Promise<AvailableTermSectionsResponse> {
+    try {
+      const response = await this.apiClient.get<AvailableTermSectionsResponse>(
+        "/user/terms/available-sections",
+        { params },
+      );
+      return response.data;
+    } catch (error) {
+      throw this.toError(error, "ไม่สามารถโหลดกลุ่มเรียนที่เปิดอยู่ได้");
     }
   }
 
