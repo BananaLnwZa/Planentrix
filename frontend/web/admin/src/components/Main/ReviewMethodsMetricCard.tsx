@@ -12,6 +12,9 @@ const methodNames: Record<string, string> = {
   practice: "ฝึกทำโจทย์",
   video: "ดูวิดีโอบทเรียน",
   review: "ทบทวนจุดที่ยังไม่แม่น",
+  study: "ช่วงอ่านและทบทวน",
+  homework: "ช่วงทำงานและการบ้าน",
+  independent: "จับเวลาอ่านด้วยตนเอง",
 };
 
 const formatMinutes = (minutes: number) => {

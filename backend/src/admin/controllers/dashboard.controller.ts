@@ -102,23 +102,13 @@ export const getStudyTimeOverview = async (
     if (!isAdmin(req, res)) return;
 
     const [summaryRows] = await db.query<StudyTimeSummaryRow[]>(
-      `WITH ranked_terms AS (
+      `WITH current_terms AS (
          SELECT
-           term_id,
+           student_term_id,
            user_id,
-           created_at,
-           ROW_NUMBER() OVER (
-             PARTITION BY user_id
-             ORDER BY term_id DESC
-           ) AS term_rank
-         FROM terms
-         WHERE term_status = 1
-           AND user_id IS NOT NULL
-       ),
-       current_terms AS (
-         SELECT term_id, user_id, created_at
-         FROM ranked_terms
-         WHERE term_rank = 1
+           created_at
+         FROM student_terms
+         WHERE status = 'active'
        ),
        user_study AS (
          SELECT
@@ -127,31 +117,30 @@ export const getStudyTimeOverview = async (
              1,
              FLOOR(DATEDIFF(CURDATE(), DATE(current_terms.created_at)) / 7) + 1
            ) AS elapsed_weeks,
-           COALESCE(SUM(study.time_spent), 0) AS total_minutes,
+           COALESCE(SUM(session.accumulated_seconds), 0) / 60 AS total_minutes,
            COALESCE(
              SUM(
                CASE
-                 WHEN study_types.study_type_name = 'review'
-                 THEN study.time_spent
+                 WHEN schedule_type.type_code IN ('study', 'review')
+                 THEN session.accumulated_seconds
                  ELSE 0
                END
-             ),
+             ) / 60,
              0
            ) AS review_minutes
          FROM current_terms
-         LEFT JOIN schedule_time schedule
-           ON schedule.term_id = current_terms.term_id
-          AND schedule.user_id = current_terms.user_id
-          AND schedule.schedule_type_id = 1
-         LEFT JOIN study_time study
-           ON study.schedule_time_id = schedule.schedule_time_id
-          AND study.session_status = 'completed'
-          AND study.time_spent IS NOT NULL
-          AND study.start_time >= current_terms.created_at
-         LEFT JOIN study_types
-           ON study_types.study_type_id = study.study_type_id
+         LEFT JOIN enrollments enrollment
+           ON enrollment.student_term_id = current_terms.student_term_id
+         LEFT JOIN study_sessions session
+           ON session.enrollment_id = enrollment.enrollment_id
+          AND session.status = 'completed'
+          AND session.started_at >= current_terms.created_at
+         LEFT JOIN weekly_schedule_block weekly_block
+           ON weekly_block.weekly_block_id = session.weekly_block_id
+         LEFT JOIN schedule_types schedule_type
+           ON schedule_type.schedule_type_id = weekly_block.schedule_type_id
          GROUP BY
-           current_terms.term_id,
+           current_terms.student_term_id,
            current_terms.user_id,
            current_terms.created_at
        )
@@ -179,28 +168,18 @@ export const getStudyTimeOverview = async (
          FROM week_series
          WHERE week_offset > 0
        ),
-       ranked_terms AS (
-         SELECT
-           term_id,
-           user_id,
-           created_at,
-           ROW_NUMBER() OVER (
-             PARTITION BY user_id
-             ORDER BY term_id DESC
-           ) AS term_rank
-         FROM terms
-         WHERE term_status = 1
-           AND user_id IS NOT NULL
-       ),
        current_terms AS (
-         SELECT term_id, user_id, created_at
-         FROM ranked_terms
-         WHERE term_rank = 1
+         SELECT
+           student_term_id,
+           user_id,
+           created_at
+         FROM student_terms
+         WHERE status = 'active'
        ),
        eligible_users AS (
          SELECT
            weeks.week_start,
-           current_terms.term_id,
+           current_terms.student_term_id,
            current_terms.user_id
          FROM week_series weeks
          INNER JOIN current_terms
@@ -209,46 +188,46 @@ export const getStudyTimeOverview = async (
        SELECT
          DATE_FORMAT(weeks.week_start, '%Y-%m-%d') AS week_start,
          COUNT(DISTINCT eligible.user_id) AS user_count,
-         COALESCE(SUM(study.time_spent), 0) / 60 AS total_hours,
+         COALESCE(SUM(session.accumulated_seconds), 0) / 3600 AS total_hours,
          COALESCE(
-           SUM(study.time_spent) / NULLIF(COUNT(DISTINCT eligible.user_id), 0) / 60,
+           SUM(session.accumulated_seconds) /
+             NULLIF(COUNT(DISTINCT eligible.user_id), 0) / 3600,
            0
          ) AS average_hours,
          COALESCE(
            SUM(
              CASE
-               WHEN study_types.study_type_name = 'review'
-               THEN study.time_spent
+               WHEN schedule_type.type_code IN ('study', 'review')
+               THEN session.accumulated_seconds
                ELSE 0
              END
-           ) / 60,
+           ) / 3600,
            0
          ) AS total_review_hours,
          COALESCE(
            SUM(
              CASE
-               WHEN study_types.study_type_name = 'review'
-               THEN study.time_spent
+               WHEN schedule_type.type_code IN ('study', 'review')
+               THEN session.accumulated_seconds
                ELSE 0
              END
-           ) / NULLIF(COUNT(DISTINCT eligible.user_id), 0) / 60,
+           ) / NULLIF(COUNT(DISTINCT eligible.user_id), 0) / 3600,
            0
          ) AS average_review_hours
        FROM week_series weeks
        LEFT JOIN eligible_users eligible
          ON eligible.week_start = weeks.week_start
-       LEFT JOIN schedule_time schedule
-         ON schedule.term_id = eligible.term_id
-        AND schedule.user_id = eligible.user_id
-        AND schedule.schedule_type_id = 1
-       LEFT JOIN study_time study
-         ON study.schedule_time_id = schedule.schedule_time_id
-        AND study.session_status = 'completed'
-        AND study.time_spent IS NOT NULL
-        AND study.start_time >= weeks.week_start
-        AND study.start_time < DATE_ADD(weeks.week_start, INTERVAL 1 WEEK)
-       LEFT JOIN study_types
-         ON study_types.study_type_id = study.study_type_id
+       LEFT JOIN enrollments enrollment
+         ON enrollment.student_term_id = eligible.student_term_id
+       LEFT JOIN study_sessions session
+         ON session.enrollment_id = enrollment.enrollment_id
+        AND session.status = 'completed'
+        AND session.started_at >= weeks.week_start
+        AND session.started_at < DATE_ADD(weeks.week_start, INTERVAL 1 WEEK)
+       LEFT JOIN weekly_schedule_block weekly_block
+         ON weekly_block.weekly_block_id = session.weekly_block_id
+       LEFT JOIN schedule_types schedule_type
+         ON schedule_type.schedule_type_id = weekly_block.schedule_type_id
        GROUP BY weeks.week_start
        ORDER BY weeks.week_start`,
     );
@@ -454,53 +433,65 @@ export const getExamPartRankings = async (
     if (!isAdmin(req, res)) return;
 
     const [rows] = await db.query<ExamPartPerformanceRow[]>(
-      `WITH ranked_attempts AS (
+      `WITH bank_catalog AS (
          SELECT
-           history.exam_score_history_id,
-           history.exam_repository_id,
-           schedule.user_id,
+           bank.question_bank_id,
+           bank.subject_id,
+           bank.bank_name,
+           bank.exam_period,
+           DENSE_RANK() OVER (
+             PARTITION BY bank.subject_id, bank.exam_period
+             ORDER BY bank.question_bank_id
+           ) AS part_order
+         FROM question_banks bank
+       ),
+       ranked_results AS (
+         SELECT
+           bank_result.bank_result_id,
+           bank_result.question_bank_id,
+           bank_result.percentage,
+           student_term.user_id,
            ROW_NUMBER() OVER (
-             PARTITION BY schedule.user_id, history.exam_repository_id
+             PARTITION BY student_term.user_id, bank_result.question_bank_id
              ORDER BY
-               history.exam_date DESC,
-               history.exam_score_history_id DESC
+               attempt.submitted_at DESC,
+               attempt.exam_attempt_id DESC
            ) AS attempt_rank
-         FROM exam_score_history history
-         INNER JOIN schedule_time schedule
-           ON schedule.schedule_time_id = history.schedule_time_id
+         FROM exam_attempt_bank_results bank_result
+         INNER JOIN exam_attempts attempt
+           ON attempt.exam_attempt_id = bank_result.exam_attempt_id
+          AND attempt.status = 'submitted'
+         INNER JOIN enrollments enrollment
+           ON enrollment.enrollment_id = attempt.enrollment_id
+         INNER JOIN student_terms student_term
+           ON student_term.student_term_id = enrollment.student_term_id
        )
        SELECT
-         parts.exam_part_id,
-         repository.exam_repository_id,
-         repository.exam_name,
-         parts.part_order,
-         parts.exam_part_name,
-         ROUND(
-           AVG(
-             LEAST(
-               100,
-               GREATEST(0, (scores.part_score / parts.part_score) * 100)
-             )
-           ),
-           2
-         ) AS average_percentage,
+         catalog.question_bank_id AS exam_part_id,
+         catalog.question_bank_id AS exam_repository_id,
+         CONCAT(
+           catalog.subject_id,
+           ' · ',
+           CASE catalog.exam_period
+             WHEN 'midterm' THEN 'กลางภาค'
+             ELSE 'ปลายภาค'
+           END
+         ) AS exam_name,
+         catalog.part_order,
+         catalog.bank_name AS exam_part_name,
+         ROUND(AVG(result.percentage), 2) AS average_percentage,
          COUNT(*) AS attempt_count,
-         COUNT(DISTINCT attempts.user_id) AS user_count
-       FROM ranked_attempts attempts
-       INNER JOIN part_score_history scores
-         ON scores.exam_score_history_id = attempts.exam_score_history_id
-       INNER JOIN exam_part parts
-         ON parts.exam_part_id = scores.exam_part_id
-       INNER JOIN exam_repository repository
-         ON repository.exam_repository_id = parts.exam_repository_id
-       WHERE attempts.attempt_rank = 1
-         AND parts.part_score > 0
+         COUNT(DISTINCT result.user_id) AS user_count
+       FROM ranked_results result
+       INNER JOIN bank_catalog catalog
+         ON catalog.question_bank_id = result.question_bank_id
+       WHERE result.attempt_rank = 1
        GROUP BY
-         parts.exam_part_id,
-         repository.exam_repository_id,
-         repository.exam_name,
-         parts.part_order,
-         parts.exam_part_name`,
+         catalog.question_bank_id,
+         catalog.subject_id,
+         catalog.exam_period,
+         catalog.bank_name,
+         catalog.part_order`,
     );
 
     const items = rows.map((row) => ({
@@ -561,19 +552,18 @@ export const getUserYearDistribution = async (
       `WITH ranked_current_terms AS (
          SELECT
            user_id,
-           academic_year,
+           year_level,
            ROW_NUMBER() OVER (
              PARTITION BY user_id
-             ORDER BY term_id DESC
+             ORDER BY student_term_id DESC
            ) AS term_rank
-         FROM terms
-         WHERE term_status = 1
-           AND user_id IS NOT NULL
+         FROM student_terms
+         WHERE status = 'active'
        )
        SELECT
          CASE
-           WHEN current_term.academic_year BETWEEN 1 AND 4
-           THEN current_term.academic_year
+           WHEN current_term.year_level BETWEEN 1 AND 4
+           THEN current_term.year_level
            ELSE NULL
          END AS academic_year,
          COUNT(*) AS user_count
@@ -630,27 +620,15 @@ export const getWorkloadCompletion = async (
     if (!isAdmin(req, res)) return;
 
     const [rows] = await db.query<WorkloadStatusRow[]>(
-      `WITH ranked_current_terms AS (
-         SELECT
-           term_id,
-           user_id,
-           ROW_NUMBER() OVER (
-             PARTITION BY user_id
-             ORDER BY term_id DESC
-           ) AS term_rank
-         FROM terms
-         WHERE term_status = 1
-           AND user_id IS NOT NULL
-       )
-       SELECT
-         COALESCE(SUM(CASE WHEN workload.workload_status = 1 THEN 1 ELSE 0 END), 0)
+      `SELECT
+         COALESCE(SUM(CASE WHEN workload.status = 'completed' THEN 1 ELSE 0 END), 0)
            AS completed_count,
-         COALESCE(SUM(CASE WHEN workload.workload_status = 0 THEN 1 ELSE 0 END), 0)
+         COALESCE(SUM(CASE WHEN workload.status = 'pending' THEN 1 ELSE 0 END), 0)
            AS pending_count,
          COALESCE(
            SUM(
              CASE
-               WHEN workload.workload_status = 0
+               WHEN workload.status = 'pending'
                 AND TIMESTAMP(workload.deadline_date, workload.deadline_time) < NOW()
                THEN 1 ELSE 0
              END
@@ -658,13 +636,14 @@ export const getWorkloadCompletion = async (
            0
          ) AS overdue_count,
          COUNT(workload.workload_id) AS total_count
-       FROM ranked_current_terms current_term
-       INNER JOIN schedule_time schedule
-         ON schedule.term_id = current_term.term_id
-        AND schedule.user_id = current_term.user_id
+       FROM student_terms student_term
+       INNER JOIN enrollments enrollment
+         ON enrollment.student_term_id = student_term.student_term_id
+        AND enrollment.status = 'enrolled'
        INNER JOIN workloads workload
-         ON workload.schedule_time_id = schedule.schedule_time_id
-       WHERE current_term.term_rank = 1`,
+         ON workload.enrollment_id = enrollment.enrollment_id
+        AND workload.status IN ('pending', 'completed')
+       WHERE student_term.status = 'active'`,
     );
 
     const row = rows[0];
@@ -699,81 +678,44 @@ export const getExamScoreSummaries = async (
     if (!isAdmin(req, res)) return;
 
     const [rows] = await db.query<ExamScoreSummaryRow[]>(
-      `WITH ranked_current_terms AS (
+      `WITH ranked_results AS (
          SELECT
-           term_id,
-           user_id,
+           bank_result.question_bank_id,
+           bank_result.percentage,
+           student_term.user_id,
            ROW_NUMBER() OVER (
-             PARTITION BY user_id
-             ORDER BY term_id DESC
-           ) AS term_rank
-         FROM terms
-         WHERE term_status = 1
-           AND user_id IS NOT NULL
-       ),
-       ranked_attempts AS (
-         SELECT
-           history.exam_score_history_id,
-           history.exam_repository_id,
-           schedule.user_id,
-           history.actual_score,
-           history.exam_max_score,
-           ROW_NUMBER() OVER (
-             PARTITION BY schedule.user_id, history.exam_repository_id
+             PARTITION BY student_term.user_id, bank_result.question_bank_id
              ORDER BY
-               history.exam_date DESC,
-               history.exam_score_history_id DESC
+               attempt.submitted_at DESC,
+               attempt.exam_attempt_id DESC
            ) AS attempt_rank
-         FROM ranked_current_terms current_term
-         INNER JOIN schedule_time schedule
-           ON schedule.term_id = current_term.term_id
-          AND schedule.user_id = current_term.user_id
-         INNER JOIN exam_score_history history
-           ON history.schedule_time_id = schedule.schedule_time_id
-         WHERE current_term.term_rank = 1
-           AND history.exam_max_score > 0
+         FROM exam_attempt_bank_results bank_result
+         INNER JOIN exam_attempts attempt
+           ON attempt.exam_attempt_id = bank_result.exam_attempt_id
+          AND attempt.status = 'submitted'
+         INNER JOIN enrollments enrollment
+           ON enrollment.enrollment_id = attempt.enrollment_id
+         INNER JOIN student_terms student_term
+           ON student_term.student_term_id = enrollment.student_term_id
+          AND student_term.status = 'active'
        )
        SELECT
-         repository.exam_repository_id,
-         repository.subject_id,
-         repository.exam_name,
-         ROUND(
-           AVG(
-             LEAST(
-               100,
-               GREATEST(0, (attempts.actual_score / attempts.exam_max_score) * 100)
-             )
-           ),
-           2
-         ) AS average_percentage,
-         ROUND(
-           MAX(
-             LEAST(
-               100,
-               GREATEST(0, (attempts.actual_score / attempts.exam_max_score) * 100)
-             )
-           ),
-           2
-         ) AS highest_percentage,
-         ROUND(
-           MIN(
-             LEAST(
-               100,
-               GREATEST(0, (attempts.actual_score / attempts.exam_max_score) * 100)
-             )
-           ),
-           2
-         ) AS lowest_percentage,
-         COUNT(DISTINCT attempts.user_id) AS user_count
-       FROM ranked_attempts attempts
-       INNER JOIN exam_repository repository
-         ON repository.exam_repository_id = attempts.exam_repository_id
-       WHERE attempts.attempt_rank = 1
+         bank.question_bank_id AS exam_repository_id,
+         bank.subject_id,
+         bank.bank_name AS exam_name,
+         ROUND(AVG(result.percentage), 2) AS average_percentage,
+         ROUND(MAX(result.percentage), 2) AS highest_percentage,
+         ROUND(MIN(result.percentage), 2) AS lowest_percentage,
+         COUNT(DISTINCT result.user_id) AS user_count
+       FROM ranked_results result
+       INNER JOIN question_banks bank
+         ON bank.question_bank_id = result.question_bank_id
+       WHERE result.attempt_rank = 1
        GROUP BY
-         repository.exam_repository_id,
-         repository.subject_id,
-         repository.exam_name
-       ORDER BY user_count DESC, repository.exam_repository_id ASC`,
+         bank.question_bank_id,
+         bank.subject_id,
+         bank.bank_name
+       ORDER BY user_count DESC, bank.question_bank_id ASC`,
     );
 
     return res.json({
@@ -803,46 +745,34 @@ export const getReviewMethods = async (
     if (!isAdmin(req, res)) return;
 
     const [rows] = await db.query<ReviewMethodRow[]>(
-      `WITH ranked_current_terms AS (
+      `WITH current_sessions AS (
          SELECT
-           term_id,
-           user_id,
-           ROW_NUMBER() OVER (
-             PARTITION BY user_id
-             ORDER BY term_id DESC
-           ) AS term_rank
-         FROM terms
-         WHERE term_status = 1
-           AND user_id IS NOT NULL
-       ),
-       current_sessions AS (
-         SELECT
-           study.study_time_id,
-           study.study_type_id,
-           study.time_spent,
-           schedule.user_id
-         FROM ranked_current_terms current_term
-         INNER JOIN schedule_time schedule
-           ON schedule.term_id = current_term.term_id
-          AND schedule.user_id = current_term.user_id
-          AND schedule.schedule_type_id = 1
-         INNER JOIN study_time study
-           ON study.schedule_time_id = schedule.schedule_time_id
-          AND study.session_status = 'completed'
-          AND study.time_spent IS NOT NULL
-         WHERE current_term.term_rank = 1
+           session.study_session_id,
+           COALESCE(schedule_type.schedule_type_id, 0) AS study_type_id,
+           COALESCE(schedule_type.type_code, 'independent') AS study_type_name,
+           session.accumulated_seconds / 60 AS time_spent,
+           student_term.user_id
+         FROM study_sessions session
+         INNER JOIN enrollments enrollment
+           ON enrollment.enrollment_id = session.enrollment_id
+         INNER JOIN student_terms student_term
+           ON student_term.student_term_id = enrollment.student_term_id
+          AND student_term.status = 'active'
+         LEFT JOIN weekly_schedule_block weekly_block
+           ON weekly_block.weekly_block_id = session.weekly_block_id
+         LEFT JOIN schedule_types schedule_type
+           ON schedule_type.schedule_type_id = weekly_block.schedule_type_id
+         WHERE session.status = 'completed'
        )
        SELECT
-         types.study_type_id,
-         types.study_type_name,
+         sessions.study_type_id,
+         sessions.study_type_name,
          COALESCE(SUM(sessions.time_spent), 0) AS total_minutes,
-         COUNT(sessions.study_time_id) AS session_count,
+         COUNT(sessions.study_session_id) AS session_count,
          COUNT(DISTINCT sessions.user_id) AS user_count
-       FROM study_types types
-       LEFT JOIN current_sessions sessions
-         ON sessions.study_type_id = types.study_type_id
-       GROUP BY types.study_type_id, types.study_type_name
-       ORDER BY total_minutes DESC, types.study_type_id ASC`,
+       FROM current_sessions sessions
+       GROUP BY sessions.study_type_id, sessions.study_type_name
+       ORDER BY total_minutes DESC, sessions.study_type_id ASC`,
     );
 
     const totalMinutes = rows.reduce(
