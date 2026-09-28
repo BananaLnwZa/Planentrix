@@ -8,6 +8,14 @@ import db from "../../config/db";
 
 type TermStatus = "draft" | "active" | "completed" | "archived";
 type SectionStatus = "draft" | "open" | "closed" | "completed" | "cancelled";
+type MeetingDay =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
 
 interface TermRow extends RowDataPacket {
   academic_term_id: number;
@@ -62,6 +70,19 @@ interface AssignmentRow extends RowDataPacket {
   department_name: string | null;
 }
 
+interface MeetingRow extends RowDataPacket {
+  class_meeting_id: number;
+  section_id: number;
+  instructor_id: number;
+  day_of_week: MeetingDay;
+  start_time: string;
+  end_time: string;
+  classroom: string | null;
+  admin_name: string;
+  first_name: string;
+  last_name: string;
+}
+
 interface SectionPayload {
   subjectId: string;
   academicTermId: number;
@@ -71,6 +92,24 @@ interface SectionPayload {
   ownerInstructorId: number;
   coInstructorIds: number[];
 }
+
+interface MeetingPayload {
+  instructorId: number;
+  dayOfWeek: MeetingDay;
+  startTime: string;
+  endTime: string;
+  classroom: string | null;
+}
+
+const meetingDays: MeetingDay[] = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
 
 const termSelect = `SELECT
   academic_term_id,
@@ -132,6 +171,45 @@ const parseNullableDatePair = (
     start,
     end,
     valid: Boolean(start && end && start <= end),
+  };
+};
+
+const normalizeTime = (value: unknown): string | null => {
+  const time = String(value ?? "").trim();
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(time)) return null;
+  return time.length === 5 ? `${time}:00` : time;
+};
+
+const parseMeetingPayload = (
+  body: Record<string, unknown>,
+): { data?: MeetingPayload; message?: string } => {
+  const instructorId = Number(body.instructor_id);
+  const dayOfWeek = String(body.day_of_week ?? "") as MeetingDay;
+  const startTime = normalizeTime(body.start_time);
+  const endTime = normalizeTime(body.end_time);
+  const classroomText = String(body.classroom ?? "").trim();
+
+  if (!Number.isInteger(instructorId) || instructorId <= 0) {
+    return { message: "กรุณาเลือกอาจารย์ผู้รับผิดชอบคาบเรียน" };
+  }
+  if (!meetingDays.includes(dayOfWeek)) {
+    return { message: "กรุณาเลือกวันประจำสัปดาห์" };
+  }
+  if (!startTime || !endTime || startTime >= endTime) {
+    return { message: "เวลาเริ่มต้องอยู่ก่อนเวลาสิ้นสุด" };
+  }
+  if (classroomText.length > 100) {
+    return { message: "ชื่อห้องเรียนต้องไม่เกิน 100 ตัวอักษร" };
+  }
+
+  return {
+    data: {
+      instructorId,
+      dayOfWeek,
+      startTime,
+      endTime,
+      classroom: classroomText || null,
+    },
   };
 };
 
@@ -233,29 +311,119 @@ const validateSectionReferences = async (
   return null;
 };
 
+const validateMeetingReferences = async (
+  connection: PoolConnection,
+  sectionId: number,
+  payload: MeetingPayload,
+  excludedMeetingId: number | null = null,
+): Promise<string | null> => {
+  const [sections] = await connection.query<RowDataPacket[]>(
+    `SELECT section.academic_term_id, section.status
+     FROM course_sections section
+     INNER JOIN section_instructors assignment
+       ON assignment.section_id = section.section_id
+      AND assignment.instructor_id = ?
+     INNER JOIN admin instructor
+       ON instructor.admin_id = assignment.instructor_id
+      AND instructor.role = 'instructor'
+      AND instructor.status = 'active'
+     WHERE section.section_id = ?
+     LIMIT 1`,
+    [payload.instructorId, sectionId],
+  );
+  const section = sections[0];
+  if (!section) {
+    return "อาจารย์ที่เลือกต้องได้รับมอบหมายให้อยู่ในกลุ่มเรียนนี้";
+  }
+  if (["completed", "cancelled"].includes(String(section.status))) {
+    return "ไม่สามารถจัดการคาบของกลุ่มเรียนที่สิ้นสุดหรือยกเลิกแล้ว";
+  }
+
+  const [conflicts] = await connection.query<RowDataPacket[]>(
+    `SELECT
+       meeting.class_meeting_id,
+       meeting.section_id,
+       meeting.instructor_id,
+       meeting.classroom,
+       conflict_section.subject_id,
+       conflict_section.section_number
+     FROM class_meetings meeting
+     INNER JOIN course_sections conflict_section
+       ON conflict_section.section_id = meeting.section_id
+     WHERE conflict_section.academic_term_id = ?
+       AND conflict_section.status <> 'cancelled'
+       AND meeting.day_of_week = ?
+       AND meeting.start_time < ?
+       AND meeting.end_time > ?
+       AND (? IS NULL OR meeting.class_meeting_id <> ?)
+       AND (
+         meeting.section_id = ?
+         OR meeting.instructor_id = ?
+         OR (
+           ? IS NOT NULL
+           AND meeting.classroom IS NOT NULL
+           AND LOWER(TRIM(meeting.classroom)) = LOWER(?)
+         )
+       )
+     LIMIT 1`,
+    [
+      section.academic_term_id,
+      payload.dayOfWeek,
+      payload.endTime,
+      payload.startTime,
+      excludedMeetingId,
+      excludedMeetingId,
+      sectionId,
+      payload.instructorId,
+      payload.classroom,
+      payload.classroom,
+    ],
+  );
+  const conflict = conflicts[0];
+  if (!conflict) return null;
+  if (Number(conflict.section_id) === sectionId) {
+    return "ช่วงเวลานี้ชนกับคาบอื่นของกลุ่มเรียนเดียวกัน";
+  }
+  if (Number(conflict.instructor_id) === payload.instructorId) {
+    return `อาจารย์มีคาบสอนซ้อนกับ ${conflict.subject_id} กลุ่ม ${conflict.section_number}`;
+  }
+  return `ห้อง ${payload.classroom} ถูกใช้งานในช่วงเวลานี้แล้ว`;
+};
+
 const saveAssignments = async (
   connection: PoolConnection,
   sectionId: number,
   payload: SectionPayload,
   adminId: number,
 ) => {
-  await connection.query("DELETE FROM section_instructors WHERE section_id = ?", [
-    sectionId,
-  ]);
-  await connection.query(
-    `INSERT INTO section_instructors
-      (section_id, instructor_id, instructor_role, assigned_by_admin_id)
-     VALUES (?, ?, 'owner', ?)`,
-    [sectionId, payload.ownerInstructorId, adminId],
-  );
-  for (const instructorId of payload.coInstructorIds) {
+  const assignments: Array<{
+    instructorId: number;
+    role: "owner" | "co_instructor";
+  }> = [
+    { instructorId: payload.ownerInstructorId, role: "owner" },
+    ...payload.coInstructorIds.map((instructorId) => ({
+      instructorId,
+      role: "co_instructor" as const,
+    })),
+  ];
+  for (const assignment of assignments) {
     await connection.query(
       `INSERT INTO section_instructors
         (section_id, instructor_id, instructor_role, assigned_by_admin_id)
-       VALUES (?, ?, 'co_instructor', ?)`,
-      [sectionId, instructorId, adminId],
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         instructor_role = VALUES(instructor_role),
+         assigned_by_admin_id = VALUES(assigned_by_admin_id)`,
+      [sectionId, assignment.instructorId, assignment.role, adminId],
     );
   }
+  const instructorIds = assignments.map((assignment) => assignment.instructorId);
+  const placeholders = instructorIds.map(() => "?").join(", ");
+  await connection.query(
+    `DELETE FROM section_instructors
+     WHERE section_id = ? AND instructor_id NOT IN (${placeholders})`,
+    [sectionId, ...instructorIds],
+  );
 };
 
 export const getTeachingWorkspace = async (req: Request, res: Response) => {
@@ -321,12 +489,40 @@ export const getTeachingWorkspace = async (req: Request, res: Response) => {
          FIELD(assignment.instructor_role, 'owner', 'co_instructor'),
          instructor.first_name, instructor.last_name`,
     );
+    const [meetings] = await db.query<MeetingRow[]>(
+      `SELECT
+         meeting.class_meeting_id,
+         meeting.section_id,
+         meeting.instructor_id,
+         meeting.day_of_week,
+         TIME_FORMAT(meeting.start_time, '%H:%i') AS start_time,
+         TIME_FORMAT(meeting.end_time, '%H:%i') AS end_time,
+         meeting.classroom,
+         instructor.admin_name,
+         instructor.first_name,
+         instructor.last_name
+       FROM class_meetings meeting
+       INNER JOIN admin instructor
+         ON instructor.admin_id = meeting.instructor_id
+       ORDER BY
+         meeting.section_id,
+         FIELD(meeting.day_of_week, 'monday', 'tuesday', 'wednesday',
+           'thursday', 'friday', 'saturday', 'sunday'),
+         meeting.start_time,
+         meeting.class_meeting_id`,
+    );
 
     const assignmentsBySection = new Map<number, AssignmentRow[]>();
     for (const assignment of assignments) {
       const sectionAssignments = assignmentsBySection.get(assignment.section_id) ?? [];
       sectionAssignments.push(assignment);
       assignmentsBySection.set(assignment.section_id, sectionAssignments);
+    }
+    const meetingsBySection = new Map<number, MeetingRow[]>();
+    for (const meeting of meetings) {
+      const sectionMeetings = meetingsBySection.get(meeting.section_id) ?? [];
+      sectionMeetings.push(meeting);
+      meetingsBySection.set(meeting.section_id, sectionMeetings);
     }
 
     return res.json({
@@ -345,6 +541,7 @@ export const getTeachingWorkspace = async (req: Request, res: Response) => {
         ...section,
         capacity: section.capacity === null ? null : Number(section.capacity),
         instructors: assignmentsBySection.get(Number(section.section_id)) ?? [],
+        meetings: meetingsBySection.get(Number(section.section_id)) ?? [],
       })),
     });
   } catch (error) {
@@ -498,13 +695,44 @@ export const updateCourseSection = async (req: Request, res: Response) => {
   try {
     await connection.beginTransaction();
     const [existing] = await connection.query<RowDataPacket[]>(
-      `SELECT section_id FROM course_sections
+      `SELECT section_id, subject_id, academic_term_id FROM course_sections
        WHERE section_id = ? LIMIT 1 FOR UPDATE`,
       [sectionId],
     );
     if (existing.length === 0) {
       await connection.rollback();
       return res.status(404).json({ message: "ไม่พบกลุ่มเรียน" });
+    }
+    const [meetingRows] = await connection.query<RowDataPacket[]>(
+      `SELECT class_meeting_id, instructor_id
+       FROM class_meetings
+       WHERE section_id = ?
+       FOR UPDATE`,
+      [sectionId],
+    );
+    if (
+      meetingRows.length > 0 &&
+      (String(existing[0].subject_id) !== payload.subjectId ||
+        Number(existing[0].academic_term_id) !== payload.academicTermId)
+    ) {
+      await connection.rollback();
+      return res.status(409).json({
+        message: "กรุณาลบคาบเรียนก่อนเปลี่ยนวิชาหรือภาคการศึกษาของกลุ่ม",
+      });
+    }
+    const desiredInstructorIds = new Set([
+      payload.ownerInstructorId,
+      ...payload.coInstructorIds,
+    ]);
+    if (
+      meetingRows.some(
+        (meeting) => !desiredInstructorIds.has(Number(meeting.instructor_id)),
+      )
+    ) {
+      await connection.rollback();
+      return res.status(409).json({
+        message: "อาจารย์ที่นำออกยังมีคาบเรียน กรุณาแก้ไขหรือลบคาบนั้นก่อน",
+      });
     }
     const referenceError = await validateSectionReferences(connection, payload);
     if (referenceError) {
@@ -569,5 +797,152 @@ export const updateCourseSectionStatus = async (
   } catch (error) {
     console.error("updateCourseSectionStatus error:", error);
     return res.status(500).json({ message: "ไม่สามารถเปลี่ยนสถานะกลุ่มเรียนได้" });
+  }
+};
+
+export const createClassMeeting = async (req: Request, res: Response) => {
+  if (!isAdmin(req, res)) return;
+  const sectionId = Number(req.params.sectionId);
+  if (!Number.isInteger(sectionId) || sectionId <= 0) {
+    return res.status(400).json({ message: "รหัสกลุ่มเรียนไม่ถูกต้อง" });
+  }
+  const validation = parseMeetingPayload(req.body);
+  if (!validation.data) {
+    return res.status(400).json({ message: validation.message });
+  }
+
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const referenceError = await validateMeetingReferences(
+      connection,
+      sectionId,
+      validation.data,
+    );
+    if (referenceError) {
+      await connection.rollback();
+      return res.status(409).json({ message: referenceError });
+    }
+    const payload = validation.data;
+    const [result] = await connection.query<ResultSetHeader>(
+      `INSERT INTO class_meetings
+        (section_id, instructor_id, day_of_week, start_time, end_time, classroom)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        sectionId,
+        payload.instructorId,
+        payload.dayOfWeek,
+        payload.startTime,
+        payload.endTime,
+        payload.classroom,
+      ],
+    );
+    await connection.commit();
+    return res.status(201).json({
+      message: "Class meeting created successfully",
+      class_meeting_id: result.insertId,
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error("createClassMeeting error:", error);
+    return res.status(500).json({ message: "ไม่สามารถเพิ่มคาบเรียนได้" });
+  } finally {
+    connection.release();
+  }
+};
+
+export const updateClassMeeting = async (req: Request, res: Response) => {
+  if (!isAdmin(req, res)) return;
+  const sectionId = Number(req.params.sectionId);
+  const meetingId = Number(req.params.meetingId);
+  if (
+    !Number.isInteger(sectionId) ||
+    sectionId <= 0 ||
+    !Number.isInteger(meetingId) ||
+    meetingId <= 0
+  ) {
+    return res.status(400).json({ message: "รหัสกลุ่มเรียนหรือคาบเรียนไม่ถูกต้อง" });
+  }
+  const validation = parseMeetingPayload(req.body);
+  if (!validation.data) {
+    return res.status(400).json({ message: validation.message });
+  }
+
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [existing] = await connection.query<RowDataPacket[]>(
+      `SELECT class_meeting_id
+       FROM class_meetings
+       WHERE class_meeting_id = ? AND section_id = ?
+       LIMIT 1 FOR UPDATE`,
+      [meetingId, sectionId],
+    );
+    if (!existing[0]) {
+      await connection.rollback();
+      return res.status(404).json({ message: "ไม่พบคาบเรียนที่ต้องการแก้ไข" });
+    }
+    const referenceError = await validateMeetingReferences(
+      connection,
+      sectionId,
+      validation.data,
+      meetingId,
+    );
+    if (referenceError) {
+      await connection.rollback();
+      return res.status(409).json({ message: referenceError });
+    }
+    const payload = validation.data;
+    await connection.query(
+      `UPDATE class_meetings
+       SET instructor_id = ?, day_of_week = ?, start_time = ?,
+           end_time = ?, classroom = ?
+       WHERE class_meeting_id = ? AND section_id = ?`,
+      [
+        payload.instructorId,
+        payload.dayOfWeek,
+        payload.startTime,
+        payload.endTime,
+        payload.classroom,
+        meetingId,
+        sectionId,
+      ],
+    );
+    await connection.commit();
+    return res.json({ message: "Class meeting updated successfully" });
+  } catch (error) {
+    await connection.rollback();
+    console.error("updateClassMeeting error:", error);
+    return res.status(500).json({ message: "ไม่สามารถแก้ไขคาบเรียนได้" });
+  } finally {
+    connection.release();
+  }
+};
+
+export const deleteClassMeeting = async (req: Request, res: Response) => {
+  if (!isAdmin(req, res)) return;
+  const sectionId = Number(req.params.sectionId);
+  const meetingId = Number(req.params.meetingId);
+  if (
+    !Number.isInteger(sectionId) ||
+    sectionId <= 0 ||
+    !Number.isInteger(meetingId) ||
+    meetingId <= 0
+  ) {
+    return res.status(400).json({ message: "รหัสกลุ่มเรียนหรือคาบเรียนไม่ถูกต้อง" });
+  }
+  try {
+    const [result] = await db.query<ResultSetHeader>(
+      `DELETE FROM class_meetings
+       WHERE class_meeting_id = ? AND section_id = ?`,
+      [meetingId, sectionId],
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "ไม่พบคาบเรียนที่ต้องการลบ" });
+    }
+    return res.json({ message: "Class meeting deleted successfully" });
+  } catch (error) {
+    console.error("deleteClassMeeting error:", error);
+    return res.status(500).json({ message: "ไม่สามารถลบคาบเรียนได้" });
   }
 };

@@ -11,6 +11,7 @@ import {
   DoorOpen,
   GraduationCap,
   LoaderCircle,
+  MapPin,
   Pencil,
   Plus,
   RefreshCw,
@@ -26,6 +27,7 @@ import type {
   CreateAcademicTermPayload,
   SaveCourseSectionPayload,
   TeachingAcademicTerm,
+  TeachingClassMeeting,
   TeachingCourseSection,
   TeachingInstructor,
   TeachingSubject,
@@ -33,6 +35,9 @@ import type {
 } from "@/interfaces/teaching-management.interface";
 import { teachingManagementService } from "@/services/teaching-management.service";
 import AdminSelect from "@/components/ui/AdminSelect";
+import ClassMeetingModal, {
+  classMeetingDayLabels,
+} from "@/components/Teaching/ClassMeetingModal";
 
 const sectionStatusOptions: Array<{ value: CourseSectionStatus; label: string }> = [
   { value: "draft", label: "ฉบับร่าง" },
@@ -473,6 +478,10 @@ export default function TeachingManagementClient() {
   const [termModalOpen, setTermModalOpen] = useState(false);
   const [sectionModalOpen, setSectionModalOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<TeachingCourseSection | null>(null);
+  const [meetingEditor, setMeetingEditor] = useState<{
+    section: TeachingCourseSection;
+    meeting: TeachingClassMeeting | null;
+  } | null>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
 
   const loadWorkspace = useCallback(async () => {
@@ -529,6 +538,12 @@ export default function TeachingManagementClient() {
     setTermModalOpen(false);
     setSectionModalOpen(false);
     setEditingSection(null);
+    setNotice(message);
+    await loadWorkspace();
+  };
+
+  const handleMeetingSaved = async (message: string) => {
+    setMeetingEditor(null);
     setNotice(message);
     await loadWorkspace();
   };
@@ -657,6 +672,59 @@ export default function TeachingManagementClient() {
                     <div className="flex gap-2.5"><UsersRound className="mt-0.5 shrink-0 text-[#7468a8]" size={17} /><div><p className="text-xs text-[#8b9aa0]">จำนวนรับ</p><p className="mt-0.5 text-sm text-[#506872]">{section.capacity ? `${section.capacity} คน` : "ไม่จำกัด"}</p></div></div>
                     <div className="flex gap-2.5 sm:col-span-2"><UserRound className="mt-0.5 shrink-0 text-[#5794aa]" size={17} /><div className="min-w-0"><p className="text-xs text-[#8b9aa0]">อาจารย์เจ้าของวิชา</p><p className="mt-0.5 truncate text-sm font-medium text-[#405862]">{owner ? `${owner.first_name} ${owner.last_name}`.trim() || owner.admin_name : "ยังไม่ได้มอบหมาย"}</p>{coInstructors.length > 0 && <p className="mt-1 text-xs text-[#7f9097]">ผู้สอนร่วม: {coInstructors.map((item) => `${item.first_name} ${item.last_name}`.trim() || item.admin_name).join(", ")}</p>}</div></div>
                   </div>
+                  <div className="mt-4 rounded-2xl border border-[#e1ebee] bg-white p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-medium text-[#6f9bab]">Class Meetings</p>
+                        <p className="mt-0.5 text-sm font-medium text-[#405862]">ตารางเรียนของกลุ่ม</p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!canToggle || section.instructors.length === 0}
+                        onClick={() => setMeetingEditor({ section, meeting: null })}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#eaf6fa] px-3 py-2 text-xs font-medium text-[#4f8791] transition hover:bg-[#dceff5] disabled:cursor-not-allowed disabled:opacity-45"
+                      >
+                        <Plus size={14} /> เพิ่มคาบเรียน
+                      </button>
+                    </div>
+                    {section.meetings.length === 0 ? (
+                      <div className="mt-3 rounded-xl border border-dashed border-[#d4e3e7] bg-[#fafcfd] px-3 py-4 text-center text-xs text-[#8a999f]">
+                        ยังไม่ได้กำหนดวัน เวลา และห้องเรียน
+                      </div>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        {section.meetings.map((meeting) => {
+                          const meetingInstructor =
+                            `${meeting.first_name} ${meeting.last_name}`.trim() ||
+                            meeting.admin_name;
+                          return (
+                            <div
+                              key={meeting.class_meeting_id}
+                              className="flex items-center justify-between gap-3 rounded-xl bg-[#f6fafb] px-3 py-2.5"
+                            >
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-[#405862]">
+                                  <span>ทุก{classMeetingDayLabels[meeting.day_of_week]}</span>
+                                  <span className="inline-flex items-center gap-1 text-[#647d87]"><Clock3 size={13} />{meeting.start_time.slice(0, 5)}–{meeting.end_time.slice(0, 5)}</span>
+                                  <span className="inline-flex items-center gap-1 text-[#647d87]"><MapPin size={13} />{meeting.classroom || "ไม่ระบุห้อง"}</span>
+                                </div>
+                                <p className="mt-1 truncate text-xs text-[#89999f]">ผู้สอน: {meetingInstructor}</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setMeetingEditor({ section, meeting })}
+                                aria-label={`แก้ไขคาบ ${classMeetingDayLabels[meeting.day_of_week]}`}
+                                title="แก้ไขคาบเรียน"
+                                className="shrink-0 rounded-xl bg-white p-2 text-[#7468a8] shadow-sm transition hover:bg-[#eeeaf8]"
+                              >
+                                <Pencil size={15} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                   <div className="mt-4 flex justify-end gap-2">
                     {canToggle && <button type="button" disabled={statusUpdatingId === section.section_id} onClick={() => void handleQuickStatus(section)} className="inline-flex items-center gap-2 rounded-xl border border-[#d6e3e7] px-3.5 py-2 text-xs font-medium text-[#607983] transition hover:bg-[#f2f8fa] disabled:opacity-50">{statusUpdatingId === section.section_id ? <LoaderCircle className="animate-spin" size={15} /> : section.status === "open" ? <CircleOff size={15} /> : <DoorOpen size={15} />}{section.status === "open" ? "ปิดรับ" : "เปิดสอน"}</button>}
                     <button type="button" onClick={() => { setEditingSection(section); setSectionModalOpen(true); }} className="inline-flex items-center gap-2 rounded-xl bg-[#eef4f7] px-3.5 py-2 text-xs font-medium text-[#4f7f91] transition hover:bg-[#e1edf2]"><Pencil size={15} /> แก้ไข</button>
@@ -678,6 +746,15 @@ export default function TeachingManagementClient() {
           instructors={workspace.instructors}
           onClose={() => { setSectionModalOpen(false); setEditingSection(null); }}
           onSaved={handleSaved}
+        />
+      )}
+      {meetingEditor && (
+        <ClassMeetingModal
+          key={`${meetingEditor.section.section_id}-${meetingEditor.meeting?.class_meeting_id ?? "new"}`}
+          section={meetingEditor.section}
+          meeting={meetingEditor.meeting}
+          onClose={() => setMeetingEditor(null)}
+          onSaved={handleMeetingSaved}
         />
       )}
     </>

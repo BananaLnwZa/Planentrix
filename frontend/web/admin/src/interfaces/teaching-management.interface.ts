@@ -5,6 +5,14 @@ export type CourseSectionStatus =
   | "closed"
   | "completed"
   | "cancelled";
+export type ClassMeetingDay =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
 
 export interface TeachingAcademicTerm {
   academic_term_id: number;
@@ -45,6 +53,19 @@ export interface SectionInstructor {
   department_name: string | null;
 }
 
+export interface TeachingClassMeeting {
+  class_meeting_id: number;
+  section_id: number;
+  instructor_id: number;
+  day_of_week: ClassMeetingDay;
+  start_time: string;
+  end_time: string;
+  classroom: string | null;
+  admin_name: string;
+  first_name: string;
+  last_name: string;
+}
+
 export interface TeachingCourseSection {
   section_id: number;
   subject_id: string;
@@ -58,6 +79,7 @@ export interface TeachingCourseSection {
   created_at: string;
   updated_at: string;
   instructors: SectionInstructor[];
+  meetings: TeachingClassMeeting[];
 }
 
 export interface TeachingWorkspaceResponse {
@@ -90,6 +112,14 @@ export interface SaveCourseSectionPayload {
   co_instructor_ids: number[];
 }
 
+export interface SaveClassMeetingPayload {
+  instructor_id: number;
+  day_of_week: ClassMeetingDay;
+  start_time: string;
+  end_time: string;
+  classroom: string | null;
+}
+
 export interface TeachingMessageResponse {
   message: string;
 }
@@ -100,6 +130,10 @@ export interface AcademicTermMutationResponse extends TeachingMessageResponse {
 
 export interface CourseSectionMutationResponse extends TeachingMessageResponse {
   section_id?: number;
+}
+
+export interface ClassMeetingMutationResponse extends TeachingMessageResponse {
+  class_meeting_id?: number;
 }
 
 export interface TeachingErrorResponse {

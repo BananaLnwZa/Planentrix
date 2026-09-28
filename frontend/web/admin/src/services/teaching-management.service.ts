@@ -2,9 +2,11 @@ import axios, { AxiosInstance } from "axios";
 import Cookies from "js-cookie";
 import type {
   AcademicTermMutationResponse,
+  ClassMeetingMutationResponse,
   CourseSectionMutationResponse,
   CourseSectionStatus,
   CreateAcademicTermPayload,
+  SaveClassMeetingPayload,
   SaveCourseSectionPayload,
   TeachingErrorResponse,
   TeachingMessageResponse,
@@ -73,6 +75,42 @@ class TeachingManagementService {
       this.apiClient.patch<TeachingMessageResponse>(
         apiEndpoints.teaching.sectionStatus(sectionId),
         { status },
+      ),
+    );
+  }
+
+  createClassMeeting(
+    sectionId: number,
+    payload: SaveClassMeetingPayload,
+  ): Promise<ClassMeetingMutationResponse> {
+    return this.request(() =>
+      this.apiClient.post<ClassMeetingMutationResponse>(
+        apiEndpoints.teaching.meetings(sectionId),
+        payload,
+      ),
+    );
+  }
+
+  updateClassMeeting(
+    sectionId: number,
+    meetingId: number,
+    payload: SaveClassMeetingPayload,
+  ): Promise<TeachingMessageResponse> {
+    return this.request(() =>
+      this.apiClient.patch<TeachingMessageResponse>(
+        apiEndpoints.teaching.meetingById(sectionId, meetingId),
+        payload,
+      ),
+    );
+  }
+
+  deleteClassMeeting(
+    sectionId: number,
+    meetingId: number,
+  ): Promise<TeachingMessageResponse> {
+    return this.request(() =>
+      this.apiClient.delete<TeachingMessageResponse>(
+        apiEndpoints.teaching.meetingById(sectionId, meetingId),
       ),
     );
   }
