@@ -1,5 +1,5 @@
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
-import db from "../config/db";
+import db from "../../config/db";
 
 export const FIXED_SUBJECT_TYPE_NAMES = [
   "ทฤษฎี",

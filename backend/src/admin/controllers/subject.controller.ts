@@ -4,7 +4,7 @@ import db from "../../config/db";
 import {
   ensureFixedSubjectTypes,
   FIXED_SUBJECT_TYPE_NAMES,
-} from "../subject-types";
+} from "../routes/subject-types.routes";
 
 interface SubjectRow extends RowDataPacket {
   curriculum_subject_id: number;
