@@ -5,8 +5,11 @@ import {
   ManagedUsersResponse,
   UpdateManagedInstructorRequest,
   UpdateManagedInstructorResponse,
+  UpdateManagedInstructorStatusResponse,
+  UpdateManagedAccountStatusRequest,
   UpdateManagedUserRequest,
   UpdateManagedUserResponse,
+  UpdateManagedUserStatusResponse,
   UserManagementErrorResponse,
 } from "@/interfaces/user-management.interface";
 import { apiConfig, apiEndpoints } from "@/services/api.config";
@@ -72,6 +75,21 @@ class UserManagementService {
     }
   }
 
+  async updateUserStatus(
+    userId: number,
+    data: UpdateManagedAccountStatusRequest,
+  ): Promise<UpdateManagedUserStatusResponse> {
+    try {
+      const response = await this.apiClient.patch<UpdateManagedUserStatusResponse>(
+        apiEndpoints.users.status(userId),
+        data,
+      );
+      return response.data;
+    } catch (error: unknown) {
+      throw this.handleError(error);
+    }
+  }
+
   async updateInstructor(
     instructorId: number,
     data: UpdateManagedInstructorRequest,
@@ -94,6 +112,22 @@ class UserManagementService {
       const response = await this.apiClient.delete<DeleteManagedUserResponse>(
         apiEndpoints.users.instructorById(instructorId),
       );
+      return response.data;
+    } catch (error: unknown) {
+      throw this.handleError(error);
+    }
+  }
+
+  async updateInstructorStatus(
+    instructorId: number,
+    data: UpdateManagedAccountStatusRequest,
+  ): Promise<UpdateManagedInstructorStatusResponse> {
+    try {
+      const response =
+        await this.apiClient.patch<UpdateManagedInstructorStatusResponse>(
+          apiEndpoints.users.instructorStatus(instructorId),
+          data,
+        );
       return response.data;
     } catch (error: unknown) {
       throw this.handleError(error);

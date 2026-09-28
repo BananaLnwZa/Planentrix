@@ -1,36 +1,58 @@
-import { Pencil, Presentation, Trash2, UserRound } from "lucide-react";
+import { Pencil, Presentation, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import type { ManagedInstructor } from "@/interfaces/user-management.interface";
 import { formatDisplayDateTime } from "@/utils/dateTime";
+import ActionIconButton from "./ActionIconButton";
 import UserStatusBadge from "./UserStatusBadge";
 
 interface InstructorTableProps {
   instructors: ManagedInstructor[];
   onEdit: (instructor: ManagedInstructor) => void;
   onDelete: (instructor: ManagedInstructor) => void;
+  onStatus: (instructor: ManagedInstructor) => void;
 }
 
 function ActionButtons({
   instructor,
   onEdit,
   onDelete,
+  onStatus,
 }: {
   instructor: ManagedInstructor;
   onEdit: (instructor: ManagedInstructor) => void;
   onDelete: (instructor: ManagedInstructor) => void;
+  onStatus: (instructor: ManagedInstructor) => void;
 }) {
   return (
     <div className="flex items-center gap-2">
-      <button type="button" onClick={() => onEdit(instructor)} aria-label={`แก้ไขอาจารย์ ${instructor.admin_name}`} className="inline-flex size-9 items-center justify-center rounded-xl bg-[#f0eef9] text-[#7468a8] transition hover:bg-[#e5e1f4]">
+      <ActionIconButton
+        label="จัดการสถานะบัญชี"
+        onClick={() => onStatus(instructor)}
+        aria-label={`จัดการสถานะอาจารย์ ${instructor.admin_name}`}
+        className="bg-[#edf3f5] text-[#617983] hover:bg-[#dfeaed]"
+      >
+        <ShieldCheck size={16} aria-hidden="true" />
+      </ActionIconButton>
+      <ActionIconButton
+        label="แก้ไขข้อมูล"
+        onClick={() => onEdit(instructor)}
+        aria-label={`แก้ไขอาจารย์ ${instructor.admin_name}`}
+        className="bg-[#f0eef9] text-[#7468a8] hover:bg-[#e5e1f4]"
+      >
         <Pencil size={16} aria-hidden="true" />
-      </button>
-      <button type="button" onClick={() => onDelete(instructor)} aria-label={`ลบอาจารย์ ${instructor.admin_name}`} className="inline-flex size-9 items-center justify-center rounded-xl bg-[#fff0ec] text-[#c6644d] transition hover:bg-[#ffe1d9]">
+      </ActionIconButton>
+      <ActionIconButton
+        label="ลบบัญชี"
+        onClick={() => onDelete(instructor)}
+        aria-label={`ลบอาจารย์ ${instructor.admin_name}`}
+        className="bg-[#fff0ec] text-[#c6644d] hover:bg-[#ffe1d9]"
+      >
         <Trash2 size={16} aria-hidden="true" />
-      </button>
+      </ActionIconButton>
     </div>
   );
 }
 
-export default function InstructorTable({ instructors, onEdit, onDelete }: InstructorTableProps) {
+export default function InstructorTable({ instructors, onEdit, onDelete, onStatus }: InstructorTableProps) {
   if (instructors.length === 0) {
     return (
       <div className="flex min-h-72 flex-col items-center justify-center px-6 text-center">
@@ -94,7 +116,7 @@ export default function InstructorTable({ instructors, onEdit, onDelete }: Instr
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-2">
                     <UserStatusBadge user={instructor} />
-                    <ActionButtons instructor={instructor} onEdit={onEdit} onDelete={onDelete} />
+                    <ActionButtons instructor={instructor} onEdit={onEdit} onDelete={onDelete} onStatus={onStatus} />
                   </div>
                 </td>
               </tr>
@@ -115,7 +137,7 @@ export default function InstructorTable({ instructors, onEdit, onDelete }: Instr
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <UserStatusBadge user={instructor} />
-                <ActionButtons instructor={instructor} onEdit={onEdit} onDelete={onDelete} />
+                <ActionButtons instructor={instructor} onEdit={onEdit} onDelete={onDelete} onStatus={onStatus} />
               </div>
             </div>
             <dl className="mt-4 grid gap-3 text-sm">

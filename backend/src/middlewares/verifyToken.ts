@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import * as jwt from "jsonwebtoken";
+import type { RowDataPacket } from "mysql2";
+import db from "../config/db";
 
 export type AuthRole = "user" | "instructor" | "university_staff";
 
@@ -23,6 +25,15 @@ export const verifyToken = (
   res: Response,
   next: NextFunction
 ): void => {
+  void verifyActiveToken(req, res, next);
+};
+
+const verifyActiveToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  let decoded: jwt.JwtPayload;
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
@@ -42,16 +53,45 @@ export const verifyToken = (
       return;
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const verified = jwt.verify(token, process.env.JWT_SECRET);
     if (
-      typeof decoded === "string" ||
-      !Number.isSafeInteger(decoded.id) ||
-      !isAuthRole(decoded.role)
+      typeof verified === "string" ||
+      !Number.isSafeInteger(verified.id) ||
+      !isAuthRole(verified.role)
     ) {
       res.status(401).json({ message: "Invalid token payload" });
       return;
     }
+    decoded = verified;
 
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      res.status(401).json({ message: "Token expired" });
+      return;
+    }
+    res.status(401).json({ message: "Invalid token" });
+    return;
+  }
+
+  try {
+    const [accounts] =
+      decoded.role === "user"
+        ? await db.query<RowDataPacket[]>(
+            "SELECT status FROM user WHERE user_id = ? LIMIT 1",
+            [decoded.id],
+          )
+        : await db.query<RowDataPacket[]>(
+            "SELECT status, role FROM admin WHERE admin_id = ? LIMIT 1",
+            [decoded.id],
+          );
+    const account = accounts[0];
+    if (!account || account.status !== "active" || (decoded.role !== "user" && account.role !== decoded.role)) {
+      res.status(403).json({
+        code: "ACCOUNT_INACTIVE",
+        message: "Account is suspended or archived",
+      });
+      return;
+    }
     req.user = {
       id: Number(decoded.id),
       username:
@@ -65,10 +105,7 @@ export const verifyToken = (
 
     next();
   } catch (error) {
-    if (error instanceof jwt.TokenExpiredError) {
-      res.status(401).json({ message: "Token expired" });
-      return;
-    }
-    res.status(401).json({ message: "Invalid token" });
+    console.error("verifyToken account status error:", error);
+    res.status(500).json({ message: "Unable to verify account status" });
   }
 };

@@ -1,12 +1,14 @@
-import { Pencil, Trash2, UserRound } from "lucide-react";
+import { Pencil, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import type { ManagedUser, UserGender } from "@/interfaces/user-management.interface";
 import { formatDisplayDateTime } from "@/utils/dateTime";
+import ActionIconButton from "./ActionIconButton";
 import UserStatusBadge from "./UserStatusBadge";
 
 interface UserTableProps {
   users: ManagedUser[];
   onEdit: (user: ManagedUser) => void;
   onDelete: (user: ManagedUser) => void;
+  onStatus: (user: ManagedUser) => void;
 }
 
 const genderLabels: Record<UserGender, string> = {
@@ -28,34 +30,44 @@ function ActionButtons({
   user,
   onEdit,
   onDelete,
+  onStatus,
 }: {
   user: ManagedUser;
   onEdit: (user: ManagedUser) => void;
   onDelete: (user: ManagedUser) => void;
+  onStatus: (user: ManagedUser) => void;
 }) {
   return (
     <div className="flex items-center justify-end gap-2">
-      <button
-        type="button"
+      <ActionIconButton
+        label="จัดการสถานะบัญชี"
+        onClick={() => onStatus(user)}
+        aria-label={`จัดการสถานะนักศึกษา ${user.user_name}`}
+        className="bg-[#edf3f5] text-[#617983] hover:bg-[#dfeaed]"
+      >
+        <ShieldCheck size={16} aria-hidden="true" />
+      </ActionIconButton>
+      <ActionIconButton
+        label="แก้ไขข้อมูล"
         onClick={() => onEdit(user)}
         aria-label={`แก้ไขนักศึกษา ${user.user_name}`}
-        className="inline-flex size-9 items-center justify-center rounded-xl bg-[#e9f5f9] text-[#43839a] transition hover:bg-[#d9edf4]"
+        className="bg-[#e9f5f9] text-[#43839a] hover:bg-[#d9edf4]"
       >
         <Pencil size={16} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
+      </ActionIconButton>
+      <ActionIconButton
+        label="ลบบัญชี"
         onClick={() => onDelete(user)}
         aria-label={`ลบนักศึกษา ${user.user_name}`}
-        className="inline-flex size-9 items-center justify-center rounded-xl bg-[#fff0ec] text-[#c6644d] transition hover:bg-[#ffe1d9]"
+        className="bg-[#fff0ec] text-[#c6644d] hover:bg-[#ffe1d9]"
       >
         <Trash2 size={16} aria-hidden="true" />
-      </button>
+      </ActionIconButton>
     </div>
   );
 }
 
-export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
+export default function UserTable({ users, onEdit, onDelete, onStatus }: UserTableProps) {
   if (users.length === 0) {
     return (
       <div className="flex min-h-72 flex-col items-center justify-center px-6 text-center">
@@ -119,7 +131,7 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-2">
                     <UserStatusBadge user={user} />
-                    <ActionButtons user={user} onEdit={onEdit} onDelete={onDelete} />
+                    <ActionButtons user={user} onEdit={onEdit} onDelete={onDelete} onStatus={onStatus} />
                   </div>
                 </td>
               </tr>
@@ -142,7 +154,7 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <UserStatusBadge user={user} />
-                    <ActionButtons user={user} onEdit={onEdit} onDelete={onDelete} />
+                    <ActionButtons user={user} onEdit={onEdit} onDelete={onDelete} onStatus={onStatus} />
                   </div>
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <div className="col-span-2"><dt className="text-xs text-[#94a2a8]">คณะ / สาขา</dt><dd className="mt-0.5 text-[#536a74]">{user.faculty_name} · {user.department_name}</dd></div>

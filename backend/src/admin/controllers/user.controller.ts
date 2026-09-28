@@ -21,6 +21,10 @@ interface ManagedUserRow extends RowDataPacket {
   user_birthdate: Date | null;
   user_gender: "male" | "female" | "other" | "unspecified";
   status: "active" | "suspended" | "archived";
+  status_changed_by_admin_id: number | null;
+  status_changed_by_name: string | null;
+  status_changed_at: Date | null;
+  status_reason: string | null;
   last_login: Date | null;
   is_inactive: 0 | 1;
   inactive_days: number | null;
@@ -42,6 +46,10 @@ interface ManagedInstructorRow extends RowDataPacket {
   faculty_code: string | null;
   faculty_name: string | null;
   status: "active" | "suspended" | "archived";
+  status_changed_by_admin_id: number | null;
+  status_changed_by_name: string | null;
+  status_changed_at: Date | null;
+  status_reason: string | null;
   last_login: Date | null;
   is_inactive: 0 | 1;
   inactive_days: number | null;
@@ -88,6 +96,10 @@ const managedStudentSelect = `SELECT
   u.birthdate AS user_birthdate,
   u.gender AS user_gender,
   u.status,
+  u.status_changed_by_admin_id,
+  CONCAT(status_admin.first_name, ' ', status_admin.last_name) AS status_changed_by_name,
+  u.status_changed_at,
+  u.status_reason,
   u.last_login,
   DATE_FORMAT(u.updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version,
   CASE
@@ -100,7 +112,9 @@ const managedStudentSelect = `SELECT
   END AS inactive_days
 FROM user u
 INNER JOIN departments d ON d.department_id = u.department_id
-INNER JOIN faculties f ON f.faculty_id = d.faculty_id`;
+INNER JOIN faculties f ON f.faculty_id = d.faculty_id
+LEFT JOIN admin status_admin
+  ON status_admin.admin_id = u.status_changed_by_admin_id`;
 
 const managedInstructorSelect = `SELECT
   a.admin_id,
@@ -117,6 +131,10 @@ const managedInstructorSelect = `SELECT
   f.faculty_code,
   f.faculty_name,
   a.status,
+  a.status_changed_by_admin_id,
+  CONCAT(status_admin.first_name, ' ', status_admin.last_name) AS status_changed_by_name,
+  a.status_changed_at,
+  a.status_reason,
   a.last_login,
   DATE_FORMAT(a.updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version,
   CASE
@@ -129,7 +147,36 @@ const managedInstructorSelect = `SELECT
   END AS inactive_days
 FROM admin a
 LEFT JOIN departments d ON d.department_id = a.department_id
-LEFT JOIN faculties f ON f.faculty_id = d.faculty_id`;
+LEFT JOIN faculties f ON f.faculty_id = d.faculty_id
+LEFT JOIN admin status_admin
+  ON status_admin.admin_id = a.status_changed_by_admin_id`;
+
+type ManagedStatus = "active" | "suspended" | "archived";
+
+const parseStatusChange = (
+  req: Request,
+  res: Response,
+): { status: ManagedStatus; reason: string; version: string } | null => {
+  const status = String(req.body.status ?? "") as ManagedStatus;
+  const reason = String(req.body.reason ?? "").trim();
+  const version = req.body.version;
+  if (!(["active", "suspended", "archived"] as string[]).includes(status)) {
+    res.status(400).json({ message: "สถานะบัญชีไม่ถูกต้อง" });
+    return null;
+  }
+  if (reason.length < 3 || reason.length > 255) {
+    res.status(400).json({ message: "กรุณาระบุเหตุผลความยาว 3-255 ตัวอักษร" });
+    return null;
+  }
+  if (
+    typeof version !== "string" ||
+    !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/.test(version)
+  ) {
+    res.status(400).json({ message: "A valid account version is required" });
+    return null;
+  }
+  return { status, reason, version };
+};
 
 const isAdmin = (req: Request, res: Response): boolean => {
   if (!req.user?.id) {
@@ -437,6 +484,115 @@ export const updateManagedInstructor = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("updateManagedInstructor error:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const updateManagedUserStatus = async (req: Request, res: Response) => {
+  try {
+    if (!isAdmin(req, res)) return;
+    const userId = parseUserId(req, res);
+    if (!userId) return;
+    const change = parseStatusChange(req, res);
+    if (!change) return;
+
+    const [result] = await db.query<ResultSetHeader>(
+      `UPDATE user
+       SET status = ?, status_changed_by_admin_id = ?, status_changed_at = NOW(),
+           status_reason = ?, refresh_token = NULL,
+           refresh_token_expires_at = NULL
+       WHERE user_id = ? AND status <> ?
+         AND updated_at = STR_TO_DATE(?, '%Y-%m-%d %H:%i:%s.%f')`,
+      [change.status, req.user!.id, change.reason, userId, change.status, change.version],
+    );
+    if (result.affectedRows === 0) {
+      const [current] = await db.query<ManagedUserRow[]>(
+        `SELECT user_id, status,
+                DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version
+         FROM user WHERE user_id = ? LIMIT 1`,
+        [userId],
+      );
+      if (!current[0]) return res.status(404).json({ message: "User not found" });
+      if (current[0].status === change.status) {
+        return res.status(409).json({ message: "บัญชีอยู่ในสถานะนี้แล้ว" });
+      }
+      return res.status(409).json({
+        code: "EDIT_CONFLICT",
+        message: "สถานะบัญชีถูกเปลี่ยนโดยเจ้าหน้าที่คนอื่นแล้ว กรุณาโหลดข้อมูลใหม่",
+      });
+    }
+
+    const [updated] = await db.query<ManagedUserRow[]>(
+      `${managedStudentSelect} WHERE u.user_id = ? LIMIT 1`,
+      [userId],
+    );
+    return res.json({
+      message: "เปลี่ยนสถานะบัญชีนักศึกษาสำเร็จ",
+      user: { ...updated[0], is_inactive: Boolean(updated[0].is_inactive) },
+    });
+  } catch (error) {
+    console.error("updateManagedUserStatus error:", error);
+    return res.status(500).json({ message: "ไม่สามารถเปลี่ยนสถานะบัญชีได้" });
+  }
+};
+
+export const updateManagedInstructorStatus = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    if (!isAdmin(req, res)) return;
+    const instructorId = parseInstructorId(req, res);
+    if (!instructorId) return;
+    const change = parseStatusChange(req, res);
+    if (!change) return;
+
+    const [result] = await db.query<ResultSetHeader>(
+      `UPDATE admin
+       SET status = ?, status_changed_by_admin_id = ?, status_changed_at = NOW(),
+           status_reason = ?
+       WHERE admin_id = ? AND role = 'instructor' AND status <> ?
+         AND updated_at = STR_TO_DATE(?, '%Y-%m-%d %H:%i:%s.%f')`,
+      [
+        change.status,
+        req.user!.id,
+        change.reason,
+        instructorId,
+        change.status,
+        change.version,
+      ],
+    );
+    if (result.affectedRows === 0) {
+      const [current] = await db.query<ManagedInstructorRow[]>(
+        `SELECT admin_id, status,
+                DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version
+         FROM admin WHERE admin_id = ? AND role = 'instructor' LIMIT 1`,
+        [instructorId],
+      );
+      if (!current[0]) return res.status(404).json({ message: "Instructor not found" });
+      if (current[0].status === change.status) {
+        return res.status(409).json({ message: "บัญชีอยู่ในสถานะนี้แล้ว" });
+      }
+      return res.status(409).json({
+        code: "EDIT_CONFLICT",
+        message: "สถานะบัญชีถูกเปลี่ยนโดยเจ้าหน้าที่คนอื่นแล้ว กรุณาโหลดข้อมูลใหม่",
+      });
+    }
+
+    const [updated] = await db.query<ManagedInstructorRow[]>(
+      `${managedInstructorSelect}
+       WHERE a.admin_id = ? AND a.role = 'instructor' LIMIT 1`,
+      [instructorId],
+    );
+    return res.json({
+      message: "เปลี่ยนสถานะบัญชีอาจารย์สำเร็จ",
+      instructor: {
+        ...updated[0],
+        is_inactive: Boolean(updated[0].is_inactive),
+      },
+    });
+  } catch (error) {
+    console.error("updateManagedInstructorStatus error:", error);
+    return res.status(500).json({ message: "ไม่สามารถเปลี่ยนสถานะบัญชีได้" });
   }
 };
 

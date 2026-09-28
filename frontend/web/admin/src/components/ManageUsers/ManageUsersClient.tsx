@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type {
   ManagedAccountActivity,
+  ManagedAccountStatus,
   ManagedInstructor,
   ManagedUser,
   UpdateManagedInstructorRequest,
@@ -32,6 +33,7 @@ import InstructorTable from "./InstructorTable";
 import UserFilters, { type AccountTab, type UserFilter } from "./UserFilters";
 import UserSummaryCards from "./UserSummaryCards";
 import UserTable from "./UserTable";
+import AccountStatusModal from "./AccountStatusModal";
 
 const PAGE_SIZE = 12;
 
@@ -98,6 +100,11 @@ export default function ManageUsersClient() {
     useState<ManagedInstructor | null>(null);
   const [deletingInstructor, setDeletingInstructor] =
     useState<ManagedInstructor | null>(null);
+  const [statusAccount, setStatusAccount] = useState<
+    | { kind: "student"; account: ManagedUser }
+    | { kind: "instructor"; account: ManagedInstructor }
+    | null
+  >(null);
 
   const applyResponse = useCallback(
     (response: Awaited<ReturnType<typeof userManagementService.getUsers>>) => {
@@ -325,6 +332,51 @@ export default function ManageUsersClient() {
     setDeletingInstructor(null);
   };
 
+  const handleStatusChange = async (
+    status: ManagedAccountStatus,
+    reason: string,
+  ) => {
+    if (!statusAccount) return;
+    try {
+      if (statusAccount.kind === "student") {
+        const response = await userManagementService.updateUserStatus(
+          statusAccount.account.user_id,
+          { status, reason, version: statusAccount.account.version },
+        );
+        setUsers((current) =>
+          sortUsers(
+            current.map((user) =>
+              user.user_id === response.user.user_id ? response.user : user,
+            ),
+          ),
+        );
+        setNotice(`เปลี่ยนสถานะบัญชี ${response.user.user_name} แล้ว`);
+      } else {
+        const response = await userManagementService.updateInstructorStatus(
+          statusAccount.account.admin_id,
+          { status, reason, version: statusAccount.account.version },
+        );
+        setInstructors((current) =>
+          sortInstructors(
+            current.map((instructor) =>
+              instructor.admin_id === response.instructor.admin_id
+                ? response.instructor
+                : instructor,
+            ),
+          ),
+        );
+        setNotice(`เปลี่ยนสถานะบัญชี ${response.instructor.admin_name} แล้ว`);
+      }
+      setStatusAccount(null);
+    } catch (statusError) {
+      if (statusError instanceof UserEditConflictError) {
+        await loadUsers();
+        throw new Error(`${statusError.message} ระบบโหลดรายการล่าสุดให้แล้ว`);
+      }
+      throw statusError;
+    }
+  };
+
   return (
     <>
       <div className="mt-7 flex w-full max-w-md rounded-2xl border border-[#dce8ec] bg-white p-1.5 shadow-sm">
@@ -405,12 +457,13 @@ export default function ManageUsersClient() {
         ) : (
           <>
             {accountTab === "student" ? (
-              <UserTable users={visibleUsers} onEdit={setEditingUser} onDelete={setDeletingUser} />
+              <UserTable users={visibleUsers} onEdit={setEditingUser} onDelete={setDeletingUser} onStatus={(account) => setStatusAccount({ kind: "student", account })} />
             ) : (
               <InstructorTable
                 instructors={visibleInstructors}
                 onEdit={setEditingInstructor}
                 onDelete={setDeletingInstructor}
+                onStatus={(account) => setStatusAccount({ kind: "instructor", account })}
               />
             )}
             {filteredCount > PAGE_SIZE && (
@@ -453,6 +506,15 @@ export default function ManageUsersClient() {
           instructor={deletingInstructor}
           onClose={() => setDeletingInstructor(null)}
           onConfirm={handleInstructorDelete}
+        />
+      )}
+      {statusAccount && (
+        <AccountStatusModal
+          key={`${statusAccount.kind}-${"user_id" in statusAccount.account ? statusAccount.account.user_id : statusAccount.account.admin_id}`}
+          kind={statusAccount.kind}
+          account={statusAccount.account}
+          onClose={() => setStatusAccount(null)}
+          onConfirm={handleStatusChange}
         />
       )}
     </>

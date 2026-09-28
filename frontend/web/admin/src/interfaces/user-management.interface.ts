@@ -7,6 +7,10 @@ export interface ManagedAccountActivity {
   is_inactive: boolean;
   inactive_days: number | null;
   status: ManagedAccountStatus;
+  status_changed_by_admin_id: number | null;
+  status_changed_by_name: string | null;
+  status_changed_at: string | null;
+  status_reason: string | null;
   version: string;
 }
 
@@ -87,6 +91,22 @@ export interface UpdateManagedInstructorRequest {
 }
 
 export interface UpdateManagedInstructorResponse {
+  message: string;
+  instructor: ManagedInstructor;
+}
+
+export interface UpdateManagedAccountStatusRequest {
+  status: ManagedAccountStatus;
+  reason: string;
+  version: string;
+}
+
+export interface UpdateManagedUserStatusResponse {
+  message: string;
+  user: ManagedUser;
+}
+
+export interface UpdateManagedInstructorStatusResponse {
   message: string;
   instructor: ManagedInstructor;
 }

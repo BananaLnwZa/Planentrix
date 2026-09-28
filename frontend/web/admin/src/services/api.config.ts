@@ -28,8 +28,11 @@ export const apiEndpoints = {
   users: {
     list: "/admin/users",
     byId: (userId: number) => `/admin/users/${userId}`,
+    status: (userId: number) => `/admin/users/${userId}/status`,
     instructorById: (instructorId: number) =>
       `/admin/users/instructors/${instructorId}`,
+    instructorStatus: (instructorId: number) =>
+      `/admin/users/instructors/${instructorId}/status`,
   },
   subjects: {
     list: "/admin/subjects",
