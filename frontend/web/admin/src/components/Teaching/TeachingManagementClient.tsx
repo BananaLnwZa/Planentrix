@@ -24,7 +24,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type {
   AcademicTermStatus,
   CourseSectionStatus,
-  CreateAcademicTermPayload,
+  SaveAcademicTermPayload,
   SaveCourseSectionPayload,
   TeachingAcademicTerm,
   TeachingClassMeeting,
@@ -65,26 +65,53 @@ const termStatusLabel: Record<AcademicTermStatus, string> = {
   archived: "จัดเก็บแล้ว",
 };
 
+const termStatusStyles: Record<AcademicTermStatus, string> = {
+  draft: "bg-[#f1f3f4] text-[#66757b]",
+  active: "bg-[#e8f8ef] text-[#3c7b59]",
+  completed: "bg-[#eaf3fb] text-[#477493]",
+  archived: "bg-[#f3eff8] text-[#75638c]",
+};
+
+const nextTermStatus: Record<
+  AcademicTermStatus,
+  { status: AcademicTermStatus; label: string }
+> = {
+  draft: { status: "active", label: "เปิดใช้งาน" },
+  active: { status: "completed", label: "สิ้นสุดเทอม" },
+  completed: { status: "archived", label: "จัดเก็บ" },
+  archived: { status: "draft", label: "นำกลับเป็นฉบับร่าง" },
+};
+
+const formatTermDate = (date: string | null) => {
+  if (!date) return "ไม่ระบุ";
+  return new Intl.DateTimeFormat("th-TH", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(`${date}T00:00:00`));
+};
+
 const dateInputClass =
   "mt-2 h-11 w-full rounded-xl border border-[#dbe6ea] bg-[#fbfdfe] px-3.5 text-sm font-normal text-[#304852] outline-none transition focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]";
 
 interface TermModalProps {
+  term: TeachingAcademicTerm | null;
   onClose: () => void;
   onSaved: (message: string) => Promise<void>;
 }
 
-function TermModal({ onClose, onSaved }: TermModalProps) {
+function TermModal({ term, onClose, onSaved }: TermModalProps) {
   const [academicYear, setAcademicYear] = useState(
-    String(new Date().getFullYear() + 543),
+    String(term?.academic_year ?? new Date().getFullYear() + 543),
   );
-  const [semesterNo, setSemesterNo] = useState("1");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [midtermStart, setMidtermStart] = useState("");
-  const [midtermEnd, setMidtermEnd] = useState("");
-  const [finalStart, setFinalStart] = useState("");
-  const [finalEnd, setFinalEnd] = useState("");
-  const [status, setStatus] = useState<"draft" | "active">("active");
+  const [semesterNo, setSemesterNo] = useState(String(term?.semester_no ?? 1));
+  const [startDate, setStartDate] = useState(term?.start_date ?? "");
+  const [endDate, setEndDate] = useState(term?.end_date ?? "");
+  const [midtermStart, setMidtermStart] = useState(term?.midterm_start_date ?? "");
+  const [midtermEnd, setMidtermEnd] = useState(term?.midterm_end_date ?? "");
+  const [finalStart, setFinalStart] = useState(term?.final_start_date ?? "");
+  const [finalEnd, setFinalEnd] = useState(term?.final_end_date ?? "");
+  const [status, setStatus] = useState<AcademicTermStatus>(term?.status ?? "active");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -103,7 +130,17 @@ function TermModal({ onClose, onSaved }: TermModalProps) {
       return;
     }
 
-    const payload: CreateAcademicTermPayload = {
+    const examDates = [midtermStart, midtermEnd, finalStart, finalEnd].filter(Boolean);
+    if (examDates.some((date) => date < startDate || date > endDate)) {
+      setError("ช่วงวันสอบต้องอยู่ภายในวันเปิดและวันสิ้นสุดภาคการศึกษา");
+      return;
+    }
+    if (midtermEnd && finalStart && midtermEnd >= finalStart) {
+      setError("ช่วงสอบกลางภาคต้องสิ้นสุดก่อนช่วงสอบปลายภาค");
+      return;
+    }
+
+    const payload: SaveAcademicTermPayload = {
       academic_year: Number(academicYear),
       semester_no: Number(semesterNo),
       start_date: startDate,
@@ -118,8 +155,13 @@ function TermModal({ onClose, onSaved }: TermModalProps) {
     setSaving(true);
     setError("");
     try {
-      await teachingManagementService.createAcademicTerm(payload);
-      await onSaved(`สร้างปีการศึกษา ${academicYear} ภาคเรียนที่ ${semesterNo} แล้ว`);
+      if (term) {
+        await teachingManagementService.updateAcademicTerm(term.academic_term_id, payload);
+        await onSaved(`แก้ไขปีการศึกษา ${academicYear} ภาคเรียนที่ ${semesterNo} แล้ว`);
+      } else {
+        await teachingManagementService.createAcademicTerm(payload);
+        await onSaved(`สร้างปีการศึกษา ${academicYear} ภาคเรียนที่ ${semesterNo} แล้ว`);
+      }
     } catch (saveError) {
       setError(
         saveError instanceof Error
@@ -148,10 +190,12 @@ function TermModal({ onClose, onSaved }: TermModalProps) {
               Academic Term
             </p>
             <h2 id="term-modal-title" className="mt-1 text-xl font-semibold text-[#304852]">
-              เพิ่มภาคการศึกษา
+              {term ? "แก้ไขภาคการศึกษา" : "เพิ่มภาคการศึกษา"}
             </h2>
             <p className="mt-1 text-sm text-[#7d9098]">
-              สร้างรอบการศึกษาก่อนเปิดกลุ่มเรียนและมอบหมายผู้สอน
+              {term
+                ? "ปรับวันเรียน ช่วงสอบ และสถานะ โดยข้อมูลกลุ่มเรียนเดิมยังคงอยู่"
+                : "สร้างรอบการศึกษาก่อนเปิดกลุ่มเรียนและมอบหมายผู้สอน"}
             </p>
           </div>
           <button type="button" onClick={onClose} disabled={saving} aria-label="ปิด" className="rounded-full p-2 text-[#7d9098] transition hover:bg-[#edf4f6] disabled:opacity-50">
@@ -200,14 +244,21 @@ function TermModal({ onClose, onSaved }: TermModalProps) {
           </div>
 
           <label className="text-sm font-medium text-[#4c626c] sm:col-span-2">
-            สถานะเริ่มต้น
+            สถานะภาคการศึกษา
             <AdminSelect
               value={status}
-              onChange={(value) => setStatus(value as "draft" | "active")}
-              options={[
-                { value: "active", label: "เริ่มใช้งานทันที", description: "ใช้เปิดกลุ่มเรียนได้ทันที" },
-                { value: "draft", label: "บันทึกเป็นฉบับร่าง", description: "เตรียมข้อมูลไว้ก่อน" },
-              ]}
+              onChange={(value) => setStatus(value as AcademicTermStatus)}
+              options={(term
+                ? [
+                    { value: "draft", label: "ฉบับร่าง", description: "เตรียมข้อมูลไว้ก่อน" },
+                    { value: "active", label: "กำลังใช้งาน", description: "ภาคการศึกษาปัจจุบัน" },
+                    { value: "completed", label: "สิ้นสุดแล้ว", description: "จบการเรียนการสอน" },
+                    { value: "archived", label: "จัดเก็บแล้ว", description: "เก็บเป็นประวัติย้อนหลัง" },
+                  ]
+                : [
+                    { value: "active", label: "เริ่มใช้งานทันที", description: "ใช้เปิดกลุ่มเรียนได้ทันที" },
+                    { value: "draft", label: "บันทึกเป็นฉบับร่าง", description: "เตรียมข้อมูลไว้ก่อน" },
+                  ])}
               ariaLabel="เลือกสถานะภาคการศึกษา"
               appearance="cute"
               icon={Clock3}
@@ -221,7 +272,7 @@ function TermModal({ onClose, onSaved }: TermModalProps) {
             <button type="button" onClick={onClose} disabled={saving} className="rounded-xl px-4 py-2.5 text-sm text-[#687b84] transition hover:bg-[#eef4f6] disabled:opacity-50">ยกเลิก</button>
             <button type="submit" disabled={saving} className="inline-flex min-w-36 items-center justify-center gap-2 rounded-xl bg-[#5794aa] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#477f93] disabled:opacity-60">
               {saving ? <LoaderCircle className="animate-spin" size={17} /> : <CalendarPlus size={17} />}
-              {saving ? "กำลังบันทึก" : "สร้างภาคการศึกษา"}
+              {saving ? "กำลังบันทึก" : term ? "บันทึกการแก้ไข" : "สร้างภาคการศึกษา"}
             </button>
           </div>
         </form>
@@ -476,6 +527,7 @@ export default function TeachingManagementClient() {
   const [termFilter, setTermFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [termModalOpen, setTermModalOpen] = useState(false);
+  const [editingTerm, setEditingTerm] = useState<TeachingAcademicTerm | null>(null);
   const [sectionModalOpen, setSectionModalOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<TeachingCourseSection | null>(null);
   const [meetingEditor, setMeetingEditor] = useState<{
@@ -483,6 +535,7 @@ export default function TeachingManagementClient() {
     meeting: TeachingClassMeeting | null;
   } | null>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
+  const [termStatusUpdatingId, setTermStatusUpdatingId] = useState<number | null>(null);
 
   const loadWorkspace = useCallback(async () => {
     setLoading(true);
@@ -536,10 +589,43 @@ export default function TeachingManagementClient() {
 
   const handleSaved = async (message: string) => {
     setTermModalOpen(false);
+    setEditingTerm(null);
     setSectionModalOpen(false);
     setEditingSection(null);
     setNotice(message);
     await loadWorkspace();
+  };
+
+  const handleTermStatus = async (term: TeachingAcademicTerm) => {
+    const next = nextTermStatus[term.status];
+    if (
+      (next.status === "completed" || next.status === "archived") &&
+      !window.confirm(
+        `${next.label} ปี ${term.academic_year} ภาคเรียนที่ ${term.semester_no} หรือไม่? ข้อมูลกลุ่มเรียนจะยังคงอยู่`,
+      )
+    ) {
+      return;
+    }
+    setTermStatusUpdatingId(term.academic_term_id);
+    setError("");
+    try {
+      await teachingManagementService.updateAcademicTermStatus(
+        term.academic_term_id,
+        next.status,
+      );
+      setNotice(
+        `${next.label} ปี ${term.academic_year} ภาคเรียนที่ ${term.semester_no} แล้ว`,
+      );
+      await loadWorkspace();
+    } catch (statusError) {
+      setError(
+        statusError instanceof Error
+          ? statusError.message
+          : "ไม่สามารถเปลี่ยนสถานะภาคการศึกษาได้",
+      );
+    } finally {
+      setTermStatusUpdatingId(null);
+    }
   };
 
   const handleMeetingSaved = async (message: string) => {
@@ -579,7 +665,7 @@ export default function TeachingManagementClient() {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#71858e]">เชื่อมรายวิชากับภาคการศึกษา กลุ่มเรียน และอาจารย์ผู้สอนตามโครงสร้าง ER</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setTermModalOpen(true)} className="inline-flex h-11 items-center gap-2 rounded-full border border-[#bddce7] bg-white px-4 text-sm font-medium text-[#477f93] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"><CalendarPlus size={17} /> เพิ่มภาคการศึกษา</button>
+            <button type="button" onClick={() => { setEditingTerm(null); setTermModalOpen(true); }} className="inline-flex h-11 items-center gap-2 rounded-full border border-[#bddce7] bg-white px-4 text-sm font-medium text-[#477f93] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"><CalendarPlus size={17} /> เพิ่มภาคการศึกษา</button>
             <button type="button" onClick={() => { setEditingSection(null); setSectionModalOpen(true); }} disabled={!workspace?.academic_terms.length || !workspace.subjects.length || !workspace.instructors.length} className="inline-flex h-11 items-center gap-2 rounded-full bg-[#7468a8] px-5 text-sm font-medium text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#655a98] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-45"><Plus size={17} /> เปิดกลุ่มเรียน</button>
           </div>
         </div>
@@ -597,6 +683,104 @@ export default function TeachingManagementClient() {
             <p className="mt-1 text-sm text-[#7b8d95]">{label}</p>
           </div>
         ))}
+      </section>
+
+      <section className="mt-6 rounded-[26px] border border-[#dfeaec] bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-[#4f879c]">Academic Terms</p>
+            <h2 className="mt-1 text-xl font-semibold text-[#304b56]">ภาคการศึกษาและประวัติย้อนหลัง</h2>
+            <p className="mt-1 text-sm text-[#82939a]">แก้ไขช่วงวัน เปลี่ยนสถานะ และเปิดดูกลุ่มเรียนของแต่ละเทอม</p>
+          </div>
+          <span className="w-fit rounded-full bg-[#eaf6fa] px-3 py-1.5 text-xs font-medium text-[#4f879c]">
+            {workspace?.academic_terms.length ?? 0} ภาคการศึกษา
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="mt-5 flex min-h-36 items-center justify-center gap-2 text-sm text-[#71858e]">
+            <LoaderCircle className="animate-spin" size={20} /> กำลังโหลดภาคการศึกษา...
+          </div>
+        ) : !workspace?.academic_terms.length ? (
+          <div className="mt-5 rounded-2xl border border-dashed border-[#cddfe5] bg-[#fafcfd] px-5 py-10 text-center text-sm text-[#82939a]">
+            ยังไม่มีภาคการศึกษา กด “เพิ่มภาคการศึกษา” เพื่อเริ่มต้น
+          </div>
+        ) : (
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {workspace.academic_terms.map((term) => {
+              const sectionCount = sections.filter(
+                (section) => section.academic_term_id === term.academic_term_id,
+              ).length;
+              const next = nextTermStatus[term.status];
+              return (
+                <article
+                  key={term.academic_term_id}
+                  className="rounded-[22px] border border-[#dfeaec] bg-[#fbfdfe] p-5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium text-[#6f9bab]">ปีการศึกษา</p>
+                      <h3 className="mt-1 text-lg font-semibold text-[#304b56]">
+                        {term.academic_year} · ภาคเรียนที่ {term.semester_no}
+                      </h3>
+                    </div>
+                    <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${termStatusStyles[term.status]}`}>
+                      {termStatusLabel[term.status]}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 rounded-2xl bg-white p-4 text-sm sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs text-[#8b9aa0]">ช่วงเปิดภาคเรียน</p>
+                      <p className="mt-1 text-[#506872]">{formatTermDate(term.start_date)} – {formatTermDate(term.end_date)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-[#8b9aa0]">กลุ่มเรียน</p>
+                      <p className="mt-1 text-[#506872]">{sectionCount} กลุ่ม</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-[#8b9aa0]">สอบกลางภาค</p>
+                      <p className="mt-1 text-[#506872]">{term.midterm_start_date ? `${formatTermDate(term.midterm_start_date)} – ${formatTermDate(term.midterm_end_date)}` : "ยังไม่กำหนด"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-[#8b9aa0]">สอบปลายภาค</p>
+                      <p className="mt-1 text-[#506872]">{term.final_start_date ? `${formatTermDate(term.final_start_date)} – ${formatTermDate(term.final_end_date)}` : "ยังไม่กำหนด"}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTermFilter(String(term.academic_term_id));
+                        setStatusFilter("all");
+                      }}
+                      className="rounded-xl border border-[#d6e3e7] px-3.5 py-2 text-xs font-medium text-[#607983] transition hover:bg-white"
+                    >
+                      ดูกลุ่มเรียน
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setEditingTerm(term); setTermModalOpen(true); }}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#eef4f7] px-3.5 py-2 text-xs font-medium text-[#4f7f91] transition hover:bg-[#e1edf2]"
+                    >
+                      <Pencil size={14} /> แก้ไข
+                    </button>
+                    <button
+                      type="button"
+                      disabled={termStatusUpdatingId === term.academic_term_id}
+                      onClick={() => void handleTermStatus(term)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#eaf6fa] px-3.5 py-2 text-xs font-medium text-[#4f8791] transition hover:bg-[#dceff5] disabled:opacity-50"
+                    >
+                      {termStatusUpdatingId === term.academic_term_id ? <LoaderCircle className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
+                      {next.label}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="mt-6 rounded-[26px] border border-[#dfeaec] bg-white p-5 shadow-sm sm:p-6">
@@ -736,7 +920,14 @@ export default function TeachingManagementClient() {
         )}
       </section>
 
-      {termModalOpen && <TermModal onClose={() => setTermModalOpen(false)} onSaved={handleSaved} />}
+      {termModalOpen && (
+        <TermModal
+          key={editingTerm?.academic_term_id ?? "new-term"}
+          term={editingTerm}
+          onClose={() => { setTermModalOpen(false); setEditingTerm(null); }}
+          onSaved={handleSaved}
+        />
+      )}
       {sectionModalOpen && workspace && (
         <SectionModal
           key={editingSection?.section_id ?? "new-section"}

@@ -1,4 +1,4 @@
-import { Pencil, ShieldCheck, Trash2, UserRound } from "lucide-react";
+import { Archive, Pencil, ShieldCheck, UserRound } from "lucide-react";
 import type { ManagedUser, UserGender } from "@/interfaces/user-management.interface";
 import { formatDisplayDateTime } from "@/utils/dateTime";
 import ActionIconButton from "./ActionIconButton";
@@ -7,7 +7,7 @@ import UserStatusBadge from "./UserStatusBadge";
 interface UserTableProps {
   users: ManagedUser[];
   onEdit: (user: ManagedUser) => void;
-  onDelete: (user: ManagedUser) => void;
+  onArchive: (user: ManagedUser) => void;
   onStatus: (user: ManagedUser) => void;
 }
 
@@ -29,12 +29,12 @@ function UserAvatar({ userName }: { userName: string }) {
 function ActionButtons({
   user,
   onEdit,
-  onDelete,
+  onArchive,
   onStatus,
 }: {
   user: ManagedUser;
   onEdit: (user: ManagedUser) => void;
-  onDelete: (user: ManagedUser) => void;
+  onArchive: (user: ManagedUser) => void;
   onStatus: (user: ManagedUser) => void;
 }) {
   return (
@@ -56,18 +56,19 @@ function ActionButtons({
         <Pencil size={16} aria-hidden="true" />
       </ActionIconButton>
       <ActionIconButton
-        label="ลบบัญชี"
-        onClick={() => onDelete(user)}
-        aria-label={`ลบนักศึกษา ${user.user_name}`}
-        className="bg-[#fff0ec] text-[#c6644d] hover:bg-[#ffe1d9]"
+        label={user.status === "archived" ? "จัดเก็บแล้ว" : "จัดเก็บบัญชี"}
+        onClick={() => onArchive(user)}
+        disabled={user.status === "archived"}
+        aria-label={`จัดเก็บบัญชีนักศึกษา ${user.user_name}`}
+        className="bg-[#eef1f3] text-[#66777e] hover:bg-[#e2e7e9] disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <Trash2 size={16} aria-hidden="true" />
+        <Archive size={16} aria-hidden="true" />
       </ActionIconButton>
     </div>
   );
 }
 
-export default function UserTable({ users, onEdit, onDelete, onStatus }: UserTableProps) {
+export default function UserTable({ users, onEdit, onArchive, onStatus }: UserTableProps) {
   if (users.length === 0) {
     return (
       <div className="flex min-h-72 flex-col items-center justify-center px-6 text-center">
@@ -131,7 +132,7 @@ export default function UserTable({ users, onEdit, onDelete, onStatus }: UserTab
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-2">
                     <UserStatusBadge user={user} />
-                    <ActionButtons user={user} onEdit={onEdit} onDelete={onDelete} onStatus={onStatus} />
+                    <ActionButtons user={user} onEdit={onEdit} onArchive={onArchive} onStatus={onStatus} />
                   </div>
                 </td>
               </tr>
@@ -154,7 +155,7 @@ export default function UserTable({ users, onEdit, onDelete, onStatus }: UserTab
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <UserStatusBadge user={user} />
-                    <ActionButtons user={user} onEdit={onEdit} onDelete={onDelete} onStatus={onStatus} />
+                    <ActionButtons user={user} onEdit={onEdit} onArchive={onArchive} onStatus={onStatus} />
                   </div>
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <div className="col-span-2"><dt className="text-xs text-[#94a2a8]">คณะ / สาขา</dt><dd className="mt-0.5 text-[#536a74]">{user.faculty_name} · {user.department_name}</dd></div>

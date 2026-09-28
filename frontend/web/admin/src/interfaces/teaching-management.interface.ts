@@ -90,7 +90,7 @@ export interface TeachingWorkspaceResponse {
   sections: TeachingCourseSection[];
 }
 
-export interface CreateAcademicTermPayload {
+export interface SaveAcademicTermPayload {
   academic_year: number;
   semester_no: number;
   start_date: string;
@@ -99,7 +99,7 @@ export interface CreateAcademicTermPayload {
   midterm_end_date: string | null;
   final_start_date: string | null;
   final_end_date: string | null;
-  status: "draft" | "active";
+  status: AcademicTermStatus;
 }
 
 export interface SaveCourseSectionPayload {

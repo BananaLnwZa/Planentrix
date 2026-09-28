@@ -6,6 +6,8 @@ import {
   deleteClassMeeting,
   getTeachingWorkspace,
   updateClassMeeting,
+  updateAcademicTerm,
+  updateAcademicTermStatus,
   updateCourseSection,
   updateCourseSectionStatus,
 } from "../controllers/teaching.controller";
@@ -14,6 +16,8 @@ const router = Router();
 
 router.get("/", getTeachingWorkspace);
 router.post("/terms", createAcademicTerm);
+router.patch("/terms/:termId/status", updateAcademicTermStatus);
+router.patch("/terms/:termId", updateAcademicTerm);
 router.post("/sections", createCourseSection);
 router.patch("/sections/:sectionId", updateCourseSection);
 router.patch("/sections/:sectionId/status", updateCourseSectionStatus);

@@ -32,7 +32,7 @@ const options: Array<{
 }> = [
   { value: "active", label: "เปิดใช้งาน", description: "อนุญาตให้เข้าสู่ระบบตามปกติ", icon: CheckCircle2, style: "border-[#bfe1d1] bg-[#f0faf5] text-[#438067]" },
   { value: "suspended", label: "ระงับบัญชี", description: "หยุดการเข้าใช้งานชั่วคราว", icon: CirclePause, style: "border-[#f0d1c6] bg-[#fff5f1] text-[#b6634d]" },
-  { value: "archived", label: "Archive", description: "เก็บบัญชีออกจากการใช้งาน", icon: Archive, style: "border-[#d9dfe2] bg-[#f5f7f8] text-[#68777e]" },
+  { value: "archived", label: "จัดเก็บบัญชี", description: "เก็บบัญชีออกจากการใช้งานโดยไม่ลบข้อมูล", icon: Archive, style: "border-[#d9dfe2] bg-[#f5f7f8] text-[#68777e]" },
 ];
 
 export default function AccountStatusModal({

@@ -4,7 +4,7 @@ import {
   LoginRequest,
   LoginResponse,
   LogoutResponse,
-  DeleteAccountResponse,
+  ArchiveAccountResponse,
   ApiResponse,
   RegistrationOptionsResponse,
   UpdateConstraintRequest,
@@ -89,12 +89,12 @@ class AuthService {
   }
 
   /**
-   * Delete user account
+   * Archive the user account without deleting related history
    */
-  async deleteAccount(): Promise<DeleteAccountResponse> {
+  async archiveAccount(): Promise<ArchiveAccountResponse> {
     try {
-      const response = await authenticatedApiClient.delete<DeleteAccountResponse>(
-        `${this.authEndpoint}/me`
+      const response = await authenticatedApiClient.patch<ArchiveAccountResponse>(
+        `${this.authEndpoint}/me/archive`
       );
 
       clearStoredAuth();

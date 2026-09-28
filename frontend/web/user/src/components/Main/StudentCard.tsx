@@ -32,7 +32,7 @@ type StudentCardProps = {
   birthDate?: string;
   studentNumber?: string;
   onEditProfile?: () => void;
-  onDeleteProfile?: () => void;
+  onArchiveProfile?: () => void;
   onConstraintUpdated?: () => void;
 };
 
@@ -107,13 +107,13 @@ export default function StudentCard({
   birthDate,
   studentNumber,
   onEditProfile,
-  onDeleteProfile,
+  onArchiveProfile,
   onConstraintUpdated,
 }: StudentCardProps) {
   const router = useRouter();
   const authUser = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
-  const deleteAccount = useAuthStore((state) => state.deleteAccount);
+  const archiveAccount = useAuthStore((state) => state.archiveAccount);
   const logout = useAuthStore((state) => state.logout);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -127,7 +127,7 @@ export default function StudentCard({
   const [activePanel, setActivePanel] = useState<ProfilePanel>("profile");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
@@ -411,26 +411,26 @@ export default function StudentCard({
     setAvatarPreviewUrl(URL.createObjectURL(file));
   };
 
-  const handleDeleteProfile = async () => {
-    onDeleteProfile?.();
-    if (onDeleteProfile) return;
+  const handleArchiveProfile = async () => {
+    onArchiveProfile?.();
+    if (onArchiveProfile) return;
 
     const hasConfirmed = window.confirm(
-      "Delete this profile permanently? This action cannot be undone."
+      "จัดเก็บบัญชีนี้หรือไม่? คุณจะออกจากระบบและไม่สามารถเข้าสู่ระบบได้ แต่ประวัติการเรียน คะแนน และข้อสอบจะยังคงอยู่"
     );
     if (!hasConfirmed) return;
 
-    setIsDeleting(true);
+    setIsArchiving(true);
     setActionError("");
     try {
-      await deleteAccount();
+      await archiveAccount();
       closeProfile();
       router.replace("/LogIn");
     } catch (error) {
       setActionError(
-        error instanceof Error ? error.message : "Unable to delete profile"
+        error instanceof Error ? error.message : "Unable to archive account"
       );
-      setIsDeleting(false);
+      setIsArchiving(false);
     }
   };
 
@@ -550,7 +550,7 @@ export default function StudentCard({
           isLoading={isLoading}
           isEditing={isEditing}
           isSaving={isSaving}
-          isDeleting={isDeleting}
+          isArchiving={isArchiving}
           isLoggingOut={isLoggingOut}
           isUploadingAvatar={isUploadingAvatar}
           setEditValues={setEditValues}
@@ -565,7 +565,7 @@ export default function StudentCard({
             setActionError("");
           }}
           onSaveAll={handleSaveAll}
-          onDeleteProfile={handleDeleteProfile}
+          onArchiveProfile={handleArchiveProfile}
           onLogout={handleLogout}
           onAvatarChange={handleAvatarChange}
           onEditFormSubmit={handleEditFormSubmit}

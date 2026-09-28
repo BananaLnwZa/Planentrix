@@ -111,10 +111,6 @@ export interface UpdateManagedInstructorStatusResponse {
   instructor: ManagedInstructor;
 }
 
-export interface DeleteManagedUserResponse {
-  message: string;
-}
-
 export interface UserManagementErrorResponse {
   message: string;
   code?: "EDIT_CONFLICT";

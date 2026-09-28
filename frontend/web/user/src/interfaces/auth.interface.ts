@@ -67,9 +67,9 @@ export interface LogoutResponse {
 }
 
 // ==============================
-// DELETE ACCOUNT RESPONSE
+// ARCHIVE ACCOUNT RESPONSE
 // ==============================
-export interface DeleteAccountResponse {
+export interface ArchiveAccountResponse {
   message: string;
 }
 

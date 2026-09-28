@@ -2,7 +2,7 @@ import { Router } from "express";
 import {
   bootstrapAdmin,
   changeFirstLoginPassword,
-  deleteOwnAccount,
+  archiveOwnAccount,
   getCurrentAccount,
   listRegistrationOptions,
   login,
@@ -35,6 +35,11 @@ router.post(
   requireRole("instructor"),
   changeFirstLoginPassword,
 );
-router.delete("/me", verifyToken, requireRole("user"), deleteOwnAccount);
+router.patch(
+  "/me/archive",
+  verifyToken,
+  requireRole("user"),
+  archiveOwnAccount,
+);
 
 export default router;

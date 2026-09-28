@@ -101,6 +101,18 @@ interface MeetingPayload {
   classroom: string | null;
 }
 
+interface AcademicTermPayload {
+  academicYear: number;
+  semesterNo: number;
+  startDate: string;
+  endDate: string;
+  midtermStart: string | null;
+  midtermEnd: string | null;
+  finalStart: string | null;
+  finalEnd: string | null;
+  status: TermStatus;
+}
+
 const meetingDays: MeetingDay[] = [
   "monday",
   "tuesday",
@@ -155,7 +167,11 @@ const isAdmin = (req: Request, res: Response): number | null => {
 
 const parseDate = (value: unknown): string | null => {
   const date = String(value ?? "").trim();
-  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date
+    ? date
+    : null;
 };
 
 const parseNullableDatePair = (
@@ -172,6 +188,83 @@ const parseNullableDatePair = (
     end,
     valid: Boolean(start && end && start <= end),
   };
+};
+
+const parseAcademicTermPayload = (
+  body: Record<string, unknown>,
+): { data?: AcademicTermPayload; message?: string } => {
+  const academicYear = Number(body.academic_year);
+  const semesterNo = Number(body.semester_no);
+  const startDate = parseDate(body.start_date);
+  const endDate = parseDate(body.end_date);
+  const midterm = parseNullableDatePair(
+    body.midterm_start_date,
+    body.midterm_end_date,
+  );
+  const final = parseNullableDatePair(
+    body.final_start_date,
+    body.final_end_date,
+  );
+  const status = String(body.status ?? "draft") as TermStatus;
+
+  if (!Number.isInteger(academicYear) || academicYear < 2000 || academicYear > 3000) {
+    return { message: "ปีการศึกษาต้องอยู่ระหว่าง 2000-3000" };
+  }
+  if (![1, 2, 3].includes(semesterNo)) {
+    return { message: "ภาคเรียนต้องเป็น 1, 2 หรือ 3" };
+  }
+  if (!startDate || !endDate || startDate > endDate) {
+    return { message: "ช่วงวันเปิดภาคการศึกษาไม่ถูกต้อง" };
+  }
+  if (!midterm.valid || !final.valid) {
+    return { message: "กรุณากรอกวันเริ่มและสิ้นสุดการสอบให้ครบและถูกต้อง" };
+  }
+  if (!(["draft", "active", "completed", "archived"] as TermStatus[]).includes(status)) {
+    return { message: "สถานะภาคการศึกษาไม่ถูกต้อง" };
+  }
+
+  const examDates = [
+    midterm.start,
+    midterm.end,
+    final.start,
+    final.end,
+  ].filter((date): date is string => Boolean(date));
+  if (examDates.some((date) => date < startDate || date > endDate)) {
+    return { message: "ช่วงวันสอบต้องอยู่ภายในวันเปิดและวันสิ้นสุดภาคการศึกษา" };
+  }
+  if (midterm.end && final.start && midterm.end >= final.start) {
+    return { message: "ช่วงสอบกลางภาคต้องสิ้นสุดก่อนช่วงสอบปลายภาค" };
+  }
+
+  return {
+    data: {
+      academicYear,
+      semesterNo,
+      startDate,
+      endDate,
+      midtermStart: midterm.start,
+      midtermEnd: midterm.end,
+      finalStart: final.start,
+      finalEnd: final.end,
+      status,
+    },
+  };
+};
+
+const hasOtherActiveTerm = async (
+  connection: PoolConnection,
+  excludedTermId: number | null = null,
+) => {
+  const [rows] = await connection.query<RowDataPacket[]>(
+    `SELECT academic_term_id
+     FROM academic_terms
+     WHERE status = 'active'
+       AND (? IS NULL OR academic_term_id <> ?)
+     LIMIT 1
+     FOR UPDATE`,
+    [excludedTermId, excludedTermId],
+  );
+  return Boolean(rows[0]);
 };
 
 const normalizeTime = (value: unknown): string | null => {
@@ -553,61 +646,44 @@ export const getTeachingWorkspace = async (req: Request, res: Response) => {
 export const createAcademicTerm = async (req: Request, res: Response) => {
   const adminId = isAdmin(req, res);
   if (!adminId) return;
-
-  const academicYear = Number(req.body.academic_year);
-  const semesterNo = Number(req.body.semester_no);
-  const startDate = parseDate(req.body.start_date);
-  const endDate = parseDate(req.body.end_date);
-  const midterm = parseNullableDatePair(
-    req.body.midterm_start_date,
-    req.body.midterm_end_date,
-  );
-  const final = parseNullableDatePair(
-    req.body.final_start_date,
-    req.body.final_end_date,
-  );
-  const status = String(req.body.status ?? "active") as TermStatus;
-
-  if (!Number.isInteger(academicYear) || academicYear < 2000 || academicYear > 3000) {
-    return res.status(400).json({ message: "ปีการศึกษาต้องอยู่ระหว่าง 2000-3000" });
+  const validation = parseAcademicTermPayload(req.body);
+  if (!validation.data) {
+    return res.status(400).json({ message: validation.message });
   }
-  if (![1, 2, 3].includes(semesterNo)) {
-    return res.status(400).json({ message: "ภาคเรียนต้องเป็น 1, 2 หรือ 3" });
-  }
-  if (!startDate || !endDate || startDate > endDate) {
-    return res.status(400).json({ message: "ช่วงวันเปิดภาคการศึกษาไม่ถูกต้อง" });
-  }
-  if (!midterm.valid || !final.valid) {
-    return res.status(400).json({ message: "กรุณากรอกวันเริ่มและสิ้นสุดการสอบให้ครบและถูกต้อง" });
-  }
-  if (!["draft", "active", "completed", "archived"].includes(status)) {
-    return res.status(400).json({ message: "สถานะภาคการศึกษาไม่ถูกต้อง" });
-  }
-
+  const payload = validation.data;
+  const connection = await db.getConnection();
   try {
-    const [result] = await db.query<ResultSetHeader>(
+    await connection.beginTransaction();
+    if (payload.status === "active" && await hasOtherActiveTerm(connection)) {
+      await connection.rollback();
+      return res.status(409).json({
+        message: "มีภาคการศึกษาที่กำลังใช้งานอยู่แล้ว กรุณาสิ้นสุดภาคการศึกษาเดิมก่อน",
+      });
+    }
+    const [result] = await connection.query<ResultSetHeader>(
       `INSERT INTO academic_terms
         (academic_year, semester_no, start_date, end_date,
          midterm_start_date, midterm_end_date,
          final_start_date, final_end_date, status, created_by_admin_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        academicYear,
-        semesterNo,
-        startDate,
-        endDate,
-        midterm.start,
-        midterm.end,
-        final.start,
-        final.end,
-        status,
+        payload.academicYear,
+        payload.semesterNo,
+        payload.startDate,
+        payload.endDate,
+        payload.midtermStart,
+        payload.midtermEnd,
+        payload.finalStart,
+        payload.finalEnd,
+        payload.status,
         adminId,
       ],
     );
-    const [created] = await db.query<TermRow[]>(
+    const [created] = await connection.query<TermRow[]>(
       `${termSelect} WHERE academic_term_id = ? LIMIT 1`,
       [result.insertId],
     );
+    await connection.commit();
     return res.status(201).json({
       message: "Academic term created successfully",
       academic_term: created[0],
@@ -618,10 +694,140 @@ export const createAcademicTerm = async (req: Request, res: Response) => {
         ? String((error as { code?: unknown }).code ?? "")
         : "";
     if (code === "ER_DUP_ENTRY") {
+      await connection.rollback();
       return res.status(409).json({ message: "ปีการศึกษาและภาคเรียนนี้มีอยู่แล้ว" });
     }
+    await connection.rollback();
     console.error("createAcademicTerm error:", error);
     return res.status(500).json({ message: "ไม่สามารถสร้างภาคการศึกษาได้" });
+  } finally {
+    connection.release();
+  }
+};
+
+const academicTermIdFrom = (req: Request, res: Response): number | null => {
+  const termId = Number(req.params.termId);
+  if (!Number.isInteger(termId) || termId <= 0) {
+    res.status(400).json({ message: "รหัสภาคการศึกษาไม่ถูกต้อง" });
+    return null;
+  }
+  return termId;
+};
+
+export const updateAcademicTerm = async (req: Request, res: Response) => {
+  if (!isAdmin(req, res)) return;
+  const termId = academicTermIdFrom(req, res);
+  if (!termId) return;
+  const validation = parseAcademicTermPayload(req.body);
+  if (!validation.data) {
+    return res.status(400).json({ message: validation.message });
+  }
+  const payload = validation.data;
+  const connection = await db.getConnection();
+
+  try {
+    await connection.beginTransaction();
+    const [existing] = await connection.query<TermRow[]>(
+      `${termSelect} WHERE academic_term_id = ? LIMIT 1 FOR UPDATE`,
+      [termId],
+    );
+    if (!existing[0]) {
+      await connection.rollback();
+      return res.status(404).json({ message: "ไม่พบภาคการศึกษาที่ต้องการแก้ไข" });
+    }
+    if (
+      payload.status === "active" &&
+      await hasOtherActiveTerm(connection, termId)
+    ) {
+      await connection.rollback();
+      return res.status(409).json({
+        message: "มีภาคการศึกษาที่กำลังใช้งานอยู่แล้ว กรุณาสิ้นสุดภาคการศึกษาเดิมก่อน",
+      });
+    }
+
+    await connection.query(
+      `UPDATE academic_terms
+       SET academic_year = ?, semester_no = ?, start_date = ?, end_date = ?,
+           midterm_start_date = ?, midterm_end_date = ?,
+           final_start_date = ?, final_end_date = ?, status = ?, updated_at = NOW()
+       WHERE academic_term_id = ?`,
+      [
+        payload.academicYear,
+        payload.semesterNo,
+        payload.startDate,
+        payload.endDate,
+        payload.midtermStart,
+        payload.midtermEnd,
+        payload.finalStart,
+        payload.finalEnd,
+        payload.status,
+        termId,
+      ],
+    );
+    const [updated] = await connection.query<TermRow[]>(
+      `${termSelect} WHERE academic_term_id = ? LIMIT 1`,
+      [termId],
+    );
+    await connection.commit();
+    return res.json({
+      message: "Academic term updated successfully",
+      academic_term: updated[0],
+    });
+  } catch (error: unknown) {
+    await connection.rollback();
+    const code =
+      typeof error === "object" && error !== null && "code" in error
+        ? String((error as { code?: unknown }).code ?? "")
+        : "";
+    if (code === "ER_DUP_ENTRY") {
+      return res.status(409).json({ message: "ปีการศึกษาและภาคเรียนนี้มีอยู่แล้ว" });
+    }
+    console.error("updateAcademicTerm error:", error);
+    return res.status(500).json({ message: "ไม่สามารถแก้ไขภาคการศึกษาได้" });
+  } finally {
+    connection.release();
+  }
+};
+
+export const updateAcademicTermStatus = async (req: Request, res: Response) => {
+  if (!isAdmin(req, res)) return;
+  const termId = academicTermIdFrom(req, res);
+  if (!termId) return;
+  const status = String(req.body.status ?? "") as TermStatus;
+  if (!(["draft", "active", "completed", "archived"] as TermStatus[]).includes(status)) {
+    return res.status(400).json({ message: "สถานะภาคการศึกษาไม่ถูกต้อง" });
+  }
+  const connection = await db.getConnection();
+
+  try {
+    await connection.beginTransaction();
+    const [existing] = await connection.query<TermRow[]>(
+      `${termSelect} WHERE academic_term_id = ? LIMIT 1 FOR UPDATE`,
+      [termId],
+    );
+    if (!existing[0]) {
+      await connection.rollback();
+      return res.status(404).json({ message: "ไม่พบภาคการศึกษาที่เลือก" });
+    }
+    if (status === "active" && await hasOtherActiveTerm(connection, termId)) {
+      await connection.rollback();
+      return res.status(409).json({
+        message: "มีภาคการศึกษาที่กำลังใช้งานอยู่แล้ว กรุณาสิ้นสุดภาคการศึกษาเดิมก่อน",
+      });
+    }
+    await connection.query(
+      `UPDATE academic_terms SET status = ?, updated_at = NOW()
+       WHERE academic_term_id = ?`,
+      [status, termId],
+    );
+    await connection.commit();
+    return res.json({ message: "Academic term status updated successfully" });
+  } catch (error) {
+    await connection.rollback();
+    console.error("updateAcademicTermStatus error:", error);
+    return res.status(500).json({ message: "ไม่สามารถเปลี่ยนสถานะภาคการศึกษาได้" });
+  } finally {
+    connection.release();
   }
 };
 

@@ -14,7 +14,7 @@ export default function UserStatusBadge({ user }: { user: ManagedAccountActivity
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-[#edf0f2] px-2.5 py-1 text-xs font-medium text-[#66747b]">
         <Archive size={13} aria-hidden="true" />
-        Archive
+        จัดเก็บแล้ว
       </span>
     );
   }

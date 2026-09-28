@@ -25,7 +25,7 @@ export const apiEndpoints = {
     register: "/auth/register",
     login: "/auth/login",
     logout: "/auth/logout",
-    deleteAccount: "/auth/me",
+    archiveAccount: "/auth/me/archive",
   },
   // Add more endpoint groups as needed
   // user: {

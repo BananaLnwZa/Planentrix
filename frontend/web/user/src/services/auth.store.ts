@@ -27,7 +27,7 @@ interface AuthStore extends AuthState {
     gender?: "male" | "female" | "other"
   ) => Promise<void>;
   logout: () => Promise<void>;
-  deleteAccount: () => Promise<void>;
+  archiveAccount: () => Promise<void>;
   checkAuthStatus: () => void;
   resetAuth: () => void;
 }
@@ -161,11 +161,11 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      // Delete account
-      deleteAccount: async () => {
+      // Archive account while preserving academic history
+      archiveAccount: async () => {
         set({ isLoading: true, error: null });
         try {
-          await authService.deleteAccount();
+          await authService.archiveAccount();
           homeworkReminderService.clearAll();
 
           set({
@@ -180,7 +180,7 @@ export const useAuthStore = create<AuthStore>()(
             error:
               error instanceof Error
                 ? error.message
-                : "Failed to delete account",
+                : "Failed to archive account",
             isLoading: false,
           });
           throw error;

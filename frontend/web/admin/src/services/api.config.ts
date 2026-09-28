@@ -60,6 +60,8 @@ export const apiEndpoints = {
   teaching: {
     workspace: "/admin/teaching",
     terms: "/admin/teaching/terms",
+    termById: (termId: number) => `/admin/teaching/terms/${termId}`,
+    termStatus: (termId: number) => `/admin/teaching/terms/${termId}/status`,
     sections: "/admin/teaching/sections",
     sectionById: (sectionId: number) =>
       `/admin/teaching/sections/${sectionId}`,

@@ -12,6 +12,7 @@ import DaySelect from "@/components/common/DaySelect";
 import GenderSelect from "@/components/common/GenderSelect";
 import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
 import {
+  Archive,
   BookOpen,
   Camera,
   LogOut,
@@ -65,7 +66,7 @@ type StudentCardPopupProps = {
   isLoading: boolean;
   isEditing: boolean;
   isSaving: boolean;
-  isDeleting: boolean;
+  isArchiving: boolean;
   isLoggingOut: boolean;
   isUploadingAvatar: boolean;
   setEditValues: Dispatch<SetStateAction<EditProfileValues>>;
@@ -75,7 +76,7 @@ type StudentCardPopupProps = {
   onStartEditing: () => void;
   onCancelEditing: () => void;
   onSaveAll: () => void;
-  onDeleteProfile: () => void;
+  onArchiveProfile: () => void;
   onLogout: () => void;
   onAvatarChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onEditFormSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -179,7 +180,7 @@ export default function StudentCardPopup({
   isLoading,
   isEditing,
   isSaving,
-  isDeleting,
+  isArchiving,
   isLoggingOut,
   isUploadingAvatar,
   setEditValues,
@@ -189,7 +190,7 @@ export default function StudentCardPopup({
   onStartEditing,
   onCancelEditing,
   onSaveAll,
-  onDeleteProfile,
+  onArchiveProfile,
   onLogout,
   onAvatarChange,
   onEditFormSubmit,
@@ -320,12 +321,12 @@ export default function StudentCardPopup({
                   </button>
                   <button
                     type="button"
-                    onClick={onDeleteProfile}
-                    disabled={isDeleting}
+                    onClick={onArchiveProfile}
+                    disabled={isArchiving}
                     className="mt-1.5 flex items-center gap-2 text-sm text-[#314553] hover:text-red-600 disabled:cursor-wait disabled:opacity-60"
                   >
-                    <Trash2 aria-hidden="true" size={18} />
-                    {isDeleting ? "Deleting..." : "Delete Profile"}
+                    <Archive aria-hidden="true" size={18} />
+                    {isArchiving ? "Archiving..." : "Archive Account"}
                   </button>
                 </>
               )}
@@ -833,7 +834,7 @@ export default function StudentCardPopup({
           <button
             type="button"
             onClick={onLogout}
-            disabled={isLoggingOut || isSaving || isDeleting}
+            disabled={isLoggingOut || isSaving || isArchiving}
             className="mx-auto flex items-center justify-center gap-2 rounded-full border border-[#F19AB3] bg-white px-6 py-1.5 text-sm text-[#E65D84] transition-colors hover:bg-[#FFF0F5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F19AB3] disabled:cursor-wait disabled:opacity-60"
           >
             <LogOut aria-hidden="true" size={18} />

@@ -1,8 +1,6 @@
 import * as bcrypt from "bcrypt";
 import { createHash, timingSafeEqual } from "crypto";
 import * as jwt from "jsonwebtoken";
-import { promises as fs } from "fs";
-import path from "path";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import db from "../config/db";
 import type { AuthRole } from "../middlewares/verifyToken";
@@ -96,10 +94,6 @@ export interface RegistrationFacultyOption {
   faculty_id: number;
   faculty_name: string;
   departments: RegistrationDepartmentOption[];
-}
-
-interface UserPictureRow extends RowDataPacket {
-  user_pic: string | null;
 }
 
 interface AccountCandidate {
@@ -806,6 +800,7 @@ export const refreshUserAccessToken = async (
        WHERE user_id = ?
          AND refresh_token = ?
          AND refresh_token_expires_at > NOW()
+         AND status = 'active'
        LIMIT 1`,
       [decoded.id, refreshToken],
     );
@@ -934,95 +929,25 @@ export const changeInstructorFirstLoginPassword = async (
   }
 };
 
-export const deleteUserAccount = async (id: number): Promise<void> => {
-  const connection = await db.getConnection();
-  let userPic: string | null = null;
-  try {
-    await connection.beginTransaction();
-    const [rows] = await connection.query<UserPictureRow[]>(
-      "SELECT user_pic FROM user WHERE user_id = ? LIMIT 1",
-      [id],
-    );
-    if (!rows[0]) throw new AuthServiceError("User not found", 404);
-    userPic = rows[0].user_pic;
+export const archiveUserAccount = async (id: number): Promise<void> => {
+  const [result] = await db.query<ResultSetHeader>(
+    `UPDATE user
+     SET status = 'archived',
+         status_changed_by_admin_id = NULL,
+         status_changed_at = NOW(),
+         status_reason = 'ผู้ใช้จัดเก็บบัญชีด้วยตนเอง',
+         refresh_token = NULL,
+         refresh_token_expires_at = NULL
+     WHERE user_id = ? AND status = 'active'`,
+    [id],
+  );
 
-    await connection.query(
-      `DELETE block FROM weekly_schedule_block block
-       INNER JOIN weekly_recommendation recommendation
-         ON recommendation.recommendation_id = block.recommendation_id
-       INNER JOIN student_terms student_term
-         ON student_term.student_term_id = recommendation.student_term_id
-       WHERE student_term.user_id = ?`,
-      [id],
-    );
-    await connection.query(
-      `DELETE recommendation FROM weekly_recommendation recommendation
-       INNER JOIN student_terms student_term
-         ON student_term.student_term_id = recommendation.student_term_id
-       WHERE student_term.user_id = ?`,
-      [id],
-    );
-    await connection.query(
-      `DELETE session FROM study_sessions session
-       INNER JOIN enrollments enrollment
-         ON enrollment.enrollment_id = session.enrollment_id
-       INNER JOIN student_terms student_term
-         ON student_term.student_term_id = enrollment.student_term_id
-       WHERE student_term.user_id = ?`,
-      [id],
-    );
-    await connection.query(
-      `DELETE checkpoint FROM exam_checkpoints checkpoint
-       INNER JOIN enrollments enrollment
-         ON enrollment.enrollment_id = checkpoint.enrollment_id
-       INNER JOIN student_terms student_term
-         ON student_term.student_term_id = enrollment.student_term_id
-       WHERE student_term.user_id = ?`,
-      [id],
-    );
-    await connection.query(
-      `DELETE attempt FROM exam_attempts attempt
-       INNER JOIN enrollments enrollment
-         ON enrollment.enrollment_id = attempt.enrollment_id
-       INNER JOIN student_terms student_term
-         ON student_term.student_term_id = enrollment.student_term_id
-       WHERE student_term.user_id = ?`,
-      [id],
-    );
-    await connection.query(
-      `DELETE workload FROM workloads workload
-       INNER JOIN enrollments enrollment
-         ON enrollment.enrollment_id = workload.enrollment_id
-       INNER JOIN student_terms student_term
-         ON student_term.student_term_id = enrollment.student_term_id
-       WHERE student_term.user_id = ?`,
-      [id],
-    );
-    await connection.query(
-      `DELETE enrollment FROM enrollments enrollment
-       INNER JOIN student_terms student_term
-         ON student_term.student_term_id = enrollment.student_term_id
-       WHERE student_term.user_id = ?`,
-      [id],
-    );
-    await connection.query("DELETE FROM student_terms WHERE user_id = ?", [id]);
-    await connection.query("DELETE FROM user WHERE user_id = ?", [id]);
-    await connection.commit();
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  if (result.affectedRows === 1) return;
 
-  if (userPic) {
-    const imagePath = path.join(__dirname, "../uploads", path.basename(userPic));
-    try {
-      await fs.unlink(imagePath);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-        console.error("Unable to delete profile image:", error);
-      }
-    }
-  }
+  const [rows] = await db.query<UserIdRow[]>(
+    "SELECT user_id FROM user WHERE user_id = ? LIMIT 1",
+    [id],
+  );
+  if (!rows[0]) throw new AuthServiceError("User not found", 404);
+  throw new AuthServiceError("Account is already suspended or archived", 409);
 };

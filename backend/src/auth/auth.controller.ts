@@ -2,10 +2,10 @@ import type { Request, Response } from "express";
 import type { AuthRole } from "../middlewares/verifyToken";
 import {
   AuthServiceError,
+  archiveUserAccount,
   authenticate,
   bootstrapFirstAdmin,
   changeInstructorFirstLoginPassword,
-  deleteUserAccount,
   getAccountProfile,
   getRegistrationOptions,
   logoutAccount,
@@ -165,7 +165,7 @@ export const changeFirstLoginPassword = async (
   }
 };
 
-export const deleteOwnAccount = async (
+export const archiveOwnAccount = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
@@ -173,9 +173,9 @@ export const deleteOwnAccount = async (
   if (!account) return;
 
   try {
-    await deleteUserAccount(account.id);
-    res.json({ message: "Account deleted successfully" });
+    await archiveUserAccount(account.id);
+    res.json({ message: "Account archived successfully" });
   } catch (error) {
-    handleAuthError(res, error, "deleteOwnAccount");
+    handleAuthError(res, error, "archiveOwnAccount");
   }
 };

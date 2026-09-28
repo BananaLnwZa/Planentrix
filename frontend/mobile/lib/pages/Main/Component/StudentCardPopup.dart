@@ -18,7 +18,7 @@ Future<void> showStudentCardPopup(
   List<String> busyTimes = const <String>[],
   ImageProvider<Object>? photo,
   VoidCallback? onEditProfile,
-  VoidCallback? onDeleteProfile,
+  VoidCallback? onArchiveProfile,
   Future<void> Function()? onLogout,
 }) {
   return showDialog<void>(
@@ -40,7 +40,7 @@ Future<void> showStudentCardPopup(
         busyTimes: busyTimes,
         photo: photo,
         onEditProfile: onEditProfile,
-        onDeleteProfile: onDeleteProfile,
+        onArchiveProfile: onArchiveProfile,
         onLogout: onLogout,
       );
     },
@@ -62,7 +62,7 @@ class StudentCardPopup extends StatefulWidget {
   final List<String> busyTimes;
   final ImageProvider<Object>? photo;
   final VoidCallback? onEditProfile;
-  final VoidCallback? onDeleteProfile;
+  final VoidCallback? onArchiveProfile;
   final Future<void> Function()? onLogout;
 
   const StudentCardPopup({
@@ -81,7 +81,7 @@ class StudentCardPopup extends StatefulWidget {
     this.busyTimes = const <String>[],
     this.photo,
     this.onEditProfile,
-    this.onDeleteProfile,
+    this.onArchiveProfile,
     this.onLogout,
   });
 
@@ -133,7 +133,7 @@ class _StudentCardPopupState extends State<StudentCardPopup> {
                 photo: widget.photo,
                 onClose: () => Navigator.of(context).pop(),
                 onEditProfile: widget.onEditProfile,
-                onDeleteProfile: widget.onDeleteProfile,
+                onArchiveProfile: widget.onArchiveProfile,
               ),
               _PopupTabs(
                 activePanel: _activePanel,
@@ -183,14 +183,14 @@ class _PopupHeader extends StatelessWidget {
   final ImageProvider<Object>? photo;
   final VoidCallback onClose;
   final VoidCallback? onEditProfile;
-  final VoidCallback? onDeleteProfile;
+  final VoidCallback? onArchiveProfile;
 
   const _PopupHeader({
     required this.name,
     required this.photo,
     required this.onClose,
     required this.onEditProfile,
-    required this.onDeleteProfile,
+    required this.onArchiveProfile,
   });
 
   @override
@@ -233,10 +233,10 @@ class _PopupHeader extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       _HeaderAction(
-                        key: const Key('delete-profile-button'),
-                        icon: Icons.delete_outline,
-                        label: 'Delete Profile',
-                        onPressed: onDeleteProfile,
+                        key: const Key('archive-account-button'),
+                        icon: Icons.archive_outlined,
+                        label: 'Archive Account',
+                        onPressed: onArchiveProfile,
                       ),
                     ],
                   ),

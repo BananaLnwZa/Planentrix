@@ -363,9 +363,9 @@ class _MainPageState extends State<MainPage> {
               Navigator.of(context).pop();
               Future<void>.delayed(Duration.zero, _openEditProfile);
             },
-      onDeleteProfile: () {
+      onArchiveProfile: () {
         Navigator.of(context).pop();
-        Future<void>.delayed(Duration.zero, _confirmDeleteProfile);
+        Future<void>.delayed(Duration.zero, _confirmArchiveProfile);
       },
       onLogout: _logout,
     );
@@ -404,32 +404,34 @@ class _MainPageState extends State<MainPage> {
     } catch (_) {}
   }
 
-  Future<void> _confirmDeleteProfile() async {
+  Future<void> _confirmArchiveProfile() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        key: const Key('delete-profile-confirmation'),
-        title: const Text('ลบโปรไฟล์ถาวร?'),
-        content: const Text('เมื่อลบแล้วจะไม่สามารถกู้คืนข้อมูลบัญชีได้'),
+        key: const Key('archive-account-confirmation'),
+        title: const Text('จัดเก็บบัญชี?'),
+        content: const Text(
+          'บัญชีจะไม่สามารถเข้าสู่ระบบได้ แต่ประวัติการเรียน คะแนน ข้อสอบ และข้อมูลที่เกี่ยวข้องจะยังคงอยู่',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('ยกเลิก'),
           ),
           FilledButton(
-            key: const Key('confirm-delete-profile'),
+            key: const Key('confirm-archive-account'),
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFE65D84),
             ),
-            child: const Text('ลบโปรไฟล์'),
+            child: const Text('จัดเก็บบัญชี'),
           ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
     try {
-      await _authService.deleteAccount();
+      await _authService.archiveAccount();
       if (!mounted) return;
       Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
     } catch (error) {

@@ -153,12 +153,12 @@ class AuthService {
   }
 
   // ==============================
-  // DELETE ACCOUNT
+  // ARCHIVE ACCOUNT
   // ==============================
 
-  /// Delete the current user's account and clear the local session.
-  Future<void> deleteAccount() async {
-    await _apiService.delete('/auth/me');
+  /// Archive the account while preserving academic history, then clear session.
+  Future<void> archiveAccount() async {
+    await _apiService.patch('/auth/me/archive');
     await _storageService.clearSession();
     await _cancelHomeworkReminders();
   }

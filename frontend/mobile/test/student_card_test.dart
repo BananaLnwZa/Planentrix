@@ -265,9 +265,8 @@ void main() {
       lessThanOrEqualTo(640 * 0.72),
     );
     expect(find.byKey(const Key('student-popup-name')), findsOneWidget);
-    expect(find.text('ID 42'), findsOneWidget);
     expect(find.byKey(const Key('edit-profile-button')), findsOneWidget);
-    expect(find.byKey(const Key('delete-profile-button')), findsOneWidget);
+    expect(find.byKey(const Key('archive-account-button')), findsOneWidget);
     expect(find.byKey(const Key('profile-tab')), findsOneWidget);
     expect(find.byKey(const Key('constraint-tab')), findsOneWidget);
     expect(find.byKey(const Key('profile-panel')), findsOneWidget);

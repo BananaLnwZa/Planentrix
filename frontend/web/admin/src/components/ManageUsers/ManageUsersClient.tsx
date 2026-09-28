@@ -25,8 +25,7 @@ import {
   UserEditConflictError,
   userManagementService,
 } from "@/services/user-management.service";
-import DeleteUserModal from "./DeleteUserModal";
-import DeleteInstructorModal from "./DeleteInstructorModal";
+import ArchiveAccountModal from "./ArchiveAccountModal";
 import EditInstructorModal from "./EditInstructorModal";
 import EditUserModal from "./EditUserModal";
 import InstructorTable from "./InstructorTable";
@@ -95,11 +94,13 @@ export default function ManageUsersClient() {
   const [yearLevel, setYearLevel] = useState("");
   const [page, setPage] = useState(1);
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
-  const [deletingUser, setDeletingUser] = useState<ManagedUser | null>(null);
   const [editingInstructor, setEditingInstructor] =
     useState<ManagedInstructor | null>(null);
-  const [deletingInstructor, setDeletingInstructor] =
-    useState<ManagedInstructor | null>(null);
+  const [archivingAccount, setArchivingAccount] = useState<
+    | { kind: "student"; account: ManagedUser }
+    | { kind: "instructor"; account: ManagedInstructor }
+    | null
+  >(null);
   const [statusAccount, setStatusAccount] = useState<
     | { kind: "student"; account: ManagedUser }
     | { kind: "instructor"; account: ManagedInstructor }
@@ -281,16 +282,6 @@ export default function ManageUsersClient() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deletingUser) return;
-    await userManagementService.deleteUser(deletingUser.user_id);
-    setUsers((current) =>
-      current.filter((user) => user.user_id !== deletingUser.user_id),
-    );
-    setNotice(`ลบบัญชี ${deletingUser.user_name} เรียบร้อยแล้ว`);
-    setDeletingUser(null);
-  };
-
   const handleInstructorUpdate = async (
     data: UpdateManagedInstructorRequest,
   ) => {
@@ -320,16 +311,54 @@ export default function ManageUsersClient() {
     }
   };
 
-  const handleInstructorDelete = async () => {
-    if (!deletingInstructor) return;
-    await userManagementService.deleteInstructor(deletingInstructor.admin_id);
-    setInstructors((current) =>
-      current.filter(
-        (instructor) => instructor.admin_id !== deletingInstructor.admin_id,
-      ),
-    );
-    setNotice(`ลบบัญชี ${deletingInstructor.admin_name} เรียบร้อยแล้ว`);
-    setDeletingInstructor(null);
+  const handleArchive = async (reason: string) => {
+    if (!archivingAccount) return;
+    try {
+      if (archivingAccount.kind === "student") {
+        const response = await userManagementService.updateUserStatus(
+          archivingAccount.account.user_id,
+          {
+            status: "archived",
+            reason,
+            version: archivingAccount.account.version,
+          },
+        );
+        setUsers((current) =>
+          sortUsers(
+            current.map((user) =>
+              user.user_id === response.user.user_id ? response.user : user,
+            ),
+          ),
+        );
+        setNotice(`จัดเก็บบัญชี ${response.user.user_name} เรียบร้อยแล้ว`);
+      } else {
+        const response = await userManagementService.updateInstructorStatus(
+          archivingAccount.account.admin_id,
+          {
+            status: "archived",
+            reason,
+            version: archivingAccount.account.version,
+          },
+        );
+        setInstructors((current) =>
+          sortInstructors(
+            current.map((instructor) =>
+              instructor.admin_id === response.instructor.admin_id
+                ? response.instructor
+                : instructor,
+            ),
+          ),
+        );
+        setNotice(`จัดเก็บบัญชี ${response.instructor.admin_name} เรียบร้อยแล้ว`);
+      }
+      setArchivingAccount(null);
+    } catch (archiveError) {
+      if (archiveError instanceof UserEditConflictError) {
+        await loadUsers();
+        throw new Error(`${archiveError.message} ระบบโหลดรายการล่าสุดให้แล้ว`);
+      }
+      throw archiveError;
+    }
   };
 
   const handleStatusChange = async (
@@ -457,12 +486,12 @@ export default function ManageUsersClient() {
         ) : (
           <>
             {accountTab === "student" ? (
-              <UserTable users={visibleUsers} onEdit={setEditingUser} onDelete={setDeletingUser} onStatus={(account) => setStatusAccount({ kind: "student", account })} />
+              <UserTable users={visibleUsers} onEdit={setEditingUser} onArchive={(account) => setArchivingAccount({ kind: "student", account })} onStatus={(account) => setStatusAccount({ kind: "student", account })} />
             ) : (
               <InstructorTable
                 instructors={visibleInstructors}
                 onEdit={setEditingInstructor}
-                onDelete={setDeletingInstructor}
+                onArchive={(account) => setArchivingAccount({ kind: "instructor", account })}
                 onStatus={(account) => setStatusAccount({ kind: "instructor", account })}
               />
             )}
@@ -489,7 +518,6 @@ export default function ManageUsersClient() {
           onSave={handleUpdate}
         />
       )}
-      {deletingUser && <DeleteUserModal key={deletingUser.user_id} user={deletingUser} onClose={() => setDeletingUser(null)} onConfirm={handleDelete} />}
       {editingInstructor && (
         <EditInstructorModal
           key={editingInstructor.admin_id}
@@ -500,12 +528,13 @@ export default function ManageUsersClient() {
           onSave={handleInstructorUpdate}
         />
       )}
-      {deletingInstructor && (
-        <DeleteInstructorModal
-          key={deletingInstructor.admin_id}
-          instructor={deletingInstructor}
-          onClose={() => setDeletingInstructor(null)}
-          onConfirm={handleInstructorDelete}
+      {archivingAccount && (
+        <ArchiveAccountModal
+          key={`${archivingAccount.kind}-${"user_id" in archivingAccount.account ? archivingAccount.account.user_id : archivingAccount.account.admin_id}`}
+          kind={archivingAccount.kind}
+          account={archivingAccount.account}
+          onClose={() => setArchivingAccount(null)}
+          onConfirm={handleArchive}
         />
       )}
       {statusAccount && (

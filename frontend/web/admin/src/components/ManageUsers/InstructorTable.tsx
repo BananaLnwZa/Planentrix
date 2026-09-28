@@ -1,4 +1,4 @@
-import { Pencil, Presentation, ShieldCheck, Trash2, UserRound } from "lucide-react";
+import { Archive, Pencil, Presentation, ShieldCheck, UserRound } from "lucide-react";
 import type { ManagedInstructor } from "@/interfaces/user-management.interface";
 import { formatDisplayDateTime } from "@/utils/dateTime";
 import ActionIconButton from "./ActionIconButton";
@@ -7,19 +7,19 @@ import UserStatusBadge from "./UserStatusBadge";
 interface InstructorTableProps {
   instructors: ManagedInstructor[];
   onEdit: (instructor: ManagedInstructor) => void;
-  onDelete: (instructor: ManagedInstructor) => void;
+  onArchive: (instructor: ManagedInstructor) => void;
   onStatus: (instructor: ManagedInstructor) => void;
 }
 
 function ActionButtons({
   instructor,
   onEdit,
-  onDelete,
+  onArchive,
   onStatus,
 }: {
   instructor: ManagedInstructor;
   onEdit: (instructor: ManagedInstructor) => void;
-  onDelete: (instructor: ManagedInstructor) => void;
+  onArchive: (instructor: ManagedInstructor) => void;
   onStatus: (instructor: ManagedInstructor) => void;
 }) {
   return (
@@ -41,18 +41,19 @@ function ActionButtons({
         <Pencil size={16} aria-hidden="true" />
       </ActionIconButton>
       <ActionIconButton
-        label="ลบบัญชี"
-        onClick={() => onDelete(instructor)}
-        aria-label={`ลบอาจารย์ ${instructor.admin_name}`}
-        className="bg-[#fff0ec] text-[#c6644d] hover:bg-[#ffe1d9]"
+        label={instructor.status === "archived" ? "จัดเก็บแล้ว" : "จัดเก็บบัญชี"}
+        onClick={() => onArchive(instructor)}
+        disabled={instructor.status === "archived"}
+        aria-label={`จัดเก็บบัญชีอาจารย์ ${instructor.admin_name}`}
+        className="bg-[#eef1f3] text-[#66777e] hover:bg-[#e2e7e9] disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <Trash2 size={16} aria-hidden="true" />
+        <Archive size={16} aria-hidden="true" />
       </ActionIconButton>
     </div>
   );
 }
 
-export default function InstructorTable({ instructors, onEdit, onDelete, onStatus }: InstructorTableProps) {
+export default function InstructorTable({ instructors, onEdit, onArchive, onStatus }: InstructorTableProps) {
   if (instructors.length === 0) {
     return (
       <div className="flex min-h-72 flex-col items-center justify-center px-6 text-center">
@@ -116,7 +117,7 @@ export default function InstructorTable({ instructors, onEdit, onDelete, onStatu
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-2">
                     <UserStatusBadge user={instructor} />
-                    <ActionButtons instructor={instructor} onEdit={onEdit} onDelete={onDelete} onStatus={onStatus} />
+                    <ActionButtons instructor={instructor} onEdit={onEdit} onArchive={onArchive} onStatus={onStatus} />
                   </div>
                 </td>
               </tr>
@@ -137,7 +138,7 @@ export default function InstructorTable({ instructors, onEdit, onDelete, onStatu
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <UserStatusBadge user={instructor} />
-                <ActionButtons instructor={instructor} onEdit={onEdit} onDelete={onDelete} onStatus={onStatus} />
+                <ActionButtons instructor={instructor} onEdit={onEdit} onArchive={onArchive} onStatus={onStatus} />
               </div>
             </div>
             <dl className="mt-4 grid gap-3 text-sm">

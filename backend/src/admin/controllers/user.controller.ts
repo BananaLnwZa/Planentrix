@@ -1,6 +1,4 @@
 import { Request, Response } from "express";
-import fs from "fs";
-import path from "path";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import db from "../../config/db";
 
@@ -67,10 +65,6 @@ interface DepartmentFilterRow extends RowDataPacket {
   department_code: string;
   department_name: string;
   faculty_id: number;
-}
-
-interface UserPictureRow extends RowDataPacket {
-  user_pic: string | null;
 }
 
 const managedStudentSelect = `SELECT
@@ -593,141 +587,5 @@ export const updateManagedInstructorStatus = async (
   } catch (error) {
     console.error("updateManagedInstructorStatus error:", error);
     return res.status(500).json({ message: "ไม่สามารถเปลี่ยนสถานะบัญชีได้" });
-  }
-};
-
-export const deleteManagedInstructor = async (req: Request, res: Response) => {
-  try {
-    if (!isAdmin(req, res)) return;
-
-    const instructorId = parseInstructorId(req, res);
-    if (!instructorId) return;
-
-    const [result] = await db.query<ResultSetHeader>(
-      "DELETE FROM admin WHERE admin_id = ? AND role = 'instructor'",
-      [instructorId],
-    );
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Instructor not found" });
-    }
-
-    res.json({ message: "Instructor deleted successfully" });
-  } catch (error) {
-    const databaseError = error as { code?: string };
-    if (databaseError.code === "ER_ROW_IS_REFERENCED_2") {
-      return res.status(409).json({
-        message:
-          "ไม่สามารถลบบัญชีอาจารย์นี้ได้ เนื่องจากยังเชื่อมกับรายวิชา คลังข้อสอบ หรือข้อมูลทางการศึกษาอื่น",
-      });
-    }
-    console.error("deleteManagedInstructor error:", error);
-    res.status(500).json({ message: "Unable to delete instructor" });
-  }
-};
-
-export const deleteManagedUser = async (req: Request, res: Response) => {
-  if (!isAdmin(req, res)) return;
-
-  const userId = parseUserId(req, res);
-  if (!userId) return;
-
-  const connection = await db.getConnection();
-  let userPicture: string | null = null;
-
-  try {
-    await connection.beginTransaction();
-
-    const [users] = await connection.query<UserPictureRow[]>(
-      "SELECT user_pic FROM user WHERE user_id = ? LIMIT 1 FOR UPDATE",
-      [userId],
-    );
-
-    if (users.length === 0) {
-      await connection.rollback();
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    userPicture = users[0].user_pic;
-
-    await connection.query(
-      `DELETE block FROM weekly_schedule_block block
-       INNER JOIN weekly_recommendation recommendation
-         ON recommendation.recommendation_id = block.recommendation_id
-       INNER JOIN student_terms student_term
-         ON student_term.student_term_id = recommendation.student_term_id
-       WHERE student_term.user_id = ?`,
-      [userId],
-    );
-    await connection.query(
-      `DELETE recommendation FROM weekly_recommendation recommendation
-       INNER JOIN student_terms student_term
-         ON student_term.student_term_id = recommendation.student_term_id
-       WHERE student_term.user_id = ?`,
-      [userId],
-    );
-    await connection.query(
-      `DELETE session FROM study_sessions session
-       INNER JOIN enrollments enrollment
-         ON enrollment.enrollment_id = session.enrollment_id
-       INNER JOIN student_terms student_term
-         ON student_term.student_term_id = enrollment.student_term_id
-       WHERE student_term.user_id = ?`,
-      [userId],
-    );
-    await connection.query(
-      `DELETE checkpoint FROM exam_checkpoints checkpoint
-       INNER JOIN enrollments enrollment
-         ON enrollment.enrollment_id = checkpoint.enrollment_id
-       INNER JOIN student_terms student_term
-         ON student_term.student_term_id = enrollment.student_term_id
-       WHERE student_term.user_id = ?`,
-      [userId],
-    );
-    await connection.query(
-      `DELETE attempt FROM exam_attempts attempt
-       INNER JOIN enrollments enrollment
-         ON enrollment.enrollment_id = attempt.enrollment_id
-       INNER JOIN student_terms student_term
-         ON student_term.student_term_id = enrollment.student_term_id
-       WHERE student_term.user_id = ?`,
-      [userId],
-    );
-    await connection.query(
-      `DELETE workload FROM workloads workload
-       INNER JOIN enrollments enrollment
-         ON enrollment.enrollment_id = workload.enrollment_id
-       INNER JOIN student_terms student_term
-         ON student_term.student_term_id = enrollment.student_term_id
-       WHERE student_term.user_id = ?`,
-      [userId],
-    );
-    await connection.query(
-      `DELETE enrollment FROM enrollments enrollment
-       INNER JOIN student_terms student_term
-         ON student_term.student_term_id = enrollment.student_term_id
-       WHERE student_term.user_id = ?`,
-      [userId],
-    );
-    await connection.query("DELETE FROM student_terms WHERE user_id = ?", [userId]);
-    await connection.query("DELETE FROM user WHERE user_id = ?", [userId]);
-
-    await connection.commit();
-
-    if (userPicture) {
-      const picturePath = path.join(__dirname, "../../uploads", userPicture);
-      fs.promises.unlink(picturePath).catch((error: NodeJS.ErrnoException) => {
-        if (error.code !== "ENOENT") {
-          console.error("deleteManagedUser profile image error:", error);
-        }
-      });
-    }
-
-    res.json({ message: "User deleted successfully" });
-  } catch (error) {
-    await connection.rollback();
-    console.error("deleteManagedUser error:", error);
-    res.status(500).json({ message: "Unable to delete user" });
-  } finally {
-    connection.release();
   }
 };

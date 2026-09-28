@@ -1,7 +1,6 @@
 import axios, { AxiosInstance } from "axios";
 import Cookies from "js-cookie";
 import {
-  DeleteManagedUserResponse,
   ManagedUsersResponse,
   UpdateManagedInstructorRequest,
   UpdateManagedInstructorResponse,
@@ -64,17 +63,6 @@ class UserManagementService {
     }
   }
 
-  async deleteUser(userId: number): Promise<DeleteManagedUserResponse> {
-    try {
-      const response = await this.apiClient.delete<DeleteManagedUserResponse>(
-        apiEndpoints.users.byId(userId),
-      );
-      return response.data;
-    } catch (error: unknown) {
-      throw this.handleError(error);
-    }
-  }
-
   async updateUserStatus(
     userId: number,
     data: UpdateManagedAccountStatusRequest,
@@ -98,19 +86,6 @@ class UserManagementService {
       const response = await this.apiClient.patch<UpdateManagedInstructorResponse>(
         apiEndpoints.users.instructorById(instructorId),
         data,
-      );
-      return response.data;
-    } catch (error: unknown) {
-      throw this.handleError(error);
-    }
-  }
-
-  async deleteInstructor(
-    instructorId: number,
-  ): Promise<DeleteManagedUserResponse> {
-    try {
-      const response = await this.apiClient.delete<DeleteManagedUserResponse>(
-        apiEndpoints.users.instructorById(instructorId),
       );
       return response.data;
     } catch (error: unknown) {

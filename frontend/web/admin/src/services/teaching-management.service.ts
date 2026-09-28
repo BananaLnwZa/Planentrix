@@ -5,7 +5,8 @@ import type {
   ClassMeetingMutationResponse,
   CourseSectionMutationResponse,
   CourseSectionStatus,
-  CreateAcademicTermPayload,
+  AcademicTermStatus,
+  SaveAcademicTermPayload,
   SaveClassMeetingPayload,
   SaveCourseSectionPayload,
   TeachingErrorResponse,
@@ -34,12 +35,36 @@ class TeachingManagementService {
   }
 
   createAcademicTerm(
-    payload: CreateAcademicTermPayload,
+    payload: SaveAcademicTermPayload,
   ): Promise<AcademicTermMutationResponse> {
     return this.request(() =>
       this.apiClient.post<AcademicTermMutationResponse>(
         apiEndpoints.teaching.terms,
         payload,
+      ),
+    );
+  }
+
+  updateAcademicTerm(
+    termId: number,
+    payload: SaveAcademicTermPayload,
+  ): Promise<AcademicTermMutationResponse> {
+    return this.request(() =>
+      this.apiClient.patch<AcademicTermMutationResponse>(
+        apiEndpoints.teaching.termById(termId),
+        payload,
+      ),
+    );
+  }
+
+  updateAcademicTermStatus(
+    termId: number,
+    status: AcademicTermStatus,
+  ): Promise<TeachingMessageResponse> {
+    return this.request(() =>
+      this.apiClient.patch<TeachingMessageResponse>(
+        apiEndpoints.teaching.termStatus(termId),
+        { status },
       ),
     );
   }
