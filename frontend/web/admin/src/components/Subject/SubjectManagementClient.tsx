@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, LoaderCircle, RefreshCw, X } from "lucide-react";
+import { AlertCircle, BookOpen, GraduationCap, LoaderCircle, RefreshCw, X } from "lucide-react";
 import {
   Subject,
   SubjectDepartment,
@@ -16,6 +16,7 @@ import SubjectHierarchy from "./SubjectHierarchy";
 import SubjectSummaryCards from "./SubjectSummaryCards";
 import SubjectToolbar from "./SubjectToolbar";
 import SubjectTypeLegend from "./SubjectTypeLegend";
+import CurriculumManagementPanel from "./CurriculumManagementPanel";
 
 const sortSubjects = (subjects: Subject[]) =>
   [...subjects].sort(
@@ -39,6 +40,9 @@ export default function SubjectManagementClient() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [statusSubject, setStatusSubject] = useState<Subject | null>(null);
+  const [activeView, setActiveView] = useState<"subjects" | "curriculum">(
+    "subjects",
+  );
 
   const loadSubjects = useCallback(async () => {
     setLoading(true);
@@ -161,22 +165,33 @@ export default function SubjectManagementClient() {
     setStatusSubject(null);
   };
 
+  const handleCurriculumChanged = async (message: string) => {
+    setNotice(message);
+    await loadSubjects();
+  };
+
   return (
     <>
       <div className="mt-7"><SubjectSummaryCards subjects={subjects} subjectTypes={subjectTypes} /></div>
-      <div className="mt-5"><SubjectTypeLegend subjectTypes={subjectTypes} subjects={subjects} /></div>
-      <div className="mt-5">
-        <SubjectToolbar
-          search={search}
-          selectedType={selectedType}
-          selectedStatus={selectedStatus}
-          subjectTypes={subjectTypes}
-          resultCount={filteredSubjects.length}
-          onSearchChange={setSearch}
-          onTypeChange={setSelectedType}
-          onStatusChange={setSelectedStatus}
-          onAdd={openCreateForm}
-        />
+      <div className="mt-5 inline-flex rounded-2xl border border-[#dfeaec] bg-white p-1.5 shadow-sm" role="tablist" aria-label="เลือกหน้าจัดการวิชา">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeView === "subjects"}
+          onClick={() => setActiveView("subjects")}
+          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition ${activeView === "subjects" ? "bg-[#e8f5f9] text-[#43839a] shadow-sm" : "text-[#72858d] hover:bg-[#f4f8f9]"}`}
+        >
+          <BookOpen size={17} /> รายวิชาหลัก
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeView === "curriculum"}
+          onClick={() => setActiveView("curriculum")}
+          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition ${activeView === "curriculum" ? "bg-[#f0eef9] text-[#7468a8] shadow-sm" : "text-[#72858d] hover:bg-[#f4f8f9]"}`}
+        >
+          <GraduationCap size={17} /> โครงสร้างหลักสูตร
+        </button>
       </div>
 
       {notice && (
@@ -186,25 +201,48 @@ export default function SubjectManagementClient() {
         </div>
       )}
 
-      <div className="mt-6">
-        {loading ? (
-          <div className="flex min-h-80 flex-col items-center justify-center gap-3 rounded-[24px] border border-[#e1eaed] bg-white text-[#66808b]">
-            <LoaderCircle className="animate-spin text-[#559ab3]" size={30} />
-            <p className="text-sm">กำลังโหลดข้อมูลวิชา...</p>
+      {loading ? (
+        <div className="mt-6 flex min-h-80 flex-col items-center justify-center gap-3 rounded-[24px] border border-[#e1eaed] bg-white text-[#66808b]">
+          <LoaderCircle className="animate-spin text-[#559ab3]" size={30} />
+          <p className="text-sm">กำลังโหลดข้อมูลวิชา...</p>
+        </div>
+      ) : error ? (
+        <div className="mt-6 flex min-h-80 flex-col items-center justify-center rounded-[24px] border border-[#e1eaed] bg-white px-5 text-center">
+          <span className="rounded-full bg-[#fff0ec] p-4 text-[#cb6b53]"><AlertCircle size={27} /></span>
+          <p className="mt-4 font-medium text-[#465d67]">โหลดข้อมูลไม่สำเร็จ</p>
+          <p className="mt-1 max-w-md text-sm text-[#82939a]">{error}</p>
+          <button type="button" onClick={() => void loadSubjects()} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#4d94ad] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#40839a]"><RefreshCw size={16} /> ลองอีกครั้ง</button>
+        </div>
+      ) : activeView === "subjects" ? (
+        <>
+          <div className="mt-5"><SubjectTypeLegend subjectTypes={subjectTypes} subjects={subjects} /></div>
+          <div className="mt-5">
+            <SubjectToolbar
+              search={search}
+              selectedType={selectedType}
+              selectedStatus={selectedStatus}
+              subjectTypes={subjectTypes}
+              resultCount={filteredSubjects.length}
+              onSearchChange={setSearch}
+              onTypeChange={setSelectedType}
+              onStatusChange={setSelectedStatus}
+              onAdd={openCreateForm}
+            />
           </div>
-        ) : error ? (
-          <div className="flex min-h-80 flex-col items-center justify-center rounded-[24px] border border-[#e1eaed] bg-white px-5 text-center">
-            <span className="rounded-full bg-[#fff0ec] p-4 text-[#cb6b53]"><AlertCircle size={27} /></span>
-            <p className="mt-4 font-medium text-[#465d67]">โหลดข้อมูลไม่สำเร็จ</p>
-            <p className="mt-1 max-w-md text-sm text-[#82939a]">{error}</p>
-            <button type="button" onClick={() => void loadSubjects()} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#4d94ad] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#40839a]"><RefreshCw size={16} /> ลองอีกครั้ง</button>
+          <div className="mt-6">
+            <SubjectHierarchy subjects={filteredSubjects} onEdit={openEditForm} onStatusChange={setStatusSubject} />
           </div>
-        ) : (
-          <SubjectHierarchy subjects={filteredSubjects} onEdit={openEditForm} onStatusChange={setStatusSubject} />
-        )}
-      </div>
+        </>
+      ) : (
+        <CurriculumManagementPanel
+          subjects={subjects}
+          faculties={faculties}
+          departments={departments}
+          onChanged={handleCurriculumChanged}
+        />
+      )}
 
-      {formOpen && (
+      {activeView === "subjects" && formOpen && (
         <SubjectFormModal
           key={editingSubject?.subject_id ?? "new-subject"}
           subject={editingSubject}
@@ -215,7 +253,7 @@ export default function SubjectManagementClient() {
           onSave={handleSave}
         />
       )}
-      {statusSubject && (
+      {activeView === "subjects" && statusSubject && (
         <SubjectStatusModal
           key={`${statusSubject.subject_id}-${statusSubject.is_active}`}
           subject={statusSubject}

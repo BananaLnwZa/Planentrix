@@ -36,6 +36,11 @@ export const apiEndpoints = {
   },
   subjects: {
     list: "/admin/subjects",
+    curriculum: "/admin/subjects/curriculum",
+    curriculumById: (curriculumSubjectId: number) =>
+      `/admin/subjects/curriculum/${curriculumSubjectId}`,
+    curriculumStatus: (curriculumSubjectId: number) =>
+      `/admin/subjects/curriculum/${curriculumSubjectId}/status`,
     byId: (subjectId: string) =>
       `/admin/subjects/${encodeURIComponent(subjectId)}`,
     status: (subjectId: string) =>

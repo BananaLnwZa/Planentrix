@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from "axios";
 import Cookies from "js-cookie";
 import {
+  CurriculumSubjectPayload,
   SubjectManagementErrorResponse,
   SubjectMutationResponse,
   SubjectPayload,
@@ -52,6 +53,50 @@ class SubjectManagementService {
       const response = await this.apiClient.patch<SubjectMutationResponse>(
         apiEndpoints.subjects.byId(subjectId),
         data,
+      );
+      return response.data;
+    } catch (error: unknown) {
+      throw this.handleError(error);
+    }
+  }
+
+  async createCurriculumSubject(
+    data: CurriculumSubjectPayload,
+  ): Promise<SubjectMutationResponse> {
+    try {
+      const response = await this.apiClient.post<SubjectMutationResponse>(
+        apiEndpoints.subjects.curriculum,
+        data,
+      );
+      return response.data;
+    } catch (error: unknown) {
+      throw this.handleError(error);
+    }
+  }
+
+  async updateCurriculumSubject(
+    curriculumSubjectId: number,
+    data: CurriculumSubjectPayload,
+  ): Promise<SubjectMutationResponse> {
+    try {
+      const response = await this.apiClient.patch<SubjectMutationResponse>(
+        apiEndpoints.subjects.curriculumById(curriculumSubjectId),
+        data,
+      );
+      return response.data;
+    } catch (error: unknown) {
+      throw this.handleError(error);
+    }
+  }
+
+  async setCurriculumSubjectStatus(
+    curriculumSubjectId: number,
+    isActive: boolean,
+  ): Promise<SubjectMutationResponse> {
+    try {
+      const response = await this.apiClient.patch<SubjectMutationResponse>(
+        apiEndpoints.subjects.curriculumStatus(curriculumSubjectId),
+        { is_active: isActive },
       );
       return response.data;
     } catch (error: unknown) {

@@ -20,6 +20,8 @@ export interface Subject {
   faculty_name: string;
   is_required: boolean;
   is_active: boolean;
+  subject_is_active: boolean;
+  curriculum_is_active: boolean;
 }
 
 export interface SubjectPayload {
@@ -31,6 +33,14 @@ export interface SubjectPayload {
   academic_year: number;
   subject_type_id: number;
   department_id: number;
+  is_required: boolean;
+}
+
+export interface CurriculumSubjectPayload {
+  subject_id?: string;
+  department_id: number;
+  academic_year: number;
+  term: number;
   is_required: boolean;
 }
 
