@@ -73,6 +73,37 @@ interface InstructorStudentRow extends RowDataPacket {
   enrollment_status: string;
 }
 
+interface InstructorExamResultRow extends RowDataPacket {
+  exam_attempt_id: number;
+  section_id: number;
+  user_id: number;
+  user_name: string;
+  first_name: string;
+  last_name: string;
+  exam_period: ExamPeriod;
+  actual_score: number | string;
+  max_score: number | string;
+  percentage: number | string;
+  weak_topic_count: number;
+  submitted_at: Date | string;
+}
+
+interface InstructorWeakTopicRow extends RowDataPacket {
+  bank_result_id: number;
+  exam_attempt_id: number;
+  section_id: number;
+  user_id: number;
+  user_name: string;
+  first_name: string;
+  last_name: string;
+  exam_period: ExamPeriod;
+  bank_name: string;
+  actual_score: number | string;
+  max_score: number | string;
+  percentage: number | string;
+  submitted_at: Date | string;
+}
+
 const questionBankSelect = `SELECT
   qb.question_bank_id,
   qb.subject_id,
@@ -257,6 +288,70 @@ export const getInstructorDashboard = async (req: Request, res: Response) => {
          student.first_name, student.last_name, student.user_id`,
       [instructorId],
     );
+    const [examResults] = await db.query<InstructorExamResultRow[]>(
+      `SELECT
+         attempt.exam_attempt_id,
+         section.section_id,
+         student.user_id,
+         student.user_name,
+         student.first_name,
+         student.last_name,
+         attempt.exam_period,
+         attempt.actual_score,
+         attempt.max_score,
+         ROUND((attempt.actual_score / attempt.max_score) * 100, 2) AS percentage,
+         attempt.weak_topic_count,
+         attempt.submitted_at
+       FROM section_instructors assignment
+       INNER JOIN course_sections section
+         ON section.section_id = assignment.section_id
+       INNER JOIN enrollments enrollment
+         ON enrollment.section_id = section.section_id
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = enrollment.student_term_id
+       INNER JOIN user student ON student.user_id = student_term.user_id
+       INNER JOIN exam_attempts attempt
+         ON attempt.enrollment_id = enrollment.enrollment_id
+        AND attempt.status = 'submitted'
+       WHERE assignment.instructor_id = ?
+         AND section.status <> 'cancelled'
+       ORDER BY attempt.submitted_at DESC, attempt.exam_attempt_id DESC`,
+      [instructorId],
+    );
+    const [weakTopics] = await db.query<InstructorWeakTopicRow[]>(
+      `SELECT
+         bank_result.bank_result_id,
+         attempt.exam_attempt_id,
+         section.section_id,
+         student.user_id,
+         student.user_name,
+         student.first_name,
+         student.last_name,
+         attempt.exam_period,
+         bank_result.bank_name_snapshot AS bank_name,
+         bank_result.actual_score,
+         bank_result.max_score,
+         bank_result.percentage,
+         attempt.submitted_at
+       FROM section_instructors assignment
+       INNER JOIN course_sections section
+         ON section.section_id = assignment.section_id
+       INNER JOIN enrollments enrollment
+         ON enrollment.section_id = section.section_id
+       INNER JOIN student_terms student_term
+         ON student_term.student_term_id = enrollment.student_term_id
+       INNER JOIN user student ON student.user_id = student_term.user_id
+       INNER JOIN exam_attempts attempt
+         ON attempt.enrollment_id = enrollment.enrollment_id
+        AND attempt.status = 'submitted'
+       INNER JOIN exam_attempt_bank_results bank_result
+         ON bank_result.exam_attempt_id = attempt.exam_attempt_id
+        AND bank_result.is_weak_topic = 1
+       WHERE assignment.instructor_id = ?
+         AND section.status <> 'cancelled'
+       ORDER BY bank_result.percentage ASC, attempt.submitted_at DESC`,
+      [instructorId],
+    );
 
     return res.json({
       message: "Instructor dashboard retrieved successfully",
@@ -271,6 +366,26 @@ export const getInstructorDashboard = async (req: Request, res: Response) => {
         ...student,
         section_id: Number(student.section_id),
         user_id: Number(student.user_id),
+      })),
+      exam_results: examResults.map((result) => ({
+        ...result,
+        exam_attempt_id: Number(result.exam_attempt_id),
+        section_id: Number(result.section_id),
+        user_id: Number(result.user_id),
+        actual_score: Number(result.actual_score),
+        max_score: Number(result.max_score),
+        percentage: Number(result.percentage),
+        weak_topic_count: Number(result.weak_topic_count),
+      })),
+      weak_topics: weakTopics.map((topic) => ({
+        ...topic,
+        bank_result_id: Number(topic.bank_result_id),
+        exam_attempt_id: Number(topic.exam_attempt_id),
+        section_id: Number(topic.section_id),
+        user_id: Number(topic.user_id),
+        actual_score: Number(topic.actual_score),
+        max_score: Number(topic.max_score),
+        percentage: Number(topic.percentage),
       })),
     });
   } catch (error) {

@@ -23,10 +23,43 @@ export interface InstructorSectionStudent {
   enrollment_status: string;
 }
 
+export interface InstructorExamResult {
+  exam_attempt_id: number;
+  section_id: number;
+  user_id: number;
+  user_name: string;
+  first_name: string;
+  last_name: string;
+  exam_period: "midterm" | "final";
+  actual_score: number;
+  max_score: number;
+  percentage: number;
+  weak_topic_count: number;
+  submitted_at: string;
+}
+
+export interface InstructorWeakTopic {
+  bank_result_id: number;
+  exam_attempt_id: number;
+  section_id: number;
+  user_id: number;
+  user_name: string;
+  first_name: string;
+  last_name: string;
+  exam_period: "midterm" | "final";
+  bank_name: string;
+  actual_score: number;
+  max_score: number;
+  percentage: number;
+  submitted_at: string;
+}
+
 export interface InstructorWorkspaceResponse {
   message: string;
   sections: InstructorAssignedSection[];
   students: InstructorSectionStudent[];
+  exam_results: InstructorExamResult[];
+  weak_topics: InstructorWeakTopic[];
 }
 
 export interface InstructorWorkspaceErrorResponse {

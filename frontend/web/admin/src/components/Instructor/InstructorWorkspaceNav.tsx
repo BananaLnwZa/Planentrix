@@ -1,27 +1,27 @@
 "use client";
 
-import { BookOpen, ClipboardCheck, UsersRound } from "lucide-react";
+import { Award, ClipboardCheck, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const menuItems = [
   {
-    label: "รายวิชา",
-    description: "วิชาที่รับผิดชอบ",
+    label: "กลุ่มเรียน",
+    description: "รายชื่อ ผลสอบและจุดอ่อน",
     href: "/Instructor/Main",
-    icon: BookOpen,
+    icon: UsersRound,
   },
   {
-    label: "ข้อสอบและงาน",
-    description: "เพิ่มและจัดการข้อสอบ",
+    label: "เกณฑ์ตัดเกรด",
+    description: "เกณฑ์ของกลุ่มเรียน",
+    href: "/Instructor/Grading",
+    icon: Award,
+  },
+  {
+    label: "คลังคำถาม",
+    description: "คำถามของตนเอง",
     href: "/Instructor/Exam",
     icon: ClipboardCheck,
-  },
-  {
-    label: "นักศึกษา",
-    description: "ข้อมูลนักศึกษาในรายวิชา",
-    href: "/Instructor/Students",
-    icon: UsersRound,
   },
 ] as const;
 
@@ -35,7 +35,9 @@ export default function InstructorWorkspaceNav() {
     >
       <div className="grid gap-2 sm:grid-cols-3">
         {menuItems.map(({ label, description, href, icon: Icon }) => {
-          const active = pathname === href;
+          const active =
+            pathname === href ||
+            (href === "/Instructor/Main" && pathname === "/Instructor/Students");
 
           return (
             <Link

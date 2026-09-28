@@ -73,6 +73,13 @@ export const apiEndpoints = {
   instructorWorkspace: {
     dashboard: "/instructor/dashboard",
   },
+  instructorGrading: {
+    workspace: "/instructor/grading-schemes",
+    schemes: "/instructor/grading-schemes",
+    byId: (schemeId: number) => `/instructor/grading-schemes/${schemeId}`,
+    publish: (schemeId: number) =>
+      `/instructor/grading-schemes/${schemeId}/publish`,
+  },
   dashboard: {
     studyTime: "/admin/dashboard/study-time",
     constraints: "/admin/dashboard/constraints",

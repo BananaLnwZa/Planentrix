@@ -1,5 +1,5 @@
-import InstructorAssignedData from "@/components/Instructor/InstructorAssignedData";
+import { redirect } from "next/navigation";
 
 export default function InstructorStudentsPage() {
-  return <InstructorAssignedData mode="students" />;
+  redirect("/Instructor/Main");
 }
