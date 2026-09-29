@@ -29,7 +29,7 @@ Authentication is centralized under `src/auth` and mounted at `/auth`.
 | `POST` | `/auth/refresh-token` | Refresh a mobile user access token. |
 | `POST` | `/auth/logout` | Log out the authenticated account. |
 | `GET` | `/auth/me` | Get the current account profile. |
-| `DELETE` | `/auth/me` | Delete the current user account. |
+| `PATCH` | `/auth/me/archive` | Archive the current user account without deleting its data; also revoke its refresh token. |
 
 Authentication and JWT payloads use the database role names directly:
 `user`, `instructor`, and `university_staff`. Protected route groups use
