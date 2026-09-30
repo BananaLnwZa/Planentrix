@@ -28,6 +28,12 @@ interface QuestionBankRow extends RowDataPacket {
   updated_at: Date | string;
 }
 
+interface QuestionBankSettingsLockRow extends RowDataPacket {
+  question_bank_id: number;
+  time_limit_minutes: number | string;
+  status: "draft" | "published" | "archived";
+}
+
 interface QuestionDetailRow extends RowDataPacket {
   question_id: number;
   question_text: string;
@@ -857,27 +863,76 @@ export const updateInstructorQuestionBankSettings = async (
     return res.status(400).json({ message: "เวลาทำข้อสอบต้องอยู่ระหว่าง 1-1,440 นาที" });
   }
 
+  const connection = await db.getConnection();
   try {
-    const bank = await getOwnedQuestionBank(questionBankId, instructorId);
+    await connection.beginTransaction();
+    const [banks] = await connection.query<QuestionBankSettingsLockRow[]>(
+      `SELECT question_bank_id, time_limit_minutes, status
+       FROM question_banks
+       WHERE question_bank_id = ? AND owner_instructor_id = ?
+       LIMIT 1 FOR UPDATE`,
+      [questionBankId, instructorId],
+    );
+    const bank = banks[0];
     if (!bank || bank.status === "archived") {
+      await connection.rollback();
       return res.status(404).json({ message: "ไม่พบพาร์ทที่ต้องการแก้ไข" });
     }
-    const [result] = await db.query<ResultSetHeader>(
+
+    const currentLimit = Number(bank.time_limit_minutes);
+    await connection.query(
+      `UPDATE exam_attempts attempt
+       SET status = 'expired',
+           submitted_at = DATE_ADD(attempt.started_at, INTERVAL ? MINUTE),
+           updated_at = NOW()
+       WHERE attempt.status = 'in_progress'
+         AND NOW() >= DATE_ADD(attempt.started_at, INTERVAL ? MINUTE)
+         AND EXISTS (
+           SELECT 1 FROM exam_attempt_questions attempt_question
+           WHERE attempt_question.exam_attempt_id = attempt.exam_attempt_id
+             AND attempt_question.source_bank_id = ?
+         )`,
+      [currentLimit, currentLimit, questionBankId],
+    );
+    const [activeAttempts] = await connection.query<RowDataPacket[]>(
+      `SELECT attempt.exam_attempt_id
+       FROM exam_attempts attempt
+       WHERE attempt.status = 'in_progress'
+         AND NOW() < DATE_ADD(attempt.started_at, INTERVAL ? MINUTE)
+         AND EXISTS (
+           SELECT 1 FROM exam_attempt_questions attempt_question
+           WHERE attempt_question.exam_attempt_id = attempt.exam_attempt_id
+             AND attempt_question.source_bank_id = ?
+         )
+       LIMIT 1`,
+      [currentLimit, questionBankId],
+    );
+    if (activeAttempts.length > 0) {
+      await connection.rollback();
+      return res.status(409).json({
+        message: "ยังเปลี่ยนเวลาสอบไม่ได้ เนื่องจากมีนักศึกษากำลังทำข้อสอบชุดนี้อยู่",
+      });
+    }
+
+    await connection.query(
       `UPDATE question_banks
        SET time_limit_minutes = ?
        WHERE question_bank_id = ? AND owner_instructor_id = ?
          AND status <> 'archived'`,
       [timeLimitMinutes, questionBankId, instructorId],
     );
-    void result;
+    await connection.commit();
     const updated = await getOwnedQuestionBank(questionBankId, instructorId);
     return res.json({
       message: "Question bank settings updated successfully",
       question_bank: updated ? serializeQuestionBank(updated) : null,
     });
   } catch (error) {
+    await connection.rollback();
     console.error("updateInstructorQuestionBankSettings error:", error);
     return res.status(500).json({ message: "Unable to update question bank settings" });
+  } finally {
+    connection.release();
   }
 };
 

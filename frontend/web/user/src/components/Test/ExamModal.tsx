@@ -30,7 +30,7 @@ export default function ExamModal({
   onStart: () => Promise<ExamAttemptSession>;
   onSaveAnswer: (attemptId: number, answer: ExamAnswer) => Promise<void>;
   onClose: () => void;
-  onSubmit: (attemptId: number, answers: ExamAnswer[]) => Promise<ExamSubmissionResult | null>;
+  onSubmit: (attemptId: number) => Promise<ExamSubmissionResult | null>;
 }) {
   const [started, setStarted] = useState(false);
   const [attemptId, setAttemptId] = useState<number | null>(null);
@@ -50,15 +50,9 @@ export default function ExamModal({
   const submitAnswers = useCallback(async () => {
     if (attemptId === null) return;
     setShowSubmitConfirmation(false);
-    const submission = await onSubmit(
-      attemptId,
-      Object.entries(answers).map(([questionId, choiceId]) => ({
-        questionId: Number(questionId),
-        choiceId,
-      }))
-    );
+    const submission = await onSubmit(attemptId);
     if (submission) setResult(submission);
-  }, [answers, attemptId, onSubmit]);
+  }, [attemptId, onSubmit]);
 
   const beginExam = async () => {
     if (isStarting) return;
@@ -107,7 +101,7 @@ export default function ExamModal({
   useEffect(() => {
     if (
       started &&
-      remainingSeconds <= 1 &&
+      remainingSeconds === 0 &&
       !result &&
       !isSubmitting &&
       savingQuestionId === null &&
@@ -263,6 +257,17 @@ export default function ExamModal({
             </div>
 
             <footer className="mt-5 flex justify-between gap-3">
+              {remainingSeconds === 0 ? (
+                <button
+                  type="button"
+                  onClick={() => void submitAnswers()}
+                  disabled={isSubmitting || savingQuestionId !== null}
+                  className="ml-auto inline-flex items-center gap-2 rounded-full bg-[#F29AB4] px-6 py-2 text-sm text-white disabled:opacity-60"
+                >
+                  {isSubmitting && <LoaderCircle className="h-4 w-4 animate-spin" />}
+                  ส่งคำตอบที่บันทึกไว้
+                </button>
+              ) : <>
               <button
                 type="button"
                 onClick={() => { setCurrentIndex((current) => current - 1); setWarning(false); }}
@@ -283,6 +288,7 @@ export default function ExamModal({
               ) : (
                 <button type="button" onClick={goNext} disabled={savingQuestionId !== null} className="rounded-full bg-[#8CCBE8] px-6 py-2 text-sm text-white disabled:opacity-50">ข้อต่อไป</button>
               )}
+              </>}
             </footer>
 
             {showSubmitConfirmation && (

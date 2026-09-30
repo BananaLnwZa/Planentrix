@@ -120,6 +120,32 @@ export default function TestWorkspace() {
     };
   }, []);
 
+  useEffect(() => {
+    const now = Date.now();
+    const nextCheckpointAt = insights.nextCheckpoints
+      .map((checkpoint) => checkpoint.nextCheckpointAt.getTime())
+      .filter((timestamp) => timestamp > now)
+      .sort((left, right) => left - right)[0];
+
+    const timer = nextCheckpointAt
+      ? window.setTimeout(
+          () => void loadData(),
+          Math.min(nextCheckpointAt - now + 1_000, 2_147_000_000)
+        )
+      : null;
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void loadData();
+    };
+
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [insights.nextCheckpoints, loadData]);
+
   const feedbackSubjects = useMemo(() => {
     const subjects = new Map<string, string>();
     for (const topic of insights.weakTopics) {
@@ -176,8 +202,7 @@ export default function TestWorkspace() {
   };
 
   const submitExam = async (
-    attemptId: number,
-    answers: ExamAnswer[]
+    attemptId: number
   ): Promise<ExamSubmissionResult | null> => {
     if (!activeExam || isSubmitting) return null;
     setIsSubmitting(true);
@@ -185,8 +210,7 @@ export default function TestWorkspace() {
     try {
       const result = await examService.submitExam(
         activeExam.summary.examRepositoryId,
-        attemptId,
-        answers
+        attemptId
       );
       await loadData();
       return result;

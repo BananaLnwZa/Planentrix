@@ -211,18 +211,13 @@ class ExamService {
 
   async submitExam(
     examRepositoryId: number,
-    attemptId: number,
-    answers: ExamAnswer[]
+    attemptId: number
   ): Promise<ExamSubmissionResult> {
     try {
       const response = await this.apiClient.post(
         `/user/exam/${examRepositoryId}/submit`,
         {
           exam_attempt_id: attemptId,
-          answers: answers.map((answer) => ({
-            question_id: answer.questionId,
-            choice_id: answer.choiceId,
-          })),
         }
       );
       const json = record(response.data);
