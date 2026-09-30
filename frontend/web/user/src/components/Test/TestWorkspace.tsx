@@ -11,7 +11,6 @@ import type {
   ExamSubmissionResult,
   ExamSummary,
 } from "@/interfaces/exam.interface";
-import type { TermHistoryItem } from "@/interfaces/term.interface";
 import examService from "@/services/exam.service";
 import termService from "@/services/term.service";
 import CurrentTermRequiredState from "@/components/common/CurrentTermRequiredState";
@@ -26,8 +25,6 @@ const emptyInsights: ExamInsights = { weakTopics: [], nextCheckpoints: [] };
 export default function TestWorkspace() {
   const [exams, setExams] = useState<ExamSummary[]>([]);
   const [history, setHistory] = useState<ExamHistoryItem[]>([]);
-  const [termHistory, setTermHistory] = useState<TermHistoryItem[]>([]);
-  const [historyTermId, setHistoryTermId] = useState<number | null>(null);
   const [insights, setInsights] = useState<ExamInsights>(emptyInsights);
   const [activeExam, setActiveExam] = useState<ExamDetail | null>(null);
   const [openingExamId, setOpeningExamId] = useState<number | null>(null);
@@ -44,22 +41,12 @@ export default function TestWorkspace() {
     setHasCurrentTerm(null);
     setLoadError(null);
     try {
-      const [currentTerm, termData] = await Promise.all([
-        termService.getCurrentTerm(),
-        termService.getTermHistory(),
-      ]);
-      const selectedTerm =
-        termData.find((term) => term.student_term_id === historyTermId) ??
-        termData.find((term) => term.status === "active") ??
-        termData[0] ??
-        null;
+      const currentTerm = await termService.getCurrentTerm();
       const [examData, historyData, insightData] = await Promise.all([
         currentTerm ? examService.getExams() : Promise.resolve([]),
-        selectedTerm ? examService.getHistory(selectedTerm.student_term_id) : Promise.resolve([]),
+        currentTerm ? examService.getHistory() : Promise.resolve([]),
         currentTerm ? examService.getInsights() : Promise.resolve(emptyInsights),
       ]);
-      setTermHistory(termData);
-      setHistoryTermId(selectedTerm?.student_term_id ?? null);
       setHasCurrentTerm(Boolean(currentTerm));
       setExams(examData);
       setHistory(historyData);
@@ -81,7 +68,7 @@ export default function TestWorkspace() {
     } finally {
       setIsLoading(false);
     }
-  }, [historyTermId]);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadData(), 0);
@@ -217,9 +204,6 @@ export default function TestWorkspace() {
               history={history}
               selectedSubjectId={historySubjectId}
               onSubjectChange={setHistorySubjectId}
-              terms={termHistory}
-              selectedTermId={historyTermId}
-              onTermChange={setHistoryTermId}
               isLoading={isLoading}
             />
           </section>
@@ -276,9 +260,6 @@ export default function TestWorkspace() {
             history={history}
             selectedSubjectId={historySubjectId}
             onSubjectChange={setHistorySubjectId}
-            terms={termHistory}
-            selectedTermId={historyTermId}
-            onTermChange={setHistoryTermId}
             isLoading={isLoading}
           />
         </section>

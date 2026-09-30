@@ -1,5 +1,4 @@
 import type { ExamHistoryItem } from "@/interfaces/exam.interface";
-import type { TermHistoryItem } from "@/interfaces/term.interface";
 
 const scoreText = (value: number) =>
   Number.isInteger(value) ? String(value) : value.toFixed(1);
@@ -11,17 +10,11 @@ export default function ExamHistoryPanel({
   history,
   selectedSubjectId,
   onSubjectChange,
-  terms,
-  selectedTermId,
-  onTermChange,
   isLoading = false,
 }: {
   history: ExamHistoryItem[];
   selectedSubjectId: string | null;
   onSubjectChange: (subjectId: string) => void;
-  terms: TermHistoryItem[];
-  selectedTermId: number | null;
-  onTermChange: (termId: number) => void;
   isLoading?: boolean;
 }) {
   const subjects = Array.from(
@@ -48,23 +41,6 @@ export default function ExamHistoryPanel({
       <h2 className="mb-2.5 text-[15px] font-semibold text-[#536C77]">
         ประวัติการทำข้อสอบ
       </h2>
-      {terms.length > 0 && (
-        <label className="mb-3 block text-xs text-[#71858E]">
-          เลือกเทอม
-          <select
-            value={selectedTermId ?? ""}
-            onChange={(event) => onTermChange(Number(event.target.value))}
-            className="mt-1.5 h-10 w-full rounded-full border border-[#C9DDE5] bg-white px-4 text-sm text-[#405B69] outline-none focus:border-[#78B8D2]"
-          >
-            {terms.map((term: TermHistoryItem) => (
-              <option key={term.student_term_id} value={term.student_term_id}>
-                ปีการศึกษา {term.academic_year} · ภาคเรียน {term.semester_no}
-                {term.status === "active" ? " (ปัจจุบัน)" : " (จบแล้ว)"}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
       {isLoading ? (
         <p className="py-5 text-center text-xs text-[#91A1A7]">กำลังโหลดประวัติข้อสอบ...</p>
       ) : !subjects.length ? (
