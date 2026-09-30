@@ -8,26 +8,22 @@ import {
 } from "lucide-react";
 import type {
   StudySession,
-  StudyType,
   TimerSubject,
 } from "@/interfaces/time.interface";
 import CustomSelect from "@/components/common/CustomSelect";
-import { formatClock, studyTypeLabels } from "./timer.utils";
+import { formatClock } from "./timer.utils";
 
 export type TimerPhase = "idle" | "running" | "paused" | "interrupted";
 
 interface TimerPanelProps {
   subjects: TimerSubject[];
-  studyTypes: StudyType[];
   selectedScheduleId: number | null;
-  selectedStudyTypeId: number | null;
   activeSession: StudySession | null;
   phase: TimerPhase;
   elapsedSeconds: number;
   busy: boolean;
   online: boolean;
   onSubjectChange: (scheduleTimeId: number | null) => void;
-  onStudyTypeChange: (studyTypeId: number | null) => void;
   onStart: () => void;
   onPause: () => void;
   onResume: () => void;
@@ -37,15 +33,12 @@ interface TimerPanelProps {
 
 export default function TimerPanel({
   subjects,
-  studyTypes,
   selectedScheduleId,
-  selectedStudyTypeId,
   phase,
   elapsedSeconds,
   busy,
   online,
   onSubjectChange,
-  onStudyTypeChange,
   onStart,
   onPause,
   onResume,
@@ -55,7 +48,6 @@ export default function TimerPanel({
   const canStart =
     phase === "idle" &&
     selectedScheduleId !== null &&
-    selectedStudyTypeId !== null &&
     !busy &&
     online;
 
@@ -75,7 +67,7 @@ export default function TimerPanel({
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-[390px] grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] gap-2">
+      <div className="mx-auto grid max-w-[390px] grid-cols-1 gap-2">
         <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-[#746b6e]">
           <span className="shrink-0">วิชา :</span>
           <CustomSelect
@@ -94,23 +86,6 @@ export default function TimerPanel({
           />
         </div>
 
-        <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-[#746b6e]">
-          <span className="shrink-0">วิธีทบทวน :</span>
-          <CustomSelect
-            value={selectedStudyTypeId ?? ""}
-            disabled={phase !== "idle" || busy || !online}
-            onChange={onStudyTypeChange}
-            options={studyTypes.map((type) => ({
-              value: type.study_type_id,
-              label: studyTypeLabels[type.study_type_name] ?? type.study_type_name,
-            }))}
-            placeholder="เลือกวิธีทบทวน"
-            compact
-            className="min-w-0 flex-1"
-            buttonClassName="!h-7 !px-2 !text-[11px]"
-            optionClassName="!text-[11px]"
-          />
-        </div>
       </div>
 
       <div className="mt-2 text-center">
@@ -202,8 +177,8 @@ export default function TimerPanel({
         </p>
       )}
       <p className="mt-1 text-center text-[9px] text-[#b0a3a7]">
-        {phase === "idle" && (!selectedScheduleId || !selectedStudyTypeId)
-          ? "เลือกวิชาและวิธีทบทวนก่อนเริ่ม · จำกัดเวลา 4 ชั่วโมง"
+        {phase === "idle" && !selectedScheduleId
+          ? "เลือกวิชาก่อนเริ่ม · จำกัดเวลา 4 ชั่วโมง"
           : "ระบบจะหยุดอัตโนมัติเมื่อครบ 4 ชั่วโมง"}
       </p>
     </section>

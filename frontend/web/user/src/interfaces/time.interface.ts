@@ -1,5 +1,3 @@
-export type StudyTypeName = "reading" | "practice" | "video" | "review";
-
 export type StudySessionStatus =
   | "running"
   | "paused"
@@ -21,11 +19,6 @@ export interface TimerSubject {
   teacher_name: string | null;
 }
 
-export interface StudyType {
-  study_type_id: number;
-  study_type_name: StudyTypeName;
-}
-
 export interface TimerTerm {
   term_id: number;
   term: number;
@@ -42,8 +35,6 @@ export interface TimerPolicy {
 export interface StudySession {
   study_time_id: number;
   schedule_time_id: number;
-  study_type_id: number;
-  study_type_name: StudyTypeName;
   subject_id: string;
   subject_name: string;
   start_time: string;
@@ -65,7 +56,6 @@ export interface TimerSetupResponse {
   message: string;
   current_term: TimerTerm;
   subjects: TimerSubject[];
-  study_types: StudyType[];
   timer_policy: TimerPolicy;
 }
 
@@ -92,12 +82,17 @@ export interface StudyWeek {
   total_minutes: number;
 }
 
+export interface WeeklySubjectStudy {
+  subject_id: string;
+  subject_name: string;
+  total_minutes: number;
+}
+
 export interface SubjectStudyHistory {
   subject_id: string;
   subject_name: string;
   total_minutes: number;
   session_count: number;
-  methods: Partial<Record<StudyTypeName, number>>;
 }
 
 export interface MonthlyStudyHistory {
@@ -117,12 +112,12 @@ export interface StudyDashboard {
     average_monthly_minutes: number;
   };
   weeks: StudyWeek[];
+  weekly_subjects: WeeklySubjectStudy[];
   history: MonthlyStudyHistory[];
 }
 
 export interface StartStudySessionRequest {
   schedule_time_id: number;
-  study_type_id: number;
 }
 
 export interface SessionVersionRequest {

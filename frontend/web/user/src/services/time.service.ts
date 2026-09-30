@@ -14,9 +14,8 @@ import { authenticatedApiClient } from "./api.client";
 
 const thaiErrorMessages: Record<string, string> = {
   NO_CURRENT_TERM: "ยังไม่มีเทอมปัจจุบัน กรุณาสร้างเทอมก่อนเริ่มจับเวลา",
-  INVALID_TIMER_SELECTION: "กรุณาเลือกวิชาและวิธีทบทวนให้ครบถ้วน",
+  INVALID_TIMER_SELECTION: "กรุณาเลือกวิชาให้ครบถ้วน",
   SUBJECT_NOT_FOUND: "ไม่พบวิชานี้ในตารางเรียนของเทอมปัจจุบัน",
-  STUDY_TYPE_NOT_FOUND: "ไม่พบวิธีทบทวนที่เลือก",
   OPEN_SESSION_EXISTS: "มีรายการจับเวลาที่ยังจัดการไม่เสร็จอยู่แล้ว",
   SESSION_NOT_FOUND: "ไม่พบรายการจับเวลานี้ในเทอมปัจจุบัน",
   SESSION_VERSION_CONFLICT:

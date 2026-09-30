@@ -1,19 +1,4 @@
-import type { StudyTypeName } from "@/interfaces/time.interface";
 import { formatDisplayMonthYear } from "@/utils/dateTime";
-
-export const studyTypeLabels: Record<StudyTypeName, string> = {
-  reading: "อ่านตำรา/เอกสาร",
-  practice: "ทำโจทย์/ฝึกปฏิบัติ",
-  video: "ดูวิดีโอ/lecture",
-  review: "ทบทวน/สรุปบทเรียน",
-};
-
-export const studyTypeColors: Record<StudyTypeName, string> = {
-  reading: "#91c9ef",
-  practice: "#f6b7cc",
-  video: "#f5c779",
-  review: "#9ed7bd",
-};
 
 export const formatClock = (totalSeconds: number) => {
   const safeSeconds = Math.max(0, Math.floor(totalSeconds));

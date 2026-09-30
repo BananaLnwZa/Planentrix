@@ -13,7 +13,6 @@ import type {
   RecoveryAction,
   StudyDashboard,
   StudySession,
-  StudyType,
   TimerSubject,
   TimerTerm,
 } from "@/interfaces/time.interface";
@@ -59,16 +58,11 @@ export default function TimerWorkspace() {
   );
   const [term, setTerm] = useState<TimerTerm | null>(null);
   const [subjects, setSubjects] = useState<TimerSubject[]>([]);
-  const [studyTypes, setStudyTypes] = useState<StudyType[]>([]);
   const [dashboard, setDashboard] = useState<StudyDashboard | null>(null);
   const [reviewRecommendations, setReviewRecommendations] = useState<ReviewRecommendationItem[]>([]);
-  const [weeklyTargetMinutes, setWeeklyTargetMinutes] = useState(0);
   const [activeSession, setActiveSession] = useState<StudySession | null>(null);
   const [requiresRecovery, setRequiresRecovery] = useState(false);
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(
-    null
-  );
-  const [selectedStudyTypeId, setSelectedStudyTypeId] = useState<number | null>(
     null
   );
   const [syncClientMs, setSyncClientMs] = useState(() => Date.now());
@@ -96,7 +90,6 @@ export default function TimerWorkspace() {
 
       setActiveSession(session);
       setSelectedScheduleId(session.schedule_time_id);
-      setSelectedStudyTypeId(session.study_type_id);
       setRequiresRecovery(
         recoveryRequired ||
           session.is_stale ||
@@ -151,7 +144,6 @@ export default function TimerWorkspace() {
       ]);
       setTerm(setup.current_term);
       setSubjects(setup.subjects);
-      setStudyTypes(setup.study_types);
       setDashboard(dashboardData);
       const plannedReviewItems = weeklySchedule?.accepted_recommendation?.items
         .filter((item) => item.schedule_type_id === 2 && item.target_minutes > 0)
@@ -177,11 +169,6 @@ export default function TimerWorkspace() {
         ? plannedReviewItems
         : Array.from(weakSubjects.values()).sort((left, right) => (left.percentage ?? 100) - (right.percentage ?? 100));
       setReviewRecommendations(recommendationItems);
-      setWeeklyTargetMinutes(
-        weeklySchedule?.accepted_recommendation?.items
-          .filter((item) => item.schedule_type_id === 2)
-          .reduce((sum, item) => sum + item.target_minutes, 0) ?? 0
-      );
       applySession(active.data, active.requires_recovery);
     } catch (error) {
       setPageError(
@@ -295,8 +282,8 @@ export default function TimerWorkspace() {
 
   const handleStart = async () => {
     if (!ensureOnline()) return;
-    if (selectedScheduleId === null || selectedStudyTypeId === null) {
-      setActionError("กรุณาเลือกวิชาและวิธีทบทวนก่อนเริ่มจับเวลา");
+    if (selectedScheduleId === null) {
+      setActionError("กรุณาเลือกวิชาก่อนเริ่มจับเวลา");
       return;
     }
     if (activeSession) {
@@ -309,7 +296,6 @@ export default function TimerWorkspace() {
     try {
       const response = await timeService.startSession({
         schedule_time_id: selectedScheduleId,
-        study_type_id: selectedStudyTypeId,
       });
       applySession(response.data);
     } catch (error) {
@@ -413,7 +399,6 @@ export default function TimerWorkspace() {
       );
       applySession(response.data);
       setSelectedScheduleId(null);
-      setSelectedStudyTypeId(null);
       setFinishModalOpen(false);
       resumeAfterFinishCancel.current = false;
       await refreshDashboard();
@@ -458,7 +443,6 @@ export default function TimerWorkspace() {
       applySession(response.data, false);
       if (!remainsOpen) {
         setSelectedScheduleId(null);
-        setSelectedStudyTypeId(null);
         await refreshDashboard();
       }
     } catch (error) {
@@ -512,16 +496,13 @@ export default function TimerWorkspace() {
 
           <TimerPanel
             subjects={subjects}
-            studyTypes={studyTypes}
             selectedScheduleId={selectedScheduleId}
-            selectedStudyTypeId={selectedStudyTypeId}
             activeSession={activeSession}
             phase={phase}
             elapsedSeconds={elapsedSeconds}
             busy={busy}
             online={online}
             onSubjectChange={setSelectedScheduleId}
-            onStudyTypeChange={setSelectedStudyTypeId}
             onStart={() => void handleStart()}
             onPause={() => void handlePause()}
             onResume={() => void handleResume()}
@@ -543,15 +524,16 @@ export default function TimerWorkspace() {
             </p>
           )}
 
-          <StudyStatistics
-            dashboard={dashboard}
-            currentWeekMinutes={dashboard.summary.current_week_minutes + (activeSession ? elapsedSeconds / 60 : 0)}
-            targetMinutes={weeklyTargetMinutes}
-          />
+          <StudyHistory dashboard={dashboard} />
         </div>
 
         <div className="h-full min-h-0 overflow-hidden">
-          <StudyHistory dashboard={dashboard} />
+          <StudyStatistics
+            dashboard={dashboard}
+            recommendations={reviewRecommendations}
+            activeSession={activeSession}
+            elapsedSeconds={elapsedSeconds}
+          />
         </div>
       </div>
 
