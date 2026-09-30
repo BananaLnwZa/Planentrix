@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import type {
   ExamAnswer,
+  ExamAttemptSession,
   ExamDetail,
   ExamHistoryItem,
   ExamInsights,
@@ -160,13 +161,31 @@ export default function TestWorkspace() {
     }
   };
 
-  const submitExam = async (answers: ExamAnswer[]): Promise<ExamSubmissionResult | null> => {
+  const startExam = async (): Promise<ExamAttemptSession> => {
+    if (!activeExam) throw new Error("ไม่พบข้อสอบที่กำลังเปิดอยู่");
+    return examService.startExam(activeExam.summary.examRepositoryId);
+  };
+
+  const saveExamAnswer = async (attemptId: number, answer: ExamAnswer) => {
+    if (!activeExam) throw new Error("ไม่พบข้อสอบที่กำลังเปิดอยู่");
+    await examService.saveAnswer(
+      activeExam.summary.examRepositoryId,
+      attemptId,
+      answer
+    );
+  };
+
+  const submitExam = async (
+    attemptId: number,
+    answers: ExamAnswer[]
+  ): Promise<ExamSubmissionResult | null> => {
     if (!activeExam || isSubmitting) return null;
     setIsSubmitting(true);
     setSubmitError(null);
     try {
       const result = await examService.submitExam(
         activeExam.summary.examRepositoryId,
+        attemptId,
         answers
       );
       await loadData();
@@ -282,6 +301,8 @@ export default function TestWorkspace() {
           exam={activeExam}
           isSubmitting={isSubmitting}
           submitError={submitError}
+          onStart={startExam}
+          onSaveAnswer={saveExamAnswer}
           onClose={() => !isSubmitting && setActiveExam(null)}
           onSubmit={submitExam}
         />

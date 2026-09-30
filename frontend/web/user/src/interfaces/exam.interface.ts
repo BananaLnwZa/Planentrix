@@ -86,6 +86,13 @@ export interface ExamAnswer {
   choiceId: number;
 }
 
+export interface ExamAttemptSession {
+  attemptId: number;
+  remainingSeconds: number;
+  resumed: boolean;
+  answers: ExamAnswer[];
+}
+
 export interface ExamSubmissionResult {
   historyId: number;
   actualScore: number;

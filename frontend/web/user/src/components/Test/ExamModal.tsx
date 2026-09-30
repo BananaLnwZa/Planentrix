@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { CheckCircle2, Clock3, LoaderCircle, X } from "lucide-react";
 import type {
   ExamAnswer,
+  ExamAttemptSession,
   ExamDetail,
   ExamSubmissionResult,
 } from "@/interfaces/exam.interface";
@@ -18,16 +19,24 @@ export default function ExamModal({
   exam,
   isSubmitting,
   submitError,
+  onStart,
+  onSaveAnswer,
   onClose,
   onSubmit,
 }: {
   exam: ExamDetail;
   isSubmitting: boolean;
   submitError: string | null;
+  onStart: () => Promise<ExamAttemptSession>;
+  onSaveAnswer: (attemptId: number, answer: ExamAnswer) => Promise<void>;
   onClose: () => void;
-  onSubmit: (answers: ExamAnswer[]) => Promise<ExamSubmissionResult | null>;
+  onSubmit: (attemptId: number, answers: ExamAnswer[]) => Promise<ExamSubmissionResult | null>;
 }) {
   const [started, setStarted] = useState(false);
+  const [attemptId, setAttemptId] = useState<number | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [savingQuestionId, setSavingQuestionId] = useState<number | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [warning, setWarning] = useState(false);
@@ -39,15 +48,53 @@ export default function ExamModal({
   const didAutoSubmit = useRef(false);
 
   const submitAnswers = useCallback(async () => {
+    if (attemptId === null) return;
     setShowSubmitConfirmation(false);
     const submission = await onSubmit(
+      attemptId,
       Object.entries(answers).map(([questionId, choiceId]) => ({
         questionId: Number(questionId),
         choiceId,
       }))
     );
     if (submission) setResult(submission);
-  }, [answers, onSubmit]);
+  }, [answers, attemptId, onSubmit]);
+
+  const beginExam = async () => {
+    if (isStarting) return;
+    setIsStarting(true);
+    setActionError(null);
+    try {
+      const session = await onStart();
+      setAttemptId(session.attemptId);
+      setRemainingSeconds(session.remainingSeconds);
+      setAnswers(
+        Object.fromEntries(
+          session.answers.map((answer) => [answer.questionId, answer.choiceId])
+        )
+      );
+      setStarted(true);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "เริ่มทำข้อสอบไม่สำเร็จ");
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  const chooseAnswer = async (questionId: number, choiceId: number) => {
+    if (attemptId === null || savingQuestionId !== null) return;
+    setSavingQuestionId(questionId);
+    setActionError(null);
+    try {
+      await onSaveAnswer(attemptId, { questionId, choiceId });
+      setAnswers((current) => ({ ...current, [questionId]: choiceId }));
+      setWarning(false);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "บันทึกคำตอบไม่สำเร็จ");
+    } finally {
+      setSavingQuestionId(null);
+    }
+  };
 
   useEffect(() => {
     if (!started || result || isSubmitting) return;
@@ -60,15 +107,16 @@ export default function ExamModal({
   useEffect(() => {
     if (
       started &&
-      remainingSeconds === 0 &&
+      remainingSeconds <= 1 &&
       !result &&
       !isSubmitting &&
+      savingQuestionId === null &&
       !didAutoSubmit.current
     ) {
       didAutoSubmit.current = true;
       void submitAnswers();
     }
-  }, [isSubmitting, remainingSeconds, result, started, submitAnswers]);
+  }, [isSubmitting, remainingSeconds, result, savingQuestionId, started, submitAnswers]);
 
   const question = exam.questions[currentIndex];
   const hasAnswer = question && answers[question.questionId] !== undefined;
@@ -136,13 +184,15 @@ export default function ExamModal({
               <button type="button" onClick={onClose} className="rounded-full border border-[#BAC6CB] px-5 py-2 text-sm text-[#63747C]">ยกเลิก</button>
               <button
                 type="button"
-                onClick={() => setStarted(true)}
-                disabled={!exam.questions.length}
-                className="rounded-full bg-[#A8D780] px-6 py-2 text-sm text-white disabled:opacity-50"
+                onClick={() => void beginExam()}
+                disabled={!exam.questions.length || isStarting}
+                className="inline-flex items-center gap-2 rounded-full bg-[#A8D780] px-6 py-2 text-sm text-white disabled:opacity-50"
               >
-                เริ่มทำ
+                {isStarting && <LoaderCircle className="h-4 w-4 animate-spin" />}
+                {isStarting ? "กำลังเริ่ม" : "เริ่มทำ"}
               </button>
             </div>
+            {actionError && <p className="mt-3 text-center text-xs text-red-500">{actionError}</p>}
           </div>
         ) : (
           <div>
@@ -183,11 +233,9 @@ export default function ExamModal({
                     <button
                       key={choice.choiceId}
                       type="button"
-                      onClick={() => {
-                        setAnswers((current) => ({ ...current, [question.questionId]: choice.choiceId }));
-                        setWarning(false);
-                      }}
-                      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${selected ? "border-[#74A951] bg-[#BFE59E] text-[#365327] shadow-[0_2px_5px_rgba(83,132,54,0.20)]" : "border-[#BFC8CC] bg-[#F8FBFC] text-[#405B69] hover:border-[#89B9CC] hover:bg-[#DDEFF6]"}`}
+                      onClick={() => void chooseAnswer(question.questionId, choice.choiceId)}
+                      disabled={savingQuestionId !== null || isSubmitting}
+                      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition disabled:cursor-wait disabled:opacity-70 ${selected ? "border-[#74A951] bg-[#BFE59E] text-[#365327] shadow-[0_2px_5px_rgba(83,132,54,0.20)]" : "border-[#BFC8CC] bg-[#F8FBFC] text-[#405B69] hover:border-[#89B9CC] hover:bg-[#DDEFF6]"}`}
                     >
                       <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${selected ? "bg-[#6FA64C] text-white" : "bg-[#DCE8ED] text-[#536D78]"}`}>
                         {String.fromCharCode(64 + Math.min(Math.max(choice.order, 1), 26))}
@@ -211,6 +259,7 @@ export default function ExamModal({
               </div>
               {warning && <p className="mt-3 text-xs text-red-500">กรุณาเลือกคำตอบก่อนกดไปข้อถัดไป</p>}
               {submitError && <p className="mt-3 text-xs text-red-500">{submitError}</p>}
+              {actionError && <p className="mt-3 text-xs text-red-500">{actionError}</p>}
             </div>
 
             <footer className="mt-5 flex justify-between gap-3">
@@ -226,13 +275,13 @@ export default function ExamModal({
                 <button
                   type="button"
                   onClick={() => hasAnswer ? setShowSubmitConfirmation(true) : setWarning(true)}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || savingQuestionId !== null}
                   className="inline-flex items-center gap-2 rounded-full bg-[#F29AB4] px-6 py-2 text-sm text-white disabled:opacity-60"
                 >
                   {isSubmitting && <LoaderCircle className="h-4 w-4 animate-spin" />} ส่งข้อสอบ
                 </button>
               ) : (
-                <button type="button" onClick={goNext} className="rounded-full bg-[#8CCBE8] px-6 py-2 text-sm text-white">ข้อต่อไป</button>
+                <button type="button" onClick={goNext} disabled={savingQuestionId !== null} className="rounded-full bg-[#8CCBE8] px-6 py-2 text-sm text-white disabled:opacity-50">ข้อต่อไป</button>
               )}
             </footer>
 

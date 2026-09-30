@@ -16,6 +16,12 @@ interface ChoiceRow extends RowDataPacket {
   choice_id: number; question_id: number; choice_order: number;
   choice_text: string; choice_image_path: string | null; is_correct: 0 | 1;
 }
+interface AttemptRow extends RowDataPacket {
+  exam_attempt_id: number;
+  started_at: Date | string;
+  elapsed_seconds: number | string;
+  status: "in_progress" | "submitted" | "expired" | "cancelled";
+}
 
 const questionImageUrl = (req: Request, imagePath: string | null) => {
   if (!imagePath) return null;
@@ -116,23 +122,134 @@ export const getExamInsights=async(req:Request,res:Response)=>{
 };
 
 const checkpointWeeks=(percentage:number)=>percentage<40?1:percentage<60?2:4;
+const remainingSecondsFor=(timeLimitMinutes:number,elapsedSeconds:number)=>Math.max(0,timeLimitMinutes*60-elapsedSeconds);
+
+export const startExam=async(req:Request,res:Response)=>{
+  const userId=userIdFrom(req,res);if(!userId)return;const examId=examIdFrom(req,res);if(!examId)return;
+  const connection=await db.getConnection();
+  try{
+    await connection.beginTransaction();
+    const exam=await getAccessibleExam(userId,examId,connection);
+    if(!exam){await connection.rollback();return res.status(404).json({message:"Exam was not found for the current term"});}
+    // Lock enrollment to serialize simultaneous start requests for this student.
+    await connection.query("SELECT enrollment_id FROM enrollments WHERE enrollment_id=? FOR UPDATE",[exam.schedule_time_id]);
+    const [activeRows]=await connection.query<AttemptRow[]>(`SELECT attempt.exam_attempt_id,attempt.started_at,
+      TIMESTAMPDIFF(SECOND,attempt.started_at,NOW()) AS elapsed_seconds,attempt.status
+      FROM exam_attempts attempt
+      WHERE attempt.enrollment_id=? AND attempt.exam_period=? AND attempt.status='in_progress'
+        AND EXISTS(SELECT 1 FROM exam_attempt_questions attempt_question
+          WHERE attempt_question.exam_attempt_id=attempt.exam_attempt_id AND attempt_question.source_bank_id=?)
+      ORDER BY attempt.exam_attempt_id DESC LIMIT 1 FOR UPDATE`,[exam.schedule_time_id,exam.exam_period,examId]);
+    const active=activeRows[0];
+    if(active){
+      const remainingSeconds=remainingSecondsFor(Number(exam.time_limit),Number(active.elapsed_seconds));
+      if(remainingSeconds>0){
+        const [answerRows]=await connection.query<RowDataPacket[]>(`SELECT attempt_question.source_question_id AS question_id,choice.choice_id
+          FROM exam_attempt_questions attempt_question
+          INNER JOIN choice choice ON choice.question_id=attempt_question.source_question_id
+            AND choice.choice_order=attempt_question.selected_choice_order AND choice.is_active=1
+          WHERE attempt_question.exam_attempt_id=? AND attempt_question.source_bank_id=?
+            AND attempt_question.selected_choice_order IS NOT NULL`,[active.exam_attempt_id,examId]);
+        await connection.commit();
+        return res.json({message:"Exam attempt resumed successfully",data:{exam_attempt_id:Number(active.exam_attempt_id),
+          started_at:active.started_at,remaining_seconds:remainingSeconds,resumed:true,
+          answers:answerRows.map(row=>({question_id:Number(row.question_id),choice_id:Number(row.choice_id)}))}});
+      }
+      await connection.query(`UPDATE exam_attempts SET status='expired',
+        submitted_at=DATE_ADD(started_at,INTERVAL ? MINUTE),updated_at=NOW()
+        WHERE exam_attempt_id=? AND status='in_progress'`,[Number(exam.time_limit),active.exam_attempt_id]);
+    }
+    const {questions,choices}=await getQuestions(examId,connection);
+    if(!questions.length){await connection.rollback();return res.status(409).json({message:"This exam has no active questions"});}
+    const [attempt]=await connection.query<ResultSetHeader>(`INSERT INTO exam_attempts
+      (enrollment_id,exam_period,started_at,status,weak_topic_count) VALUES(?,?,NOW(),'in_progress',0)`,[exam.schedule_time_id,exam.exam_period]);
+    const choicesByQuestion=new Map<number,ChoiceRow[]>();
+    for(const choice of choices){const items=choicesByQuestion.get(Number(choice.question_id))??[];items.push(choice);choicesByQuestion.set(Number(choice.question_id),items);}
+    for(const question of questions){
+      const options=choicesByQuestion.get(Number(question.question_id))??[];
+      await connection.query(`INSERT INTO exam_attempt_questions
+        (exam_attempt_id,source_question_id,source_bank_id,display_order,question_text_snapshot,
+         image_path_snapshot,question_score_snapshot,choices_snapshot)
+        VALUES(?,?,?,?,?,?,?,?)`,[attempt.insertId,question.question_id,examId,question.question_order,
+          question.question_text,question.question_image_path,Number(question.question_score),
+          JSON.stringify(options.map(option=>({choice_order:Number(option.choice_order),choice_text:option.choice_text,choice_image_path:option.choice_image_path})))]);
+    }
+    const [startedRows]=await connection.query<RowDataPacket[]>("SELECT started_at FROM exam_attempts WHERE exam_attempt_id=?",[attempt.insertId]);
+    await connection.commit();
+    return res.status(201).json({message:"Exam attempt started successfully",data:{exam_attempt_id:Number(attempt.insertId),
+      started_at:startedRows[0]?.started_at,remaining_seconds:Math.max(0,Number(exam.time_limit)*60),resumed:false,answers:[]}});
+  }catch(error){await connection.rollback();console.error("startExam error:",error);return res.status(500).json({message:"Unable to start exam"});}
+  finally{connection.release();}
+};
+
+export const saveExamAnswer=async(req:Request,res:Response)=>{
+  const userId=userIdFrom(req,res);if(!userId)return;const examId=examIdFrom(req,res);if(!examId)return;
+  const attemptId=Number(req.params.attempt_id),questionId=Number(req.body?.question_id),choiceId=Number(req.body?.choice_id);
+  if(![attemptId,questionId,choiceId].every(value=>Number.isInteger(value)&&value>0))return res.status(400).json({message:"A valid attempt, question and choice are required"});
+  const connection=await db.getConnection();
+  try{
+    await connection.beginTransaction();
+    const exam=await getAccessibleExam(userId,examId,connection);
+    if(!exam){await connection.rollback();return res.status(404).json({message:"Exam was not found for the current term"});}
+    const [attemptRows]=await connection.query<AttemptRow[]>(`SELECT attempt.exam_attempt_id,attempt.started_at,
+      TIMESTAMPDIFF(SECOND,attempt.started_at,NOW()) AS elapsed_seconds,attempt.status
+      FROM exam_attempts attempt INNER JOIN exam_attempt_questions attempt_question
+        ON attempt_question.exam_attempt_id=attempt.exam_attempt_id
+       AND attempt_question.source_bank_id=? AND attempt_question.source_question_id=?
+      WHERE attempt.exam_attempt_id=? AND attempt.enrollment_id=? AND attempt.exam_period=?
+        AND attempt.status='in_progress' LIMIT 1 FOR UPDATE`,[examId,questionId,attemptId,exam.schedule_time_id,exam.exam_period]);
+    const attempt=attemptRows[0];
+    if(!attempt){await connection.rollback();return res.status(409).json({message:"This exam attempt is no longer active"});}
+    if(remainingSecondsFor(Number(exam.time_limit),Number(attempt.elapsed_seconds))<=0){
+      await connection.query(`UPDATE exam_attempts SET status='expired',submitted_at=DATE_ADD(started_at,INTERVAL ? MINUTE),updated_at=NOW()
+        WHERE exam_attempt_id=? AND status='in_progress'`,[Number(exam.time_limit),attemptId]);
+      await connection.commit();return res.status(409).json({message:"เวลาทำข้อสอบหมดแล้ว"});
+    }
+    const [choiceRows]=await connection.query<RowDataPacket[]>(`SELECT choice.choice_order FROM choice choice
+      INNER JOIN question question ON question.question_id=choice.question_id
+      WHERE choice.choice_id=? AND question.question_id=? AND question.question_bank_id=?
+        AND question.is_active=1 AND choice.is_active=1 LIMIT 1`,[choiceId,questionId,examId]);
+    if(!choiceRows[0]){await connection.rollback();return res.status(400).json({message:"The selected choice is invalid"});}
+    await connection.query(`UPDATE exam_attempt_questions SET selected_choice_order=?,answered_at=NOW()
+      WHERE exam_attempt_id=? AND source_bank_id=? AND source_question_id=?`,[choiceRows[0].choice_order,attemptId,examId,questionId]);
+    await connection.commit();return res.json({message:"Answer saved",question_id:questionId});
+  }catch(error){await connection.rollback();console.error("saveExamAnswer error:",error);return res.status(500).json({message:"Unable to save exam answer"});}
+  finally{connection.release();}
+};
 
 export const submitExam=async(req:Request,res:Response)=>{
   const userId=userIdFrom(req,res);if(!userId)return;const examId=examIdFrom(req,res);if(!examId)return;
+  const attemptId=Number(req.body?.exam_attempt_id);
+  if(!Number.isInteger(attemptId)||attemptId<=0)return res.status(400).json({message:"A valid exam_attempt_id is required"});
   const answers=Array.isArray(req.body.answers)?req.body.answers:[];const selected=new Map<number,number>();
   for(const answer of answers){const questionId=Number(answer?.question_id),choiceId=Number(answer?.choice_id);if(Number.isInteger(questionId)&&Number.isInteger(choiceId))selected.set(questionId,choiceId);}
   const connection=await db.getConnection();
   try{await connection.beginTransaction();const exam=await getAccessibleExam(userId,examId,connection);if(!exam){await connection.rollback();return res.status(404).json({message:"Exam was not found for the current term"});}
+    const [attemptRows]=await connection.query<AttemptRow[]>(`SELECT attempt.exam_attempt_id,attempt.started_at,
+      TIMESTAMPDIFF(SECOND,attempt.started_at,NOW()) AS elapsed_seconds,attempt.status
+      FROM exam_attempts attempt WHERE attempt.exam_attempt_id=? AND attempt.enrollment_id=?
+        AND attempt.exam_period=? AND attempt.status='in_progress'
+        AND EXISTS(SELECT 1 FROM exam_attempt_questions attempt_question
+          WHERE attempt_question.exam_attempt_id=attempt.exam_attempt_id AND attempt_question.source_bank_id=?)
+      LIMIT 1 FOR UPDATE`,[attemptId,exam.schedule_time_id,exam.exam_period,examId]);
+    const attempt=attemptRows[0];if(!attempt){await connection.rollback();return res.status(409).json({message:"This exam attempt is no longer active"});}
+    if(remainingSecondsFor(Number(exam.time_limit),Number(attempt.elapsed_seconds))<=0){
+      await connection.query(`UPDATE exam_attempts SET status='expired',submitted_at=DATE_ADD(started_at,INTERVAL ? MINUTE),updated_at=NOW()
+        WHERE exam_attempt_id=? AND status='in_progress'`,[Number(exam.time_limit),attemptId]);
+      await connection.commit();return res.status(409).json({message:"เวลาทำข้อสอบหมดแล้ว"});
+    }
     const {questions,choices}=await getQuestions(examId,connection);if(!questions.length){await connection.rollback();return res.status(409).json({message:"This exam has no active questions"});}
     const choiceMap=new Map<number,ChoiceRow[]>();for(const choice of choices){const list=choiceMap.get(Number(choice.question_id))??[];list.push(choice);choiceMap.set(Number(choice.question_id),list);}
     let actual=0,maximum=0,correct=0;const results=questions.map(question=>{const options=choiceMap.get(Number(question.question_id))??[];const choiceId=selected.get(Number(question.question_id));const chosen=options.find(choice=>Number(choice.choice_id)===choiceId);const isCorrect=Boolean(chosen?.is_correct);const score=Number(question.question_score);maximum+=score;if(isCorrect){actual+=score;correct++;}return{question,options,chosen,isCorrect,awarded:isCorrect?score:0};});
-    const percentage=maximum>0?(actual/maximum)*100:0;const weak=percentage<50;const [attempt]=await connection.query<ResultSetHeader>(`INSERT INTO exam_attempts(enrollment_id,exam_period,started_at,submitted_at,actual_score,max_score,weak_topic_count,status)
-      VALUES(?,?,NOW(),NOW(),?,?,?,'submitted')`,[exam.schedule_time_id,exam.exam_period,actual,maximum,weak?1:0]);
-    for(const result of results){await connection.query(`INSERT INTO exam_attempt_questions(exam_attempt_id,source_question_id,source_bank_id,display_order,question_text_snapshot,image_path_snapshot,question_score_snapshot,choices_snapshot,selected_choice_order,is_correct,awarded_score,answered_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,NOW())`,[attempt.insertId,result.question.question_id,examId,result.question.question_order,result.question.question_text,result.question.question_image_path,Number(result.question.question_score),JSON.stringify(result.options.map(option=>({choice_order:Number(option.choice_order),choice_text:option.choice_text,choice_image_path:option.choice_image_path}))),result.chosen?Number(result.chosen.choice_order):null,result.isCorrect?1:0,result.awarded]);}
+    const percentage=maximum>0?(actual/maximum)*100:0;const weak=percentage<50;
+    for(const result of results){await connection.query(`UPDATE exam_attempt_questions
+      SET selected_choice_order=?,is_correct=?,awarded_score=?,answered_at=IF(? IS NULL,NULL,COALESCE(answered_at,NOW()))
+      WHERE exam_attempt_id=? AND source_bank_id=? AND source_question_id=?`,[result.chosen?Number(result.chosen.choice_order):null,result.isCorrect?1:0,result.awarded,result.chosen?Number(result.chosen.choice_order):null,attemptId,examId,result.question.question_id]);}
+    await connection.query(`UPDATE exam_attempts SET submitted_at=NOW(),actual_score=?,max_score=?,weak_topic_count=?,status='submitted',updated_at=NOW()
+      WHERE exam_attempt_id=? AND status='in_progress'`,[actual,maximum,weak?1:0,attemptId]);
     await connection.query(`INSERT INTO exam_attempt_bank_results(exam_attempt_id,question_bank_id,bank_name_snapshot,actual_score,max_score,percentage,is_weak_topic)
-      VALUES(?,?,?,?,?,?,?)`,[attempt.insertId,examId,exam.exam_name,actual,maximum,Number(percentage.toFixed(2)),weak?1:0]);
-    let nextCheckpointAt:Date|null=null;let intervalWeeks=0;if(weak){intervalWeeks=checkpointWeeks(percentage);nextCheckpointAt=new Date();nextCheckpointAt.setDate(nextCheckpointAt.getDate()+intervalWeeks*7);await connection.query(`UPDATE exam_checkpoints SET status='superseded',updated_at=NOW() WHERE enrollment_id=? AND exam_period=? AND status='pending'`,[exam.schedule_time_id,exam.exam_period]);await connection.query(`INSERT INTO exam_checkpoints(enrollment_id,source_exam_attempt_id,exam_period,weak_topic_count,interval_weeks,next_checkpoint_at,status) VALUES(?,?,?,?,?,?,'pending')`,[exam.schedule_time_id,attempt.insertId,exam.exam_period,1,intervalWeeks,nextCheckpointAt]);}
-    await connection.commit();return res.json({message:"Exam submitted successfully",exam_score_history_id:attempt.insertId,actual_score:actual,exam_max_score:maximum,correct_answers:correct,total_questions:questions.length,next_checkpoint_at:nextCheckpointAt,checkpoint_interval_weeks:intervalWeeks,weak_topic_count:weak?1:0,review_minutes_delta:weak?30:0,schedule_recommendation_id:null,review_method:weak?{study_type_id:4,study_type_name:"review",fallback_used:false}:null});
+      VALUES(?,?,?,?,?,?,?)`,[attemptId,examId,exam.exam_name,actual,maximum,Number(percentage.toFixed(2)),weak?1:0]);
+    let nextCheckpointAt:Date|null=null;let intervalWeeks=0;if(weak){intervalWeeks=checkpointWeeks(percentage);nextCheckpointAt=new Date();nextCheckpointAt.setDate(nextCheckpointAt.getDate()+intervalWeeks*7);await connection.query(`UPDATE exam_checkpoints SET status='superseded',updated_at=NOW() WHERE enrollment_id=? AND exam_period=? AND status='pending'`,[exam.schedule_time_id,exam.exam_period]);await connection.query(`INSERT INTO exam_checkpoints(enrollment_id,source_exam_attempt_id,exam_period,weak_topic_count,interval_weeks,next_checkpoint_at,status) VALUES(?,?,?,?,?,?,'pending')`,[exam.schedule_time_id,attemptId,exam.exam_period,1,intervalWeeks,nextCheckpointAt]);}
+    await connection.commit();return res.json({message:"Exam submitted successfully",exam_score_history_id:attemptId,actual_score:actual,exam_max_score:maximum,correct_answers:correct,total_questions:questions.length,next_checkpoint_at:nextCheckpointAt,checkpoint_interval_weeks:intervalWeeks,weak_topic_count:weak?1:0,review_minutes_delta:weak?30:0,schedule_recommendation_id:null,review_method:weak?{study_type_id:4,study_type_name:"review",fallback_used:false}:null});
   }catch(error){await connection.rollback();console.error("submitExam error:",error);return res.status(500).json({message:"Internal server error"});}finally{connection.release();}
 };

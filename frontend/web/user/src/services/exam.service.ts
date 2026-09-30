@@ -1,6 +1,7 @@
 import axios from "axios";
 import type {
   ExamAnswer,
+  ExamAttemptSession,
   ExamCheckpointInsight,
   ExamChoice,
   ExamDetail,
@@ -170,14 +171,54 @@ class ExamService {
     }
   }
 
+  async startExam(examRepositoryId: number): Promise<ExamAttemptSession> {
+    try {
+      const response = await this.apiClient.post(
+        `/user/exam/${examRepositoryId}/start`
+      );
+      const json = record(record(response.data).data);
+      return {
+        attemptId: number(json.exam_attempt_id),
+        remainingSeconds: number(json.remaining_seconds),
+        resumed: Boolean(json.resumed),
+        answers: list(json.answers).map((answer) => {
+          const item = record(answer);
+          return {
+            questionId: number(item.question_id),
+            choiceId: number(item.choice_id),
+          };
+        }),
+      };
+    } catch (error) {
+      throw this.toError(error, "เริ่มทำข้อสอบไม่สำเร็จ");
+    }
+  }
+
+  async saveAnswer(
+    examRepositoryId: number,
+    attemptId: number,
+    answer: ExamAnswer
+  ): Promise<void> {
+    try {
+      await this.apiClient.put(
+        `/user/exam/${examRepositoryId}/attempts/${attemptId}/answers`,
+        { question_id: answer.questionId, choice_id: answer.choiceId }
+      );
+    } catch (error) {
+      throw this.toError(error, "บันทึกคำตอบไม่สำเร็จ");
+    }
+  }
+
   async submitExam(
     examRepositoryId: number,
+    attemptId: number,
     answers: ExamAnswer[]
   ): Promise<ExamSubmissionResult> {
     try {
       const response = await this.apiClient.post(
         `/user/exam/${examRepositoryId}/submit`,
         {
+          exam_attempt_id: attemptId,
           answers: answers.map((answer) => ({
             question_id: answer.questionId,
             choice_id: answer.choiceId,
