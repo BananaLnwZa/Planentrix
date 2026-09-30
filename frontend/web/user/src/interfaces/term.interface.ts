@@ -111,3 +111,12 @@ export interface SystemEvaluationAnswers {
   usefulness: number;
   comment: string;
 }
+
+export interface TermHistoryItem {
+  student_term_id: number;
+  year_level: number;
+  academic_year: number;
+  semester_no: number;
+  status: "active" | "completed";
+  completed_at: string | null;
+}

@@ -99,6 +99,11 @@ export const getExamDetail=async(req:Request,res:Response)=>{
 
 export const getExamScoreHistory=async(req:Request,res:Response)=>{
   try{const userId=userIdFrom(req,res);if(!userId)return;
+    const termIdValue=req.query.student_term_id;
+    const termId=termIdValue===undefined?null:Number(termIdValue);
+    if(termId!==null&&(!Number.isInteger(termId)||termId<=0))return res.status(400).json({message:"Invalid student_term_id"});
+    const termScope=termId===null?"AND st.status='active'":"AND st.student_term_id=?";
+    const parameters=termId===null?[userId]:[userId,termId];
     const [rows]=await db.query<RowDataPacket[]>(`SELECT ea.exam_attempt_id AS exam_score_history_id,eabr.question_bank_id AS exam_repository_id,
       s.subject_id,s.subject_name,eabr.bank_name_snapshot AS exam_name,eabr.actual_score,eabr.max_score AS exam_max_score,
       ea.submitted_at AS exam_date,eabr.is_weak_topic,eabr.percentage
@@ -106,7 +111,8 @@ export const getExamScoreHistory=async(req:Request,res:Response)=>{
       INNER JOIN student_terms st ON st.student_term_id=e.student_term_id
       INNER JOIN course_sections cs ON cs.section_id=e.section_id INNER JOIN subjects s ON s.subject_id=cs.subject_id
       INNER JOIN exam_attempt_bank_results eabr ON eabr.exam_attempt_id=ea.exam_attempt_id
-      WHERE st.user_id=? AND st.status='active' AND ea.status='submitted' ORDER BY ea.submitted_at DESC`,[userId]);
+      WHERE st.user_id=? AND st.status IN ('active','completed') ${termScope}
+        AND ea.status='submitted' ORDER BY ea.submitted_at DESC`,parameters);
     const data=rows.map(row=>({...row,weak_topics:Number(row.is_weak_topic)?[{topic_name:row.exam_name,percentage:Number(row.percentage)}]:[]}));
     return res.json({message:"Exam score history retrieved successfully",user_id:userId,total:data.length,data});
   }catch(error){console.error("getExamScoreHistory error:",error);return res.status(500).json({message:"Internal server error"});}

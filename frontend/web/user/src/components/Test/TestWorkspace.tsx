@@ -11,11 +11,10 @@ import type {
   ExamSubmissionResult,
   ExamSummary,
 } from "@/interfaces/exam.interface";
+import type { TermHistoryItem } from "@/interfaces/term.interface";
 import examService from "@/services/exam.service";
 import termService from "@/services/term.service";
-import {
-  CurrentTermRequiredNotebookLayout,
-} from "@/components/common/CurrentTermRequiredState";
+import CurrentTermRequiredState from "@/components/common/CurrentTermRequiredState";
 import { NotebookErrorLayout } from "@/components/common/NotebookErrorState";
 import ExamListPanel from "./ExamListPanel";
 import ExamHistoryPanel from "./ExamHistoryPanel";
@@ -27,6 +26,8 @@ const emptyInsights: ExamInsights = { weakTopics: [], nextCheckpoints: [] };
 export default function TestWorkspace() {
   const [exams, setExams] = useState<ExamSummary[]>([]);
   const [history, setHistory] = useState<ExamHistoryItem[]>([]);
+  const [termHistory, setTermHistory] = useState<TermHistoryItem[]>([]);
+  const [historyTermId, setHistoryTermId] = useState<number | null>(null);
   const [insights, setInsights] = useState<ExamInsights>(emptyInsights);
   const [activeExam, setActiveExam] = useState<ExamDetail | null>(null);
   const [openingExamId, setOpeningExamId] = useState<number | null>(null);
@@ -43,22 +44,23 @@ export default function TestWorkspace() {
     setHasCurrentTerm(null);
     setLoadError(null);
     try {
-      const currentTerm = await termService.getCurrentTerm();
-      if (!currentTerm) {
-        setExams([]);
-        setHistory([]);
-        setInsights(emptyInsights);
-        setExamSubjectId(null);
-        setHistorySubjectId(null);
-        setHasCurrentTerm(false);
-        return;
-      }
-      setHasCurrentTerm(true);
-      const [examData, historyData, insightData] = await Promise.all([
-        examService.getExams(),
-        examService.getHistory(),
-        examService.getInsights(),
+      const [currentTerm, termData] = await Promise.all([
+        termService.getCurrentTerm(),
+        termService.getTermHistory(),
       ]);
+      const selectedTerm =
+        termData.find((term) => term.student_term_id === historyTermId) ??
+        termData.find((term) => term.status === "active") ??
+        termData[0] ??
+        null;
+      const [examData, historyData, insightData] = await Promise.all([
+        currentTerm ? examService.getExams() : Promise.resolve([]),
+        selectedTerm ? examService.getHistory(selectedTerm.student_term_id) : Promise.resolve([]),
+        currentTerm ? examService.getInsights() : Promise.resolve(emptyInsights),
+      ]);
+      setTermHistory(termData);
+      setHistoryTermId(selectedTerm?.student_term_id ?? null);
+      setHasCurrentTerm(Boolean(currentTerm));
       setExams(examData);
       setHistory(historyData);
       setInsights(insightData);
@@ -79,46 +81,12 @@ export default function TestWorkspace() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [historyTermId]);
 
   useEffect(() => {
-    let active = true;
-
-    termService
-      .getCurrentTerm()
-      .then(async (currentTerm) => {
-        if (!active) return;
-        if (!currentTerm) {
-          setHasCurrentTerm(false);
-          return;
-        }
-        setHasCurrentTerm(true);
-        const [examData, historyData, insightData] = await Promise.all([
-          examService.getExams(),
-          examService.getHistory(),
-          examService.getInsights(),
-        ]);
-        if (!active) return;
-        setExams(examData);
-        setHistory(historyData);
-        setInsights(insightData);
-        setExamSubjectId(examData[0]?.subjectId ?? null);
-        const first = historyData[0];
-        setHistorySubjectId(first ? first.subjectId || first.subjectName : null);
-      })
-      .catch((error: unknown) => {
-        if (active) {
-          setLoadError(error instanceof Error ? error.message : "โหลดข้อมูลหน้า Test ไม่สำเร็จ");
-        }
-      })
-      .finally(() => {
-        if (active) setIsLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
+    const timer = window.setTimeout(() => void loadData(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadData]);
 
   useEffect(() => {
     const now = Date.now();
@@ -241,7 +209,22 @@ export default function TestWorkspace() {
 
   if (hasCurrentTerm === false) {
     return (
-      <CurrentTermRequiredNotebookLayout leftDetail="กรุณาสร้างเทอมและตารางเรียนก่อนทำแบบทดสอบ" />
+      <div className="h-full w-full overflow-y-auto px-2 py-4">
+        <div className="mx-auto max-w-2xl space-y-5">
+          <CurrentTermRequiredState detail="จบเทอมแล้ว สามารถเลือกเทอมด้านล่างเพื่อดูประวัติข้อสอบย้อนหลังได้" />
+          <section className="rounded-2xl border border-[#DCE7EB] bg-white p-4 shadow-sm">
+            <ExamHistoryPanel
+              history={history}
+              selectedSubjectId={historySubjectId}
+              onSubjectChange={setHistorySubjectId}
+              terms={termHistory}
+              selectedTermId={historyTermId}
+              onTermChange={setHistoryTermId}
+              isLoading={isLoading}
+            />
+          </section>
+        </div>
+      </div>
     );
   }
 
@@ -293,6 +276,10 @@ export default function TestWorkspace() {
             history={history}
             selectedSubjectId={historySubjectId}
             onSubjectChange={setHistorySubjectId}
+            terms={termHistory}
+            selectedTermId={historyTermId}
+            onTermChange={setHistoryTermId}
+            isLoading={isLoading}
           />
         </section>
 

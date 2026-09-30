@@ -9,6 +9,7 @@ import type {
   EndTermResponse,
   PendingSystemEvaluation,
   SystemEvaluationAnswers,
+  TermHistoryItem,
 } from "@/interfaces/term.interface";
 import { authenticatedApiClient } from "./api.client";
 
@@ -38,6 +39,17 @@ class TermService {
       return response.data;
     } catch (error) {
       throw this.toError(error, "Unable to create term");
+    }
+  }
+
+  async getTermHistory(): Promise<TermHistoryItem[]> {
+    try {
+      const response = await this.apiClient.get<{ data: TermHistoryItem[] }>(
+        "/user/terms/history"
+      );
+      return response.data.data;
+    } catch (error) {
+      throw this.toError(error, "ไม่สามารถโหลดประวัติเทอมได้");
     }
   }
 

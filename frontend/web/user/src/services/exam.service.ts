@@ -149,9 +149,11 @@ class ExamService {
     }
   }
 
-  async getHistory(): Promise<ExamHistoryItem[]> {
+  async getHistory(studentTermId?: number): Promise<ExamHistoryItem[]> {
     try {
-      const response = await this.apiClient.get("/user/exam/history");
+      const response = await this.apiClient.get("/user/exam/history", {
+        params: studentTermId ? { student_term_id: studentTermId } : undefined,
+      });
       return list(record(response.data).data).map(historyFromJson);
     } catch (error) {
       throw this.toError(error, "ไม่สามารถโหลดประวัติการทำข้อสอบได้");

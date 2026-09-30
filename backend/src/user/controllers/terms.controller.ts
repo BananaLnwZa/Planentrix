@@ -544,6 +544,30 @@ export const getCurrentTerm = async (req: Request, res: Response) => {
   }
 };
 
+export const getTermHistory = async (req: Request, res: Response) => {
+  try {
+    const userId = authenticatedUserId(req, res);
+    if (userId === null) return;
+    const [rows] = await db.query<RowDataPacket[]>(
+      `SELECT student_term.student_term_id, student_term.year_level,
+              student_term.status, student_term.completed_at,
+              academic_term.academic_year, academic_term.semester_no
+       FROM student_terms student_term
+       INNER JOIN academic_terms academic_term
+         ON academic_term.academic_term_id = student_term.academic_term_id
+       WHERE student_term.user_id = ? AND student_term.status IN ('active', 'completed')
+       ORDER BY CASE WHEN student_term.status = 'active' THEN 0 ELSE 1 END,
+                academic_term.academic_year DESC, academic_term.semester_no DESC,
+                student_term.student_term_id DESC`,
+      [userId],
+    );
+    return res.json({ message: "Term history retrieved successfully", data: rows });
+  } catch (error) {
+    console.error("getTermHistory error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export const endCurrentTerm = async (req: Request, res: Response) => {
   const userId = authenticatedUserId(req, res);
   if (userId === null) return;

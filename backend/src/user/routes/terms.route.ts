@@ -4,6 +4,7 @@ import {
   addTerm,
   getAvailableTermSections,
   getCurrentTerm,
+  getTermHistory,
   endCurrentTerm,
   getPendingSystemEvaluation,
   submitSystemEvaluation,
@@ -19,6 +20,7 @@ router.get("/available-sections", verifyToken, getAvailableTermSections);
 
 // GET - Current term (require authentication)
 router.get("/current", verifyToken, getCurrentTerm);
+router.get("/history", verifyToken, getTermHistory);
 
 // GET/POST - Optional end-of-term system evaluation
 router.get("/evaluation/pending", verifyToken, getPendingSystemEvaluation);
