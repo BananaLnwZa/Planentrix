@@ -16,15 +16,15 @@ export default function ReviewRecommendationCard({
   onSelectSubject: (subjectId: string) => void;
 }) {
   return (
-    <section className="shrink-0 rounded-[18px] border border-[#D9E7EC] bg-gradient-to-br from-white to-[#F2FAFD] px-4 py-3 shadow-[0_4px_10px_rgba(78,68,61,0.12)]">
-      <div className="mb-2 flex items-center gap-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E5F4FA] text-[#6AA4BA]">
-          <Sparkles className="h-4 w-4" aria-hidden="true" />
-        </span>
+    <section className="relative shrink-0 rounded-[18px] border border-[#D8E2E7] bg-white px-4 pb-3 pt-3 shadow-[0_4px_10px_rgba(78,68,61,0.16)]">
+      <div className="mb-3 flex items-center justify-between gap-3 border-b border-[#EEE4DF] pb-2">
         <div>
-          <p className="text-[9px] font-semibold tracking-[0.16em] text-[#A77B8A] uppercase">Recommended review</p>
-          <h2 className="text-sm font-semibold leading-tight text-[#4E6570]">วิชาที่แนะนำให้ทบทวน</h2>
+          <p className="text-[10px] font-semibold tracking-[0.18em] text-[#A77B8A] uppercase">Recommended review</p>
+          <h2 className="font-sans text-lg font-semibold leading-tight text-[#4E4350]">วิชาที่แนะนำให้ทบทวน</h2>
         </div>
+        <span className="rounded-full bg-[#EAF6FC] p-2 text-[#79B6D8]">
+          <Sparkles className="h-[18px] w-[18px]" aria-hidden="true" />
+        </span>
       </div>
 
       {items.length ? (
@@ -34,7 +34,7 @@ export default function ReviewRecommendationCard({
               <button
                 type="button"
                 onClick={() => onSelectSubject(item.subjectId)}
-                className="flex w-full items-center gap-2 rounded-xl border border-[#E5EEF1] bg-white/90 px-2.5 py-2 text-left transition hover:border-[#BBDCE8] hover:bg-white"
+                className="flex w-full items-center gap-2 rounded-xl border border-[#E5EEF1] bg-[#FBFDFE] px-2.5 py-2 text-left transition hover:border-[#BBDCE8] hover:bg-white"
               >
                 <BookOpenCheck className="h-4 w-4 shrink-0 text-[#85B5C6]" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
@@ -50,7 +50,7 @@ export default function ReviewRecommendationCard({
           ))}
         </ul>
       ) : (
-        <p className="rounded-xl bg-white/80 px-3 py-3 text-center text-[11px] leading-5 text-[#91A0A6]">
+        <p className="rounded-xl bg-[#F7FBFD] px-3 py-2.5 text-center text-[11px] leading-5 text-[#8C9BA1]">
           ยังไม่มีวิชาที่ถูกแนะนำเป็นพิเศษ ลองทำข้อสอบหรือยอมรับแผนทบทวนรายสัปดาห์ก่อนนะ
         </p>
       )}
