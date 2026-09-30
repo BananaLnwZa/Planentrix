@@ -8,6 +8,9 @@ import Term from "@/components/Main/Term";
 import MainNotificationCard from "@/components/Main/MainNotificationCard";
 import RecommendationCard from "@/components/Main/RecommendationCard";
 import gradeService from "@/services/grade.service";
+import termService from "@/services/term.service";
+import type { PendingSystemEvaluation } from "@/interfaces/term.interface";
+import SystemEvaluationModal from "@/components/Main/SystemEvaluationModal";
 
 export default function MainPage() {
   const [termVersion, setTermVersion] = useState(0);
@@ -15,6 +18,7 @@ export default function MainPage() {
   const [recommendationVersion, setRecommendationVersion] = useState(0);
   const [alertVersion, setAlertVersion] = useState(0);
   const [hasSavedGradeGoals, setHasSavedGradeGoals] = useState(false);
+  const [pendingEvaluation, setPendingEvaluation] = useState<PendingSystemEvaluation | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -33,6 +37,21 @@ export default function MainPage() {
     };
   }, [termVersion]);
 
+  useEffect(() => {
+    let active = true;
+    termService
+      .getPendingSystemEvaluation()
+      .then((evaluation) => {
+        if (active) setPendingEvaluation(evaluation);
+      })
+      .catch(() => {
+        if (active) setPendingEvaluation(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [termVersion]);
+
   const handleTermChange = () => {
     setHasSavedGradeGoals(false);
     setTermVersion((version) => version + 1);
@@ -41,6 +60,7 @@ export default function MainPage() {
   };
 
   return (
+    <>
     <MainNotebookScreen activeTab="main">
       <div className="grid h-full min-h-0 w-full grid-cols-1 gap-8 md:grid-cols-2 md:gap-16">
         <div className="relative flex h-full min-h-0 flex-col items-center gap-3 md:-translate-x-3">
@@ -85,5 +105,13 @@ export default function MainPage() {
         </div>
       </div>
     </MainNotebookScreen>
+      {pendingEvaluation && (
+        <SystemEvaluationModal
+          evaluation={pendingEvaluation}
+          onSubmitted={() => setPendingEvaluation(null)}
+          onLater={() => setPendingEvaluation(null)}
+        />
+      )}
+    </>
   );
 }

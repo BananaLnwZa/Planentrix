@@ -545,14 +545,36 @@ export const getCurrentTerm = async (req: Request, res: Response) => {
 };
 
 export const endCurrentTerm = async (req: Request, res: Response) => {
+  const userId = authenticatedUserId(req, res);
+  if (userId === null) return;
+  const connection = await db.getConnection();
   try {
-    const userId = authenticatedUserId(req, res);
-    if (userId === null) return;
-    const [rows] = await db.query<CurrentTermRow[]>(currentTermSelect, [userId]);
+    await connection.beginTransaction();
+    const [rows] = await connection.query<CurrentTermRow[]>(`${currentTermSelect} FOR UPDATE`, [userId]);
     const term = rows[0];
-    if (!term) return res.status(404).json({ message: "No current term to end" });
+    if (!term) {
+      await connection.rollback();
+      return res.status(404).json({ message: "No current term to end" });
+    }
 
-    const [activeSessions] = await db.query<RowDataPacket[]>(
+    const [termDates] = await connection.query<RowDataPacket[]>(
+      `SELECT DATE_FORMAT(academic_term.final_end_date, '%Y-%m-%d') AS final_end_date,
+              academic_term.final_end_date < CURDATE() AS final_period_ended
+       FROM student_terms student_term
+       INNER JOIN academic_terms academic_term
+         ON academic_term.academic_term_id = student_term.academic_term_id
+       WHERE student_term.student_term_id = ? AND student_term.user_id = ?`,
+      [term.term_id, userId],
+    );
+    if (!termDates[0]?.final_end_date || !Number(termDates[0].final_period_ended)) {
+      await connection.rollback();
+      return res.status(409).json({
+        message: "สามารถจบเทอมได้หลังสิ้นสุดช่วงสอบปลายภาค",
+        final_end_date: termDates[0]?.final_end_date ?? null,
+      });
+    }
+
+    const [activeSessions] = await connection.query<RowDataPacket[]>(
       `SELECT session.study_session_id
        FROM study_sessions session
        INNER JOIN enrollments enrollment
@@ -563,21 +585,98 @@ export const endCurrentTerm = async (req: Request, res: Response) => {
       [term.term_id],
     );
     if (activeSessions[0]) {
+      await connection.rollback();
       return res.status(409).json({
         message: "Please finish the active study timer before ending the term",
         study_time_id: activeSessions[0].study_session_id,
       });
     }
 
-    await db.query(
+    await connection.query(
       `UPDATE student_terms
        SET status = 'completed', completed_at = NOW()
        WHERE student_term_id = ? AND user_id = ? AND status = 'active'`,
       [term.term_id, userId],
     );
+    await connection.query(
+      `UPDATE enrollments
+       SET status = 'completed', updated_at = NOW()
+       WHERE student_term_id = ? AND status = 'enrolled'`,
+      [term.term_id],
+    );
+    await connection.commit();
     return res.json({ message: "Term ended successfully", ended_term: term });
   } catch (error) {
+    await connection.rollback();
     console.error("endCurrentTerm error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  } finally {
+    connection.release();
+  }
+};
+
+export const getPendingSystemEvaluation = async (req: Request, res: Response) => {
+  try {
+    const userId = authenticatedUserId(req, res);
+    if (userId === null) return;
+    const [rows] = await db.query<RowDataPacket[]>(
+      `SELECT student_term.student_term_id, academic_term.academic_year,
+              academic_term.semester_no, student_term.completed_at
+       FROM student_terms student_term
+       INNER JOIN academic_terms academic_term
+         ON academic_term.academic_term_id = student_term.academic_term_id
+       LEFT JOIN system_evaluations evaluation
+         ON evaluation.student_term_id = student_term.student_term_id
+       WHERE student_term.user_id = ? AND student_term.status = 'completed'
+         AND evaluation.system_evaluation_id IS NULL
+       ORDER BY student_term.completed_at DESC, student_term.student_term_id DESC
+       LIMIT 1`,
+      [userId],
+    );
+    return res.json({ message: "Pending system evaluation retrieved", data: rows[0] ?? null });
+  } catch (error) {
+    console.error("getPendingSystemEvaluation error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const submitSystemEvaluation = async (req: Request, res: Response) => {
+  const userId = authenticatedUserId(req, res);
+  if (userId === null) return;
+  const studentTermId = Number(req.body?.student_term_id);
+  const responses = req.body?.responses;
+  if (!Number.isInteger(studentTermId) || studentTermId <= 0 || !responses || typeof responses !== "object" || Array.isArray(responses)) {
+    return res.status(400).json({ message: "ข้อมูลแบบประเมินไม่ถูกต้อง" });
+  }
+  if (!["satisfaction", "ease_of_use", "usefulness"].every((key) => Number.isInteger(responses[key]) && responses[key] >= 1 && responses[key] <= 5)) {
+    return res.status(400).json({ message: "กรุณาให้คะแนนแบบประเมินให้ครบทุกข้อ" });
+  }
+  const comment = responses.comment == null ? "" : String(responses.comment).trim();
+  if (comment.length > 2000) return res.status(400).json({ message: "ข้อเสนอแนะต้องไม่เกิน 2,000 ตัวอักษร" });
+
+  try {
+    const [terms] = await db.query<RowDataPacket[]>(
+      `SELECT student_term_id FROM student_terms
+       WHERE student_term_id = ? AND user_id = ? AND status = 'completed' LIMIT 1`,
+      [studentTermId, userId],
+    );
+    if (!terms[0]) return res.status(404).json({ message: "ไม่พบเทอมที่จบแล้วสำหรับแบบประเมินนี้" });
+    const [result] = await db.query<ResultSetHeader>(
+      `INSERT INTO system_evaluations(student_term_id, responses_json)
+       VALUES (?, ?)`,
+      [studentTermId, JSON.stringify({
+        satisfaction: responses.satisfaction,
+        ease_of_use: responses.ease_of_use,
+        usefulness: responses.usefulness,
+        comment,
+      })],
+    );
+    return res.status(201).json({ message: "ขอบคุณสำหรับการประเมิน", evaluation_id: result.insertId });
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({ message: "ส่งแบบประเมินของเทอมนี้แล้ว" });
+    }
+    console.error("submitSystemEvaluation error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

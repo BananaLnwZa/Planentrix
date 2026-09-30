@@ -16,6 +16,7 @@ type TermDetailsPopupProps = {
   midtermEndLabel: string;
   finalStartLabel: string;
   finalEndLabel: string;
+  canEndTerm: boolean;
   position: DialogPosition;
   error: string;
   isEnding: boolean;
@@ -29,6 +30,7 @@ export default function TermDetailsPopup({
   midtermEndLabel,
   finalStartLabel,
   finalEndLabel,
+  canEndTerm,
   position,
   error,
   isEnding,
@@ -115,11 +117,10 @@ export default function TermDetailsPopup({
           </div>
         </div>
 
-        <p
-          className="mt-5 text-center text-[12px] text-[#555555]"
-          style={{ fontFamily: "var(--font-sansation)" }}
-        >
-          *เมื่อจบเทอมแล้วกรุณากดปุ่มจบเทอมเพื่อเริ่มเทอมใหม่
+        <p className="mt-5 text-center text-[12px] text-[#71858E]" style={{ fontFamily: "var(--font-sansation)" }}>
+          {canEndTerm
+            ? "สิ้นสุดช่วงสอบปลายภาคแล้ว สามารถจบเทอมเพื่อเริ่มเทอมใหม่ได้"
+            : `ปุ่มจบเทอมจะแสดงหลังสิ้นสุดช่วงสอบปลายภาค (${finalEndLabel})`}
         </p>
 
         {error && (
@@ -131,17 +132,19 @@ export default function TermDetailsPopup({
           </p>
         )}
 
-        <div className="mt-5 flex justify-center">
-          <button
-            type="button"
-            onClick={onEndTerm}
-            disabled={isEnding}
-            className="rounded-full border border-[#8F8F8F] bg-white px-6 py-1.5 text-[14px] text-[#333333] transition-colors duration-200 hover:border-[#FFFFFF] hover:bg-[#9CC5F9] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E35D82] disabled:cursor-wait disabled:opacity-60"
-            style={{ fontFamily: "var(--font-sansation)" }}
-          >
-            {isEnding ? "กำลังจบเทอม..." : "จบเทอม"}
-          </button>
-        </div>
+        {canEndTerm && (
+          <div className="mt-5 flex justify-center">
+            <button
+              type="button"
+              onClick={onEndTerm}
+              disabled={isEnding}
+              className="rounded-full border border-[#8F8F8F] bg-white px-6 py-1.5 text-[14px] text-[#333333] transition-colors duration-200 hover:border-[#FFFFFF] hover:bg-[#9CC5F9] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E35D82] disabled:cursor-wait disabled:opacity-60"
+              style={{ fontFamily: "var(--font-sansation)" }}
+            >
+              {isEnding ? "กำลังจบเทอม..." : "จบเทอม"}
+            </button>
+          </div>
+        )}
       </section>
     </div>,
     document.body

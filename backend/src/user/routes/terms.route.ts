@@ -5,6 +5,8 @@ import {
   getAvailableTermSections,
   getCurrentTerm,
   endCurrentTerm,
+  getPendingSystemEvaluation,
+  submitSystemEvaluation,
 } from "../controllers/terms.controller";
 
 const router = Router();
@@ -17,6 +19,10 @@ router.get("/available-sections", verifyToken, getAvailableTermSections);
 
 // GET - Current term (require authentication)
 router.get("/current", verifyToken, getCurrentTerm);
+
+// GET/POST - Optional end-of-term system evaluation
+router.get("/evaluation/pending", verifyToken, getPendingSystemEvaluation);
+router.post("/evaluation", verifyToken, submitSystemEvaluation);
 
 // PUT - End current term (require authentication)
 router.put("/end", verifyToken, endCurrentTerm);

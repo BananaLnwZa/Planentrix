@@ -85,6 +85,17 @@ function formatThaiExamDate(date?: string | null) {
   return formatDisplayDate(date);
 }
 
+function isAfterFinalPeriod(finalEndDate: string | null | undefined) {
+  if (!finalEndDate) return false;
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  return today > finalEndDate;
+}
+
 function getScheduleConflict(
   subjects: AvailableTermSubject[],
   selectedSectionIds: Record<string, number>,
@@ -613,6 +624,7 @@ export default function Term({
           midtermEndLabel={formatThaiExamDate(currentTerm.end_midterm)}
           finalStartLabel={formatThaiExamDate(currentTerm.start_final)}
           finalEndLabel={formatThaiExamDate(currentTerm.end_final)}
+          canEndTerm={isAfterFinalPeriod(currentTerm.end_final)}
           position={dialogPosition}
           error={formError}
           isEnding={isEndingTerm}

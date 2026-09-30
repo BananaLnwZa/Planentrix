@@ -97,3 +97,17 @@ export interface EndTermResponse {
   message: string;
   ended_term: CurrentTerm;
 }
+
+export interface PendingSystemEvaluation {
+  student_term_id: number;
+  academic_year: number;
+  semester_no: number;
+  completed_at: string | null;
+}
+
+export interface SystemEvaluationAnswers {
+  satisfaction: number;
+  ease_of_use: number;
+  usefulness: number;
+  comment: string;
+}
