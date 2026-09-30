@@ -22,10 +22,6 @@ export interface CreateTermRequest {
   academic_year: number;
   semester: string;
   term: number;
-  start_midterm: string;
-  end_midterm: string;
-  start_final: string;
-  end_final: string;
   section_ids: number[];
 }
 
@@ -86,6 +82,7 @@ export interface CreateTermResponse {
   message: string;
   term_id: number;
   user_id: number;
+  current_term: CurrentTerm;
   schedule: {
     total_subjects_found: number;
     newly_added: number;

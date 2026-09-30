@@ -9,7 +9,6 @@ import type {
 } from "@/interfaces/term.interface";
 import termService from "@/services/term.service";
 import TermDetailsPopup from "@/components/Main/TermDetailsPopup";
-import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
 import CustomSelect from "@/components/common/CustomSelect";
 import { formatDisplayDate } from "@/utils/dateTime";
 import TermSectionPicker from "@/components/Main/TermSectionPicker";
@@ -18,20 +17,12 @@ export type TermFormValues = {
   academicYear: string;
   semester: string;
   term: string;
-  midtermStartDate: string;
-  midtermEndDate: string;
-  finalStartDate: string;
-  finalEndDate: string;
 };
 
 const emptyTermFormValues: TermFormValues = {
   academicYear: "",
   semester: "",
   term: "",
-  midtermStartDate: "",
-  midtermEndDate: "",
-  finalStartDate: "",
-  finalEndDate: "",
 };
 
 type TermProps = {
@@ -40,46 +31,6 @@ type TermProps = {
   onEndTerm?: () => void;
   compact?: boolean;
 };
-
-function getNextDate(date: string) {
-  if (!date) return undefined;
-
-  const [year, month, day] = date.split("-").map(Number);
-  const nextDate = new Date(Date.UTC(year, month - 1, day + 1));
-  return nextDate.toISOString().slice(0, 10);
-}
-
-function getTermValidationError(values: TermFormValues) {
-  if (values.semester && !/^\d{4}$/.test(values.semester)) {
-    return "ปีการศึกษาต้องเป็นตัวเลข 4 หลัก";
-  }
-
-  if (
-    values.midtermStartDate &&
-    values.midtermEndDate &&
-    values.midtermEndDate <= values.midtermStartDate
-  ) {
-    return "วันสิ้นสุดสอบกลางภาคต้องอยู่หลังวันเริ่มต้น";
-  }
-
-  if (
-    values.midtermEndDate &&
-    values.finalStartDate &&
-    values.finalStartDate <= values.midtermEndDate
-  ) {
-    return "วันเริ่มสอบปลายภาคต้องอยู่หลังวันสิ้นสุดสอบกลางภาค";
-  }
-
-  if (
-    values.finalStartDate &&
-    values.finalEndDate &&
-    values.finalEndDate <= values.finalStartDate
-  ) {
-    return "วันสิ้นสุดสอบปลายภาคต้องอยู่หลังวันเริ่มต้น";
-  }
-
-  return "";
-}
 
 function formatThaiExamDate(date?: string | null) {
   return formatDisplayDate(date);
@@ -159,66 +110,6 @@ function SelectField({
   );
 }
 
-function ExamWeekField({
-  label,
-  idPrefix,
-  startName,
-  endName,
-  startDate,
-  endDate,
-  startMin,
-  onStartDateChange,
-  onEndDateChange,
-}: {
-  label: string;
-  idPrefix: string;
-  startName: string;
-  endName: string;
-  startDate: string;
-  endDate: string;
-  startMin?: string;
-  onStartDateChange: (value: string) => void;
-  onEndDateChange: (value: string) => void;
-}) {
-  return (
-    <div className="grid grid-cols-[100px_minmax(0,1fr)] items-center gap-2">
-      <label
-        htmlFor={`${idPrefix}-start-date`}
-        className="whitespace-nowrap text-[15px] text-[#4F6875]"
-      >
-        {label}
-      </label>
-      <div className="flex min-w-0 items-center gap-2">
-        <LocalizedDateTimeInput
-          id={`${idPrefix}-start-date`}
-          name={startName}
-          type="date"
-          required
-          min={startMin}
-          value={startDate}
-          onChange={(event) => onStartDateChange(event.target.value)}
-          aria-label={`วันเริ่ม${label}`}
-          className="h-10 min-w-0 flex-1 rounded-full border border-[#C8C8C8] bg-white px-3 text-xs text-[#4F6875] outline-none transition-colors focus-within:border-[#F080A7]"
-        />
-        <span aria-hidden="true" className="text-lg text-[#8AA6B3]">
-          –
-        </span>
-        <LocalizedDateTimeInput
-          id={`${idPrefix}-end-date`}
-          name={endName}
-          type="date"
-          required
-          min={getNextDate(startDate)}
-          value={endDate}
-          onChange={(event) => onEndDateChange(event.target.value)}
-          aria-label={`วันสิ้นสุด${label}`}
-          className="h-10 min-w-0 flex-1 rounded-full border border-[#C8C8C8] bg-white px-3 text-xs text-[#4F6875] outline-none transition-colors focus-within:border-[#F080A7]"
-        />
-      </div>
-    </div>
-  );
-}
-
 export default function Term({
   onAddTerm,
   onConfirm,
@@ -251,7 +142,6 @@ export default function Term({
   });
 
   const isFormComplete = Object.values(termFormValues).every(Boolean);
-  const validationError = getTermValidationError(termFormValues);
   const sectionSelectionReady =
     Boolean(termFormValues.academicYear) &&
     /^\d{4}$/.test(termFormValues.semester) &&
@@ -273,7 +163,6 @@ export default function Term({
   );
   const canSubmit =
     isFormComplete &&
-    !validationError &&
     allSectionsSelected &&
     !scheduleConflict &&
     !isLoadingSections &&
@@ -377,7 +266,9 @@ export default function Term({
           pagePadding,
           Math.min(rect.left, window.innerWidth - width - pagePadding)
         ),
-        top: Math.max(pagePadding, rect.top),
+        // Keep the dialog below the browser's visible content edge. The
+        // subject/section list can scroll inside the viewport when it is long.
+        top: pagePadding,
         width,
       });
     };
@@ -446,27 +337,12 @@ export default function Term({
         academic_year: Number(values.academicYear),
         semester: values.semester,
         term: Number(values.term),
-        start_midterm: values.midtermStartDate,
-        end_midterm: values.midtermEndDate,
-        start_final: values.finalStartDate,
-        end_final: values.finalEndDate,
         section_ids: availableSubjects.map(
           (subject) => selectedSectionIds[subject.subject_id],
         ),
       });
 
-      setCurrentTerm({
-        term_id: response.term_id,
-        user_id: response.user_id,
-        term: Number(values.term),
-        academic_year: Number(values.academicYear),
-        semester: values.semester,
-        start_midterm: values.midtermStartDate,
-        end_midterm: values.midtermEndDate,
-        start_final: values.finalStartDate,
-        end_final: values.finalEndDate,
-        term_status: 1,
-      });
+      setCurrentTerm(response.current_term);
       onConfirm?.(values);
       setTermFormValues(emptyTermFormValues);
       setAvailableSubjects([]);
@@ -646,7 +522,7 @@ export default function Term({
               aria-modal="true"
               aria-labelledby="term-form-title"
               style={dialogPosition}
-              className="fixed max-h-[calc(100vh-32px)] overflow-y-auto rounded-xl border border-[#AFAFAF] bg-white px-5 pb-6 pt-9 shadow-2xl"
+              className="fixed max-h-[calc(100dvh-32px)] overflow-y-auto overscroll-contain rounded-xl border border-[#AFAFAF] bg-white px-5 pb-6 pt-9 shadow-2xl"
             >
               <h2 id="term-form-title" className="sr-only">
                 แบบฟอร์มสร้างเทอม
@@ -669,7 +545,7 @@ export default function Term({
                   สร้างเทอมใหม่
                 </p>
                 <p className="mt-1 text-xs text-[#8AA0AA]">
-                  ระบุข้อมูลเทอม เลือกกลุ่มเรียน และช่วงสัปดาห์สอบให้ครบถ้วน
+                  ระบุข้อมูลเทอมและเลือกกลุ่มเรียนให้ครบถ้วน
                 </p>
               </div>
 
@@ -759,52 +635,7 @@ export default function Term({
                   </p>
                 )}
 
-                <div className="space-y-3 rounded-2xl border border-[#D7E7EE] bg-[#F7FBFD] p-3">
-                  <p className="text-sm font-medium text-[#6D8996]">
-                    ช่วงสัปดาห์สอบ
-                  </p>
-                  <ExamWeekField
-                    label="สอบกลางภาค"
-                    idPrefix="midterm"
-                    startName="midtermStartDate"
-                    endName="midtermEndDate"
-                    startDate={termFormValues.midtermStartDate}
-                    endDate={termFormValues.midtermEndDate}
-                    onStartDateChange={(value) =>
-                      updateTermFormValue("midtermStartDate", value)
-                    }
-                    onEndDateChange={(value) =>
-                      updateTermFormValue("midtermEndDate", value)
-                    }
-                  />
-                  <ExamWeekField
-                    label="สอบปลายภาค"
-                    idPrefix="final"
-                    startName="finalStartDate"
-                    endName="finalEndDate"
-                    startDate={termFormValues.finalStartDate}
-                    endDate={termFormValues.finalEndDate}
-                    startMin={getNextDate(termFormValues.midtermEndDate)}
-                    onStartDateChange={(value) =>
-                      updateTermFormValue("finalStartDate", value)
-                    }
-                    onEndDateChange={(value) =>
-                      updateTermFormValue("finalEndDate", value)
-                    }
-                  />
-                </div>
-
-                {validationError && (
-                  <p
-                    role="alert"
-                    className="rounded-lg bg-[#FFF3F6] px-3 py-2 text-center text-xs text-[#E14F79]"
-                  >
-                    {validationError}
-                  </p>
-                )}
-
                 {(!isFormComplete || !allSectionsSelected) &&
-                  !validationError &&
                   !sectionLoadError && (
                   <p className="text-center text-xs text-[#8AA0AA]">
                     *กรุณากรอกข้อมูลและเลือกกลุ่มเรียนให้ครบทุกวิชาก่อนสร้างเทอม

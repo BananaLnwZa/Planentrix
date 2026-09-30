@@ -4,6 +4,7 @@ import {
   Play,
   Square,
   TimerReset,
+  RotateCcw,
 } from "lucide-react";
 import type {
   StudySession,
@@ -31,6 +32,7 @@ interface TimerPanelProps {
   onPause: () => void;
   onResume: () => void;
   onFinish: () => void;
+  onReset: () => void;
 }
 
 export default function TimerPanel({
@@ -48,6 +50,7 @@ export default function TimerPanel({
   onPause,
   onResume,
   onFinish,
+  onReset,
 }: TimerPanelProps) {
   const canStart =
     phase === "idle" &&
@@ -175,6 +178,20 @@ export default function TimerPanel({
             title="เลิกจับเวลา"
           >
             <Square size={15} strokeWidth={2.5} />
+          </button>
+        )}
+
+        {(phase === "running" || phase === "paused") && (
+          <button
+            type="button"
+            disabled={busy || !online}
+            onClick={onReset}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[#D9C6CB] bg-[#FFF7F7] px-3 text-[11px] font-medium text-[#A86474] shadow-sm transition hover:bg-[#FFE9EC] disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="รีเซ็ตเวลา"
+            title="รีเซ็ตเวลาและยกเลิกรอบปัจจุบัน"
+          >
+            <RotateCcw size={14} />
+            รีเซ็ตเวลา
           </button>
         )}
       </div>

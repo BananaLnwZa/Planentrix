@@ -85,14 +85,6 @@ const authenticatedUserId = (req: Request, res: Response): number | null => {
   return Number(req.user.id);
 };
 
-const validDate = (value: unknown): value is string => {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-};
-
 const termSelectionInput = (source: Record<string, unknown>) => ({
   yearLevel: Number(source.year_level),
   academicYear: Number(source.academic_year),
@@ -286,10 +278,6 @@ export const addTerm = async (req: Request, res: Response) => {
   const yearLevel = Number(req.body.academic_year);
   const academicYear = Number(req.body.semester);
   const semesterNo = Number(req.body.term);
-  const midtermStart = req.body.start_midterm;
-  const midtermEnd = req.body.end_midterm;
-  const finalStart = req.body.start_final;
-  const finalEnd = req.body.end_final;
   const rawSectionIds = Array.isArray(req.body.section_ids)
     ? req.body.section_ids
     : [];
@@ -312,20 +300,13 @@ export const addTerm = async (req: Request, res: Response) => {
     academicYear < 2000 ||
     academicYear > 9999 ||
     ![1, 2].includes(semesterNo) ||
-    !validDate(midtermStart) ||
-    !validDate(midtermEnd) ||
-    !validDate(finalStart) ||
-    !validDate(finalEnd) ||
     sectionIds.length !== rawSectionIds.length ||
     sectionIds.length === 0
   ) {
     return res.status(400).json({
       message:
-        "กรุณาระบุชั้นปี ปีการศึกษา เทอม ช่วงวันสอบ และเลือกกลุ่มเรียนให้ครบ",
+        "กรุณาระบุชั้นปี ปีการศึกษา เทอม และเลือกกลุ่มเรียนให้ครบ",
     });
-  }
-  if (midtermEnd <= midtermStart || finalEnd <= finalStart || finalStart <= midtermEnd) {
-    return res.status(400).json({ message: "ช่วงวันสอบเรียงลำดับไม่ถูกต้อง" });
   }
 
   const connection = await db.getConnection();
@@ -508,11 +489,16 @@ export const addTerm = async (req: Request, res: Response) => {
        VALUES ${enrollmentValues}`,
       enrollmentParameters,
     );
+    const [createdTerms] = await connection.query<CurrentTermRow[]>(
+      currentTermSelect,
+      [userId],
+    );
     await connection.commit();
     return res.status(201).json({
       message: "Term and enrollments added successfully",
       term_id: termResult.insertId,
       user_id: userId,
+      current_term: createdTerms[0],
       schedule: {
         total_subjects_found: enrollmentResult.affectedRows,
         newly_added: enrollmentResult.affectedRows,

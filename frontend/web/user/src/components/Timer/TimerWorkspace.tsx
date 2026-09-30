@@ -18,11 +18,15 @@ import type {
   TimerTerm,
 } from "@/interfaces/time.interface";
 import timeService, { TimeApiError } from "@/services/time.service";
+import examService from "@/services/exam.service";
+import recommendationService from "@/services/recommendation.service";
 import FinishSessionModal from "./FinishSessionModal";
 import SessionRecoveryModal from "./SessionRecoveryModal";
 import StudyHistory from "./StudyHistory";
 import StudyStatistics from "./StudyStatistics";
+import ReviewRecommendationCard, { type ReviewRecommendationItem } from "./ReviewRecommendationCard";
 import TimerPanel, { type TimerPhase } from "./TimerPanel";
+import ResetTimerModal from "./ResetTimerModal";
 import {
   CurrentTermRequiredNotebookLayout,
 } from "@/components/common/CurrentTermRequiredState";
@@ -57,6 +61,8 @@ export default function TimerWorkspace() {
   const [subjects, setSubjects] = useState<TimerSubject[]>([]);
   const [studyTypes, setStudyTypes] = useState<StudyType[]>([]);
   const [dashboard, setDashboard] = useState<StudyDashboard | null>(null);
+  const [reviewRecommendations, setReviewRecommendations] = useState<ReviewRecommendationItem[]>([]);
+  const [weeklyTargetMinutes, setWeeklyTargetMinutes] = useState(0);
   const [activeSession, setActiveSession] = useState<StudySession | null>(null);
   const [requiresRecovery, setRequiresRecovery] = useState(false);
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(
@@ -73,6 +79,7 @@ export default function TimerWorkspace() {
   const [pageErrorCode, setPageErrorCode] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [finishModalOpen, setFinishModalOpen] = useState(false);
+  const [resetModalOpen, setResetModalOpen] = useState(false);
   const resumeAfterFinishCancel = useRef(false);
 
   const applySession = useCallback(
@@ -135,15 +142,46 @@ export default function TimerWorkspace() {
     setPageError(null);
     setPageErrorCode(null);
     try {
-      const [setup, active, dashboardData] = await Promise.all([
+      const [setup, active, dashboardData, weeklySchedule, examInsights] = await Promise.all([
         timeService.getSetup(),
         timeService.getActiveSession(),
         timeService.getDashboard(),
+        recommendationService.getWeeklySchedule().catch(() => null),
+        examService.getInsights().catch(() => null),
       ]);
       setTerm(setup.current_term);
       setSubjects(setup.subjects);
       setStudyTypes(setup.study_types);
       setDashboard(dashboardData);
+      const plannedReviewItems = weeklySchedule?.accepted_recommendation?.items
+        .filter((item) => item.schedule_type_id === 2 && item.target_minutes > 0)
+        .map((item) => ({
+          subjectId: item.subject_id,
+          subjectName: item.subject_name,
+          detail: "แผนทบทวนประจำสัปดาห์",
+          minutes: item.target_minutes,
+        })) ?? [];
+      const weakSubjects = new Map<string, ReviewRecommendationItem>();
+      for (const topic of examInsights?.weakTopics ?? []) {
+        const current = weakSubjects.get(topic.subjectId);
+        if (!current || topic.percentage < (current.percentage ?? 100)) {
+          weakSubjects.set(topic.subjectId, {
+            subjectId: topic.subjectId,
+            subjectName: topic.subjectName,
+            detail: topic.topicName,
+            percentage: topic.percentage,
+          });
+        }
+      }
+      const recommendationItems = plannedReviewItems.length
+        ? plannedReviewItems
+        : Array.from(weakSubjects.values()).sort((left, right) => (left.percentage ?? 100) - (right.percentage ?? 100));
+      setReviewRecommendations(recommendationItems);
+      setWeeklyTargetMinutes(
+        weeklySchedule?.accepted_recommendation?.items
+          .filter((item) => item.schedule_type_id === 2)
+          .reduce((sum, item) => sum + item.target_minutes, 0) ?? 0
+      );
       applySession(active.data, active.requires_recovery);
     } catch (error) {
       setPageError(
@@ -386,6 +424,27 @@ export default function TimerWorkspace() {
     }
   };
 
+  const handleResetTimer = async () => {
+    if (!activeSession || !ensureOnline() || busy) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await timeService.recoverSession(activeSession.study_time_id, {
+        version: activeSession.version,
+        action: "cancel",
+      });
+      applySession(null);
+      setFinishModalOpen(false);
+      setResetModalOpen(false);
+      resumeAfterFinishCancel.current = false;
+      await refreshDashboard();
+    } catch (error) {
+      setActionError(processActionError(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleRecovery = async (action: RecoveryAction) => {
     if (!activeSession || !ensureOnline() || busy) return;
     setBusy(true);
@@ -444,7 +503,7 @@ export default function TimerWorkspace() {
   return (
     <>
       <div className="grid h-full min-h-0 w-full grid-cols-1 gap-5 overflow-y-auto pr-1 md:grid-cols-2 md:gap-[88px] md:overflow-hidden md:px-3 md:py-1 md:pr-3 lg:gap-24">
-        <div className="flex min-h-0 flex-col gap-3 md:h-full md:overflow-hidden">
+        <div className="flex min-h-0 flex-col gap-3 md:h-full md:overflow-y-auto md:pr-2">
           {!online && (
             <div className="flex items-center justify-center gap-2 rounded-xl bg-[#fff0f1] px-3 py-2 text-xs font-semibold text-[#ae5d68]">
               <WifiOff size={14} /> ขณะนี้ออฟไลน์ ระบบยังแสดงเวลาโดยประมาณแต่ปิดการควบคุมไว้
@@ -467,6 +526,15 @@ export default function TimerWorkspace() {
             onPause={() => void handlePause()}
             onResume={() => void handleResume()}
             onFinish={() => void handleRequestFinish()}
+            onReset={() => setResetModalOpen(true)}
+          />
+
+          <ReviewRecommendationCard
+            items={reviewRecommendations}
+            onSelectSubject={(subjectId) => {
+              const subject = subjects.find((item) => item.subject_id === subjectId);
+              if (subject) setSelectedScheduleId(subject.schedule_time_id);
+            }}
           />
 
           {actionError && !finishModalOpen && !requiresRecovery && (
@@ -475,7 +543,11 @@ export default function TimerWorkspace() {
             </p>
           )}
 
-          <StudyStatistics dashboard={dashboard} />
+          <StudyStatistics
+            dashboard={dashboard}
+            currentWeekMinutes={dashboard.summary.current_week_minutes + (activeSession ? elapsedSeconds / 60 : 0)}
+            targetMinutes={weeklyTargetMinutes}
+          />
         </div>
 
         <div className="h-full min-h-0 overflow-hidden">
@@ -491,6 +563,14 @@ export default function TimerWorkspace() {
         error={actionError}
         onCancel={() => void handleCancelFinish()}
         onConfirm={() => void handleConfirmFinish()}
+      />
+
+      <ResetTimerModal
+        open={resetModalOpen}
+        elapsedSeconds={elapsedSeconds}
+        busy={busy}
+        onCancel={() => setResetModalOpen(false)}
+        onConfirm={() => void handleResetTimer()}
       />
 
       <SessionRecoveryModal
