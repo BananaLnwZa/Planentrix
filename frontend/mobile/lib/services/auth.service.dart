@@ -16,6 +16,10 @@ class AuthException implements Exception {
 }
 
 class AuthService {
+  static const String supportedRole = 'user';
+  static const String studentOnlyMessage =
+      'แอปมือถือรองรับเฉพาะบัญชีนักศึกษา อาจารย์และเจ้าหน้าที่กรุณาใช้งานผ่านเว็บไซต์';
+
   final ApiService _apiService = ApiService();
   final StorageService _storageService = StorageService();
 
@@ -48,6 +52,13 @@ class AuthService {
         response.data as Map<String, dynamic>,
       );
 
+      // The mobile application is intentionally student-only. Do not keep a
+      // privileged session even if the backend ever returns one unexpectedly.
+      if (!_isSupportedRole(loginResponse.role)) {
+        await _storageService.clearSession();
+        throw const AuthException(studentOnlyMessage, statusCode: 403);
+      }
+
       // Save session to secure storage for auto-login on next app launch
       await _storageService.saveSession(
         UserSession(
@@ -76,6 +87,22 @@ class AuthService {
   // REGISTER
   // ==============================
 
+  Future<RegistrationOptions> getRegistrationOptions() async {
+    try {
+      final response = await _apiService.get('/auth/registration-options');
+      return RegistrationOptions.fromJson(
+        Map<String, dynamic>.from(response.data as Map),
+      );
+    } on DioException catch (error) {
+      throw _toAuthException(
+        error,
+        fallbackMessage: 'ไม่สามารถโหลดข้อมูลคณะและสาขาได้',
+      );
+    } on TypeError {
+      throw const AuthException('ข้อมูลคณะและสาขาจากระบบไม่ถูกต้อง');
+    }
+  }
+
   /// Register a new user account with optional constraints and busy days.
   Future<void> register(RegisterRequest request) async {
     try {
@@ -95,6 +122,12 @@ class AuthService {
   /// Request a new access token using the stored refresh token.
   /// Returns `true` if the refresh was successful, `false` otherwise.
   Future<bool> refreshToken() async {
+    final currentSession = await _storageService.getSession();
+    if (currentSession == null || !_isSupportedRole(currentSession.role)) {
+      await _storageService.clearSession();
+      return false;
+    }
+
     final storedRefreshToken = await _storageService.getRefreshToken();
     if (storedRefreshToken == null || storedRefreshToken.isEmpty) {
       return false;
@@ -114,18 +147,15 @@ class AuthService {
       // Update stored access token and session
       await _storageService.saveAccessToken(refreshResponse.accessToken);
 
-      final currentSession = await _storageService.getSession();
-      if (currentSession != null) {
-        await _storageService.saveSession(
-          UserSession(
-            userId: currentSession.userId,
-            username: currentSession.username,
-            role: currentSession.role,
-            accessToken: refreshResponse.accessToken,
-            refreshToken: currentSession.refreshToken,
-          ),
-        );
-      }
+      await _storageService.saveSession(
+        UserSession(
+          userId: currentSession.userId,
+          username: currentSession.username,
+          role: supportedRole,
+          accessToken: refreshResponse.accessToken,
+          refreshToken: currentSession.refreshToken,
+        ),
+      );
 
       return true;
     } catch (e) {
@@ -175,6 +205,11 @@ class AuthService {
     final session = await _storageService.getSession();
     if (session == null) return null;
 
+    if (!_isSupportedRole(session.role)) {
+      await _storageService.clearSession();
+      return null;
+    }
+
     // Try a lightweight authenticated call to verify the token is still valid
     try {
       await _apiService.get('/user/profile');
@@ -185,9 +220,20 @@ class AuthService {
         final refreshed = await refreshToken();
         if (refreshed) {
           // Re-read updated session from storage
-          return await _storageService.getSession();
+          final refreshedSession = await _storageService.getSession();
+          if (refreshedSession != null &&
+              _isSupportedRole(refreshedSession.role)) {
+            return refreshedSession;
+          }
+          await _storageService.clearSession();
+          return null;
         }
         // Refresh also failed — no valid session
+        return null;
+      }
+      if (e.response?.statusCode == 403) {
+        // A stored token belongs to a role that cannot use student endpoints.
+        await _storageService.clearSession();
         return null;
       }
       // Other network errors — return session as-is (offline scenario)
@@ -198,8 +244,14 @@ class AuthService {
   /// Quick check whether tokens exist locally (does not verify with backend).
   Future<bool> isLoggedIn() async {
     final session = await _storageService.getSession();
-    return session != null;
+    if (session == null) return false;
+    if (_isSupportedRole(session.role)) return true;
+
+    await _storageService.clearSession();
+    return false;
   }
+
+  static bool _isSupportedRole(String role) => role == supportedRole;
 
   AuthException _toAuthException(
     DioException error, {

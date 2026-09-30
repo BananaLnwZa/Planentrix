@@ -10,7 +10,7 @@ import 'package:mobile/services/table.service.dart';
 import 'package:mobile/services/term.service.dart';
 import 'package:mobile/services/profile.service.dart';
 
-class EmptyTermRepository implements TermRepository {
+class EmptyTermRepository extends TermRepository {
   @override
   Future<CurrentTerm?> getCurrentTerm() async => null;
 

@@ -9,7 +9,7 @@ import 'package:mobile/services/homework.service.dart';
 import 'package:mobile/services/table.service.dart';
 import 'package:mobile/services/term.service.dart';
 
-class _EmptyTermRepository implements TermRepository {
+class _EmptyTermRepository extends TermRepository {
   @override
   Future<CurrentTerm?> getCurrentTerm() async => null;
 

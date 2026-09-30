@@ -30,6 +30,7 @@ import 'Component/EditProfilePopup.dart';
 import 'Component/StudentCard.dart';
 import 'Component/StudentCardPopup.dart';
 import 'Component/Term.dart';
+import 'Component/SystemEvaluationPopup.dart';
 import 'Component/MainNotificationCard.dart';
 import 'Component/MainNotificationPopup.dart';
 import 'Component/RecommendationCard.dart';
@@ -70,6 +71,7 @@ class _MainPageState extends State<MainPage> {
   final AuthService _authService = AuthService();
   final StorageService _storageService = StorageService();
   late final ProfileRepository _profileRepository;
+  late final TermRepository _termRepository;
   late final HomeworkRepository _homeworkRepository;
   late final RecommendationRepository _recommendationRepository;
   late final TableRepository _tableRepository;
@@ -90,10 +92,12 @@ class _MainPageState extends State<MainPage> {
   DateTime _alertNow = DateTime.now();
   Timer? _alertClock;
   bool _hasSavedGradeGoals = false;
+  bool _isShowingEvaluation = false;
 
   @override
   void initState() {
     super.initState();
+    _termRepository = widget.termRepository ?? TermService();
     _profileRepository = widget.profileRepository ?? ProfileService();
     _homeworkRepository = widget.homeworkRepository ?? HomeworkService();
     _recommendationRepository =
@@ -158,6 +162,27 @@ class _MainPageState extends State<MainPage> {
     if (_shouldLoadGradeGoalStatus) {
       unawaited(_loadGradeGoalStatus());
     }
+    unawaited(_loadPendingEvaluation());
+  }
+
+  Future<void> _loadPendingEvaluation() async {
+    if (_isShowingEvaluation) return;
+    try {
+      final evaluation = await _termRepository.getPendingSystemEvaluation();
+      if (!mounted || evaluation == null || _isShowingEvaluation) return;
+      _isShowingEvaluation = true;
+      await Future<void>.delayed(Duration.zero);
+      if (!mounted) return;
+      await showSystemEvaluationPopup(
+        context,
+        evaluation: evaluation,
+        repository: _termRepository,
+      );
+    } catch (_) {
+      // The optional evaluation must not block the student dashboard.
+    } finally {
+      _isShowingEvaluation = false;
+    }
   }
 
   bool get _usesLiveAlertSources =>
@@ -194,8 +219,8 @@ class _MainPageState extends State<MainPage> {
   Future<void> _loadGradeGoalStatus() async {
     var hasSavedGradeGoals = false;
     try {
-      hasSavedGradeGoals =
-          await _gradeGoalStatusRepository.hasSavedGradeGoals();
+      hasSavedGradeGoals = await _gradeGoalStatusRepository
+          .hasSavedGradeGoals();
     } catch (_) {}
     if (!mounted) return;
     setState(() => _hasSavedGradeGoals = hasSavedGradeGoals);
@@ -450,7 +475,8 @@ class _MainPageState extends State<MainPage> {
           name: _displayName,
           studentNumber: _displayStudentNumber,
           major: _profile?.departmentCode ?? _displayMajor,
-          year: _profile?.yearLevel?.toString() ?? _currentTerm?.yearLevel ?? '—',
+          year:
+              _profile?.yearLevel?.toString() ?? _currentTerm?.yearLevel ?? '—',
           gender: _displayGender,
           birthDate: _displayBirthdate,
           photo: _photo,
@@ -474,7 +500,7 @@ class _MainPageState extends State<MainPage> {
                 flex: 42,
                 child: Term(
                   compact: true,
-                  repository: widget.termRepository,
+                  repository: _termRepository,
                   onTermChanged: (term) {
                     if (!mounted) return;
                     setState(() {
@@ -485,6 +511,9 @@ class _MainPageState extends State<MainPage> {
                     if (_shouldLoadAlerts) unawaited(_loadAppAlerts());
                     if (_shouldLoadGradeGoalStatus) {
                       unawaited(_loadGradeGoalStatus());
+                    }
+                    if (term == null) {
+                      unawaited(_loadPendingEvaluation());
                     }
                   },
                 ),

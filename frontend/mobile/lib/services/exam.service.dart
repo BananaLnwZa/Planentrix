@@ -17,10 +17,13 @@ abstract class ExamRepository {
   Future<ExamDetail> getExamDetail(int examRepositoryId);
   Future<List<ExamHistoryItem>> getHistory();
   Future<ExamInsights> getInsights();
-  Future<ExamSubmissionResult> submitExam(
+  Future<ExamAttemptSession> startExam(int examRepositoryId);
+  Future<void> saveAnswer(
     int examRepositoryId,
-    List<ExamAnswer> answers,
+    int attemptId,
+    ExamAnswer answer,
   );
+  Future<ExamSubmissionResult> submitExam(int examRepositoryId, int attemptId);
 }
 
 class ExamService implements ExamRepository {
@@ -97,14 +100,47 @@ class ExamService implements ExamRepository {
   }
 
   @override
+  Future<ExamAttemptSession> startExam(int examRepositoryId) async {
+    try {
+      final response = await _apiService.post(
+        '/user/exam/$examRepositoryId/start',
+      );
+      final body = Map<String, dynamic>.from(response.data as Map);
+      return ExamAttemptSession.fromJson(
+        Map<String, dynamic>.from(body['data'] as Map),
+      );
+    } on DioException catch (error) {
+      throw _toExamException(error, 'เริ่มทำข้อสอบไม่สำเร็จ');
+    } on TypeError {
+      throw const ExamException('ข้อมูลการเริ่มทำข้อสอบไม่ถูกต้อง');
+    }
+  }
+
+  @override
+  Future<void> saveAnswer(
+    int examRepositoryId,
+    int attemptId,
+    ExamAnswer answer,
+  ) async {
+    try {
+      await _apiService.put(
+        '/user/exam/$examRepositoryId/attempts/$attemptId/answers',
+        data: answer.toJson(),
+      );
+    } on DioException catch (error) {
+      throw _toExamException(error, 'บันทึกคำตอบไม่สำเร็จ');
+    }
+  }
+
+  @override
   Future<ExamSubmissionResult> submitExam(
     int examRepositoryId,
-    List<ExamAnswer> answers,
+    int attemptId,
   ) async {
     try {
       final response = await _apiService.post(
         '/user/exam/$examRepositoryId/submit',
-        data: {'answers': answers.map((answer) => answer.toJson()).toList()},
+        data: {'exam_attempt_id': attemptId},
       );
       return ExamSubmissionResult.fromJson(
         Map<String, dynamic>.from(response.data as Map),

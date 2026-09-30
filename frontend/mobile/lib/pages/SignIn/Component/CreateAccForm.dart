@@ -1,15 +1,28 @@
 import 'package:flutter/material.dart';
 import '../../../common/AppDatePicker.dart';
+import '../../../common/AppDropdown.dart';
+import '../../../interfaces/auth.interface.dart';
+import '../../../services/auth.service.dart';
 import 'Selectgender.dart';
+
+typedef RegistrationOptionsLoader = Future<RegistrationOptions> Function();
 
 class CreateAccountData {
   final String userName;
+  final String firstName;
+  final String lastName;
+  final String email;
+  final int departmentId;
   final String userPassword;
   final String? userBirthdate;
-  final String userGender;
+  final String? userGender;
 
   const CreateAccountData({
     required this.userName,
+    required this.firstName,
+    required this.lastName,
+    required this.email,
+    required this.departmentId,
     required this.userPassword,
     required this.userBirthdate,
     required this.userGender,
@@ -34,7 +47,9 @@ String? formatBirthDateForApi(String value) {
 }
 
 class CreateAccountForm extends StatefulWidget {
-  const CreateAccountForm({super.key});
+  final RegistrationOptionsLoader? registrationOptionsLoader;
+
+  const CreateAccountForm({super.key, this.registrationOptionsLoader});
 
   @override
   State<CreateAccountForm> createState() => CreateAccountFormState();
@@ -42,6 +57,9 @@ class CreateAccountForm extends StatefulWidget {
 
 class CreateAccountFormState extends State<CreateAccountForm> {
   final TextEditingController usernameController = TextEditingController();
+  final TextEditingController firstNameController = TextEditingController();
+  final TextEditingController lastNameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
 
   final TextEditingController passwordController = TextEditingController();
 
@@ -51,6 +69,11 @@ class CreateAccountFormState extends State<CreateAccountForm> {
   final TextEditingController birthDateController = TextEditingController();
 
   String? selectedGender;
+  int? selectedFacultyId;
+  int? selectedDepartmentId;
+  List<FacultyOption> faculties = const [];
+  bool _isOptionsLoading = true;
+  String? _optionsError;
   String? _formError;
   bool _showPassword = false;
   bool _showConfirmPassword = false;
@@ -65,13 +88,80 @@ class CreateAccountFormState extends State<CreateAccountForm> {
     r'^(?=.*[A-Za-z])(?=.*[\W_]).{8,}$',
   );
 
+  static final RegExp _emailRegex = RegExp(
+    r'^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
+  );
+
+  FacultyOption? get _selectedFaculty {
+    for (final faculty in faculties) {
+      if (faculty.facultyId == selectedFacultyId) return faculty;
+    }
+    return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRegistrationOptions();
+  }
+
+  Future<void> _loadRegistrationOptions() async {
+    try {
+      final loader = widget.registrationOptionsLoader;
+      final options = loader == null
+          ? await AuthService().getRegistrationOptions()
+          : await loader();
+      if (!mounted) return;
+      setState(() {
+        faculties = options.faculties;
+        _isOptionsLoading = false;
+        _optionsError = faculties.isEmpty
+            ? 'ยังไม่มีข้อมูลคณะและสาขา กรุณาติดต่อผู้ดูแลระบบ'
+            : null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isOptionsLoading = false;
+        _optionsError = '$error';
+      });
+    }
+  }
+
   CreateAccountData? validateAndGetData() {
     final username = usernameController.text.trim();
+    final firstName = firstNameController.text.trim();
+    final lastName = lastNameController.text.trim();
+    final email = emailController.text.trim();
     final password = passwordController.text;
     final confirmPassword = confirmPasswordController.text;
 
     if (username.isEmpty) {
       _setFormError('กรุณาป้อนชื่อผู้ใช้');
+      return null;
+    }
+    if (firstName.isEmpty) {
+      _setFormError('กรุณาป้อนชื่อ');
+      return null;
+    }
+    if (lastName.isEmpty) {
+      _setFormError('กรุณาป้อนนามสกุล');
+      return null;
+    }
+    if (email.isEmpty) {
+      _setFormError('กรุณาป้อนอีเมล');
+      return null;
+    }
+    if (!_emailRegex.hasMatch(email)) {
+      _setFormError('รูปแบบอีเมลไม่ถูกต้อง');
+      return null;
+    }
+    if (selectedFacultyId == null) {
+      _setFormError('กรุณาเลือกคณะ');
+      return null;
+    }
+    if (selectedDepartmentId == null || selectedDepartmentId! <= 0) {
+      _setFormError('กรุณาเลือกสาขา');
       return null;
     }
     if (password.isEmpty) {
@@ -89,20 +179,19 @@ class CreateAccountFormState extends State<CreateAccountForm> {
       _setFormError('รหัสผ่านไม่ตรงกัน');
       return null;
     }
-    if (selectedGender == null) {
-      _setFormError('กรุณาเลือกเพศ');
-      return null;
-    }
-
     final birthdate = birthDateController.text.trim();
     _setFormError(null);
     return CreateAccountData(
       userName: username,
+      firstName: firstName,
+      lastName: lastName,
+      email: email,
+      departmentId: selectedDepartmentId!,
       userPassword: password,
       userBirthdate: birthdate.isEmpty
           ? null
           : formatBirthDateForApi(birthdate),
-      userGender: selectedGender!.toLowerCase(),
+      userGender: selectedGender?.toLowerCase(),
     );
   }
 
@@ -116,6 +205,9 @@ class CreateAccountFormState extends State<CreateAccountForm> {
   @override
   void dispose() {
     usernameController.dispose();
+    firstNameController.dispose();
+    lastNameController.dispose();
+    emailController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
     birthDateController.dispose();
@@ -200,17 +292,31 @@ class CreateAccountFormState extends State<CreateAccountForm> {
     );
   }
 
-  Widget _buildLabel(String text) {
+  Widget _buildLabel(String text, {bool required = false}) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.black87,
-          fontFamily: _fontFamily,
-          fontWeight: FontWeight.w400,
-          fontSize: 14,
-        ),
+      child: Row(
+        children: [
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.black87,
+              fontFamily: _fontFamily,
+              fontWeight: FontWeight.w400,
+              fontSize: 14,
+            ),
+          ),
+          if (required)
+            const Text(
+              ' *',
+              style: TextStyle(
+                color: Color(0xFFDC2626),
+                fontFamily: _fontFamily,
+                fontWeight: FontWeight.w500,
+                fontSize: 14,
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -294,7 +400,7 @@ class CreateAccountFormState extends State<CreateAccountForm> {
             ],
 
             /// Username
-            _buildLabel('username'),
+            _buildLabel('username', required: true),
 
             const SizedBox(height: 8),
 
@@ -308,8 +414,118 @@ class CreateAccountFormState extends State<CreateAccountForm> {
 
             const SizedBox(height: 18),
 
+            _buildLabel('First name', required: true),
+
+            const SizedBox(height: 8),
+
+            TextFormField(
+              key: const Key('signup-first-name-field'),
+              controller: firstNameController,
+              style: inputTextStyle,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.givenName],
+              decoration: _inputDecoration(hintText: 'Enter first name'),
+            ),
+
+            const SizedBox(height: 18),
+
+            _buildLabel('Last name', required: true),
+
+            const SizedBox(height: 8),
+
+            TextFormField(
+              key: const Key('signup-last-name-field'),
+              controller: lastNameController,
+              style: inputTextStyle,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.familyName],
+              decoration: _inputDecoration(hintText: 'Enter last name'),
+            ),
+
+            const SizedBox(height: 18),
+
+            _buildLabel('Email', required: true),
+
+            const SizedBox(height: 8),
+
+            TextFormField(
+              key: const Key('signup-email-field'),
+              controller: emailController,
+              style: inputTextStyle,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
+              decoration: _inputDecoration(hintText: 'Enter email'),
+            ),
+
+            const SizedBox(height: 18),
+
+            _buildLabel('คณะ', required: true),
+
+            const SizedBox(height: 8),
+
+            AppDropdown<int>(
+              key: const Key('signup-faculty-field'),
+              value: selectedFacultyId,
+              hintText: _isOptionsLoading ? 'กำลังโหลด...' : 'เลือกคณะ',
+              enabled: !_isOptionsLoading && faculties.isNotEmpty,
+              items: faculties
+                  .map(
+                    (faculty) => AppDropdownItem<int>(
+                      value: faculty.facultyId,
+                      label: faculty.facultyName,
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) => setState(() {
+                selectedFacultyId = value;
+                selectedDepartmentId = null;
+              }),
+            ),
+
+            const SizedBox(height: 18),
+
+            _buildLabel('สาขา', required: true),
+
+            const SizedBox(height: 8),
+
+            AppDropdown<int>(
+              key: const Key('signup-department-field'),
+              value: selectedDepartmentId,
+              hintText: selectedFacultyId == null
+                  ? 'เลือกคณะก่อน'
+                  : 'เลือกสาขา',
+              enabled:
+                  !_isOptionsLoading &&
+                  (_selectedFaculty?.departments.isNotEmpty ?? false),
+              items:
+                  _selectedFaculty?.departments
+                      .map(
+                        (department) => AppDropdownItem<int>(
+                          value: department.departmentId,
+                          label: department.departmentName,
+                        ),
+                      )
+                      .toList() ??
+                  const [],
+              onChanged: (value) =>
+                  setState(() => selectedDepartmentId = value),
+            ),
+
+            if (_optionsError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _optionsError!,
+                key: const Key('signup-options-error'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 11, color: Color(0xFFE14F79)),
+              ),
+            ],
+
+            const SizedBox(height: 18),
+
             /// Password
-            _buildLabel('password'),
+            _buildLabel('password', required: true),
 
             const SizedBox(height: 8),
 
@@ -358,7 +574,7 @@ class CreateAccountFormState extends State<CreateAccountForm> {
             const SizedBox(height: 18),
 
             /// Confirm Password
-            _buildLabel('Confirm Password'),
+            _buildLabel('Confirm Password', required: true),
 
             const SizedBox(height: 8),
 

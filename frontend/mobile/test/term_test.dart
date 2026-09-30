@@ -5,7 +5,7 @@ import 'package:mobile/interfaces/term.interface.dart';
 import 'package:mobile/pages/Main/Component/Term.dart';
 import 'package:mobile/services/term.service.dart';
 
-class FakeTermRepository implements TermRepository {
+class FakeTermRepository extends TermRepository {
   CurrentTerm? currentTerm;
   bool ended = false;
 
@@ -25,6 +25,31 @@ class FakeTermRepository implements TermRepository {
     ended = true;
     currentTerm = null;
   }
+
+  @override
+  Future<AvailableTermSections> getAvailableSections({
+    required int yearLevel,
+    required int academicYear,
+    required int semesterNo,
+  }) async => const AvailableTermSections(
+    academicTermId: 10,
+    subjects: [
+      AvailableTermSubject(
+        subjectId: 'CS101',
+        subjectName: 'Programming',
+        sections: [
+          AvailableCourseSection(
+            sectionId: 101,
+            subjectId: 'CS101',
+            subjectName: 'Programming',
+            sectionNumber: '1',
+            enrolledCount: 10,
+            isFull: false,
+          ),
+        ],
+      ),
+    ],
+  );
 }
 
 void setPhoneSize(WidgetTester tester) {
@@ -56,20 +81,14 @@ void main() {
       yearLevel: '3',
       term: '2',
       academicYear: '2569',
-      midtermStartDate: DateTime(2026, 7, 1),
-      midtermEndDate: DateTime(2026, 7, 7),
-      finalStartDate: DateTime(2026, 10, 1),
-      finalEndDate: DateTime(2026, 10, 8),
+      sectionIds: const [101, 202],
     );
 
     expect(request.toJson(), {
       'academic_year': 3,
       'semester': '2569',
       'term': 2,
-      'start_midterm': '2026-07-01',
-      'end_midterm': '2026-07-07',
-      'start_final': '2026-10-01',
-      'end_final': '2026-10-08',
+      'section_ids': [101, 202],
     });
 
     final parsed = CurrentTerm.fromJson({
@@ -99,10 +118,7 @@ void main() {
     expect(find.byKey(const Key('year-level-field')), findsOneWidget);
     expect(find.byKey(const Key('academic-year-field')), findsOneWidget);
     expect(find.byKey(const Key('term-number-field')), findsOneWidget);
-    expect(find.byKey(const Key('midterm-start-field')), findsOneWidget);
-    expect(find.byKey(const Key('midterm-end-field')), findsOneWidget);
-    expect(find.byKey(const Key('final-start-field')), findsOneWidget);
-    expect(find.byKey(const Key('final-end-field')), findsOneWidget);
+    expect(find.byKey(const Key('term-section-state')), findsOneWidget);
     expect(find.byKey(const Key('confirm-term-button')), findsOneWidget);
   });
 

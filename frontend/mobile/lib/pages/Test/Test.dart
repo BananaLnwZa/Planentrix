@@ -37,11 +37,14 @@ class _TestPageState extends State<TestPage> {
   String? _selectedSubjectId;
   ExamDetail? _activeExam;
   final Map<int, int> _answers = {};
+  int? _attemptId;
   int _currentQuestionIndex = 0;
   int? _openingExamId;
+  int? _savingQuestionId;
   bool _isLoading = true;
   bool _hasCurrentTerm = true;
   bool _examStarted = false;
+  bool _isStarting = false;
   bool _isSubmitting = false;
   bool _showAnswerWarning = false;
   String? _error;
@@ -129,6 +132,8 @@ class _TestPageState extends State<TestPage> {
         _openingExamId = null;
         _activeExam = detail;
         _examStarted = false;
+        _attemptId = null;
+        _answers.clear();
         _submitError = null;
       });
     } catch (error) {
@@ -139,24 +144,70 @@ class _TestPageState extends State<TestPage> {
     }
   }
 
-  void _beginExam(ExamDetail detail) {
-    _timer?.cancel();
+  Future<void> _beginExam(ExamDetail detail) async {
+    if (_isStarting) return;
     setState(() {
-      _activeExam = detail;
-      _examStarted = true;
-      _answers.clear();
-      _currentQuestionIndex = 0;
-      _showAnswerWarning = false;
-      _remainingTime = Duration(
-        minutes: detail.summary.timeLimitMinutes.clamp(1, 1440),
-      );
+      _isStarting = true;
+      _submitError = null;
     });
+
+    try {
+      final session = await _repository.startExam(
+        detail.summary.examRepositoryId,
+      );
+      if (!mounted ||
+          _activeExam?.summary.examRepositoryId !=
+              detail.summary.examRepositoryId) {
+        return;
+      }
+
+      final restoredAnswers = {
+        for (final answer in session.answers)
+          answer.questionId: answer.choiceId,
+      };
+      final firstUnanswered = detail.questions.indexWhere(
+        (question) => !restoredAnswers.containsKey(question.questionId),
+      );
+
+      _timer?.cancel();
+      setState(() {
+        _activeExam = detail;
+        _attemptId = session.attemptId;
+        _examStarted = true;
+        _isStarting = false;
+        _answers
+          ..clear()
+          ..addAll(restoredAnswers);
+        _currentQuestionIndex = firstUnanswered < 0 ? 0 : firstUnanswered;
+        _showAnswerWarning = false;
+        _remainingTime = Duration(
+          seconds: session.remainingSeconds.clamp(0, 86400),
+        );
+      });
+      _startCountdown();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isStarting = false;
+        _submitError = '$error';
+      });
+    }
+  }
+
+  void _startCountdown() {
+    _timer?.cancel();
+    if (_remainingTime.inSeconds <= 0) {
+      unawaited(_submitExam(skipConfirmation: true));
+      return;
+    }
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || _activeExam == null || _isSubmitting) return;
       if (_remainingTime.inSeconds <= 1) {
         _timer?.cancel();
         setState(() => _remainingTime = Duration.zero);
-        _submitExam(skipConfirmation: true);
+        if (_savingQuestionId == null) {
+          unawaited(_submitExam(skipConfirmation: true));
+        }
       } else {
         setState(() {
           _remainingTime = Duration(seconds: _remainingTime.inSeconds - 1);
@@ -165,9 +216,51 @@ class _TestPageState extends State<TestPage> {
     });
   }
 
+  Future<void> _selectAnswer(int questionId, int choiceId) async {
+    final exam = _activeExam;
+    final attemptId = _attemptId;
+    if (exam == null || attemptId == null || _savingQuestionId != null) return;
+
+    setState(() {
+      _savingQuestionId = questionId;
+      _submitError = null;
+    });
+    try {
+      await _repository.saveAnswer(
+        exam.summary.examRepositoryId,
+        attemptId,
+        ExamAnswer(questionId: questionId, choiceId: choiceId),
+      );
+      if (!mounted) return;
+      setState(() {
+        _answers[questionId] = choiceId;
+        _showAnswerWarning = false;
+        _savingQuestionId = null;
+      });
+      if (_remainingTime == Duration.zero) {
+        unawaited(_submitExam(skipConfirmation: true));
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _savingQuestionId = null;
+        _submitError = '$error';
+      });
+      if (_remainingTime == Duration.zero) {
+        unawaited(_submitExam(skipConfirmation: true));
+      }
+    }
+  }
+
   Future<void> _submitExam({bool skipConfirmation = false}) async {
     final exam = _activeExam;
-    if (exam == null || _isSubmitting) return;
+    final attemptId = _attemptId;
+    if (exam == null ||
+        attemptId == null ||
+        _isSubmitting ||
+        _savingQuestionId != null) {
+      return;
+    }
     if (!skipConfirmation && !_hasAnsweredCurrentQuestion(exam)) {
       _showAnswerRequiredWarning();
       return;
@@ -187,17 +280,13 @@ class _TestPageState extends State<TestPage> {
     try {
       final result = await _repository.submitExam(
         exam.summary.examRepositoryId,
-        _answers.entries
-            .map(
-              (entry) =>
-                  ExamAnswer(questionId: entry.key, choiceId: entry.value),
-            )
-            .toList(),
+        attemptId,
       );
       if (!mounted) return;
       _timer?.cancel();
       setState(() {
         _activeExam = null;
+        _attemptId = null;
         _examStarted = false;
         _isSubmitting = false;
       });
@@ -218,7 +307,10 @@ class _TestPageState extends State<TestPage> {
     _timer?.cancel();
     setState(() {
       _activeExam = null;
+      _attemptId = null;
       _examStarted = false;
+      _isStarting = false;
+      _savingQuestionId = null;
       _answers.clear();
       _showAnswerWarning = false;
       _submitError = null;
@@ -451,12 +543,8 @@ class _TestPageState extends State<TestPage> {
           selectedChoiceId: _answers[question.questionId],
           showAnswerWarning: _showAnswerWarning,
           errorMessage: _submitError,
-          onChoiceSelected: (choiceId) {
-            setState(() {
-              _answers[question.questionId] = choiceId;
-              _showAnswerWarning = false;
-            });
-          },
+          onChoiceSelected: (choiceId) =>
+              unawaited(_selectAnswer(question.questionId, choiceId)),
         ),
         const SizedBox(height: 16),
         ExamNavigationButtons(
@@ -507,7 +595,9 @@ class _TestPageState extends State<TestPage> {
                         : _ExamIntroduction(
                             exam: exam,
                             onCancel: _closeExam,
-                            onStart: () => _beginExam(exam),
+                            isStarting: _isStarting,
+                            errorMessage: _submitError,
+                            onStart: () => unawaited(_beginExam(exam)),
                           ),
                   ),
                   Positioned(
@@ -582,11 +672,15 @@ class _NoFeedback extends StatelessWidget {
 class _ExamIntroduction extends StatelessWidget {
   final ExamDetail exam;
   final VoidCallback onCancel;
+  final bool isStarting;
+  final String? errorMessage;
   final VoidCallback onStart;
 
   const _ExamIntroduction({
     required this.exam,
     required this.onCancel,
+    required this.isStarting,
+    required this.errorMessage,
     required this.onStart,
   });
 
@@ -669,18 +763,30 @@ class _ExamIntroduction extends StatelessWidget {
             Expanded(
               child: FilledButton(
                 key: const Key('start-exam-button'),
-                onPressed: exam.questions.isEmpty ? null : onStart,
+                onPressed: exam.questions.isEmpty || isStarting
+                    ? null
+                    : onStart,
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFFA8D780),
                   foregroundColor: Colors.white,
                   shape: const StadiumBorder(),
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                 ),
-                child: const FittedBox(child: Text('เริ่มทำ')),
+                child: FittedBox(
+                  child: Text(isStarting ? 'กำลังเริ่ม...' : 'เริ่มทำ'),
+                ),
               ),
             ),
           ],
         ),
+        if (errorMessage != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            errorMessage!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 11, color: Color(0xFFEF4444)),
+          ),
+        ],
       ],
     );
   }

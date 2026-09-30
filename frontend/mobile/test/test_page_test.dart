@@ -9,7 +9,7 @@ import 'package:mobile/services/term.service.dart';
 
 class FakeExamRepository implements ExamRepository {
   int? submittedExamId;
-  List<ExamAnswer>? submittedAnswers;
+  final List<ExamAnswer> submittedAnswers = [];
   bool submitted = false;
 
   final exams = const [
@@ -164,12 +164,31 @@ class FakeExamRepository implements ExamRepository {
   }
 
   @override
+  Future<ExamAttemptSession> startExam(int examRepositoryId) async =>
+      const ExamAttemptSession(
+        attemptId: 501,
+        remainingSeconds: 1800,
+        resumed: false,
+      );
+
+  @override
+  Future<void> saveAnswer(
+    int examRepositoryId,
+    int attemptId,
+    ExamAnswer answer,
+  ) async {
+    submittedAnswers.removeWhere(
+      (current) => current.questionId == answer.questionId,
+    );
+    submittedAnswers.add(answer);
+  }
+
+  @override
   Future<ExamSubmissionResult> submitExam(
     int examRepositoryId,
-    List<ExamAnswer> answers,
+    int attemptId,
   ) async {
     submittedExamId = examRepositoryId;
-    submittedAnswers = answers;
     submitted = true;
     return const ExamSubmissionResult(
       historyId: 91,
@@ -184,7 +203,7 @@ class FakeExamRepository implements ExamRepository {
   }
 }
 
-class NoCurrentTermRepository implements TermRepository {
+class NoCurrentTermRepository extends TermRepository {
   @override
   Future<CurrentTerm?> getCurrentTerm() async => null;
 
@@ -341,7 +360,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.submittedExamId, 1);
-    expect(repository.submittedAnswers?.map((answer) => answer.choiceId), [
+    expect(repository.submittedAnswers.map((answer) => answer.choiceId), [
       1002,
       1003,
     ]);

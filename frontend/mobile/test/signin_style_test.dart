@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mobile/interfaces/auth.interface.dart' show RegisterRequest;
+import 'package:mobile/interfaces/auth.interface.dart'
+    show DepartmentOption, FacultyOption, RegisterRequest, RegistrationOptions;
 import 'package:mobile/pages/Login/Component/LoginForm.dart';
 import 'package:mobile/pages/SignIn/Component/BusyDay.dart';
 import 'package:mobile/pages/SignIn/Component/BusyDayModal.dart';
@@ -11,6 +12,48 @@ import 'package:mobile/pages/SignIn/Component/CreateAccForm.dart';
 import 'package:mobile/pages/SignIn/Component/CustomDayDropdown.dart';
 import 'package:mobile/pages/SignIn/SignInPage.dart';
 import 'package:mobile/services/auth.service.dart' show AuthException;
+
+const testRegistrationOptions = RegistrationOptions(
+  faculties: [
+    FacultyOption(
+      facultyId: 1,
+      facultyName: 'Business and IT',
+      departments: [
+        DepartmentOption(
+          departmentId: 11,
+          departmentName: 'Information Technology',
+        ),
+      ],
+    ),
+  ],
+);
+
+Future<RegistrationOptions> loadTestRegistrationOptions() async =>
+    testRegistrationOptions;
+
+void fillValidAccount(
+  CreateAccountFormState state, {
+  String username = 'student',
+}) {
+  state.usernameController.text = username;
+  state.firstNameController.text = 'Nicha';
+  state.lastNameController.text = 'Student';
+  state.emailController.text = '$username@example.com';
+  state.selectedFacultyId = 1;
+  state.selectedDepartmentId = 11;
+  state.passwordController.text = 'Password@123';
+  state.confirmPasswordController.text = 'Password@123';
+  state.selectedGender = 'Female';
+}
+
+void fillValidConstraint(ConstraintState state) {
+  state.workHourController.text = '1';
+  state.workMinuteController.text = '0';
+  state.breakHourController.text = '0';
+  state.breakMinuteController.text = '15';
+  state.startTimeController.text = '09:00 AM';
+  state.endTimeController.text = '05:00 PM';
+}
 
 void main() {
   test('busy day times use the 24-hour HH:mm format', () {
@@ -35,7 +78,12 @@ void main() {
     });
 
     await tester.pumpWidget(
-      const MaterialApp(debugShowCheckedModeBanner: false, home: SigninPage()),
+      MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: SigninPage(
+          registrationOptionsLoader: loadTestRegistrationOptions,
+        ),
+      ),
     );
     await tester.pump();
 
@@ -111,6 +159,11 @@ void main() {
 
     for (final label in [
       'username',
+      'First name',
+      'Last name',
+      'Email',
+      'คณะ',
+      'สาขา',
       'password',
       'Confirm Password',
       'Birth Date',
@@ -148,7 +201,13 @@ void main() {
   ) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(body: SingleChildScrollView(child: CreateAccountForm())),
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CreateAccountForm(
+              registrationOptionsLoader: loadTestRegistrationOptions,
+            ),
+          ),
+        ),
       ),
     );
 
@@ -168,11 +227,17 @@ void main() {
     expect(passwordField().obscureText, isTrue);
     expect(confirmPasswordField().obscureText, isTrue);
 
+    await tester.ensureVisible(
+      find.byKey(const Key('signup-password-visibility')),
+    );
     await tester.tap(find.byKey(const Key('signup-password-visibility')));
     await tester.pump();
     expect(passwordField().obscureText, isFalse);
     expect(confirmPasswordField().obscureText, isTrue);
 
+    await tester.ensureVisible(
+      find.byKey(const Key('signup-confirm-password-visibility')),
+    );
     await tester.tap(
       find.byKey(const Key('signup-confirm-password-visibility')),
     );
@@ -188,6 +253,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: SigninPage(
+          registrationOptionsLoader: loadTestRegistrationOptions,
           registerAction: (request) async {
             capturedRequest = request;
           },
@@ -202,11 +268,8 @@ void main() {
     final accountState = tester.state<CreateAccountFormState>(
       find.byType(CreateAccountForm),
     );
-    accountState.usernameController.text = 'student';
-    accountState.passwordController.text = 'Password@123';
-    accountState.confirmPasswordController.text = 'Password@123';
+    fillValidAccount(accountState);
     accountState.birthDateController.text = '31/12/2000';
-    accountState.selectedGender = 'Female';
 
     final constraintState = tester.state<ConstraintState>(
       find.byType(Constraint),
@@ -217,7 +280,7 @@ void main() {
     constraintState.breakHourController.text = '0';
     constraintState.breakMinuteController.text = '45';
     constraintState.startTimeController.text = '06:00 PM';
-    constraintState.endTimeController.text = '08:00 PM';
+    constraintState.endTimeController.text = '09:00 PM';
     final busyDayState = tester.state<BusyDayState>(find.byType(BusyDay));
     busyDayState.items.add(
       const BusyDayItem(
@@ -228,6 +291,16 @@ void main() {
       ),
     );
 
+    final accountData = accountState.validateAndGetData();
+    expect(accountData, isNotNull, reason: accountState.validationMessage);
+    final constraintData = constraintState.validateAndGetData();
+    expect(
+      constraintData,
+      isNotNull,
+      reason: constraintState.validationMessage,
+    );
+    await tester.pump();
+
     final submitButton = find.byKey(const Key('signup-submit-button'));
     await tester.ensureVisible(submitButton);
     await tester.tap(submitButton);
@@ -236,6 +309,10 @@ void main() {
     expect(capturedRequest, isNotNull);
     expect(capturedRequest!.toJson(), {
       'user_name': 'student',
+      'first_name': 'Nicha',
+      'last_name': 'Student',
+      'email': 'student@example.com',
+      'department_id': 11,
       'user_password': 'Password@123',
       'user_birthdate': '2000-12-31',
       'user_gender': 'female',
@@ -243,7 +320,7 @@ void main() {
       'continuous_working_duration': 150,
       'break': 45,
       'start_time': '18:00',
-      'end_time': '20:00',
+      'end_time': '21:00',
       'busy_days': [
         {'day': 1, 'start': '09:00', 'end': '10:30'},
       ],
@@ -261,7 +338,12 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(home: SigninPage(registerAction: (_) async {})),
+      MaterialApp(
+        home: SigninPage(
+          registrationOptionsLoader: loadTestRegistrationOptions,
+          registerAction: (_) async {},
+        ),
+      ),
     );
 
     final submitButton = find.byKey(const Key('signup-submit-button'));
@@ -281,6 +363,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: SigninPage(
+          registrationOptionsLoader: loadTestRegistrationOptions,
           registerAction: (_) async {
             registerCalled = true;
           },
@@ -291,10 +374,8 @@ void main() {
     final accountState = tester.state<CreateAccountFormState>(
       find.byType(CreateAccountForm),
     );
-    accountState.usernameController.text = 'student';
-    accountState.passwordController.text = 'Password@123';
+    fillValidAccount(accountState);
     accountState.confirmPasswordController.text = 'Different@123';
-    accountState.selectedGender = 'Female';
 
     final submitButton = find.byKey(const Key('signup-submit-button'));
     await tester.ensureVisible(submitButton);
@@ -316,6 +397,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: SigninPage(
+          registrationOptionsLoader: loadTestRegistrationOptions,
           registerAction: (_) async {
             throw const AuthException('Username already exists');
           },
@@ -326,10 +408,8 @@ void main() {
     final accountState = tester.state<CreateAccountFormState>(
       find.byType(CreateAccountForm),
     );
-    accountState.usernameController.text = 'existinguser';
-    accountState.passwordController.text = 'Password@123';
-    accountState.confirmPasswordController.text = 'Password@123';
-    accountState.selectedGender = 'Female';
+    fillValidAccount(accountState, username: 'existinguser');
+    fillValidConstraint(tester.state<ConstraintState>(find.byType(Constraint)));
 
     final submitButton = find.byKey(const Key('signup-submit-button'));
     await tester.ensureVisible(submitButton);
@@ -352,16 +432,18 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(home: SigninPage(registerAction: (_) async {})),
+      MaterialApp(
+        home: SigninPage(
+          registrationOptionsLoader: loadTestRegistrationOptions,
+          registerAction: (_) async {},
+        ),
+      ),
     );
 
     final accountState = tester.state<CreateAccountFormState>(
       find.byType(CreateAccountForm),
     );
-    accountState.usernameController.text = 'student';
-    accountState.passwordController.text = 'Password@123';
-    accountState.confirmPasswordController.text = 'Password@123';
-    accountState.selectedGender = 'Female';
+    fillValidAccount(accountState);
 
     final constraintState = tester.state<ConstraintState>(
       find.byType(Constraint),
@@ -383,16 +465,18 @@ void main() {
 
   testWidgets('work start time must be earlier than end time', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(home: SigninPage(registerAction: (_) async {})),
+      MaterialApp(
+        home: SigninPage(
+          registrationOptionsLoader: loadTestRegistrationOptions,
+          registerAction: (_) async {},
+        ),
+      ),
     );
 
     final accountState = tester.state<CreateAccountFormState>(
       find.byType(CreateAccountForm),
     );
-    accountState.usernameController.text = 'student';
-    accountState.passwordController.text = 'Password@123';
-    accountState.confirmPasswordController.text = 'Password@123';
-    accountState.selectedGender = 'Female';
+    fillValidAccount(accountState);
 
     final constraintState = tester.state<ConstraintState>(
       find.byType(Constraint),

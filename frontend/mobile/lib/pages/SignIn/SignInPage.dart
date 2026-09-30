@@ -11,8 +11,13 @@ typedef RegisterAction = Future<void> Function(RegisterRequest request);
 
 class SigninPage extends StatefulWidget {
   final RegisterAction? registerAction;
+  final RegistrationOptionsLoader? registrationOptionsLoader;
 
-  const SigninPage({super.key, this.registerAction});
+  const SigninPage({
+    super.key,
+    this.registerAction,
+    this.registrationOptionsLoader,
+  });
 
   @override
   State<SigninPage> createState() => _SigninPageState();
@@ -52,6 +57,10 @@ class _SigninPageState extends State<SigninPage> {
 
     final request = RegisterRequest(
       userName: accountData.userName,
+      firstName: accountData.firstName,
+      lastName: accountData.lastName,
+      email: accountData.email,
+      departmentId: accountData.departmentId,
       userPassword: accountData.userPassword,
       userBirthdate: accountData.userBirthdate,
       userGender: accountData.userGender,
@@ -287,7 +296,11 @@ class _SigninPageState extends State<SigninPage> {
                         Container(
                           width: mobile ? double.infinity : 400,
                           margin: const EdgeInsets.symmetric(horizontal: 20),
-                          child: CreateAccountForm(key: _createAccountKey),
+                          child: CreateAccountForm(
+                            key: _createAccountKey,
+                            registrationOptionsLoader:
+                                widget.registrationOptionsLoader,
+                          ),
                         ),
                         const SizedBox(height: 24),
                         Container(

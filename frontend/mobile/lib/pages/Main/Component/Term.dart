@@ -1,5 +1,6 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import '../../../common/AppDatePicker.dart';
 import '../../../common/AppDropdown.dart';
 import 'package:flutter/services.dart';
 
@@ -59,7 +60,7 @@ class _TermState extends State<Term> {
     final request = await showDialog<CreateTermRequest>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.30),
-      builder: (_) => const _CreateTermPopup(),
+      builder: (_) => _CreateTermPopup(repository: _repository),
     );
     if (request == null || !mounted) return;
 
@@ -505,10 +506,10 @@ class _ExamRangeRow extends StatelessWidget {
   }
 }
 
-enum _TermDateField { midtermStart, midtermEnd, finalStart, finalEnd }
-
 class _CreateTermPopup extends StatefulWidget {
-  const _CreateTermPopup();
+  final TermRepository repository;
+
+  const _CreateTermPopup({required this.repository});
 
   @override
   State<_CreateTermPopup> createState() => _CreateTermPopupState();
@@ -519,29 +520,65 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
   final _academicYearController = TextEditingController();
   String? _yearLevel;
   String? _term;
-  DateTime? _midtermStart;
-  DateTime? _midtermEnd;
-  DateTime? _finalStart;
-  DateTime? _finalEnd;
+  List<AvailableTermSubject> _subjects = const [];
+  final Map<String, int> _selectedSectionIds = {};
+  bool _isLoadingSections = false;
+  String? _sectionError;
+  int _loadVersion = 0;
 
-  bool get _isComplete =>
+  bool get _selectionReady =>
       _yearLevel != null &&
       _term != null &&
-      RegExp(r'^\d{4}$').hasMatch(_academicYearController.text.trim()) &&
-      _midtermStart != null &&
-      _midtermEnd != null &&
-      _finalStart != null &&
-      _finalEnd != null &&
-      _datesAreValid;
+      RegExp(r'^\d{4}$').hasMatch(_academicYearController.text.trim());
 
-  bool get _datesAreValid =>
-      _midtermStart != null &&
-      _midtermEnd != null &&
-      _midtermEnd!.isAfter(_midtermStart!) &&
-      _finalStart != null &&
-      _finalStart!.isAfter(_midtermEnd!) &&
-      _finalEnd != null &&
-      _finalEnd!.isAfter(_finalStart!);
+  bool get _allSectionsSelected =>
+      _subjects.isNotEmpty &&
+      _subjects.every(
+        (subject) => subject.sections.any(
+          (section) =>
+              !section.isFull &&
+              _selectedSectionIds[subject.subjectId] == section.sectionId,
+        ),
+      );
+
+  String? get _scheduleConflict {
+    final selected = _subjects.expand(
+      (subject) => subject.sections.where(
+        (section) =>
+            _selectedSectionIds[subject.subjectId] == section.sectionId,
+      ),
+    );
+    final sections = selected.toList();
+    for (var firstIndex = 0; firstIndex < sections.length; firstIndex++) {
+      for (
+        var secondIndex = firstIndex + 1;
+        secondIndex < sections.length;
+        secondIndex++
+      ) {
+        for (final first in sections[firstIndex].meetings) {
+          final conflicts = sections[secondIndex].meetings.any(
+            (second) =>
+                first.dayOfWeek == second.dayOfWeek &&
+                first.startTime.compareTo(second.endTime) < 0 &&
+                first.endTime.compareTo(second.startTime) > 0,
+          );
+          if (conflicts) {
+            return 'เวลาเรียนชนกันระหว่าง '
+                '${sections[firstIndex].subjectName} กลุ่ม ${sections[firstIndex].sectionNumber} '
+                'และ ${sections[secondIndex].subjectName} กลุ่ม ${sections[secondIndex].sectionNumber}';
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  bool get _isComplete =>
+      _selectionReady &&
+      !_isLoadingSections &&
+      _sectionError == null &&
+      _allSectionsSelected &&
+      _scheduleConflict == null;
 
   @override
   void initState() {
@@ -558,74 +595,64 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
   }
 
   void _refresh() {
-    if (mounted) setState(() {});
-  }
-
-  DateTime? _dateFor(_TermDateField field) {
-    return switch (field) {
-      _TermDateField.midtermStart => _midtermStart,
-      _TermDateField.midtermEnd => _midtermEnd,
-      _TermDateField.finalStart => _finalStart,
-      _TermDateField.finalEnd => _finalEnd,
-    };
-  }
-
-  DateTime? _minimumFor(_TermDateField field) {
-    return switch (field) {
-      _TermDateField.midtermStart => null,
-      _TermDateField.midtermEnd => _midtermStart?.add(const Duration(days: 1)),
-      _TermDateField.finalStart => _midtermEnd?.add(const Duration(days: 1)),
-      _TermDateField.finalEnd => _finalStart?.add(const Duration(days: 1)),
-    };
-  }
-
-  Future<void> _pickDate(_TermDateField field) async {
-    final now = DateTime.now();
-    final minimum = _minimumFor(field) ?? DateTime(now.year - 2);
-    final current = _dateFor(field);
-    final initial = current == null || current.isBefore(minimum)
-        ? minimum
-        : current;
-    final result = await showAppDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: minimum,
-      lastDate: DateTime(now.year + 10),
-    );
-    if (result == null || !mounted) return;
-
+    if (!mounted) return;
     setState(() {
-      switch (field) {
-        case _TermDateField.midtermStart:
-          _midtermStart = result;
-          if (_midtermEnd != null && !_midtermEnd!.isAfter(result)) {
-            _midtermEnd = null;
-            _finalStart = null;
-            _finalEnd = null;
-          }
-        case _TermDateField.midtermEnd:
-          _midtermEnd = result;
-          if (_finalStart != null && !_finalStart!.isAfter(result)) {
-            _finalStart = null;
-            _finalEnd = null;
-          }
-        case _TermDateField.finalStart:
-          _finalStart = result;
-          if (_finalEnd != null && !_finalEnd!.isAfter(result)) {
-            _finalEnd = null;
-          }
-        case _TermDateField.finalEnd:
-          _finalEnd = result;
-      }
+      _subjects = const [];
+      _selectedSectionIds.clear();
+      _sectionError = null;
     });
-    _formKey.currentState?.validate();
+    _loadSectionsIfReady();
   }
 
-  String _displayDate(DateTime? date) {
-    if (date == null) return 'เลือกวันที่';
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    return '$day/$month/${date.year}';
+  void _updateSelection({String? yearLevel, String? term}) {
+    setState(() {
+      if (yearLevel != null) _yearLevel = yearLevel;
+      if (term != null) _term = term;
+      _subjects = const [];
+      _selectedSectionIds.clear();
+      _sectionError = null;
+    });
+    _loadSectionsIfReady();
+  }
+
+  void _loadSectionsIfReady() {
+    final version = ++_loadVersion;
+    if (!_selectionReady) {
+      if (mounted) setState(() => _isLoadingSections = false);
+      return;
+    }
+    unawaited(_loadSections(version));
+  }
+
+  Future<void> _loadSections(int version) async {
+    setState(() {
+      _isLoadingSections = true;
+      _sectionError = null;
+    });
+    try {
+      final response = await widget.repository.getAvailableSections(
+        yearLevel: int.parse(_yearLevel!),
+        academicYear: int.parse(_academicYearController.text.trim()),
+        semesterNo: int.parse(_term!),
+      );
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _subjects = response.subjects;
+        _selectedSectionIds.clear();
+        _isLoadingSections = false;
+        if (response.subjects.isEmpty) {
+          _sectionError = 'ไม่พบรายวิชาตามหลักสูตรในเทอมนี้';
+        }
+      });
+    } catch (error) {
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _subjects = const [];
+        _selectedSectionIds.clear();
+        _isLoadingSections = false;
+        _sectionError = '$error';
+      });
+    }
   }
 
   void _submit() {
@@ -635,10 +662,9 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
         yearLevel: _yearLevel!,
         term: _term!,
         academicYear: _academicYearController.text.trim(),
-        midtermStartDate: _midtermStart!,
-        midtermEndDate: _midtermEnd!,
-        finalStartDate: _finalStart!,
-        finalEndDate: _finalEnd!,
+        sectionIds: _subjects
+            .map((subject) => _selectedSectionIds[subject.subjectId]!)
+            .toList(),
       ),
     );
   }
@@ -724,7 +750,7 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
                         label: '${index + 1}',
                       ),
                     ),
-                    onChanged: (value) => setState(() => _yearLevel = value),
+                    onChanged: (value) => _updateSelection(yearLevel: value),
                     fieldHeight: 42,
                   ),
                 ),
@@ -757,65 +783,30 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
                       AppDropdownItem(value: '1', label: '1'),
                       AppDropdownItem(value: '2', label: '2'),
                     ],
-                    onChanged: (value) => setState(() => _term = value),
+                    onChanged: (value) => _updateSelection(term: value),
                     fieldHeight: 42,
                   ),
                 ),
                 const SizedBox(height: 14),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(11),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF7FBFD),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFD7E7EE)),
+                _buildSectionPicker(),
+                if (_scheduleConflict != null) ...[
+                  const SizedBox(height: 9),
+                  Text(
+                    _scheduleConflict!,
+                    key: const Key('term-schedule-conflict'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFE14F79),
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'ช่วงสัปดาห์สอบ',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF6D8996),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      _ExamWeekInput(
-                        label: 'สอบกลางภาค',
-                        startKey: const Key('midterm-start-field'),
-                        endKey: const Key('midterm-end-field'),
-                        startValue: _displayDate(_midtermStart),
-                        endValue: _displayDate(_midtermEnd),
-                        onStartTap: () =>
-                            _pickDate(_TermDateField.midtermStart),
-                        onEndTap: _midtermStart == null
-                            ? null
-                            : () => _pickDate(_TermDateField.midtermEnd),
-                      ),
-                      const SizedBox(height: 10),
-                      _ExamWeekInput(
-                        label: 'สอบปลายภาค',
-                        startKey: const Key('final-start-field'),
-                        endKey: const Key('final-end-field'),
-                        startValue: _displayDate(_finalStart),
-                        endValue: _displayDate(_finalEnd),
-                        onStartTap: _midtermEnd == null
-                            ? null
-                            : () => _pickDate(_TermDateField.finalStart),
-                        onEndTap: _finalStart == null
-                            ? null
-                            : () => _pickDate(_TermDateField.finalEnd),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
                 const SizedBox(height: 9),
                 if (!_isComplete)
                   const SizedBox(
                     width: double.infinity,
                     child: Text(
-                      '*กรุณากรอกข้อมูลทุกช่องก่อนสร้างเทอม',
+                      '*กรุณากรอกข้อมูลและเลือกกลุ่มเรียนให้ครบทุกวิชา',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 12, color: Color(0xFF8AA0AA)),
                     ),
@@ -845,6 +836,64 @@ class _CreateTermPopupState extends State<_CreateTermPopup> {
       ),
     );
   }
+
+  Widget _buildSectionPicker() {
+    if (!_selectionReady) {
+      return const _SectionState(
+        message: 'ระบุชั้นปี ปีการศึกษา และเทอมก่อนเลือกกลุ่มเรียน',
+      );
+    }
+    if (_isLoadingSections) {
+      return const _SectionState(
+        message: 'กำลังโหลดกลุ่มเรียน...',
+        loading: true,
+      );
+    }
+    if (_sectionError != null) {
+      return _SectionState(message: _sectionError!, isError: true);
+    }
+
+    return Container(
+      key: const Key('term-section-picker'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBFD),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD7E7EE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'กลุ่มเรียน',
+            style: TextStyle(fontSize: 14, color: Color(0xFF506E7C)),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'เลือก 1 กลุ่มต่อรายวิชา',
+            style: TextStyle(fontSize: 10.5, color: Color(0xFF8AA0AA)),
+          ),
+          const SizedBox(height: 10),
+          for (var index = 0; index < _subjects.length; index++) ...[
+            _SubjectSectionField(
+              subject: _subjects[index],
+              selectedSectionId:
+                  _selectedSectionIds[_subjects[index].subjectId],
+              onChanged: (sectionId) => setState(() {
+                if (sectionId == null) {
+                  _selectedSectionIds.remove(_subjects[index].subjectId);
+                } else {
+                  _selectedSectionIds[_subjects[index].subjectId] = sectionId;
+                }
+              }),
+            ),
+            if (index != _subjects.length - 1) const SizedBox(height: 12),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _FormRow extends StatelessWidget {
@@ -871,102 +920,161 @@ class _FormRow extends StatelessWidget {
   }
 }
 
-class _ExamWeekInput extends StatelessWidget {
-  final String label;
-  final Key startKey;
-  final Key endKey;
-  final String startValue;
-  final String endValue;
-  final VoidCallback? onStartTap;
-  final VoidCallback? onEndTap;
+class _SectionState extends StatelessWidget {
+  final String message;
+  final bool loading;
+  final bool isError;
 
-  const _ExamWeekInput({
-    required this.label,
-    required this.startKey,
-    required this.endKey,
-    required this.startValue,
-    required this.endValue,
-    required this.onStartTap,
-    required this.onEndTap,
+  const _SectionState({
+    required this.message,
+    this.loading = false,
+    this.isError = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF506E7C)),
+    return Container(
+      key: const Key('term-section-state'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isError ? const Color(0xFFFFF5F7) : const Color(0xFFF7FBFD),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isError ? const Color(0xFFF0C4CF) : const Color(0xFFD7E7EE),
         ),
-        const SizedBox(height: 5),
-        Row(
-          children: [
-            Expanded(
-              child: _DateButton(
-                key: startKey,
-                value: startValue,
-                onTap: onStartTap,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (loading) ...[
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                color: isError
+                    ? const Color(0xFFE14F79)
+                    : const Color(0xFF7893A0),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 5),
-              child: Text('–', style: TextStyle(color: Color(0xFF8AA6B3))),
-            ),
-            Expanded(
-              child: _DateButton(key: endKey, value: endValue, onTap: onEndTap),
-            ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _DateButton extends StatelessWidget {
-  final String value;
-  final VoidCallback? onTap;
+class _SubjectSectionField extends StatelessWidget {
+  final AvailableTermSubject subject;
+  final int? selectedSectionId;
+  final ValueChanged<int?> onChanged;
 
-  const _DateButton({super.key, required this.value, required this.onTap});
+  const _SubjectSectionField({
+    required this.subject,
+    required this.selectedSectionId,
+    required this.onChanged,
+  });
+
+  AvailableCourseSection? get _selectedSection {
+    for (final section in subject.sections) {
+      if (section.sectionId == selectedSectionId) return section;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(22),
-      child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: onTap == null ? const Color(0xFFF2F4F5) : Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFC8C8C8)),
+    final availableSections = subject.sections
+        .where((section) => !section.isFull)
+        .toList();
+    final selected = _selectedSection;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${subject.subjectId}  ${subject.subjectName}',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF405B69),
+            fontWeight: FontWeight.w600,
+          ),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF777777),
+        const SizedBox(height: 7),
+        if (availableSections.isEmpty)
+          const Text(
+            'ยังไม่มีกลุ่มเรียนที่ว่าง',
+            style: TextStyle(fontSize: 11, color: Color(0xFFE14F79)),
+          )
+        else
+          AppDropdown<int>(
+            key: Key('term-section-${subject.subjectId}'),
+            value: selectedSectionId,
+            hintText: 'เลือกกลุ่มเรียน',
+            items: availableSections
+                .map(
+                  (section) => AppDropdownItem<int>(
+                    value: section.sectionId,
+                    label: _sectionLabel(section),
+                    optionKey: Key(
+                      'term-section-${subject.subjectId}-${section.sectionId}',
+                    ),
                   ),
-                ),
+                )
+                .toList(),
+            onChanged: onChanged,
+            fieldHeight: 42,
+            itemHeight: 48,
+            maxMenuHeight: 220,
+          ),
+        if (selected != null) ...[
+          const SizedBox(height: 7),
+          for (final meeting in selected.meetings)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Text(
+                '${_dayLabel(meeting.dayOfWeek)} '
+                '${meeting.startTime}–${meeting.endTime}'
+                '${meeting.classroom == null || meeting.classroom!.isEmpty ? '' : '  ${meeting.classroom}'}',
+                style: const TextStyle(fontSize: 10, color: Color(0xFF7893A0)),
               ),
             ),
-            const SizedBox(width: 3),
-            const Icon(
-              Icons.calendar_month_outlined,
-              size: 16,
-              color: Color(0xFFF080A7),
-            ),
-          ],
-        ),
-      ),
+        ],
+      ],
     );
   }
+
+  String _sectionLabel(AvailableCourseSection section) {
+    final instructors = section.instructors
+        .map((instructor) => instructor.displayName)
+        .where((name) => name.isNotEmpty)
+        .join(', ');
+    final capacity = section.capacity == null
+        ? ''
+        : ' • ${section.enrolledCount}/${section.capacity} คน';
+    return 'กลุ่ม ${section.sectionNumber}'
+        '${instructors.isEmpty ? '' : ' • $instructors'}$capacity';
+  }
+
+  String _dayLabel(String day) => switch (day.toLowerCase()) {
+    'monday' => 'จันทร์',
+    'tuesday' => 'อังคาร',
+    'wednesday' => 'พุธ',
+    'thursday' => 'พฤหัสบดี',
+    'friday' => 'ศุกร์',
+    'saturday' => 'เสาร์',
+    'sunday' => 'อาทิตย์',
+    _ => day,
+  };
 }

@@ -20,7 +20,7 @@ import 'package:mobile/services/homework.service.dart';
 import 'package:mobile/services/exam.service.dart';
 import 'package:mobile/services/table.service.dart';
 
-class EmptyTermRepository implements TermRepository {
+class EmptyTermRepository extends TermRepository {
   @override
   Future<CurrentTerm?> getCurrentTerm() async => null;
 
@@ -125,9 +125,20 @@ class EmptyExamRepository implements ExamRepository {
   Future<ExamInsights> getInsights() async => const ExamInsights();
 
   @override
+  Future<ExamAttemptSession> startExam(int examRepositoryId) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> saveAnswer(
+    int examRepositoryId,
+    int attemptId,
+    ExamAnswer answer,
+  ) async => throw UnimplementedError();
+
+  @override
   Future<ExamSubmissionResult> submitExam(
     int examRepositoryId,
-    List<ExamAnswer> answers,
+    int attemptId,
   ) async => throw UnimplementedError();
 }
 

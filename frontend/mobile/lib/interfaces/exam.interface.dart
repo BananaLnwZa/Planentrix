@@ -132,6 +132,41 @@ class ExamDetail {
   }
 }
 
+class ExamAttemptSession {
+  final int attemptId;
+  final int remainingSeconds;
+  final bool resumed;
+  final List<ExamAnswer> answers;
+
+  const ExamAttemptSession({
+    required this.attemptId,
+    required this.remainingSeconds,
+    required this.resumed,
+    this.answers = const [],
+  });
+
+  factory ExamAttemptSession.fromJson(Map<String, dynamic> json) {
+    final rawAnswers = json['answers'];
+    return ExamAttemptSession(
+      attemptId: _asInt(json['exam_attempt_id']),
+      remainingSeconds: _asInt(json['remaining_seconds']),
+      resumed:
+          json['resumed'] == true ||
+          json['resumed'] == 1 ||
+          json['resumed'] == '1',
+      answers: rawAnswers is List
+          ? rawAnswers
+                .whereType<Map>()
+                .map(
+                  (item) =>
+                      ExamAnswer.fromJson(Map<String, dynamic>.from(item)),
+                )
+                .toList()
+          : const [],
+    );
+  }
+}
+
 class ExamHistoryWeakTopic {
   final String topicName;
   final double percentage;
@@ -407,6 +442,11 @@ class ExamAnswer {
   final int choiceId;
 
   const ExamAnswer({required this.questionId, required this.choiceId});
+
+  factory ExamAnswer.fromJson(Map<String, dynamic> json) => ExamAnswer(
+    questionId: _asInt(json['question_id']),
+    choiceId: _asInt(json['choice_id']),
+  );
 
   Map<String, dynamic> toJson() => {
     'question_id': questionId,

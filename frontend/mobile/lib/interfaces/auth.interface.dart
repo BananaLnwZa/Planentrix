@@ -22,6 +22,10 @@ class BusyDay {
 /// Request payload for user registration
 class RegisterRequest {
   final String userName;
+  final String firstName;
+  final String lastName;
+  final String email;
+  final int departmentId;
   final String userPassword;
   final String? userBirthdate; // YYYY-MM-DD
   final String? userGender; // "male", "female", "other"
@@ -36,6 +40,10 @@ class RegisterRequest {
 
   RegisterRequest({
     required this.userName,
+    required this.firstName,
+    required this.lastName,
+    required this.email,
+    required this.departmentId,
     required this.userPassword,
     this.userBirthdate,
     this.userGender,
@@ -50,6 +58,10 @@ class RegisterRequest {
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = {
       'user_name': userName,
+      'first_name': firstName,
+      'last_name': lastName,
+      'email': email,
+      'department_id': departmentId,
       'user_password': userPassword,
       'user_birthdate': userBirthdate,
       'user_gender': userGender,
@@ -66,6 +78,78 @@ class RegisterRequest {
 
     return data;
   }
+}
+
+class DepartmentOption {
+  final int departmentId;
+  final String departmentName;
+
+  const DepartmentOption({
+    required this.departmentId,
+    required this.departmentName,
+  });
+
+  factory DepartmentOption.fromJson(Map<String, dynamic> json) =>
+      DepartmentOption(
+        departmentId: _authInt(json['department_id']),
+        departmentName: '${json['department_name'] ?? ''}',
+      );
+}
+
+class FacultyOption {
+  final int facultyId;
+  final String facultyName;
+  final List<DepartmentOption> departments;
+
+  const FacultyOption({
+    required this.facultyId,
+    required this.facultyName,
+    this.departments = const [],
+  });
+
+  factory FacultyOption.fromJson(Map<String, dynamic> json) {
+    final rawDepartments = json['departments'];
+    return FacultyOption(
+      facultyId: _authInt(json['faculty_id']),
+      facultyName: '${json['faculty_name'] ?? ''}',
+      departments: rawDepartments is List
+          ? rawDepartments
+                .whereType<Map>()
+                .map(
+                  (item) => DepartmentOption.fromJson(
+                    Map<String, dynamic>.from(item),
+                  ),
+                )
+                .toList()
+          : const [],
+    );
+  }
+}
+
+class RegistrationOptions {
+  final List<FacultyOption> faculties;
+
+  const RegistrationOptions({this.faculties = const []});
+
+  factory RegistrationOptions.fromJson(Map<String, dynamic> json) {
+    final rawFaculties = json['faculties'];
+    return RegistrationOptions(
+      faculties: rawFaculties is List
+          ? rawFaculties
+                .whereType<Map>()
+                .map(
+                  (item) =>
+                      FacultyOption.fromJson(Map<String, dynamic>.from(item)),
+                )
+                .toList()
+          : const [],
+    );
+  }
+}
+
+int _authInt(dynamic value) {
+  if (value is int) return value;
+  return int.tryParse('$value') ?? 0;
 }
 
 /// Request payload for logging in
