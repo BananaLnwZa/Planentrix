@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ClipboardList } from "lucide-react";
 import type {
+  GradeBoundary,
   GradeWorkload,
   OverallGradeSummary,
   SubjectGradeGoal,
@@ -12,20 +13,22 @@ import gradeService from "@/services/grade.service";
 import GpaGauge from "./GpaGauge";
 import ScoreEntryModal from "./ScoreEntryModal";
 import { getWorkloadPalette } from "./homeworkUtils";
+import { GPA_BY_GRADE } from "./gradeOptions";
 
 const getScoreSummary = (workloads: GradeWorkload[]) => {
   const scored = workloads.filter(
     (workload) => workload.actual_score !== null && workload.max_score !== null
   );
-  const actual = Math.min(
-    100,
-    Math.max(
-      0,
-      scored.reduce((sum, workload) => sum + Number(workload.actual_score), 0)
-    )
+  const actual = Math.max(
+    0,
+    scored.reduce((sum, workload) => sum + Number(workload.actual_score), 0)
   );
-  const maximum = scored.reduce((sum, workload) => sum + Number(workload.max_score), 0);
-  return { actual, maximum, percent: actual };
+  const maximum = Math.max(
+    0,
+    scored.reduce((sum, workload) => sum + Number(workload.max_score), 0)
+  );
+  const percent = maximum > 0 ? Math.min(100, (actual / maximum) * 100) : 0;
+  return { actual, maximum, percent };
 };
 
 const formatScore = (value: number) =>
@@ -33,46 +36,28 @@ const formatScore = (value: number) =>
     ? String(value)
     : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 
-const gradeFromPercent = (percent: number, hasScore: boolean) => {
-  if (!hasScore) return "—";
-  if (percent >= 80) return "A";
-  if (percent >= 75) return "B+";
-  if (percent >= 70) return "B";
-  if (percent >= 65) return "C+";
-  if (percent >= 60) return "C";
-  if (percent >= 55) return "D+";
-  if (percent >= 50) return "D";
-  return "F";
-};
+const boundaryForPercent = (
+  percent: number,
+  boundaries: GradeBoundary[]
+) =>
+  [...boundaries]
+    .sort(
+      (left, right) =>
+        right.minimum_percentage - left.minimum_percentage ||
+        left.display_order - right.display_order
+    )
+    .find((boundary) => percent >= boundary.minimum_percentage) ?? null;
 
-const gpaFromPercent = (percent: number) => {
-  if (percent >= 80) return 4;
-  if (percent >= 75) return 3.5;
-  if (percent >= 70) return 3;
-  if (percent >= 65) return 2.5;
-  if (percent >= 60) return 2;
-  if (percent >= 55) return 1.5;
-  if (percent >= 50) return 1;
-  return 0;
-};
-
-const minimumScoreFromTargetGpa = (targetGpa: number | null) => {
-  if (targetGpa === null) return null;
-  if (targetGpa >= 4) return 80;
-  if (targetGpa >= 3.5) return 75;
-  if (targetGpa >= 3) return 70;
-  if (targetGpa >= 2.5) return 65;
-  if (targetGpa >= 2) return 60;
-  if (targetGpa >= 1.5) return 55;
-  if (targetGpa >= 1) return 50;
-  return 0;
-};
-
-const getGoalProgressPercent = (actualScore: number, targetGpa: number | null) => {
-  const targetScore = minimumScoreFromTargetGpa(targetGpa);
-  if (targetScore === null) return actualScore;
-  if (targetScore === 0) return 100;
-  return Math.min(100, Math.max(0, (actualScore / targetScore) * 100));
+const getGoalProgressPercent = (
+  actualPercent: number,
+  targetMinimumPercentage: number | null
+) => {
+  if (targetMinimumPercentage === null) return 0;
+  if (targetMinimumPercentage === 0) return 100;
+  return Math.min(
+    100,
+    Math.max(0, (actualPercent / targetMinimumPercentage) * 100)
+  );
 };
 
 const isCompleted = (status: GradeWorkload["workload_status"]) => {
@@ -110,20 +95,23 @@ export default function ScoreDashboard({
   }, [subjects]);
 
   const currentGpa = useMemo(() => {
-    const totalCredits = subjects.reduce((sum, subject) => sum + subject.credits, 0);
-    if (!totalCredits) return 0;
-
+    let evaluatedCredits = 0;
     const currentPoints = subjects.reduce((sum, subject) => {
       const subjectScore = getScoreSummary(
         subject.workloads.filter((workload) => isCompleted(workload.workload_status))
       );
-      const subjectGpa = subjectScore.maximum
-        ? gpaFromPercent(subjectScore.percent)
-        : 0;
-      return sum + subjectGpa * subject.credits;
+      const boundary =
+        subjectScore.maximum > 0 && subject.grading_scheme
+          ? boundaryForPercent(
+              subjectScore.percent,
+              subject.grading_scheme.boundaries
+            )
+          : null;
+      if (!boundary) return sum;
+      evaluatedCredits += subject.credits;
+      return sum + GPA_BY_GRADE[boundary.grade_code] * subject.credits;
     }, 0);
-
-    return currentPoints / totalCredits;
+    return evaluatedCredits ? currentPoints / evaluatedCredits : 0;
   }, [subjects]);
 
   if (!selected) return null;
@@ -137,8 +125,19 @@ export default function ScoreDashboard({
     isCompleted(workload.workload_status)
   );
   const summary = getScoreSummary(completedWorkloads);
-  const progressPercent = getGoalProgressPercent(summary.actual, selected.target_score);
-  const currentGrade = gradeFromPercent(summary.percent, summary.maximum > 0);
+  const currentBoundary = selected.grading_scheme
+    ? boundaryForPercent(summary.percent, selected.grading_scheme.boundaries)
+    : null;
+  const progressPercent = getGoalProgressPercent(
+    summary.percent,
+    selected.target_minimum_percentage
+  );
+  const currentGrade =
+    summary.maximum <= 0
+      ? "—"
+      : !selected.grading_scheme
+        ? "รอเกณฑ์"
+        : currentBoundary?.grade_code ?? "—";
 
   const openScoreEntry = (workload: GradeWorkload) => {
     setScoreError(null);
@@ -180,6 +179,13 @@ export default function ScoreDashboard({
         currentGpa={overall?.overall_actual_gpa ?? currentGpa}
         targetGpa={overall?.overall_target_gpa ?? targetGpa}
       />
+
+      {overall && overall.pending_grading_scheme_count > 0 && (
+        <p className="rounded-xl border border-[#F3D9A8] bg-[#FFF8E8] px-3 py-2 text-xs text-[#8A6A2C]">
+          มี {overall.pending_grading_scheme_count} วิชาที่ยังรออาจารย์เผยแพร่เกณฑ์ตัดเกรด
+          จึงยังไม่นำมาคำนวณ GPA ปัจจุบัน
+        </p>
+      )}
 
       <section>
         <div className="relative z-40 -mb-px overflow-x-auto bg-transparent pt-2">
@@ -251,6 +257,11 @@ export default function ScoreDashboard({
               </div>
             </div>
           </div>
+          {!selected.grading_scheme && (
+            <p className="mt-2 rounded-lg bg-[#FFF8E8] px-2.5 py-2 text-[11px] text-[#8A6A2C]">
+              ยังไม่มีเกณฑ์ตัดเกรดที่อาจารย์เผยแพร่ ระบบจึงยังไม่คำนวณเกรดวิชานี้
+            </p>
+          )}
         </div>
 
         <div className="mx-3 mb-3 overflow-hidden rounded-xl border border-[#EFC9D7]">
@@ -300,7 +311,7 @@ export default function ScoreDashboard({
           <div className="flex items-center justify-end gap-3 border-t border-[#EFC9D7] bg-[#FCE7EE] px-3 py-2 text-xs text-[#925B70]">
             <span>คะแนนรวม</span>
             <strong className="rounded-full bg-white px-3 py-1 text-[#B05D79] shadow-sm">
-              {formatScore(summary.actual)}/100
+              {formatScore(summary.actual)}/{formatScore(summary.maximum)}
             </strong>
           </div>
         </div>

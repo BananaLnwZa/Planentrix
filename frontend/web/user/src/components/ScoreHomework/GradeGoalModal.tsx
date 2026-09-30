@@ -84,7 +84,7 @@ export default function GradeGoalModal({
                 เลือกเกรดที่ต้องการ
               </h2>
               <p className="mt-0.5 text-[11px] font-medium text-[#567486]">
-                เกณฑ์มาตรฐาน A 80 คะแนนขึ้นไป · F ต่ำกว่า 50 คะแนน
+                ช่วงคะแนนอ้างอิงเกณฑ์ที่อาจารย์เผยแพร่ของแต่ละกลุ่มเรียน
               </p>
             </div>
           </div>
@@ -103,6 +103,12 @@ export default function GradeGoalModal({
           <div className="space-y-2">
             {subjects.map((subject, index) => {
               const isPreviouslySaved = subject.target_score !== null;
+              const boundaryByGrade = new Map(
+                subject.grading_scheme?.boundaries.map((boundary) => [
+                  boundary.grade_code,
+                  boundary.minimum_percentage,
+                ]) ?? []
+              );
               return (
                 <div
                   key={subject.schedule_time_id}
@@ -118,6 +124,11 @@ export default function GradeGoalModal({
                         <LockKeyhole className="h-3.5 w-3.5 text-[#6CB6DF]" aria-label="บันทึกแล้ว" />
                       )}
                     </span>
+                    {!subject.grading_scheme && (
+                      <span className="mt-1 block text-[10px] text-[#A47A35]">
+                        รออาจารย์เผยแพร่เกณฑ์ตัดเกรด
+                      </span>
+                    )}
                   </span>
                   <CustomSelect
                     ariaLabel={`เกรดเป้าหมายวิชา ${subject.subject_name}`}
@@ -131,7 +142,10 @@ export default function GradeGoalModal({
                     }
                     options={GRADE_OPTIONS.map((option) => ({
                       value: option.grade,
-                      label: `${option.grade} · ${option.scoreRange}`,
+                      label:
+                        boundaryByGrade.get(option.grade) === undefined
+                          ? option.grade
+                          : `${option.grade} · ${boundaryByGrade.get(option.grade)}%+`,
                     }))}
                     placeholder="เลือกเกรด"
                     compact

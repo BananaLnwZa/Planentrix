@@ -1,28 +1,15 @@
 import type { Request, Response } from "express";
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
-
-const GRADE_TO_GPA: Record<string, number> = {
-  A: 4,
-  "B+": 3.5,
-  B: 3,
-  "C+": 2.5,
-  C: 2,
-  "D+": 1.5,
-  D: 1,
-  F: 0,
-};
-
-const PERCENT_TO_GRADE = [
-  { min: 80, grade: "A", gpa: 4 },
-  { min: 75, grade: "B+", gpa: 3.5 },
-  { min: 70, grade: "B", gpa: 3 },
-  { min: 65, grade: "C+", gpa: 2.5 },
-  { min: 60, grade: "C", gpa: 2 },
-  { min: 55, grade: "D+", gpa: 1.5 },
-  { min: 50, grade: "D", gpa: 1 },
-  { min: 0, grade: "F", gpa: 0 },
-];
+import {
+  GRADE_CODES,
+  type GradeCode,
+} from "../../services/gradingScheme.service";
+import {
+  GRADE_TO_GPA,
+  calculateWeightedGradeSummary,
+  type PublishedGradeBoundary,
+} from "../services/grade-calculation";
 
 interface CurrentTermRow extends RowDataPacket {
   term_id: number;
@@ -34,11 +21,28 @@ interface CurrentTermRow extends RowDataPacket {
 
 interface SubjectGoalRow extends RowDataPacket {
   schedule_time_id: number;
+  section_id: number;
   subject_id: string;
   subject_name: string;
   credits: number | string;
   teacher_name: string;
   target_grade_code: string | null;
+}
+
+interface PublishedGradeBoundaryRow extends RowDataPacket {
+  schedule_time_id: number;
+  grading_scheme_id: number;
+  version: number;
+  grade_code: GradeCode;
+  minimum_percentage: number | string;
+  display_order: number;
+}
+
+interface PublishedGradingScheme {
+  grading_scheme_id: number;
+  version: number;
+  status: "published";
+  boundaries: PublishedGradeBoundary[];
 }
 
 interface WorkloadRow extends RowDataPacket {
@@ -100,6 +104,7 @@ const getCurrentTerm = async (
 
 const subjectSelect = `
   SELECT enrollment.enrollment_id AS schedule_time_id,
+         section.section_id,
          subject.subject_id,
          subject.subject_name,
          subject.credits,
@@ -121,7 +126,8 @@ const subjectSelect = `
     ON instructor.admin_id = section_instructor.instructor_id
   WHERE enrollment.student_term_id = ?
     AND enrollment.status IN ('enrolled', 'completed')
-  GROUP BY enrollment.enrollment_id, subject.subject_id, subject.subject_name,
+  GROUP BY enrollment.enrollment_id, section.section_id,
+           subject.subject_id, subject.subject_name,
            subject.credits, enrollment.target_grade_code
   ORDER BY subject.subject_name ASC, enrollment.enrollment_id ASC`;
 
@@ -131,6 +137,55 @@ const loadSubjects = async (
 ) => {
   const [rows] = await connection.query<SubjectGoalRow[]>(subjectSelect, [termId]);
   return rows;
+};
+
+const loadPublishedGradingSchemes = async (
+  termId: number,
+  connection: PoolConnection | typeof db = db,
+) => {
+  const [rows] = await connection.query<PublishedGradeBoundaryRow[]>(
+    `SELECT enrollment.enrollment_id AS schedule_time_id,
+            scheme.grading_scheme_id, scheme.version,
+            boundary.grade_code, boundary.minimum_percentage,
+            boundary.display_order
+     FROM enrollments enrollment
+     INNER JOIN course_sections section
+       ON section.section_id = enrollment.section_id
+     INNER JOIN grading_schemes scheme
+       ON scheme.grading_scheme_id = (
+         SELECT candidate.grading_scheme_id
+         FROM grading_schemes candidate
+         WHERE candidate.section_id = section.section_id
+           AND candidate.scheme_type = 'section'
+           AND candidate.status = 'published'
+         ORDER BY candidate.version DESC, candidate.grading_scheme_id DESC
+         LIMIT 1
+       )
+     INNER JOIN grade_boundaries boundary
+       ON boundary.grading_scheme_id = scheme.grading_scheme_id
+     WHERE enrollment.student_term_id = ?
+       AND enrollment.status IN ('enrolled', 'completed')
+     ORDER BY enrollment.enrollment_id, boundary.display_order`,
+    [termId],
+  );
+
+  const schemes = new Map<number, PublishedGradingScheme>();
+  for (const row of rows) {
+    const enrollmentId = Number(row.schedule_time_id);
+    const scheme = schemes.get(enrollmentId) ?? {
+      grading_scheme_id: Number(row.grading_scheme_id),
+      version: Number(row.version),
+      status: "published" as const,
+      boundaries: [],
+    };
+    scheme.boundaries.push({
+      grade_code: row.grade_code,
+      minimum_percentage: Number(row.minimum_percentage),
+      display_order: Number(row.display_order),
+    });
+    schemes.set(enrollmentId, scheme);
+  }
+  return schemes;
 };
 
 const loadWorkloads = async (termId: number, completedOnly = false) => {
@@ -160,78 +215,51 @@ const loadWorkloads = async (termId: number, completedOnly = false) => {
 };
 
 const gpaForGrade = (grade: string | null) =>
-  grade === null ? null : (GRADE_TO_GPA[grade] ?? null);
+  grade !== null && GRADE_CODES.includes(grade as GradeCode)
+    ? GRADE_TO_GPA[grade as GradeCode]
+    : null;
 
-const gradeFromGpaBand = (gpa: number) => {
-  if (gpa >= 4) return "A";
-  if (gpa >= 3.5) return "B+";
-  if (gpa >= 3) return "B";
-  if (gpa >= 2.5) return "C+";
-  if (gpa >= 2) return "C";
-  if (gpa >= 1.5) return "D+";
-  if (gpa >= 1) return "D";
-  return "F";
-};
+const isGradeCode = (grade: string): grade is GradeCode =>
+  GRADE_CODES.includes(grade as GradeCode);
 
-export const calculateWeightedGradeSummary = (
-  subjects: Array<{
-    credits: number;
-    actualScore: number;
-    maximumScore: number;
-  }>,
-) => {
-  let totalCredits = 0;
-  let weightedGpa = 0;
-  let weightedPercent = 0;
-  let totalActualScore = 0;
-  let totalMaximumScore = 0;
-  for (const subject of subjects) {
-    const credits = Number.isFinite(subject.credits) ? Math.max(subject.credits, 0) : 0;
-    const actualScore = Number.isFinite(subject.actualScore)
-      ? Math.max(subject.actualScore, 0)
-      : 0;
-    const maximumScore = Number.isFinite(subject.maximumScore)
-      ? Math.max(subject.maximumScore, 0)
-      : 0;
-    const percent = Math.min(actualScore, 100);
-    const grade =
-      PERCENT_TO_GRADE.find((range) => percent >= range.min) ??
-      PERCENT_TO_GRADE[PERCENT_TO_GRADE.length - 1];
-    totalCredits += credits;
-    weightedGpa += grade.gpa * credits;
-    weightedPercent += percent * credits;
-    totalActualScore += actualScore;
-    totalMaximumScore += maximumScore;
-  }
-  const gpa = totalCredits > 0 ? weightedGpa / totalCredits : 0;
-  return {
-    gpa,
-    grade: gradeFromGpaBand(gpa),
-    percent: totalCredits > 0 ? weightedPercent / totalCredits : 0,
-    totalCredits,
-    totalActualScore,
-    totalMaximumScore,
-  };
-};
-
-const subjectResponse = (subjects: SubjectGoalRow[], workloads: WorkloadRow[]) =>
-  subjects.map((subject) => ({
-    schedule_time_id: subject.schedule_time_id,
-    subject_id: subject.subject_id,
-    subject_name: subject.subject_name,
-    credits: Number(subject.credits),
-    teacher_name: subject.teacher_name,
-    target_score: gpaForGrade(subject.target_grade_code),
-    target_grade: subject.target_grade_code,
-    workloads: workloads
-      .filter((workload) => workload.schedule_time_id === subject.schedule_time_id)
-      .map((workload) => ({
-        ...workload,
-        actual_score:
-          workload.actual_score === null ? null : Number(workload.actual_score),
-        max_score: workload.max_score === null ? null : Number(workload.max_score),
-      })),
-  }));
+const subjectResponse = (
+  subjects: SubjectGoalRow[],
+  workloads: WorkloadRow[],
+  schemes: Map<number, PublishedGradingScheme>,
+) =>
+  subjects.map((subject) => {
+    const scheme = schemes.get(Number(subject.schedule_time_id)) ?? null;
+    const targetBoundary = scheme?.boundaries.find(
+      (boundary) => boundary.grade_code === subject.target_grade_code,
+    );
+    return {
+      schedule_time_id: Number(subject.schedule_time_id),
+      subject_id: subject.subject_id,
+      subject_name: subject.subject_name,
+      credits: Number(subject.credits),
+      teacher_name: subject.teacher_name,
+      target_score: gpaForGrade(subject.target_grade_code),
+      target_grade: subject.target_grade_code,
+      target_minimum_percentage:
+        targetBoundary?.minimum_percentage ?? null,
+      grading_scheme: scheme,
+      workloads: workloads
+        .filter(
+          (workload) =>
+            Number(workload.schedule_time_id) ===
+            Number(subject.schedule_time_id),
+        )
+        .map((workload) => ({
+          ...workload,
+          actual_score:
+            workload.actual_score === null
+              ? null
+              : Number(workload.actual_score),
+          max_score:
+            workload.max_score === null ? null : Number(workload.max_score),
+        })),
+    };
+  });
 
 export const getAllScheduleTime = async (req: Request, res: Response) => {
   try {
@@ -239,13 +267,16 @@ export const getAllScheduleTime = async (req: Request, res: Response) => {
     if (userId === null) return;
     const term = await getCurrentTerm(userId);
     if (!term) return res.status(404).json({ message: "No current term found" });
-    const subjects = await loadSubjects(term.term_id);
+    const [subjects, schemes] = await Promise.all([
+      loadSubjects(term.term_id),
+      loadPublishedGradingSchemes(term.term_id),
+    ]);
     return res.json({
       message: "Current-term class schedule retrieved successfully",
       current_term: term,
       schedule_type_id: 1,
       total: subjects.length,
-      data: subjectResponse(subjects, []),
+      data: subjectResponse(subjects, [], schemes),
     });
   } catch (error) {
     console.error("getAllScheduleTime error:", error);
@@ -259,7 +290,7 @@ export const saveGrade = async (req: Request, res: Response) => {
     if (userId === null) return;
     const enrollmentId = Number(req.params.id);
     const grade = String(req.body.grade ?? "").toUpperCase();
-    if (!Number.isInteger(enrollmentId) || GRADE_TO_GPA[grade] === undefined) {
+    if (!Number.isInteger(enrollmentId) || !isGradeCode(grade)) {
       return res.status(400).json({ message: "A valid class and grade are required" });
     }
     const term = await getCurrentTerm(userId);
@@ -315,7 +346,7 @@ export const saveGradeGoals = async (req: Request, res: Response) => {
       return {
         schedule_time_id: Number(goal.schedule_time_id),
         grade,
-        gpa: GRADE_TO_GPA[grade],
+        gpa: isGradeCode(grade) ? GRADE_TO_GPA[grade] : undefined,
       };
     });
     const ids = new Set(goals.map((goal: { schedule_time_id: number }) => goal.schedule_time_id));
@@ -386,11 +417,12 @@ export const getSubjectGoals = async (req: Request, res: Response) => {
     if (userId === null) return;
     const term = await getCurrentTerm(userId);
     if (!term) return res.status(404).json({ message: "No current term found" });
-    const [subjects, workloads] = await Promise.all([
+    const [subjects, workloads, schemes] = await Promise.all([
       loadSubjects(term.term_id),
       loadWorkloads(term.term_id),
+      loadPublishedGradingSchemes(term.term_id),
     ]);
-    const data = subjectResponse(subjects, workloads);
+    const data = subjectResponse(subjects, workloads, schemes);
     const savedCount = subjects.filter((subject) => subject.target_grade_code !== null).length;
     return res.json({
       message: "Current-term subject goals retrieved successfully",
@@ -412,7 +444,10 @@ export const getOverallGradeGoal = async (req: Request, res: Response) => {
     if (userId === null) return;
     const term = await getCurrentTerm(userId);
     if (!term) return res.status(404).json({ message: "No current term found" });
-    const subjects = await loadSubjects(term.term_id);
+    const [subjects, schemes] = await Promise.all([
+      loadSubjects(term.term_id),
+      loadPublishedGradingSchemes(term.term_id),
+    ]);
     const [scoreRows] = await db.query<SubjectScoreSummaryRow[]>(
       `SELECT enrollment.enrollment_id AS schedule_time_id,
               subject.credits,
@@ -433,6 +468,8 @@ export const getOverallGradeGoal = async (req: Request, res: Response) => {
         credits: Number(row.credits) || 0,
         actualScore: Number(row.total_actual) || 0,
         maximumScore: Number(row.total_max) || 0,
+        boundaries:
+          schemes.get(Number(row.schedule_time_id))?.boundaries ?? [],
       })),
     );
     const targetCredits = subjects.reduce((sum, subject) => {
@@ -452,6 +489,9 @@ export const getOverallGradeGoal = async (req: Request, res: Response) => {
       overall_grade: actual.grade,
       overall_percent: Number(actual.percent.toFixed(2)),
       max_gpa: 4,
+      graded_subject_count: actual.gradedSubjectCount,
+      pending_grading_scheme_count: actual.pendingGradingSchemeCount,
+      unscored_subject_count: actual.unscoredSubjectCount,
       raw: {
         total_actual_score: actual.totalActualScore,
         total_max_score: actual.totalMaximumScore,
@@ -473,15 +513,16 @@ export const getSubjectGoalsWithCompleted = async (
     if (userId === null) return;
     const term = await getCurrentTerm(userId);
     if (!term) return res.status(404).json({ message: "No current term found" });
-    const [subjects, workloads] = await Promise.all([
+    const [subjects, workloads, schemes] = await Promise.all([
       loadSubjects(term.term_id),
       loadWorkloads(term.term_id, true),
+      loadPublishedGradingSchemes(term.term_id),
     ]);
     return res.json({
       message: "Completed current-term workloads retrieved successfully",
       current_term: term,
       total: subjects.length,
-      data: subjectResponse(subjects, workloads).map((subject) => ({
+      data: subjectResponse(subjects, workloads, schemes).map((subject) => ({
         ...subject,
         completed_workloads: subject.workloads,
       })),

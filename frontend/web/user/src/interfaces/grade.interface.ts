@@ -25,6 +25,19 @@ export interface WorkloadScoreInput {
   max_score: number;
 }
 
+export interface GradeBoundary {
+  grade_code: GradeLetter;
+  minimum_percentage: number;
+  display_order: number;
+}
+
+export interface PublishedGradingScheme {
+  grading_scheme_id: number;
+  version: number;
+  status: "published";
+  boundaries: GradeBoundary[];
+}
+
 export interface SubjectGradeGoal {
   schedule_time_id: number;
   subject_id: string;
@@ -33,6 +46,8 @@ export interface SubjectGradeGoal {
   teacher_name: string;
   target_score: number | null;
   target_grade: GradeLetter | null;
+  target_minimum_percentage: number | null;
+  grading_scheme: PublishedGradingScheme | null;
   workloads: GradeWorkload[];
 }
 
@@ -65,7 +80,10 @@ export interface SaveGradeGoalsResponse {
 export interface OverallGradeSummary {
   overall_target_gpa: number;
   overall_actual_gpa: number;
-  overall_grade: string;
+  overall_grade: GradeLetter | null;
   overall_percent: number;
   max_gpa: number;
+  graded_subject_count: number;
+  pending_grading_scheme_count: number;
+  unscored_subject_count: number;
 }
