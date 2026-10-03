@@ -59,14 +59,6 @@ interface ExamScoreSummaryRow extends RowDataPacket {
   user_count: number | string;
 }
 
-interface ReviewMethodRow extends RowDataPacket {
-  study_type_id: number;
-  study_type_name: string;
-  total_minutes: number | string;
-  session_count: number | string;
-  user_count: number | string;
-}
-
 interface AuthenticatedRequest extends Request {
   user?: {
     id: number;
@@ -106,16 +98,21 @@ export const getStudyTimeOverview = async (
          SELECT
            student_term_id,
            user_id,
-           created_at
+           start_date,
+           end_date
          FROM student_terms
-         WHERE status = 'active'
+         INNER JOIN academic_terms USING (academic_term_id)
+         WHERE student_terms.status = 'active'
        ),
        user_study AS (
          SELECT
            current_terms.user_id,
            GREATEST(
              1,
-             FLOOR(DATEDIFF(CURDATE(), DATE(current_terms.created_at)) / 7) + 1
+             FLOOR(DATEDIFF(
+               LEAST(CURDATE(), COALESCE(DATE(current_terms.end_date), CURDATE())),
+               DATE(current_terms.start_date)
+             ) / 7) + 1
            ) AS elapsed_weeks,
            COALESCE(SUM(session.accumulated_seconds), 0) / 60 AS total_minutes,
            COALESCE(
@@ -134,7 +131,11 @@ export const getStudyTimeOverview = async (
          LEFT JOIN study_sessions session
            ON session.enrollment_id = enrollment.enrollment_id
           AND session.status = 'completed'
-          AND session.started_at >= current_terms.created_at
+          AND session.started_at >= current_terms.start_date
+          AND session.started_at < DATE_ADD(
+            LEAST(CURDATE(), COALESCE(DATE(current_terms.end_date), CURDATE())),
+            INTERVAL 1 DAY
+          )
          LEFT JOIN weekly_schedule_block weekly_block
            ON weekly_block.weekly_block_id = session.weekly_block_id
          LEFT JOIN schedule_types schedule_type
@@ -142,7 +143,8 @@ export const getStudyTimeOverview = async (
          GROUP BY
            current_terms.student_term_id,
            current_terms.user_id,
-           current_terms.created_at
+           current_terms.start_date,
+           current_terms.end_date
        )
        SELECT
          COUNT(*) AS active_users,
@@ -172,9 +174,11 @@ export const getStudyTimeOverview = async (
          SELECT
            student_term_id,
            user_id,
-           created_at
+           start_date,
+           end_date
          FROM student_terms
-         WHERE status = 'active'
+         INNER JOIN academic_terms USING (academic_term_id)
+         WHERE student_terms.status = 'active'
        ),
        eligible_users AS (
          SELECT
@@ -183,7 +187,8 @@ export const getStudyTimeOverview = async (
            current_terms.user_id
          FROM week_series weeks
          INNER JOIN current_terms
-           ON current_terms.created_at < DATE_ADD(weeks.week_start, INTERVAL 1 WEEK)
+           ON current_terms.start_date < DATE_ADD(weeks.week_start, INTERVAL 1 WEEK)
+          AND COALESCE(DATE(current_terms.end_date), '9999-12-31') >= weeks.week_start
        )
        SELECT
          DATE_FORMAT(weeks.week_start, '%Y-%m-%d') AS week_start,
@@ -224,6 +229,11 @@ export const getStudyTimeOverview = async (
         AND session.status = 'completed'
         AND session.started_at >= weeks.week_start
         AND session.started_at < DATE_ADD(weeks.week_start, INTERVAL 1 WEEK)
+        AND session.started_at >= eligible.start_date
+        AND (
+          eligible.end_date IS NULL
+          OR session.started_at < DATE_ADD(eligible.end_date, INTERVAL 1 DAY)
+        )
        LEFT JOIN weekly_schedule_block weekly_block
          ON weekly_block.weekly_block_id = session.weekly_block_id
        LEFT JOIN schedule_types schedule_type
@@ -733,74 +743,6 @@ export const getExamScoreSummaries = async (
     });
   } catch (error) {
     console.error("getExamScoreSummaries error:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-export const getReviewMethods = async (
-  req: AuthenticatedRequest,
-  res: Response,
-) => {
-  try {
-    if (!isAdmin(req, res)) return;
-
-    const [rows] = await db.query<ReviewMethodRow[]>(
-      `WITH current_sessions AS (
-         SELECT
-           session.study_session_id,
-           COALESCE(schedule_type.schedule_type_id, 0) AS study_type_id,
-           COALESCE(schedule_type.type_code, 'independent') AS study_type_name,
-           session.accumulated_seconds / 60 AS time_spent,
-           student_term.user_id
-         FROM study_sessions session
-         INNER JOIN enrollments enrollment
-           ON enrollment.enrollment_id = session.enrollment_id
-         INNER JOIN student_terms student_term
-           ON student_term.student_term_id = enrollment.student_term_id
-          AND student_term.status = 'active'
-         LEFT JOIN weekly_schedule_block weekly_block
-           ON weekly_block.weekly_block_id = session.weekly_block_id
-         LEFT JOIN schedule_types schedule_type
-           ON schedule_type.schedule_type_id = weekly_block.schedule_type_id
-         WHERE session.status = 'completed'
-       )
-       SELECT
-         sessions.study_type_id,
-         sessions.study_type_name,
-         COALESCE(SUM(sessions.time_spent), 0) AS total_minutes,
-         COUNT(sessions.study_session_id) AS session_count,
-         COUNT(DISTINCT sessions.user_id) AS user_count
-       FROM current_sessions sessions
-       GROUP BY sessions.study_type_id, sessions.study_type_name
-       ORDER BY total_minutes DESC, sessions.study_type_id ASC`,
-    );
-
-    const totalMinutes = rows.reduce(
-      (total, row) => total + toNumber(row.total_minutes),
-      0,
-    );
-
-    return res.json({
-      message: "Review methods retrieved successfully",
-      total_minutes: Number(totalMinutes.toFixed(2)),
-      methods: rows.map((row) => {
-        const methodMinutes = toNumber(row.total_minutes);
-        return {
-          study_type_id: Number(row.study_type_id),
-          study_type_name: row.study_type_name,
-          total_minutes: Number(methodMinutes.toFixed(2)),
-          session_count: Math.trunc(toNumber(row.session_count)),
-          user_count: Math.trunc(toNumber(row.user_count)),
-          percent:
-            totalMinutes > 0
-              ? Number(((methodMinutes / totalMinutes) * 100).toFixed(1))
-              : 0,
-        };
-      }),
-      generated_at: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("getReviewMethods error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

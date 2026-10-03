@@ -3,7 +3,6 @@ import DashboardHeader from "@/components/Main/DashboardHeader";
 import ExamPartRankingMetricCard from "@/components/Main/ExamPartRankingMetricCard";
 import ExamScoresMetricCard from "@/components/Main/ExamScoresMetricCard";
 import PopularConstraintsMetricCard from "@/components/Main/PopularConstraintsMetricCard";
-import ReviewMethodsMetricCard from "@/components/Main/ReviewMethodsMetricCard";
 import TaskCompletionMetricCard from "@/components/Main/TaskCompletionMetricCard";
 import UserAccountsMetricCard from "@/components/Main/UserAccountsMetricCard";
 import StudyMetricCards from "@/components/Main/StudyTimeMetricCard";
@@ -36,9 +35,8 @@ export default async function AdminMainPage() {
           <TaskCompletionMetricCard />
         </div>
 
-        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <div className="mt-5">
           <ExamScoresMetricCard />
-          <ReviewMethodsMetricCard />
         </div>
 
         <p className="mt-7 text-center text-xs text-[#8a989e]">

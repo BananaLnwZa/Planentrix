@@ -9,8 +9,17 @@ import '../timer_utils.dart';
 
 class StudyStatistics extends StatelessWidget {
   final StudyDashboard dashboard;
+  final List<WeeklyReviewTarget> recommendations;
+  final StudySession? activeSession;
+  final int elapsedSeconds;
 
-  const StudyStatistics({super.key, required this.dashboard});
+  const StudyStatistics({
+    super.key,
+    required this.dashboard,
+    this.recommendations = const [],
+    this.activeSession,
+    this.elapsedSeconds = 0,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +63,38 @@ class StudyStatistics extends StatelessWidget {
               ),
             ],
           ),
+          if (recommendations.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Progress แยกตามวิชาที่แนะนำ',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF6D6065),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 7),
+            for (var index = 0; index < recommendations.length; index++) ...[
+              _RecommendedSubjectProgress(
+                target: recommendations[index],
+                dashboard: dashboard,
+                activeSession: activeSession,
+                elapsedSeconds: elapsedSeconds,
+              ),
+              if (index != recommendations.length - 1)
+                const SizedBox(height: 7),
+            ],
+          ] else ...[
+            const SizedBox(height: 9),
+            const Text(
+              'ยังไม่มีวิชาที่ระบบแนะนำ',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 9.5, color: Color(0xFFA3979B)),
+            ),
+          ],
           const SizedBox(height: 11),
           _WeeklyChart(weeks: dashboard.weeks),
           const SizedBox(height: 10),
@@ -82,6 +123,113 @@ class StudyStatistics extends StatelessWidget {
               dashboard.summary.totalTermMinutes,
               compact: true,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecommendedSubjectProgress extends StatelessWidget {
+  final WeeklyReviewTarget target;
+  final StudyDashboard dashboard;
+  final StudySession? activeSession;
+  final int elapsedSeconds;
+
+  const _RecommendedSubjectProgress({
+    required this.target,
+    required this.dashboard,
+    required this.activeSession,
+    required this.elapsedSeconds,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final recordedMinutes = dashboard.weeklySubjects
+        .where((item) => item.subjectId == target.subjectId)
+        .fold<double>(0, (sum, item) => sum + item.totalMinutes);
+    final lastWeekStart = dashboard.weeks.isEmpty
+        ? null
+        : dashboard.weeks.last.weekStart;
+    final active = activeSession;
+    final countsLiveSession = active != null &&
+        active.subjectId == target.subjectId &&
+        active.startTime != null &&
+        lastWeekStart != null &&
+        !active.startTime!.isBefore(lastWeekStart);
+    final actualMinutes = recordedMinutes +
+        (countsLiveSession ? elapsedSeconds / 60 : 0);
+    final targetMinutes = target.targetMinutes;
+    final durationLabel = formatStudyDuration(actualMinutes, compact: true);
+    final targetLabel = targetMinutes == null
+        ? ''
+        : ' / ${formatStudyDuration(targetMinutes.toDouble(), compact: true)}';
+    final progress = targetMinutes != null && targetMinutes > 0
+        ? (actualMinutes / targetMinutes).clamp(0.0, 1.0).toDouble()
+        : 0.0;
+
+    return Container(
+      key: Key('weekly-review-${target.subjectId}'),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFBFDFF),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: const Color(0xFFE3EAEE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  target.subjectName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF4E6570),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '$durationLabel$targetLabel',
+                style: const TextStyle(
+                  fontSize: 8.5,
+                  color: Color(0xFF668DA4),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(
+            target.scorePercentage == null
+                ? target.detail
+                : '${target.detail} · คะแนน ${target.scorePercentage!.round()}%',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 8, color: Color(0xFF91A0A6)),
+          ),
+          const SizedBox(height: 7),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(5),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 5,
+              backgroundColor: const Color(0xFFE8E9E9),
+              valueColor: const AlwaysStoppedAnimation(Color(0xFFE4869F)),
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            targetMinutes == null
+                ? 'แนะนำจากผลสอบ · ยังไม่มีเป้าหมายเวลา'
+                : '${(progress * 100).round()}% ของเป้าหมายรายสัปดาห์',
+            textAlign: TextAlign.right,
+            style: const TextStyle(fontSize: 8, color: Color(0xFFA2AEB2)),
           ),
         ],
       ),

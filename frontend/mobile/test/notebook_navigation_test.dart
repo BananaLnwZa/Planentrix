@@ -154,7 +154,6 @@ class EmptyTimeRepository implements TimeRepository {
   Future<TimerSetup> getSetup() async => TimerSetup(
     currentTerm: _term,
     subjects: const [],
-    studyTypes: const [],
     policy: const TimerPolicy(),
   );
 
@@ -169,7 +168,6 @@ class EmptyTimeRepository implements TimeRepository {
   @override
   Future<StudySession> startSession({
     required int scheduleTimeId,
-    required int studyTypeId,
   }) => throw UnimplementedError();
 
   @override
@@ -245,7 +243,11 @@ void main() {
           '/score': (_) => ScorePage(repository: EmptyScoreRepository()),
           '/homework': (_) =>
               HomeworkPage(repository: EmptyHomeworkRepository()),
-          '/timer': (_) => TimerPage(repository: EmptyTimeRepository()),
+          '/timer': (_) => TimerPage(
+            repository: EmptyTimeRepository(),
+            weeklyScheduleLoader: () async => null,
+            examInsightsLoader: () async => null,
+          ),
           '/test': (_) => TestPage(repository: EmptyExamRepository()),
         },
       ),

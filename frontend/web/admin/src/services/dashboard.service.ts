@@ -5,7 +5,6 @@ import {
   ExamPartRankingsResponse,
   ExamScoreSummariesResponse,
   PopularConstraintsResponse,
-  ReviewMethodsResponse,
   StudyTimeOverviewResponse,
   UserYearDistributionResponse,
   WorkloadCompletionResponse,
@@ -108,17 +107,6 @@ class DashboardService {
       return response.data;
     } catch (error: unknown) {
       throw this.handleError(error, "ไม่สามารถโหลดคะแนนแยกตามข้อสอบได้");
-    }
-  }
-
-  async getReviewMethods(): Promise<ReviewMethodsResponse> {
-    try {
-      const response = await this.apiClient.get<ReviewMethodsResponse>(
-        apiEndpoints.dashboard.reviewMethods,
-      );
-      return response.data;
-    } catch (error: unknown) {
-      throw this.handleError(error, "ไม่สามารถโหลดวิธีทบทวนที่นิยมได้");
     }
   }
 

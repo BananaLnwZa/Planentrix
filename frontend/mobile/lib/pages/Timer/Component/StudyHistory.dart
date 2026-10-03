@@ -290,58 +290,6 @@ class _SubjectHistoryCard extends StatelessWidget {
               valueColor: const AlwaysStoppedAnimation(Color(0xFF8FC8EA)),
             ),
           ),
-          if (subject.methods.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 5,
-              runSpacing: 5,
-              children: [
-                for (final method in subject.methods.entries)
-                  _MethodChip(method: method.key, minutes: method.value),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _MethodChip extends StatelessWidget {
-  final String method;
-  final double minutes;
-
-  const _MethodChip({required this.method, required this.minutes});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F4F2),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: studyTypeColors[method] ?? const Color(0xFFB8CAD3),
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              '${studyTypeLabels[method] ?? method} '
-              '${formatStudyDuration(minutes, compact: true)}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 8.5, color: Color(0xFF756A6E)),
-            ),
-          ),
         ],
       ),
     );

@@ -20,7 +20,6 @@ abstract class TimeRepository {
   Future<StudyDashboard> getDashboard();
   Future<StudySession> startSession({
     required int scheduleTimeId,
-    required int studyTypeId,
   });
   Future<StudySession> pauseSession(int studyTimeId, int version);
   Future<StudySession> resumeSession(int studyTimeId, int version);
@@ -41,9 +40,8 @@ class TimeService implements TimeRepository {
 
   static const _errorMessages = <String, String>{
     'NO_CURRENT_TERM': 'ยังไม่มีเทอมปัจจุบัน กรุณาสร้างเทอมก่อนเริ่มจับเวลา',
-    'INVALID_TIMER_SELECTION': 'กรุณาเลือกวิชาและวิธีทบทวนให้ครบถ้วน',
+    'INVALID_TIMER_SELECTION': 'กรุณาเลือกวิชาก่อนเริ่มจับเวลา',
     'SUBJECT_NOT_FOUND': 'ไม่พบวิชานี้ในตารางเรียนของเทอมปัจจุบัน',
-    'STUDY_TYPE_NOT_FOUND': 'ไม่พบวิธีทบทวนที่เลือก',
     'OPEN_SESSION_EXISTS': 'มีรายการจับเวลาที่ยังจัดการไม่เสร็จอยู่แล้ว',
     'SESSION_NOT_FOUND': 'ไม่พบรายการจับเวลานี้ในเทอมปัจจุบัน',
     'SESSION_VERSION_CONFLICT':
@@ -95,15 +93,11 @@ class TimeService implements TimeRepository {
   @override
   Future<StudySession> startSession({
     required int scheduleTimeId,
-    required int studyTypeId,
   }) async {
     try {
       final response = await _apiService.post(
         '/user/time/start',
-        data: {
-          'schedule_time_id': scheduleTimeId,
-          'study_type_id': studyTypeId,
-        },
+        data: {'schedule_time_id': scheduleTimeId},
       );
       return _session(response.data);
     } on DioException catch (error) {

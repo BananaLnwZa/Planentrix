@@ -10,14 +10,11 @@ enum TimerPhase { idle, running, paused, interrupted }
 
 class TimerPanel extends StatelessWidget {
   final List<TimerSubject> subjects;
-  final List<StudyType> studyTypes;
   final int? selectedScheduleId;
-  final int? selectedStudyTypeId;
   final TimerPhase phase;
   final int elapsedSeconds;
   final bool busy;
   final ValueChanged<int?> onSubjectChanged;
-  final ValueChanged<int?> onStudyTypeChanged;
   final VoidCallback onStart;
   final VoidCallback onPause;
   final VoidCallback onResume;
@@ -26,14 +23,11 @@ class TimerPanel extends StatelessWidget {
   const TimerPanel({
     super.key,
     required this.subjects,
-    required this.studyTypes,
     required this.selectedScheduleId,
-    required this.selectedStudyTypeId,
     required this.phase,
     required this.elapsedSeconds,
     required this.busy,
     required this.onSubjectChanged,
-    required this.onStudyTypeChanged,
     required this.onStart,
     required this.onPause,
     required this.onResume,
@@ -43,10 +37,7 @@ class TimerPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selectionEnabled = phase == TimerPhase.idle && !busy;
-    final canStart =
-        selectionEnabled &&
-        selectedScheduleId != null &&
-        selectedStudyTypeId != null;
+    final canStart = selectionEnabled && selectedScheduleId != null;
 
     return Container(
       key: const Key('timer-panel'),
@@ -85,41 +76,7 @@ class TimerPanel extends StatelessWidget {
                     .toList(),
                 onChanged: onSubjectChanged,
               );
-              final methodField = _TimerDropdown(
-                key: const Key('timer-study-type-dropdown'),
-                label: 'วิธีทบทวน',
-                hint: 'เลือกวิธี',
-                value: selectedStudyTypeId,
-                enabled: selectionEnabled,
-                items: studyTypes
-                    .map(
-                      (type) => AppDropdownItem<int>(
-                        value: type.studyTypeId,
-                        label:
-                            studyTypeLabels[type.studyTypeName] ??
-                            type.studyTypeName,
-                      ),
-                    )
-                    .toList(),
-                onChanged: onStudyTypeChanged,
-              );
-              if (constraints.maxWidth < 330) {
-                return Column(
-                  children: [
-                    subjectField,
-                    const SizedBox(height: 8),
-                    methodField,
-                  ],
-                );
-              }
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(flex: 9, child: subjectField),
-                  const SizedBox(width: 8),
-                  Expanded(flex: 11, child: methodField),
-                ],
-              );
+              return subjectField;
             },
           ),
           const SizedBox(height: 15),
@@ -168,7 +125,7 @@ class TimerPanel extends StatelessWidget {
           const SizedBox(height: 7),
           Text(
             phase == TimerPhase.idle && !canStart
-                ? 'เลือกวิชาและวิธีทบทวนก่อนเริ่ม · จำกัดเวลา 4 ชั่วโมง'
+                ? 'เลือกวิชาก่อนเริ่ม · จำกัดเวลา 4 ชั่วโมง'
                 : 'ระบบจะหยุดอัตโนมัติเมื่อครบ 4 ชั่วโมง',
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 9.5, color: Color(0xFFB0A3A7)),

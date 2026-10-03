@@ -198,7 +198,7 @@ export default function TestWorkspace() {
     return (
       <div className="h-full w-full overflow-y-auto px-2 py-4">
         <div className="mx-auto max-w-2xl space-y-5">
-          <CurrentTermRequiredState detail="จบเทอมแล้ว สามารถเลือกเทอมด้านล่างเพื่อดูประวัติข้อสอบย้อนหลังได้" />
+          <CurrentTermRequiredState detail="ยังไม่มีเทอมปัจจุบัน ระบบจะแสดงข้อสอบและประวัติเฉพาะเทอมที่กำลังเรียนอยู่" />
           <section className="rounded-2xl border border-[#DCE7EB] bg-white p-4 shadow-sm">
             <ExamHistoryPanel
               history={history}

@@ -101,6 +101,5 @@ export const apiEndpoints = {
     usersByYear: "/admin/dashboard/users-by-year",
     workloads: "/admin/dashboard/workloads",
     examScores: "/admin/dashboard/exam-scores",
-    reviewMethods: "/admin/dashboard/review-methods",
   },
 } as const;

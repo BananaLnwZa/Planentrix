@@ -3,7 +3,6 @@ import {
   getExamPartRankings,
   getExamScoreSummaries,
   getPopularConstraints,
-  getReviewMethods,
   getStudyTimeOverview,
   getUserYearDistribution,
   getWorkloadCompletion,
@@ -19,6 +18,5 @@ router.get("/exam-parts", getExamPartRankings);
 router.get("/users-by-year", getUserYearDistribution);
 router.get("/workloads", getWorkloadCompletion);
 router.get("/exam-scores", getExamScoreSummaries);
-router.get("/review-methods", getReviewMethods);
 
 export default router;

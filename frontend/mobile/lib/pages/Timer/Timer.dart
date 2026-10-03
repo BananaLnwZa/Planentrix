@@ -8,6 +8,10 @@ import '../../common/CurrentTermRequiredState.dart';
 import '../../common/NotebookSectionPage.dart';
 import '../../common/NotebookTabs.dart';
 import '../../interfaces/time.interface.dart';
+import '../../interfaces/exam.interface.dart' show ExamInsights;
+import '../../interfaces/recommendation.interface.dart' show AcceptedWeeklySchedule;
+import '../../services/exam.service.dart';
+import '../../services/recommendation.service.dart';
 import '../../services/time.service.dart';
 import 'Component/FinishSessionPopup.dart';
 import 'Component/SessionRecoveryPopup.dart';
@@ -17,8 +21,15 @@ import 'Component/TimerPanel.dart';
 
 class TimerPage extends StatefulWidget {
   final TimeRepository? repository;
+  final Future<AcceptedWeeklySchedule?> Function()? weeklyScheduleLoader;
+  final Future<ExamInsights?> Function()? examInsightsLoader;
 
-  const TimerPage({super.key, this.repository});
+  const TimerPage({
+    super.key,
+    this.repository,
+    this.weeklyScheduleLoader,
+    this.examInsightsLoader,
+  });
 
   @override
   State<TimerPage> createState() => _TimerPageState();
@@ -28,9 +39,9 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
   late final TimeRepository _repository;
   TimerSetup? _setup;
   StudyDashboard? _dashboard;
+  List<WeeklyReviewTarget> _reviewTargets = const [];
   StudySession? _activeSession;
   int? _selectedScheduleId;
-  int? _selectedStudyTypeId;
   int _elapsedSeconds = 0;
   int _syncedElapsedSeconds = 0;
   DateTime _syncedAt = DateTime.now();
@@ -88,9 +99,11 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
       setState(() {
         _setup = setup;
         _dashboard = results[2] as StudyDashboard;
+        _reviewTargets = const [];
         _isLoading = false;
       });
       _applySession(active.session, recoveryRequired: active.requiresRecovery);
+      unawaited(_loadReviewTargets());
     } catch (error) {
       if (!mounted) return;
       final exception = error is TimeException ? error : null;
@@ -100,6 +113,77 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _loadReviewTargets() async {
+    final results = await Future.wait<dynamic>([
+      _loadWeeklySchedule(),
+      _loadExamInsights(),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _reviewTargets = _buildReviewTargets(
+        results[0] as AcceptedWeeklySchedule?,
+        results[1] as ExamInsights?,
+      );
+    });
+  }
+
+  Future<AcceptedWeeklySchedule?> _loadWeeklySchedule() async {
+    try {
+      return await (widget.weeklyScheduleLoader?.call() ??
+          RecommendationService().getWeeklySchedule());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<ExamInsights?> _loadExamInsights() async {
+    try {
+      return await (widget.examInsightsLoader?.call() ??
+          ExamService().getInsights());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<WeeklyReviewTarget> _buildReviewTargets(
+    AcceptedWeeklySchedule? schedule,
+    ExamInsights? insights,
+  ) {
+    final planned = <String, WeeklyReviewTarget>{};
+    for (final item
+        in schedule?.acceptedRecommendation?.items ?? const []) {
+      if (item.scheduleTypeId != 2 || item.targetMinutes <= 0) continue;
+      final existing = planned[item.subjectId];
+      planned[item.subjectId] = WeeklyReviewTarget(
+        subjectId: item.subjectId,
+        subjectName: item.subjectName,
+        detail: 'แผนทบทวนประจำสัปดาห์',
+        targetMinutes: (existing?.targetMinutes ?? 0) + item.targetMinutes,
+      );
+    }
+    if (planned.isNotEmpty) return planned.values.toList();
+
+    final weakSubjects = <String, WeeklyReviewTarget>{};
+    for (final topic in insights?.weakTopics ?? const []) {
+      final existing = weakSubjects[topic.subjectId];
+      if (existing == null ||
+          topic.percentage < (existing.scorePercentage ?? 100)) {
+        weakSubjects[topic.subjectId] = WeeklyReviewTarget(
+          subjectId: topic.subjectId,
+          subjectName: topic.subjectName,
+          detail: topic.topicName,
+          scorePercentage: topic.percentage,
+        );
+      }
+    }
+    final targets = weakSubjects.values.toList()
+      ..sort(
+        (left, right) =>
+            (left.scorePercentage ?? 100).compareTo(right.scorePercentage ?? 100),
+      );
+    return targets;
   }
 
   void _applySession(StudySession? session, {bool recoveryRequired = false}) {
@@ -126,7 +210,6 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
     setState(() {
       _activeSession = session;
       _selectedScheduleId = session.scheduleTimeId;
-      _selectedStudyTypeId = session.studyTypeId;
       _elapsedSeconds = session.elapsedSeconds;
       _syncedElapsedSeconds = session.elapsedSeconds;
       _syncedAt = DateTime.now();
@@ -207,8 +290,7 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
 
   Future<void> _startSession() async {
     final scheduleId = _selectedScheduleId;
-    final studyTypeId = _selectedStudyTypeId;
-    if (_busy || scheduleId == null || studyTypeId == null) return;
+    if (_busy || scheduleId == null) return;
     setState(() {
       _busy = true;
       _actionError = null;
@@ -216,7 +298,6 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
     try {
       final session = await _repository.startSession(
         scheduleTimeId: scheduleId,
-        studyTypeId: studyTypeId,
       );
       if (mounted) _applySession(session);
     } catch (error) {
@@ -310,7 +391,6 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
       _applySession(result);
       setState(() {
         _selectedScheduleId = null;
-        _selectedStudyTypeId = null;
       });
       await _refreshDashboard();
     } catch (error) {
@@ -361,7 +441,6 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
       if (!remainsOpen) {
         setState(() {
           _selectedScheduleId = null;
-          _selectedStudyTypeId = null;
         });
         await _refreshDashboard();
       }
@@ -482,17 +561,12 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
       children: [
         TimerPanel(
           subjects: _setup!.subjects,
-          studyTypes: _setup!.studyTypes,
           selectedScheduleId: _selectedScheduleId,
-          selectedStudyTypeId: _selectedStudyTypeId,
           phase: _phase,
           elapsedSeconds: _elapsedSeconds,
           busy: _busy,
           onSubjectChanged: (value) {
             setState(() => _selectedScheduleId = value);
-          },
-          onStudyTypeChanged: (value) {
-            setState(() => _selectedStudyTypeId = value);
           },
           onStart: _startSession,
           onPause: _pauseSession,
@@ -516,7 +590,12 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
           ),
         ],
         const SizedBox(height: 14),
-        StudyStatistics(dashboard: _dashboard!),
+        StudyStatistics(
+          dashboard: _dashboard!,
+          recommendations: _reviewTargets,
+          activeSession: _activeSession,
+          elapsedSeconds: _elapsedSeconds,
+        ),
         const SizedBox(height: 14),
         StudyHistory(dashboard: _dashboard!),
         const SizedBox(height: 20),

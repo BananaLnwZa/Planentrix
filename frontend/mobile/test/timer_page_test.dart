@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:mobile/interfaces/exam.interface.dart' show ExamInsights, WeakTopicInsight;
 import 'package:mobile/interfaces/time.interface.dart';
 import 'package:mobile/pages/Timer/Timer.dart';
 import 'package:mobile/services/time.service.dart';
@@ -20,8 +21,6 @@ class FakeTimeRepository implements TimeRepository {
       StudySession(
         studyTimeId: 71,
         scheduleTimeId: 11,
-        studyTypeId: 1,
-        studyTypeName: 'reading',
         subjectId: 'BI101',
         subjectName: 'Business Intelligence',
         sessionStatus: status,
@@ -38,10 +37,6 @@ class FakeTimeRepository implements TimeRepository {
         subjectId: 'BI101',
         subjectName: 'Business Intelligence',
       ),
-    ],
-    studyTypes: const [
-      StudyType(studyTypeId: 1, studyTypeName: 'reading'),
-      StudyType(studyTypeId: 2, studyTypeName: 'practice'),
     ],
     policy: const TimerPolicy(),
   );
@@ -63,6 +58,13 @@ class FakeTimeRepository implements TimeRepository {
       StudyWeek(weekNumber: 1, totalMinutes: 60),
       StudyWeek(weekNumber: 2, totalMinutes: 90),
     ],
+    weeklySubjects: const [
+      WeeklySubjectStudy(
+        subjectId: 'BI101',
+        subjectName: 'Business Intelligence',
+        totalMinutes: 30,
+      ),
+    ],
     history: const [
       MonthlyStudyHistory(
         monthKey: '2026-08',
@@ -74,7 +76,6 @@ class FakeTimeRepository implements TimeRepository {
             subjectName: 'Business Intelligence',
             totalMinutes: 90,
             sessionCount: 2,
-            methods: {'reading': 60, 'practice': 30},
           ),
         ],
       ),
@@ -84,7 +85,6 @@ class FakeTimeRepository implements TimeRepository {
   @override
   Future<StudySession> startSession({
     required int scheduleTimeId,
-    required int studyTypeId,
   }) async {
     lastAction = 'start';
     activeSession = session('running', 1);
@@ -151,7 +151,13 @@ void main() {
   testWidgets('timer uses the shared no-term state', (tester) async {
     setPhoneSize(tester);
     await tester.pumpWidget(
-      MaterialApp(home: TimerPage(repository: NoCurrentTermTimeRepository())),
+      MaterialApp(
+        home: TimerPage(
+          repository: NoCurrentTermTimeRepository(),
+          weeklyScheduleLoader: () async => null,
+          examInsightsLoader: () async => null,
+        ),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -176,7 +182,26 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(fontFamily: 'Sansation'),
-        home: TimerPage(repository: FakeTimeRepository()),
+        home: TimerPage(
+          repository: FakeTimeRepository(),
+          weeklyScheduleLoader: () async => null,
+          examInsightsLoader: () async => const ExamInsights(
+            weakTopics: [
+              WeakTopicInsight(
+                scheduleTimeId: 11,
+                examRepositoryId: 1,
+                examPartId: 1,
+                topicName: 'Query planning',
+                subjectId: 'BI101',
+                subjectName: 'Business Intelligence',
+                examName: 'Midterm',
+                actualScore: 4,
+                maximumScore: 10,
+                percentage: 40,
+              ),
+            ],
+          ),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -186,7 +211,9 @@ void main() {
     expect(find.byKey(const Key('study-history')), findsOneWidget);
     expect(find.text('Business Intelligence'), findsOneWidget);
     expect(find.text('08/2026'), findsOneWidget);
-    expect(find.text('อ่านตำรา/เอกสาร 01 ชม. 00 นาที'), findsOneWidget);
+    expect(find.text('Progress แยกตามวิชาที่แนะนำ'), findsOneWidget);
+    expect(find.byKey(const Key('weekly-review-BI101')), findsOneWidget);
+    expect(find.text('00 ชม. 30 นาที'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -196,18 +223,19 @@ void main() {
     setPhoneSize(tester);
     final repository = FakeTimeRepository();
     await tester.pumpWidget(
-      MaterialApp(home: TimerPage(repository: repository)),
+      MaterialApp(
+        home: TimerPage(
+          repository: repository,
+          weeklyScheduleLoader: () async => null,
+          examInsightsLoader: () async => null,
+        ),
+      ),
     );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('timer-subject-dropdown')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Business Intelligence').last);
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const Key('timer-study-type-dropdown')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('อ่านตำรา/เอกสาร').last);
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('timer-start-button')));

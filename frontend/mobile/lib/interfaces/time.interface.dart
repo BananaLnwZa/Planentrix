@@ -19,18 +19,6 @@ class TimerSubject {
   );
 }
 
-class StudyType {
-  final int studyTypeId;
-  final String studyTypeName;
-
-  const StudyType({required this.studyTypeId, required this.studyTypeName});
-
-  factory StudyType.fromJson(Map<String, dynamic> json) => StudyType(
-    studyTypeId: _asInt(json['study_type_id']),
-    studyTypeName: '${json['study_type_name'] ?? ''}',
-  );
-}
-
 class TimerTerm {
   final int termId;
   final int term;
@@ -73,8 +61,6 @@ class TimerPolicy {
 class StudySession {
   final int studyTimeId;
   final int scheduleTimeId;
-  final int studyTypeId;
-  final String studyTypeName;
   final String subjectId;
   final String subjectName;
   final DateTime? startTime;
@@ -94,8 +80,6 @@ class StudySession {
   const StudySession({
     required this.studyTimeId,
     required this.scheduleTimeId,
-    required this.studyTypeId,
-    required this.studyTypeName,
     required this.subjectId,
     required this.subjectName,
     this.startTime,
@@ -116,8 +100,6 @@ class StudySession {
   factory StudySession.fromJson(Map<String, dynamic> json) => StudySession(
     studyTimeId: _asInt(json['study_time_id']),
     scheduleTimeId: _asInt(json['schedule_time_id']),
-    studyTypeId: _asInt(json['study_type_id']),
-    studyTypeName: '${json['study_type_name'] ?? ''}',
     subjectId: '${json['subject_id'] ?? ''}',
     subjectName: '${json['subject_name'] ?? ''}',
     startTime: _asDate(json['start_time']),
@@ -144,19 +126,16 @@ class StudySession {
 class TimerSetup {
   final TimerTerm currentTerm;
   final List<TimerSubject> subjects;
-  final List<StudyType> studyTypes;
   final TimerPolicy policy;
 
   const TimerSetup({
     required this.currentTerm,
     required this.subjects,
-    required this.studyTypes,
     required this.policy,
   });
 
   factory TimerSetup.fromJson(Map<String, dynamic> json) {
     final rawSubjects = json['subjects'];
-    final rawStudyTypes = json['study_types'];
     return TimerSetup(
       currentTerm: TimerTerm.fromJson(
         Map<String, dynamic>.from(json['current_term'] as Map),
@@ -167,14 +146,6 @@ class TimerSetup {
                 .map(
                   (item) =>
                       TimerSubject.fromJson(Map<String, dynamic>.from(item)),
-                )
-                .toList()
-          : const [],
-      studyTypes: rawStudyTypes is List
-          ? rawStudyTypes
-                .whereType<Map>()
-                .map(
-                  (item) => StudyType.fromJson(Map<String, dynamic>.from(item)),
                 )
                 .toList()
           : const [],
@@ -227,26 +198,20 @@ class SubjectStudyHistory {
   final String subjectName;
   final double totalMinutes;
   final int sessionCount;
-  final Map<String, double> methods;
 
   const SubjectStudyHistory({
     required this.subjectId,
     required this.subjectName,
     required this.totalMinutes,
     required this.sessionCount,
-    this.methods = const {},
   });
 
   factory SubjectStudyHistory.fromJson(Map<String, dynamic> json) {
-    final rawMethods = json['methods'];
     return SubjectStudyHistory(
       subjectId: '${json['subject_id'] ?? ''}',
       subjectName: '${json['subject_name'] ?? ''}',
       totalMinutes: _asDouble(json['total_minutes']),
       sessionCount: _asInt(json['session_count']),
-      methods: rawMethods is Map
-          ? rawMethods.map((key, value) => MapEntry('$key', _asDouble(value)))
-          : const {},
     );
   }
 }
@@ -305,22 +270,60 @@ class StudySummary {
   );
 }
 
+class WeeklySubjectStudy {
+  final String subjectId;
+  final String subjectName;
+  final double totalMinutes;
+
+  const WeeklySubjectStudy({
+    required this.subjectId,
+    required this.subjectName,
+    required this.totalMinutes,
+  });
+
+  factory WeeklySubjectStudy.fromJson(Map<String, dynamic> json) =>
+      WeeklySubjectStudy(
+        subjectId: '${json['subject_id'] ?? ''}',
+        subjectName: '${json['subject_name'] ?? ''}',
+        totalMinutes: _asDouble(json['total_minutes']),
+      );
+}
+
+class WeeklyReviewTarget {
+  final String subjectId;
+  final String subjectName;
+  final String detail;
+  final int? targetMinutes;
+  final double? scorePercentage;
+
+  const WeeklyReviewTarget({
+    required this.subjectId,
+    required this.subjectName,
+    required this.detail,
+    this.targetMinutes,
+    this.scorePercentage,
+  });
+}
+
 class StudyDashboard {
   final TimerTerm currentTerm;
   final StudySummary summary;
   final List<StudyWeek> weeks;
   final List<MonthlyStudyHistory> history;
+  final List<WeeklySubjectStudy> weeklySubjects;
 
   const StudyDashboard({
     required this.currentTerm,
     required this.summary,
     this.weeks = const [],
     this.history = const [],
+    this.weeklySubjects = const [],
   });
 
   factory StudyDashboard.fromJson(Map<String, dynamic> json) {
     final rawWeeks = json['weeks'];
     final rawHistory = json['history'];
+    final rawWeeklySubjects = json['weekly_subjects'];
     return StudyDashboard(
       currentTerm: TimerTerm.fromJson(
         Map<String, dynamic>.from(json['current_term'] as Map),
@@ -341,6 +344,16 @@ class StudyDashboard {
                 .whereType<Map>()
                 .map(
                   (item) => MonthlyStudyHistory.fromJson(
+                    Map<String, dynamic>.from(item),
+                  ),
+                )
+                .toList()
+          : const [],
+      weeklySubjects: rawWeeklySubjects is List
+          ? rawWeeklySubjects
+                .whereType<Map>()
+                .map(
+                  (item) => WeeklySubjectStudy.fromJson(
                     Map<String, dynamic>.from(item),
                   ),
                 )

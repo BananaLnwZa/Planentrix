@@ -1,20 +1,4 @@
-import 'package:flutter/material.dart';
-
 import '../../common/DateTimeFormat.dart';
-
-const studyTypeLabels = <String, String>{
-  'reading': 'อ่านตำรา/เอกสาร',
-  'practice': 'ทำโจทย์/ฝึกปฏิบัติ',
-  'video': 'ดูวิดีโอ/lecture',
-  'review': 'ทบทวน/สรุปบทเรียน',
-};
-
-const studyTypeColors = <String, Color>{
-  'reading': Color(0xFF91C9EF),
-  'practice': Color(0xFFF6B7CC),
-  'video': Color(0xFFF5C779),
-  'review': Color(0xFF9ED7BD),
-};
 
 String formatClock(int totalSeconds) {
   final safeSeconds = totalSeconds.clamp(0, 359999);

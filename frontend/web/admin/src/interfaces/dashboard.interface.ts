@@ -106,19 +106,3 @@ export interface ExamScoreSummariesResponse {
   scores: ExamScoreSummaryItem[];
   generated_at: string;
 }
-
-export interface ReviewMethodItem {
-  study_type_id: number;
-  study_type_name: string;
-  total_minutes: number;
-  session_count: number;
-  user_count: number;
-  percent: number;
-}
-
-export interface ReviewMethodsResponse {
-  message: string;
-  total_minutes: number;
-  methods: ReviewMethodItem[];
-  generated_at: string;
-}
