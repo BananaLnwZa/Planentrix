@@ -3,7 +3,6 @@ import {
   CircleHelp,
   Clock3,
   LoaderCircle,
-  Medal,
   NotebookTabs,
 } from "lucide-react";
 import type { ExamSummary } from "@/interfaces/exam.interface";
@@ -20,7 +19,7 @@ export default function ExamListPanel({
   if (!exams.length) {
     return (
       <div className="flex min-h-28 items-center justify-center rounded-2xl border border-[#DCE7D2] bg-[#F5FAEF] px-5 text-center text-sm text-[#78906A]">
-        ยังไม่มีแบบทดสอบที่ถึงรอบ Checkpoint
+        ยังไม่มีแบบทดสอบที่พร้อมทำ
       </div>
     );
   }
@@ -45,7 +44,6 @@ export default function ExamListPanel({
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#71858E]">
               <ExamMeta icon={<CircleHelp />} text={`${exam.totalQuestion} ข้อ`} />
               <ExamMeta icon={<Clock3 />} text={`${exam.timeLimitMinutes} นาที`} />
-              <ExamMeta icon={<Medal />} text={`${formatScore(exam.totalScore)} คะแนน`} />
             </div>
           </div>
           {openingExamId === exam.examRepositoryId ? (
@@ -67,6 +65,3 @@ function ExamMeta({ icon, text }: { icon: React.ReactNode; text: string }) {
     </span>
   );
 }
-
-const formatScore = (value: number) =>
-  Number.isInteger(value) ? String(value) : value.toFixed(1);

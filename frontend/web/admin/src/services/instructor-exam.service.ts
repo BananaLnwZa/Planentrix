@@ -74,6 +74,33 @@ class InstructorExamService {
     );
   }
 
+  async publishQuestionBank(
+    questionBankId: number,
+  ): Promise<UpdateInstructorQuestionBankSettingsResponse> {
+    return this.request(() =>
+      this.apiClient.post<UpdateInstructorQuestionBankSettingsResponse>(
+        apiEndpoints.instructorExams.publish(questionBankId),
+      ),
+    );
+  }
+
+  async getQuestionImageBlob(
+    questionBankId: number,
+    imagePath: string,
+  ): Promise<Blob> {
+    const filename = imagePath.split(/[\\/]/).pop();
+    if (!filename) throw new Error("ไม่พบชื่อไฟล์รูปภาพ");
+    try {
+      const response = await this.apiClient.get<Blob>(
+        apiEndpoints.instructorExams.image(questionBankId, filename),
+        { responseType: "blob" },
+      );
+      return response.data;
+    } catch (error: unknown) {
+      throw this.handleError(error);
+    }
+  }
+
   async createQuestion(
     questionBankId: number,
     data: CreateInstructorQuestionRequest,

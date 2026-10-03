@@ -137,11 +137,13 @@ class ExamAttemptSession {
   final int remainingSeconds;
   final bool resumed;
   final List<ExamAnswer> answers;
+  final ExamDetail exam;
 
   const ExamAttemptSession({
     required this.attemptId,
     required this.remainingSeconds,
     required this.resumed,
+    required this.exam,
     this.answers = const [],
   });
 
@@ -154,6 +156,7 @@ class ExamAttemptSession {
           json['resumed'] == true ||
           json['resumed'] == 1 ||
           json['resumed'] == '1',
+      exam: ExamDetail.fromJson(Map<String, dynamic>.from(json['exam'] as Map)),
       answers: rawAnswers is List
           ? rawAnswers
                 .whereType<Map>()

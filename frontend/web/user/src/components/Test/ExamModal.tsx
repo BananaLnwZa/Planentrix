@@ -9,6 +9,7 @@ import type {
   ExamDetail,
   ExamSubmissionResult,
 } from "@/interfaces/exam.interface";
+import AuthenticatedExamImage from "@/components/Test/AuthenticatedExamImage";
 
 const timeText = (seconds: number) =>
   `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
@@ -34,6 +35,7 @@ export default function ExamModal({
 }) {
   const [started, setStarted] = useState(false);
   const [attemptId, setAttemptId] = useState<number | null>(null);
+  const [sessionExam, setSessionExam] = useState<ExamDetail | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [savingQuestionId, setSavingQuestionId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -61,6 +63,7 @@ export default function ExamModal({
     try {
       const session = await onStart();
       setAttemptId(session.attemptId);
+      setSessionExam(session.exam);
       setRemainingSeconds(session.remainingSeconds);
       setAnswers(
         Object.fromEntries(
@@ -112,7 +115,8 @@ export default function ExamModal({
     }
   }, [isSubmitting, remainingSeconds, result, savingQuestionId, started, submitAnswers]);
 
-  const question = exam.questions[currentIndex];
+  const activeExam = sessionExam ?? exam;
+  const question = activeExam.questions[currentIndex];
   const hasAnswer = question && answers[question.questionId] !== undefined;
 
   const goNext = () => {
@@ -166,10 +170,9 @@ export default function ExamModal({
           <div className="py-4">
             <h2 className="pr-8 text-lg font-semibold text-[#405B69]">{exam.summary.examName}</h2>
             <p className="mt-1 text-sm text-[#738892]">{exam.summary.subjectName}</p>
-            <div className="mt-6 grid grid-cols-3 gap-3 text-center text-xs text-[#59707B]">
-              <div className="rounded-2xl bg-[#EAF6FB] p-3">{exam.questions.length}<br />ข้อ</div>
+            <div className="mt-6 grid grid-cols-2 gap-3 text-center text-xs text-[#59707B]">
+              <div className="rounded-2xl bg-[#EAF6FB] p-3">{exam.summary.totalQuestion}<br />ข้อ</div>
               <div className="rounded-2xl bg-[#FFF0BF] p-3">{exam.summary.timeLimitMinutes}<br />นาที</div>
-              <div className="rounded-2xl bg-[#FFE7EB] p-3">{scoreText(exam.summary.totalScore)}<br />คะแนน</div>
             </div>
             <p className="mt-5 text-xs leading-5 text-[#778990]">
               เมื่อเริ่มแล้วเวลาจะนับถอยหลัง และต้องเลือกคำตอบก่อนจึงจะไปข้อถัดไปได้
@@ -179,7 +182,7 @@ export default function ExamModal({
               <button
                 type="button"
                 onClick={() => void beginExam()}
-                disabled={!exam.questions.length || isStarting}
+                disabled={exam.summary.totalQuestion < 1 || isStarting}
                 className="inline-flex items-center gap-2 rounded-full bg-[#A8D780] px-6 py-2 text-sm text-white disabled:opacity-50"
               >
                 {isStarting && <LoaderCircle className="h-4 w-4 animate-spin" />}
@@ -193,9 +196,9 @@ export default function ExamModal({
             <header className="pr-8">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-xs text-[#78909B]">{exam.summary.examName}</p>
+                  <p className="text-xs text-[#78909B]">{activeExam.summary.examName}</p>
                   <h2 className="mt-1 text-lg font-semibold text-[#405B69]">
-                    ข้อ {currentIndex + 1}/{exam.questions.length}
+                    ข้อ {currentIndex + 1}/{activeExam.questions.length}
                   </h2>
                 </div>
                 <span className="flex items-center gap-1 rounded-full bg-[#FFF0BF] px-3 py-1.5 text-sm text-[#8A6B27]">
@@ -203,23 +206,18 @@ export default function ExamModal({
                 </span>
               </div>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#E6EEF1]">
-                <div className="h-full rounded-full bg-[#8CCBE8]" style={{ width: `${((currentIndex + 1) / exam.questions.length) * 100}%` }} />
+                <div className="h-full rounded-full bg-[#8CCBE8]" style={{ width: `${((currentIndex + 1) / activeExam.questions.length) * 100}%` }} />
               </div>
             </header>
 
             <div className="mt-6 rounded-2xl border border-[#DCE4E7] bg-white p-5">
               <p className="text-xs text-[#92A1A7]">{question.partName}</p>
               <h3 className="mt-2 text-base leading-7 text-[#405B69]">{question.text}</h3>
-              {question.imageUrl && (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={question.imageUrl}
-                    alt={`รูปประกอบคำถามข้อ ${currentIndex + 1}`}
-                    className="mt-4 max-h-64 w-full rounded-xl bg-[#f7fafb] object-contain"
-                  />
-                </>
-              )}
+              <AuthenticatedExamImage
+                imageUrl={question.imageUrl}
+                alt={`รูปประกอบคำถามข้อ ${currentIndex + 1}`}
+                className="mt-4 max-h-64 w-full rounded-xl bg-[#f7fafb] object-contain"
+              />
               <div className="mt-5 space-y-2.5">
                 {question.choices.map((choice) => {
                   const selected = answers[question.questionId] === choice.choiceId;
@@ -236,16 +234,11 @@ export default function ExamModal({
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block">{choice.text}</span>
-                        {choice.imageUrl && (
-                          <>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={choice.imageUrl}
-                              alt={`รูปตัวเลือก ${choice.order}`}
-                              className="mt-2 max-h-40 w-full rounded-lg bg-white object-contain"
-                            />
-                          </>
-                        )}
+                        <AuthenticatedExamImage
+                          imageUrl={choice.imageUrl}
+                          alt={`รูปตัวเลือก ${choice.order}`}
+                          className="mt-2 max-h-40 w-full rounded-lg bg-white object-contain"
+                        />
                       </span>
                     </button>
                   );
@@ -276,7 +269,7 @@ export default function ExamModal({
               >
                 ก่อนหน้า
               </button>
-              {currentIndex === exam.questions.length - 1 ? (
+              {currentIndex === activeExam.questions.length - 1 ? (
                 <button
                   type="button"
                   onClick={() => hasAnswer ? setShowSubmitConfirmation(true) : setWarning(true)}

@@ -52,6 +52,29 @@ const choiceFromJson = (value: unknown): ExamChoice => {
   };
 };
 
+const examDetailFromJson = (value: unknown): ExamDetail => {
+  const json = record(value);
+  const questions: ExamQuestion[] = [];
+  for (const rawPart of list(json.parts)) {
+    const part = record(rawPart);
+    for (const rawQuestion of list(part.questions)) {
+      const question = record(rawQuestion);
+      questions.push({
+        questionId: number(question.question_id),
+        order: number(question.question_order),
+        text: text(question.question_text),
+        imageUrl: question.question_image_url
+          ? text(question.question_image_url)
+          : null,
+        score: number(question.question_score),
+        partName: text(part.exam_part_name),
+        choices: list(question.choices).map(choiceFromJson),
+      });
+    }
+  }
+  return { summary: summaryFromJson(json), questions };
+};
+
 const historyTopicFromJson = (value: unknown): ExamHistoryWeakTopic => {
   const json = record(value);
   return {
@@ -124,26 +147,7 @@ class ExamService {
   async getExamDetail(examRepositoryId: number): Promise<ExamDetail> {
     try {
       const response = await this.apiClient.get(`/user/exam/${examRepositoryId}`);
-      const json = record(record(response.data).data);
-      const questions: ExamQuestion[] = [];
-      for (const rawPart of list(json.parts)) {
-        const part = record(rawPart);
-        for (const rawQuestion of list(part.questions)) {
-          const question = record(rawQuestion);
-          questions.push({
-            questionId: number(question.question_id),
-            order: number(question.question_order),
-            text: text(question.question_text),
-            imageUrl: question.question_image_url
-              ? text(question.question_image_url)
-              : null,
-            score: number(question.question_score),
-            partName: text(part.exam_part_name),
-            choices: list(question.choices).map(choiceFromJson),
-          });
-        }
-      }
-      return { summary: summaryFromJson(json), questions };
+      return examDetailFromJson(record(response.data).data);
     } catch (error) {
       throw this.toError(error, "ไม่สามารถโหลดรายละเอียดข้อสอบได้");
     }
@@ -183,6 +187,7 @@ class ExamService {
         attemptId: number(json.exam_attempt_id),
         remainingSeconds: number(json.remaining_seconds),
         resumed: Boolean(json.resumed),
+        exam: examDetailFromJson(json.exam),
         answers: list(json.answers).map((answer) => {
           const item = record(answer);
           return {

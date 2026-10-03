@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../interfaces/exam.interface.dart';
+import 'AuthenticatedExamImage.dart';
 
 class ExamChoiceButton extends StatelessWidget {
   final ExamChoice choice;
@@ -83,24 +84,10 @@ class ExamChoiceButton extends StatelessWidget {
                         if (choice.text.isNotEmpty) const SizedBox(height: 8),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(9),
-                          child: Image.network(
-                            choice.imageUrl!,
-                            width: double.infinity,
+                          child: AuthenticatedExamImage(
+                            imageUrl: choice.imageUrl!,
                             height: 120,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Container(
-                                  height: 64,
-                                  alignment: Alignment.center,
-                                  color: Colors.white.withValues(alpha: 0.65),
-                                  child: const Text(
-                                    'ไม่สามารถแสดงรูปได้',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Color(0xFF8A9BA2),
-                                    ),
-                                  ),
-                                ),
+                            errorText: 'ไม่สามารถแสดงรูปได้',
                           ),
                         ),
                       ],

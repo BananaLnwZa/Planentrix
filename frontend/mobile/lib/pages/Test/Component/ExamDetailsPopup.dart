@@ -41,17 +41,13 @@ class _ExamDetailsPopup extends StatelessWidget {
           const SizedBox(height: 15),
           _Detail(
             icon: Icons.help_outline,
-            text: '${exam.questions.length} ข้อ',
+            text: '${summary.totalQuestion} ข้อ',
           ),
           _Detail(
             icon: Icons.timer_outlined,
             text: '${summary.timeLimitMinutes} นาที',
           ),
-          _Detail(
-            icon: Icons.stars_outlined,
-            text: '${summary.totalScore} คะแนน',
-          ),
-          if (exam.questions.isEmpty) ...[
+          if (summary.totalQuestion < 1) ...[
             const SizedBox(height: 12),
             const Text(
               'ชุดข้อสอบนี้ยังไม่มีคำถาม',
@@ -68,7 +64,7 @@ class _ExamDetailsPopup extends StatelessWidget {
         ),
         FilledButton.icon(
           key: const Key('start-exam-button'),
-          onPressed: exam.questions.isEmpty
+          onPressed: summary.totalQuestion < 1
               ? null
               : () => Navigator.of(context).pop(true),
           style: FilledButton.styleFrom(

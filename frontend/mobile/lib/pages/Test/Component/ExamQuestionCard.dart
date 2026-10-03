@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../interfaces/exam.interface.dart';
+import 'AuthenticatedExamImage.dart';
 import 'ExamChoiceButton.dart';
 
 class ExamQuestionCard extends StatelessWidget {
@@ -50,20 +51,10 @@ class ExamQuestionCard extends StatelessWidget {
             const SizedBox(height: 12),
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                question.imageUrl!,
-                width: double.infinity,
+              child: AuthenticatedExamImage(
+                imageUrl: question.imageUrl!,
                 height: 190,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  height: 90,
-                  alignment: Alignment.center,
-                  color: const Color(0xFFF4F7F8),
-                  child: const Text(
-                    'ไม่สามารถแสดงรูปคำถามได้',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF8A9BA2)),
-                  ),
-                ),
+                errorText: 'ไม่สามารถแสดงรูปคำถามได้',
               ),
             ),
           ],

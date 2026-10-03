@@ -91,6 +91,7 @@ export interface ExamAttemptSession {
   remainingSeconds: number;
   resumed: boolean;
   answers: ExamAnswer[];
+  exam: ExamDetail;
 }
 
 export interface ExamSubmissionResult {

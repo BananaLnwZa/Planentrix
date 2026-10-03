@@ -225,7 +225,7 @@ export default function TestWorkspace() {
           <div>
             <SectionHeading
               title="แบบทดสอบ"
-              detail="แบบทดสอบที่ถึงรอบ Checkpoint"
+              detail="แบบทดสอบที่พร้อมทำและรอบ Checkpoint ที่ถึงกำหนด"
             />
 
             {examSubjects.length > 0 && examSubjectId && (

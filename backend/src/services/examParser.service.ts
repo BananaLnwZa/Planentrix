@@ -1,6 +1,7 @@
 import mammoth from "mammoth";
 import fs from "fs";
 import path from "path";
+import { randomUUID } from "crypto";
 import { PDFParse } from "pdf-parse";
 
 export interface ParsedChoice {
@@ -84,29 +85,61 @@ export async function parseDocxExamFile(filePath: string, outputImageDir: string
     fs.mkdirSync(outputImageDir, { recursive: true });
   }
 
-  let imageCounter = 0;
+  const writtenImages: string[] = [];
+  try {
+    const result = await mammoth.convertToHtml(
+      { path: filePath },
+      {
+        convertImage: mammoth.images.imgElement(async (image) => {
+          const buffer = await image.readAsBase64String();
+          const extensionByMimeType: Record<string, string> = {
+            "image/jpeg": "jpg",
+            "image/png": "png",
+            "image/gif": "gif",
+            "image/webp": "webp",
+          };
+          const extension = extensionByMimeType[image.contentType];
+          if (!extension) {
+            throw new Error(`Unsupported embedded image type: ${image.contentType}`);
+          }
+          const filename = `question_${randomUUID()}.${extension}`;
 
-  const result = await mammoth.convertToHtml(
-    { path: filePath },
-    {
-      convertImage: mammoth.images.imgElement(async (image) => {
-        imageCounter++;
-        const buffer = await image.readAsBase64String();
-        const extension = image.contentType.split("/")[1] || "png";
-        const filename = `exam_img_${Date.now()}_${imageCounter}.${extension}`;
+          fs.writeFileSync(
+            path.join(outputImageDir, filename),
+            Buffer.from(buffer, "base64")
+          );
+          writtenImages.push(filename);
+          return { src: filename };
+        }),
+      }
+    );
 
-        fs.writeFileSync(
-          path.join(outputImageDir, filename),
-          Buffer.from(buffer, "base64")
-        );
-
-        return { src: filename };
-      }),
+    const questions = parseExamHtml(result.value);
+    const referencedImages = new Set(
+      questions.flatMap((question) => [
+        question.question_image_path,
+        ...question.choices.map((choice) => choice.choice_image_path),
+      ]).filter((imagePath): imagePath is string => Boolean(imagePath)),
+    );
+    for (const filename of writtenImages) {
+      if (referencedImages.has(filename)) continue;
+      try {
+        fs.unlinkSync(path.join(outputImageDir, filename));
+      } catch {
+        // Orphan cleanup is best effort; parsing itself still succeeded.
+      }
     }
-  );
-
-  const questions = parseExamHtml(result.value);
-  return { questions, warnings: result.messages };
+    return { questions, warnings: result.messages };
+  } catch (error) {
+    for (const filename of writtenImages) {
+      try {
+        fs.unlinkSync(path.join(outputImageDir, filename));
+      } catch {
+        // Best-effort cleanup; keep the original parsing error.
+      }
+    }
+    throw error;
+  }
 }
 
 // ==========================================================================

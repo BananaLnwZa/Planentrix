@@ -4,6 +4,7 @@ import {
   getExamsForCurrentTerm,
   getExamDetail,
   getExamInsights,
+  getExamAttemptImage,
   startExam,
   saveExamAnswer,
   submitExam,
@@ -15,6 +16,11 @@ const router = Router();
 router.get("/", verifyToken, getExamsForCurrentTerm);
 router.get("/history", verifyToken, getExamScoreHistory);
 router.get("/insights", verifyToken, getExamInsights);
+router.get(
+  "/:exam_repository_id/attempts/:attempt_id/images/:filename",
+  verifyToken,
+  getExamAttemptImage,
+);
 router.get("/:exam_repository_id", verifyToken, getExamDetail);
 router.post("/:exam_repository_id/start", verifyToken, startExam);
 router.put("/:exam_repository_id/attempts/:attempt_id/answers", verifyToken, saveExamAnswer);

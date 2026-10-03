@@ -32,7 +32,7 @@ import type {
 } from "@/interfaces/instructor-exam.interface";
 import instructorExamService from "@/services/instructor-exam.service";
 import InstructorQuestionEditModal from "@/components/Instructor/InstructorQuestionEditModal";
-import { getQuestionImageUrl } from "@/utils/questionImage";
+import AuthenticatedQuestionImage from "@/components/Instructor/AuthenticatedQuestionImage";
 
 type ExamPeriod = "midterm" | "final";
 type ModalName = "part" | "exam" | null;
@@ -45,7 +45,9 @@ interface PartItem {
   examPeriod: ExamPeriod;
   createdAt: string;
   questionCount: number;
+  defaultDrawCount: number;
   timeLimitMinutes: number;
+  status: InstructorQuestionBank["status"];
 }
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -215,7 +217,9 @@ function mapQuestionBankToPart(bank: InstructorQuestionBank): PartItem {
     examPeriod: bank.exam_period,
     createdAt: formatCreatedDate(bank.created_at),
     questionCount: bank.question_count,
+    defaultDrawCount: bank.default_draw_count,
     timeLimitMinutes: bank.time_limit_minutes,
+    status: bank.status,
   };
 }
 
@@ -239,6 +243,7 @@ export default function ExamUploadClient() {
   const [partSubjectId, setPartSubjectId] = useState("");
   const [partPeriod, setPartPeriod] = useState<ExamPeriod>("midterm");
   const [partTimeLimit, setPartTimeLimit] = useState("60");
+  const [partDefaultDrawCount, setPartDefaultDrawCount] = useState("10");
   const [partError, setPartError] = useState("");
 
   const [examSubjectId, setExamSubjectId] = useState("");
@@ -256,7 +261,9 @@ export default function ExamUploadClient() {
   const [isClearingQuestions, setIsClearingQuestions] = useState(false);
   const [isSavingPartSettings, setIsSavingPartSettings] = useState(false);
   const [partSettingsTimeLimit, setPartSettingsTimeLimit] = useState("60");
+  const [partSettingsDrawCount, setPartSettingsDrawCount] = useState("10");
   const [partSettingsError, setPartSettingsError] = useState("");
+  const [isPublishing, setIsPublishing] = useState(false);
   const [isCreatingQuestion, setIsCreatingQuestion] = useState(false);
   const [editingQuestion, setEditingQuestion] =
     useState<InstructorExamQuestion | null>(null);
@@ -313,7 +320,9 @@ export default function ExamUploadClient() {
 
   const selectableParts = parts.filter(
     (part) =>
-      part.subjectId === examSubjectId && part.examPeriod === examPeriod,
+      part.subjectId === examSubjectId &&
+      part.examPeriod === examPeriod &&
+      part.status === "draft",
   );
 
   const closeModal = () => {
@@ -328,6 +337,7 @@ export default function ExamUploadClient() {
     setPartSubjectId("");
     setPartPeriod("midterm");
     setPartTimeLimit("60");
+    setPartDefaultDrawCount("10");
     setPartError("");
   };
 
@@ -344,6 +354,7 @@ export default function ExamUploadClient() {
     event.preventDefault();
     const normalizedPartName = partName.trim();
     const timeLimit = Number(partTimeLimit);
+    const defaultDrawCount = Number(partDefaultDrawCount);
 
     if (!partSubjectId || !normalizedPartName) {
       setPartError("กรุณาเลือกวิชาและกรอกชื่อพาร์ท");
@@ -351,6 +362,14 @@ export default function ExamUploadClient() {
     }
     if (!Number.isInteger(timeLimit) || timeLimit < 1 || timeLimit > 1440) {
       setPartError("เวลาทำข้อสอบต้องอยู่ระหว่าง 1-1,440 นาที");
+      return;
+    }
+    if (
+      !Number.isInteger(defaultDrawCount) ||
+      defaultDrawCount < 1 ||
+      defaultDrawCount > 999
+    ) {
+      setPartError("จำนวนข้อที่สุ่มต้องอยู่ระหว่าง 1-999 ข้อ");
       return;
     }
 
@@ -374,6 +393,7 @@ export default function ExamUploadClient() {
         subject_id: partSubjectId,
         bank_name: normalizedPartName,
         exam_period: partPeriod,
+        default_draw_count: defaultDrawCount,
         time_limit_minutes: timeLimit,
       });
       setNotice(`สร้างพาร์ท “${response.question_bank.bank_name}” แล้ว`);
@@ -491,6 +511,7 @@ export default function ExamUploadClient() {
       );
       setPartDetail(detail);
       setPartSettingsTimeLimit(String(detail.question_bank.time_limit_minutes));
+      setPartSettingsDrawCount(String(detail.question_bank.default_draw_count));
       setPartSettingsError("");
     } catch (error) {
       setDetailError(
@@ -505,6 +526,7 @@ export default function ExamUploadClient() {
     if (
       isClearingQuestions ||
       isSavingPartSettings ||
+      isPublishing ||
       deletingQuestionId !== null
     ) return;
     setSelectedPart(null);
@@ -517,8 +539,17 @@ export default function ExamUploadClient() {
   const savePartSettings = async () => {
     if (!selectedPart || !partDetail) return;
     const timeLimit = Number(partSettingsTimeLimit);
+    const defaultDrawCount = Number(partSettingsDrawCount);
     if (!Number.isInteger(timeLimit) || timeLimit < 1 || timeLimit > 1440) {
       setPartSettingsError("เวลาทำข้อสอบต้องอยู่ระหว่าง 1-1,440 นาที");
+      return;
+    }
+    if (
+      !Number.isInteger(defaultDrawCount) ||
+      defaultDrawCount < 1 ||
+      defaultDrawCount > 999
+    ) {
+      setPartSettingsError("จำนวนข้อที่สุ่มต้องอยู่ระหว่าง 1-999 ข้อ");
       return;
     }
 
@@ -528,6 +559,7 @@ export default function ExamUploadClient() {
       const response = await instructorExamService.updateQuestionBankSettings(
         Number(selectedPart.id),
         {
+          default_draw_count: defaultDrawCount,
           time_limit_minutes: timeLimit,
         },
       );
@@ -540,11 +572,12 @@ export default function ExamUploadClient() {
         current
           ? {
               ...current,
+              defaultDrawCount,
               timeLimitMinutes: timeLimit,
             }
           : current,
       );
-      setNotice("บันทึกเวลาทำข้อสอบแล้ว");
+      setNotice("บันทึกจำนวนข้อสุ่มและเวลาทำข้อสอบแล้ว");
       await loadWorkspace();
     } catch (error) {
       setPartSettingsError(
@@ -552,6 +585,37 @@ export default function ExamUploadClient() {
       );
     } finally {
       setIsSavingPartSettings(false);
+    }
+  };
+
+  const publishSelectedPart = async () => {
+    if (!selectedPart || !partDetail) return;
+    if (
+      !window.confirm(
+        "ต้องการเผยแพร่พาร์ทนี้ใช่ไหม? หลังเผยแพร่แล้วจะไม่สามารถแก้คำถามหรือการตั้งค่าได้",
+      )
+    ) return;
+
+    setIsPublishing(true);
+    setPartSettingsError("");
+    try {
+      const response = await instructorExamService.publishQuestionBank(
+        Number(selectedPart.id),
+      );
+      setPartDetail((current) =>
+        current ? { ...current, question_bank: response.question_bank } : current,
+      );
+      setSelectedPart((current) =>
+        current ? { ...current, status: "published" } : current,
+      );
+      setNotice("เผยแพร่พาร์ทข้อสอบแล้ว นักศึกษาสามารถเริ่มทำได้");
+      await loadWorkspace();
+    } catch (error) {
+      setPartSettingsError(
+        error instanceof Error ? error.message : "ไม่สามารถเผยแพร่พาร์ทได้",
+      );
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -705,7 +769,11 @@ export default function ExamUploadClient() {
             </button>
             <button
               type="button"
-              disabled={isLoading || isSaving || parts.length === 0}
+              disabled={
+                isLoading ||
+                isSaving ||
+                !parts.some((part) => part.status === "draft")
+              }
               onClick={() => {
                 resetExamForm();
                 setActiveModal("exam");
@@ -855,7 +923,17 @@ export default function ExamUploadClient() {
                         {getPeriodLabel(part.examPeriod)}
                       </span>
                       <span>{part.questionCount} ข้อ</span>
+                      <span>สุ่ม {part.defaultDrawCount} ข้อ</span>
                       <span>{part.timeLimitMinutes} นาที</span>
+                      <span
+                        className={
+                          part.status === "published"
+                            ? "rounded-full bg-[#e4f5ea] px-2.5 py-1 text-[#397253]"
+                            : "rounded-full bg-[#fff3dc] px-2.5 py-1 text-[#8a672c]"
+                        }
+                      >
+                        {part.status === "published" ? "เผยแพร่แล้ว" : "ฉบับร่าง"}
+                      </span>
                       <span>{part.createdAt}</span>
                     </div>
                     <p className="mt-2 text-xs font-medium text-[#5794aa]">
@@ -916,6 +994,17 @@ export default function ExamUploadClient() {
                     <span className="rounded-full bg-[#f1f5f6] px-3 py-1.5">
                       {partDetail?.questions.length ?? selectedPart.questionCount} ข้อ
                     </span>
+                    <span
+                      className={`rounded-full px-3 py-1.5 ${
+                        partDetail?.question_bank.status === "published"
+                          ? "bg-[#e4f5ea] text-[#397253]"
+                          : "bg-[#fff3dc] text-[#8a672c]"
+                      }`}
+                    >
+                      {partDetail?.question_bank.status === "published"
+                        ? "เผยแพร่แล้ว"
+                        : "ฉบับร่าง"}
+                    </span>
                   </div>
                 </div>
                 <button
@@ -933,7 +1022,24 @@ export default function ExamUploadClient() {
             <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7">
               {!isDetailLoading && partDetail && (
                 <section className="mb-5 rounded-2xl border border-[#d9e9ee] bg-white p-4 sm:p-5">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+                    <div>
+                      <label className="text-sm font-medium text-[#4c626c]">
+                        จำนวนข้อที่สุ่มต่อครั้ง <span className="text-[#c76450]">*</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="999"
+                          value={partSettingsDrawCount}
+                          disabled={partDetail.question_bank.status !== "draft"}
+                          onChange={(event) => {
+                            setPartSettingsDrawCount(event.target.value);
+                            setPartSettingsError("");
+                          }}
+                          className={inputClass}
+                        />
+                      </label>
+                    </div>
                     <div className="flex-1">
                       <label className="text-sm font-medium text-[#4c626c]">
                         เวลาทำข้อสอบ (นาที) <span className="text-[#c76450]">*</span>
@@ -942,6 +1048,7 @@ export default function ExamUploadClient() {
                           min="1"
                           max="1440"
                           value={partSettingsTimeLimit}
+                          disabled={partDetail.question_bank.status !== "draft"}
                           onChange={(event) => {
                             setPartSettingsTimeLimit(event.target.value);
                             setPartSettingsError("");
@@ -953,7 +1060,10 @@ export default function ExamUploadClient() {
                     <button
                       type="button"
                       onClick={() => void savePartSettings()}
-                      disabled={isSavingPartSettings}
+                      disabled={
+                        isSavingPartSettings ||
+                        partDetail.question_bank.status !== "draft"
+                      }
                       className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#5794aa] px-4 text-sm font-medium text-white hover:bg-[#477f93] disabled:opacity-60"
                     >
                       {isSavingPartSettings ? (
@@ -969,14 +1079,35 @@ export default function ExamUploadClient() {
                       {partSettingsError}
                     </p>
                   )}
-                  <div className="mt-4 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setIsCreatingQuestion(true)}
-                      className="inline-flex items-center gap-2 rounded-xl border border-[#9fc8d6] bg-[#f2fafc] px-4 py-2.5 text-sm font-medium text-[#3f7d93] hover:bg-[#e6f5f9]"
-                    >
-                      <Plus size={17} /> สร้างคำถามทีละข้อ
-                    </button>
+                  <div className="mt-4 flex flex-wrap justify-end gap-2">
+                    {partDetail.question_bank.status === "draft" ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setIsCreatingQuestion(true)}
+                          className="inline-flex items-center gap-2 rounded-xl border border-[#9fc8d6] bg-[#f2fafc] px-4 py-2.5 text-sm font-medium text-[#3f7d93] hover:bg-[#e6f5f9]"
+                        >
+                          <Plus size={17} /> สร้างคำถามทีละข้อ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void publishSelectedPart()}
+                          disabled={isPublishing || isSavingPartSettings}
+                          className="inline-flex items-center gap-2 rounded-xl bg-[#4f9471] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#407d5e] disabled:opacity-60"
+                        >
+                          {isPublishing ? (
+                            <LoaderCircle className="animate-spin" size={17} />
+                          ) : (
+                            <CheckCircle2 size={17} />
+                          )}
+                          {isPublishing ? "กำลังเผยแพร่" : "เผยแพร่ข้อสอบ"}
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-xs text-[#648077]">
+                        พาร์ทที่เผยแพร่แล้วถูกล็อก เพื่อให้ข้อสอบที่นักศึกษาทำตรงกันทุกคน
+                      </p>
+                    )}
                   </div>
                 </section>
               )}
@@ -1047,16 +1178,12 @@ export default function ExamUploadClient() {
                               <p className="mt-1 whitespace-pre-wrap text-[15px] leading-7 text-[#304852]">
                                 {question.question_text}
                               </p>
-                              {getQuestionImageUrl(question.question_image_path) && (
-                                <>
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={getQuestionImageUrl(question.question_image_path) ?? ""}
-                                    alt={`รูปประกอบข้อ ${questionIndex + 1}`}
-                                    className="mt-3 max-h-56 w-full rounded-xl bg-[#f7fafb] object-contain"
-                                  />
-                                </>
-                              )}
+                              <AuthenticatedQuestionImage
+                                questionBankId={Number(selectedPart.id)}
+                                imagePath={question.question_image_path}
+                                alt={`รูปประกอบข้อ ${questionIndex + 1}`}
+                                className="mt-3 max-h-56 w-full rounded-xl bg-[#f7fafb] object-contain"
+                              />
                             </div>
                           </div>
                           <div className="flex shrink-0 items-center gap-1.5">
@@ -1066,7 +1193,10 @@ export default function ExamUploadClient() {
                             <button
                               type="button"
                               onClick={() => setEditingQuestion(question)}
-                              disabled={deletingQuestionId !== null}
+                              disabled={
+                                deletingQuestionId !== null ||
+                                partDetail.question_bank.status !== "draft"
+                              }
                               aria-label={`แก้ไขข้อสอบข้อ ${questionIndex + 1}`}
                               title="แก้ไขข้อสอบ"
                               className="flex size-8 items-center justify-center rounded-full text-[#4f879c] transition hover:bg-[#e6f4f8] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#dceff5] disabled:cursor-not-allowed disabled:opacity-40"
@@ -1076,7 +1206,10 @@ export default function ExamUploadClient() {
                             <button
                               type="button"
                               onClick={() => void deleteQuestion(question)}
-                              disabled={deletingQuestionId !== null}
+                              disabled={
+                                deletingQuestionId !== null ||
+                                partDetail.question_bank.status !== "draft"
+                              }
                               aria-label={`จัดเก็บคำถามข้อ ${questionIndex + 1}`}
                               title="จัดเก็บคำถาม"
                               className="flex size-8 items-center justify-center rounded-full text-[#ad6262] transition hover:bg-[#f9eaea] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#f1d7d7] disabled:cursor-not-allowed disabled:opacity-40"
@@ -1120,16 +1253,12 @@ export default function ExamUploadClient() {
                                 </span>
                                 <span className="min-w-0 flex-1 whitespace-pre-wrap pt-0.5 leading-6">
                                   {choice.choice_text}
-                                  {getQuestionImageUrl(choice.choice_image_path) && (
-                                    <>
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img
-                                        src={getQuestionImageUrl(choice.choice_image_path) ?? ""}
-                                        alt={`รูปตัวเลือก ${choiceIndex + 1}`}
-                                        className="mt-2 max-h-36 w-full rounded-lg bg-white object-contain"
-                                      />
-                                    </>
-                                  )}
+                                  <AuthenticatedQuestionImage
+                                    questionBankId={Number(selectedPart.id)}
+                                    imagePath={choice.choice_image_path}
+                                    alt={`รูปตัวเลือก ${choiceIndex + 1}`}
+                                    className="mt-2 max-h-36 w-full rounded-lg bg-white object-contain"
+                                  />
                                 </span>
                                 {choice.is_correct && (
                                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#d9f0e2] px-2.5 py-1 text-xs font-medium text-[#35724c]">
@@ -1155,7 +1284,8 @@ export default function ExamUploadClient() {
                   isDetailLoading ||
                   isClearingQuestions ||
                   !partDetail ||
-                  partDetail.questions.length === 0
+                  partDetail.questions.length === 0 ||
+                  partDetail.question_bank.status !== "draft"
                 }
                 className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm text-[#a45d5d] transition hover:bg-[#f9eaea] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#f1d7d7] disabled:cursor-not-allowed disabled:opacity-40"
               >
@@ -1181,6 +1311,7 @@ export default function ExamUploadClient() {
 
       {editingQuestion && (
         <InstructorQuestionEditModal
+          questionBankId={Number(selectedPart?.id)}
           question={editingQuestion}
           onClose={() => setEditingQuestion(null)}
           onUploadImage={uploadQuestionImage}
@@ -1190,6 +1321,7 @@ export default function ExamUploadClient() {
 
       {isCreatingQuestion && (
         <InstructorQuestionEditModal
+          questionBankId={Number(selectedPart?.id)}
           onClose={() => setIsCreatingQuestion(false)}
           onUploadImage={uploadQuestionImage}
           onSave={createQuestion}
@@ -1260,7 +1392,21 @@ export default function ExamUploadClient() {
                 />
               </label>
 
-              <div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-medium text-[#4c626c]">
+                  จำนวนข้อที่สุ่มต่อครั้ง <span className="text-[#c76450]">*</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="999"
+                    value={partDefaultDrawCount}
+                    onChange={(event) => {
+                      setPartDefaultDrawCount(event.target.value);
+                      setPartError("");
+                    }}
+                    className={inputClass}
+                  />
+                </label>
                 <label className="block text-sm font-medium text-[#4c626c]">
                   เวลาทำข้อสอบ (นาที) <span className="text-[#c76450]">*</span>
                   <input

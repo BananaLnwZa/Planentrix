@@ -18,7 +18,7 @@ import type {
   UpdateInstructorQuestionRequest,
   UploadInstructorQuestionImageResponse,
 } from "@/interfaces/instructor-exam.interface";
-import { getQuestionImageUrl } from "@/utils/questionImage";
+import AuthenticatedQuestionImage from "@/components/Instructor/AuthenticatedQuestionImage";
 
 interface EditableChoice {
   choice_id?: number;
@@ -30,6 +30,7 @@ interface EditableChoice {
 }
 
 interface InstructorQuestionEditModalProps {
+  questionBankId: number;
   question?: InstructorExamQuestion | null;
   onClose: () => void;
   onUploadImage: (file: File) => Promise<UploadInstructorQuestionImageResponse>;
@@ -45,6 +46,7 @@ const ACCEPTED_IMAGE_TYPES = new Set([
 ]);
 
 export default function InstructorQuestionEditModal({
+  questionBankId,
   question,
   onClose,
   onUploadImage,
@@ -259,8 +261,7 @@ export default function InstructorQuestionEditModal({
     }
   };
 
-  const displayedQuestionImage =
-    questionImagePreview ?? getQuestionImageUrl(questionImagePath);
+  const hasQuestionImage = Boolean(questionImagePreview || questionImagePath);
 
   return (
     <div
@@ -314,20 +315,25 @@ export default function InstructorQuestionEditModal({
                 className="mt-2 w-full resize-y rounded-2xl border border-[#dbe6ea] bg-[#fbfdfe] px-3.5 py-3 font-normal leading-6 text-[#405862] outline-none transition focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]"
               />
               <span className="mt-3 block rounded-2xl border border-[#dbe6ea] bg-[#f7fbfc] p-3">
-                {displayedQuestionImage && (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={displayedQuestionImage}
-                      alt="รูปประกอบคำถาม"
-                      className="mb-3 max-h-48 w-full rounded-xl object-contain"
-                    />
-                  </>
+                {questionImagePreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={questionImagePreview}
+                    alt="รูปประกอบคำถาม"
+                    className="mb-3 max-h-48 w-full rounded-xl object-contain"
+                  />
+                ) : (
+                  <AuthenticatedQuestionImage
+                    questionBankId={questionBankId}
+                    imagePath={questionImagePath}
+                    alt="รูปประกอบคำถาม"
+                    className="mb-3 max-h-48 w-full rounded-xl object-contain"
+                  />
                 )}
                 <span className="flex flex-wrap items-center gap-2">
                   <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#cfe4eb] bg-white px-3 py-2 text-xs font-medium text-[#47849a] transition hover:bg-[#eef8fb]">
                     <Upload aria-hidden="true" size={14} />
-                    {displayedQuestionImage ? "เปลี่ยนรูป" : "เพิ่มรูปคำถาม"}
+                    {hasQuestionImage ? "เปลี่ยนรูป" : "เพิ่มรูปคำถาม"}
                     <input
                       type="file"
                       accept="image/jpeg,image/png,image/webp,image/gif"
@@ -335,7 +341,7 @@ export default function InstructorQuestionEditModal({
                       className="sr-only"
                     />
                   </label>
-                  {displayedQuestionImage && (
+                  {hasQuestionImage && (
                     <button
                       type="button"
                       onClick={() => {
@@ -396,9 +402,9 @@ export default function InstructorQuestionEditModal({
 
             <div className="mt-3 space-y-2.5">
               {choices.map((choice, index) => {
-                const displayedChoiceImage =
-                  choice.local_preview_url ??
-                  getQuestionImageUrl(choice.choice_image_path);
+                const hasChoiceImage = Boolean(
+                  choice.local_preview_url || choice.choice_image_path,
+                );
                 return (
                 <div
                   key={choice.choice_id ?? `new-${index}`}
@@ -425,7 +431,7 @@ export default function InstructorQuestionEditModal({
                       className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-[#7b8d95]"
                     >
                       ตัวเลือก {index + 1}
-                      {displayedChoiceImage && (
+                      {hasChoiceImage && (
                         <span className="inline-flex items-center gap-1 text-[#5d91a3]">
                           <ImageIcon aria-hidden="true" size={12} /> มีรูปเดิม
                         </span>
@@ -444,20 +450,25 @@ export default function InstructorQuestionEditModal({
                       }
                       className="h-10 w-full rounded-xl border border-[#dbe6ea] bg-white px-3 text-sm font-normal text-[#405862] outline-none transition focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]"
                     />
-                    {displayedChoiceImage && (
-                      <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={displayedChoiceImage}
-                          alt={`รูปตัวเลือก ${index + 1}`}
-                          className="mt-2 max-h-32 w-full rounded-xl bg-white object-contain"
-                        />
-                      </>
+                    {choice.local_preview_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={choice.local_preview_url}
+                        alt={`รูปตัวเลือก ${index + 1}`}
+                        className="mt-2 max-h-32 w-full rounded-xl bg-white object-contain"
+                      />
+                    ) : (
+                      <AuthenticatedQuestionImage
+                        questionBankId={questionBankId}
+                        imagePath={choice.choice_image_path}
+                        alt={`รูปตัวเลือก ${index + 1}`}
+                        className="mt-2 max-h-32 w-full rounded-xl bg-white object-contain"
+                      />
                     )}
                     <div className="mt-2 flex flex-wrap gap-2">
                       <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[#cfe4eb] bg-white px-2.5 py-1.5 text-[11px] font-medium text-[#47849a] hover:bg-[#eef8fb]">
                         <ImageIcon aria-hidden="true" size={13} />
-                        {displayedChoiceImage ? "เปลี่ยนรูป" : "เพิ่มรูป"}
+                        {hasChoiceImage ? "เปลี่ยนรูป" : "เพิ่มรูป"}
                         <input
                           type="file"
                           accept="image/jpeg,image/png,image/webp,image/gif"
@@ -467,7 +478,7 @@ export default function InstructorQuestionEditModal({
                           className="sr-only"
                         />
                       </label>
-                      {displayedChoiceImage && (
+                      {hasChoiceImage && (
                         <button
                           type="button"
                           onClick={() =>

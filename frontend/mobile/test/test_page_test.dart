@@ -51,36 +51,44 @@ class FakeExamRepository implements ExamRepository {
       : exams;
 
   @override
-  Future<ExamDetail> getExamDetail(int examRepositoryId) async {
+  Future<ExamDetail> getExamDetail(int examRepositoryId) async =>
+      _examDetail(examRepositoryId, includeQuestions: false);
+
+  ExamDetail _examDetail(
+    int examRepositoryId, {
+    required bool includeQuestions,
+  }) {
     final summary = exams.firstWhere(
       (exam) => exam.examRepositoryId == examRepositoryId,
     );
     return ExamDetail(
       summary: summary,
-      questions: const [
-        ExamQuestion(
-          questionId: 101,
-          order: 1,
-          text: '2 + 2 เท่ากับเท่าไร',
-          score: 50,
-          partName: 'ปรนัย',
-          choices: [
-            ExamChoice(choiceId: 1001, order: 1, text: '3'),
-            ExamChoice(choiceId: 1002, order: 2, text: '4'),
-          ],
-        ),
-        ExamQuestion(
-          questionId: 102,
-          order: 2,
-          text: '3 + 3 เท่ากับเท่าไร',
-          score: 50,
-          partName: 'ปรนัย',
-          choices: [
-            ExamChoice(choiceId: 1003, order: 1, text: '6'),
-            ExamChoice(choiceId: 1004, order: 2, text: '7'),
-          ],
-        ),
-      ],
+      questions: includeQuestions
+          ? const [
+              ExamQuestion(
+                questionId: 101,
+                order: 1,
+                text: '2 + 2 เท่ากับเท่าไร',
+                score: 50,
+                partName: 'ปรนัย',
+                choices: [
+                  ExamChoice(choiceId: 1001, order: 1, text: '3'),
+                  ExamChoice(choiceId: 1002, order: 2, text: '4'),
+                ],
+              ),
+              ExamQuestion(
+                questionId: 102,
+                order: 2,
+                text: '3 + 3 เท่ากับเท่าไร',
+                score: 50,
+                partName: 'ปรนัย',
+                choices: [
+                  ExamChoice(choiceId: 1003, order: 1, text: '6'),
+                  ExamChoice(choiceId: 1004, order: 2, text: '7'),
+                ],
+              ),
+            ]
+          : const [],
     );
   }
 
@@ -164,12 +172,15 @@ class FakeExamRepository implements ExamRepository {
   }
 
   @override
-  Future<ExamAttemptSession> startExam(int examRepositoryId) async =>
-      const ExamAttemptSession(
-        attemptId: 501,
-        remainingSeconds: 1800,
-        resumed: false,
-      );
+  Future<ExamAttemptSession> startExam(int examRepositoryId) async {
+    final exam = _examDetail(examRepositoryId, includeQuestions: true);
+    return ExamAttemptSession(
+      attemptId: 501,
+      remainingSeconds: 1800,
+      resumed: false,
+      exam: exam,
+    );
+  }
 
   @override
   Future<void> saveAnswer(

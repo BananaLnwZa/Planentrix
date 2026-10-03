@@ -30,6 +30,7 @@ interface QuestionBankRow extends RowDataPacket {
 
 interface QuestionBankSettingsLockRow extends RowDataPacket {
   question_bank_id: number;
+  default_draw_count: number | string;
   time_limit_minutes: number | string;
   status: "draft" | "published" | "archived";
 }
@@ -656,6 +657,7 @@ export const updateInstructorQuestion = async (
        WHERE question.question_id = ?
          AND question.question_bank_id = ?
          AND bank.owner_instructor_id = ?
+         AND bank.status = 'draft'
          AND question.is_active = 1
        LIMIT 1 FOR UPDATE`,
       [questionId, questionBankId, instructorId],
@@ -711,9 +713,27 @@ export const updateInstructorQuestion = async (
        WHERE question_id = ?`,
       [questionText, questionImagePath, questionScore, questionId],
     );
-    await connection.query("UPDATE choice SET is_active = 0 WHERE question_id = ?", [
-      questionId,
-    ]);
+    // choices_snapshot preserves submitted attempts, so stale inactive choices can
+    // be removed before rebuilding the current unique display order safely.
+    await connection.query(
+      "DELETE FROM choice WHERE question_id = ? AND is_active = 0",
+      [questionId],
+    );
+    await connection.query(
+      "UPDATE choice SET choice_order = choice_order + 100 WHERE question_id = ?",
+      [questionId],
+    );
+    const retainedChoiceIds = choiceValidation.choices.flatMap((choice) =>
+      choice.choice_id === null ? [] : [choice.choice_id],
+    );
+    if (retainedChoiceIds.length) {
+      await connection.query(
+        "DELETE FROM choice WHERE question_id = ? AND choice_id NOT IN (?)",
+        [questionId, retainedChoiceIds],
+      );
+    } else {
+      await connection.query("DELETE FROM choice WHERE question_id = ?", [questionId]);
+    }
     for (const choice of choiceValidation.choices) {
       const choiceImagePath =
         choice.image_path_provided
@@ -721,18 +741,35 @@ export const updateInstructorQuestion = async (
           : choice.choice_id === null
             ? null
             : existingChoiceImages.get(choice.choice_id) ?? null;
-      await connection.query(
-        `INSERT INTO choice
-          (question_id, choice_order, choice_text, choice_image_path, is_correct, is_active)
-         VALUES (?, ?, ?, ?, ?, 1)`,
-        [
-          questionId,
-          choice.choice_order,
-          choice.choice_text,
-          choiceImagePath,
-          choice.is_correct ? 1 : 0,
-        ],
-      );
+      if (choice.choice_id !== null) {
+        await connection.query(
+          `UPDATE choice
+           SET choice_order = ?, choice_text = ?, choice_image_path = ?,
+               is_correct = ?, is_active = 1
+           WHERE choice_id = ? AND question_id = ?`,
+          [
+            choice.choice_order,
+            choice.choice_text,
+            choiceImagePath,
+            choice.is_correct ? 1 : 0,
+            choice.choice_id,
+            questionId,
+          ],
+        );
+      } else {
+        await connection.query(
+          `INSERT INTO choice
+            (question_id, choice_order, choice_text, choice_image_path, is_correct, is_active)
+           VALUES (?, ?, ?, ?, ?, 1)`,
+          [
+            questionId,
+            choice.choice_order,
+            choice.choice_text,
+            choiceImagePath,
+            choice.is_correct ? 1 : 0,
+          ],
+        );
+      }
     }
 
     await connection.commit();
@@ -799,7 +836,7 @@ export const createInstructorQuestion = async (
       `SELECT question_bank_id
        FROM question_banks
        WHERE question_bank_id = ? AND owner_instructor_id = ?
-         AND status <> 'archived'
+         AND status = 'draft'
        LIMIT 1 FOR UPDATE`,
       [questionBankId, instructorId],
     );
@@ -851,9 +888,17 @@ export const updateInstructorQuestionBankSettings = async (
   if (!instructorId) return;
 
   const questionBankId = Number(req.params.bankId);
+  const defaultDrawCount = Number(req.body.default_draw_count);
   const timeLimitMinutes = Number(req.body.time_limit_minutes);
   if (!Number.isInteger(questionBankId) || questionBankId <= 0) {
     return res.status(400).json({ message: "รหัสพาร์ทไม่ถูกต้อง" });
+  }
+  if (
+    !Number.isInteger(defaultDrawCount) ||
+    defaultDrawCount < 1 ||
+    defaultDrawCount > 999
+  ) {
+    return res.status(400).json({ message: "จำนวนข้อที่สุ่มต้องอยู่ระหว่าง 1-999 ข้อ" });
   }
   if (
     !Number.isInteger(timeLimitMinutes) ||
@@ -867,14 +912,14 @@ export const updateInstructorQuestionBankSettings = async (
   try {
     await connection.beginTransaction();
     const [banks] = await connection.query<QuestionBankSettingsLockRow[]>(
-      `SELECT question_bank_id, time_limit_minutes, status
+      `SELECT question_bank_id, default_draw_count, time_limit_minutes, status
        FROM question_banks
        WHERE question_bank_id = ? AND owner_instructor_id = ?
        LIMIT 1 FOR UPDATE`,
       [questionBankId, instructorId],
     );
     const bank = banks[0];
-    if (!bank || bank.status === "archived") {
+    if (!bank || bank.status !== "draft") {
       await connection.rollback();
       return res.status(404).json({ message: "ไม่พบพาร์ทที่ต้องการแก้ไข" });
     }
@@ -916,10 +961,10 @@ export const updateInstructorQuestionBankSettings = async (
 
     await connection.query(
       `UPDATE question_banks
-       SET time_limit_minutes = ?
+       SET default_draw_count = ?, time_limit_minutes = ?
        WHERE question_bank_id = ? AND owner_instructor_id = ?
-         AND status <> 'archived'`,
-      [timeLimitMinutes, questionBankId, instructorId],
+         AND status = 'draft'`,
+      [defaultDrawCount, timeLimitMinutes, questionBankId, instructorId],
     );
     await connection.commit();
     const updated = await getOwnedQuestionBank(questionBankId, instructorId);
@@ -933,6 +978,130 @@ export const updateInstructorQuestionBankSettings = async (
     return res.status(500).json({ message: "Unable to update question bank settings" });
   } finally {
     connection.release();
+  }
+};
+
+export const publishInstructorQuestionBank = async (
+  req: Request,
+  res: Response,
+) => {
+  const instructorId = requireInstructor(req, res);
+  if (!instructorId) return;
+  const questionBankId = Number(req.params.bankId);
+  if (!Number.isInteger(questionBankId) || questionBankId <= 0) {
+    return res.status(400).json({ message: "รหัสพาร์ทไม่ถูกต้อง" });
+  }
+
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [banks] = await connection.query<QuestionBankSettingsLockRow[]>(
+      `SELECT question_bank_id, default_draw_count, time_limit_minutes, status
+       FROM question_banks
+       WHERE question_bank_id = ? AND owner_instructor_id = ?
+       LIMIT 1 FOR UPDATE`,
+      [questionBankId, instructorId],
+    );
+    const bank = banks[0];
+    if (!bank || bank.status === "archived") {
+      await connection.rollback();
+      return res.status(404).json({ message: "ไม่พบพาร์ทที่ต้องการเผยแพร่" });
+    }
+    if (bank.status === "published") {
+      await connection.commit();
+      const published = await getOwnedQuestionBank(questionBankId, instructorId);
+      return res.json({
+        message: "Question bank is already published",
+        question_bank: published ? serializeQuestionBank(published) : null,
+      });
+    }
+
+    const [questions] = await connection.query<RowDataPacket[]>(
+      `SELECT question.question_id,
+         COUNT(choice.choice_id) AS choice_count,
+         SUM(CASE WHEN choice.is_correct = 1 THEN 1 ELSE 0 END) AS correct_count
+       FROM question
+       LEFT JOIN choice
+         ON choice.question_id = question.question_id AND choice.is_active = 1
+       WHERE question.question_bank_id = ? AND question.is_active = 1
+       GROUP BY question.question_id
+       ORDER BY question.question_id`,
+      [questionBankId],
+    );
+    if (questions.length < Number(bank.default_draw_count)) {
+      await connection.rollback();
+      return res.status(409).json({
+        message: `ต้องมีคำถามอย่างน้อย ${Number(bank.default_draw_count)} ข้อก่อนเผยแพร่`,
+      });
+    }
+    const invalidQuestion = questions.find(
+      (question) =>
+        Number(question.choice_count) < 2 || Number(question.correct_count) !== 1,
+    );
+    if (invalidQuestion) {
+      await connection.rollback();
+      return res.status(409).json({
+        message: `คำถามรหัส ${Number(invalidQuestion.question_id)} ต้องมีอย่างน้อย 2 ตัวเลือกและมีคำตอบถูกเพียง 1 ตัวเลือก`,
+      });
+    }
+
+    await connection.query(
+      `UPDATE question_banks SET status = 'published'
+       WHERE question_bank_id = ? AND owner_instructor_id = ? AND status = 'draft'`,
+      [questionBankId, instructorId],
+    );
+    await connection.commit();
+    const published = await getOwnedQuestionBank(questionBankId, instructorId);
+    return res.json({
+      message: "Question bank published successfully",
+      question_bank: published ? serializeQuestionBank(published) : null,
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error("publishInstructorQuestionBank error:", error);
+    return res.status(500).json({ message: "Unable to publish question bank" });
+  } finally {
+    connection.release();
+  }
+};
+
+export const getInstructorQuestionImage = async (
+  req: Request,
+  res: Response,
+) => {
+  const instructorId = requireInstructor(req, res);
+  if (!instructorId) return;
+  const questionBankId = Number(req.params.bankId);
+  const filename = path.basename(String(req.params.filename ?? ""));
+  if (
+    !Number.isInteger(questionBankId) ||
+    questionBankId <= 0 ||
+    !/^[A-Za-z0-9._-]{1,255}$/.test(filename)
+  ) {
+    return res.status(400).json({ message: "ข้อมูลรูปภาพไม่ถูกต้อง" });
+  }
+  try {
+    const [rows] = await db.query<RowDataPacket[]>(
+      `SELECT 1
+       FROM question_banks bank
+       LEFT JOIN question
+         ON question.question_bank_id = bank.question_bank_id
+       LEFT JOIN choice ON choice.question_id = question.question_id
+       WHERE bank.question_bank_id = ? AND bank.owner_instructor_id = ?
+         AND (
+           question.question_image_path = ? OR choice.choice_image_path = ?
+         )
+       LIMIT 1`,
+      [questionBankId, instructorId, filename, filename],
+    );
+    if (!rows[0]) return res.status(404).json({ message: "ไม่พบรูปภาพ" });
+    res.setHeader("Cache-Control", "private, no-store");
+    return res.sendFile(
+      path.resolve(__dirname, "../../uploads/questions", filename),
+    );
+  } catch (error) {
+    console.error("getInstructorQuestionImage error:", error);
+    return res.status(500).json({ message: "Unable to load question image" });
   }
 };
 
@@ -953,7 +1122,7 @@ export const uploadInstructorQuestionImage = async (
 
   try {
     const bank = await getOwnedQuestionBank(questionBankId, instructorId);
-    if (!bank || bank.status === "archived") {
+    if (!bank || bank.status !== "draft") {
       return res.status(404).json({ message: "ไม่พบพาร์ทสำหรับอัปโหลดรูป" });
     }
 
@@ -976,7 +1145,7 @@ export const uploadInstructorQuestionImage = async (
     return res.status(201).json({
       message: "Question image uploaded successfully",
       image_path: filename,
-      image_url: `${req.protocol}://${req.get("host")}/uploads/questions/${encodeURIComponent(filename)}`,
+      image_url: `${req.protocol}://${req.get("host")}/instructor/question-banks/${questionBankId}/images/${encodeURIComponent(filename)}`,
     });
   } catch (error) {
     console.error("uploadInstructorQuestionImage error:", error);
@@ -1013,6 +1182,7 @@ export const deleteInstructorQuestion = async (
        WHERE question.question_id = ?
          AND question.question_bank_id = ?
          AND bank.owner_instructor_id = ?
+         AND bank.status = 'draft'
          AND question.is_active = 1
        LIMIT 1 FOR UPDATE`,
       [questionId, questionBankId, instructorId],
@@ -1167,6 +1337,39 @@ export const deleteInstructorQuestionBank = async (
       return res.status(404).json({ message: "ไม่พบพาร์ทที่ต้องการลบ" });
     }
 
+    const [activeAttempts] = await connection.query<RowDataPacket[]>(
+      `SELECT attempt.exam_attempt_id
+       FROM exam_attempts attempt
+       INNER JOIN exam_attempt_questions attempt_question
+         ON attempt_question.exam_attempt_id = attempt.exam_attempt_id
+        AND attempt_question.source_bank_id = ?
+       WHERE attempt.status IN ('in_progress', 'expired')
+       LIMIT 1`,
+      [questionBankId],
+    );
+    if (activeAttempts.length > 0) {
+      await connection.rollback();
+      return res.status(409).json({
+        message: "ยังจัดเก็บพาร์ทไม่ได้ เนื่องจากมีนักศึกษากำลังทำข้อสอบชุดนี้อยู่",
+      });
+    }
+    const [pendingCheckpoints] = await connection.query<RowDataPacket[]>(
+      `SELECT checkpoint.exam_checkpoint_id
+       FROM exam_checkpoints checkpoint
+       INNER JOIN exam_attempt_bank_results result
+         ON result.exam_attempt_id = checkpoint.source_exam_attempt_id
+        AND result.question_bank_id = ?
+       WHERE checkpoint.status = 'pending'
+       LIMIT 1`,
+      [questionBankId],
+    );
+    if (pendingCheckpoints.length > 0) {
+      await connection.rollback();
+      return res.status(409).json({
+        message: "ยังจัดเก็บพาร์ทไม่ได้ เนื่องจากมีรอบ Checkpoint ที่รอให้นักศึกษาทำ",
+      });
+    }
+
     await connection.query(
       `UPDATE choice
        SET is_active = 0
@@ -1213,7 +1416,7 @@ export const clearInstructorQuestionBankQuestions = async (
     const [banks] = await connection.query<RowDataPacket[]>(
       `SELECT question_bank_id FROM question_banks
        WHERE question_bank_id = ? AND owner_instructor_id = ?
-         AND status <> 'archived'
+         AND status = 'draft'
        LIMIT 1 FOR UPDATE`,
       [questionBankId, instructorId],
     );

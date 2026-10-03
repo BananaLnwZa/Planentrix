@@ -1,11 +1,12 @@
 import fs from "fs";
 import path from "path";
 import multer from "multer";
+import type { NextFunction, Request, Response } from "express";
 
 const tempDirectory = path.resolve(process.cwd(), "uploads", "temp");
 fs.mkdirSync(tempDirectory, { recursive: true });
 
-export const examFileUpload = multer({
+const examFileUpload = multer({
   dest: tempDirectory,
   limits: {
     fileSize: 20 * 1024 * 1024,
@@ -20,3 +21,23 @@ export const examFileUpload = multer({
     callback(new Error("รองรับเฉพาะไฟล์ .docx และ .pdf เท่านั้น"));
   },
 });
+
+export const uploadExamFile = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  examFileUpload.single("exam_file")(req, res, (error: unknown) => {
+    if (!error) {
+      next();
+      return;
+    }
+    const message =
+      error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE"
+        ? "ไฟล์ข้อสอบต้องมีขนาดไม่เกิน 20 MB"
+        : error instanceof Error
+          ? error.message
+          : "ไม่สามารถอัปโหลดไฟล์ข้อสอบได้";
+    res.status(400).json({ message });
+  });
+};

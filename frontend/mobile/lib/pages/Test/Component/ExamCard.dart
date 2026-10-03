@@ -74,10 +74,6 @@ class ExamCard extends StatelessWidget {
                           icon: Icons.timer_outlined,
                           text: '${exam.timeLimitMinutes} นาที',
                         ),
-                        _Meta(
-                          icon: Icons.stars_outlined,
-                          text: '${_number(exam.totalScore)} คะแนน',
-                        ),
                       ],
                     ),
                   ],
@@ -123,7 +119,3 @@ class _Meta extends StatelessWidget {
     );
   }
 }
-
-String _number(double value) => value == value.roundToDouble()
-    ? value.toInt().toString()
-    : value.toStringAsFixed(1);

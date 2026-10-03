@@ -22,6 +22,7 @@ import { errorHandler } from "./middlewares/errorHandler";
 import { requireRole } from "./middlewares/requireRole";
 import { verifyToken } from "./middlewares/verifyToken";
 import { startRecommendationScheduler } from "./user/services/recommendation.job";
+import { submitExpiredExamAttempts } from "./user/controllers/exam.controller";
 
 dotenv.config();
 
@@ -30,6 +31,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use("/uploads/questions", (_req, res) => {
+  res.status(404).json({ message: "Question images require an authorized exam session" });
+});
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/auth", authRouter);
@@ -78,5 +82,14 @@ console.log("Starting Planentrix server...");
 const server = app.listen(port, () => {
   console.log(`Planentrix server listening on http://localhost:${port}`);
   startRecommendationScheduler();
+  void submitExpiredExamAttempts().catch((error) => {
+    console.error("Initial expired exam submission failed:", error);
+  });
+  const examExpiryTimer = setInterval(() => {
+    void submitExpiredExamAttempts().catch((error) => {
+      console.error("Expired exam submission failed:", error);
+    });
+  }, 60_000);
+  examExpiryTimer.unref();
 });
 server.ref();

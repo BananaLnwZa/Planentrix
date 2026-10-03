@@ -165,13 +165,13 @@ class _TestPageState extends State<TestPage> {
         for (final answer in session.answers)
           answer.questionId: answer.choiceId,
       };
-      final firstUnanswered = detail.questions.indexWhere(
+      final firstUnanswered = session.exam.questions.indexWhere(
         (question) => !restoredAnswers.containsKey(question.questionId),
       );
 
       _timer?.cancel();
       setState(() {
-        _activeExam = detail;
+        _activeExam = session.exam;
         _attemptId = session.attemptId;
         _examStarted = true;
         _isStarting = false;
@@ -444,7 +444,7 @@ class _TestPageState extends State<TestPage> {
         ),
         const SizedBox(height: 5),
         const Text(
-          'แบบทดสอบที่ถึงรอบ Checkpoint',
+          'แบบทดสอบที่พร้อมทำและรอบ Checkpoint ที่ถึงกำหนด',
           style: TextStyle(fontSize: 11, color: Color(0xFF82969F)),
         ),
         const SizedBox(height: 14),
@@ -637,7 +637,7 @@ class _NoAvailableExam extends StatelessWidget {
         border: Border.all(color: const Color(0xFFDCE7D2)),
       ),
       child: const Text(
-        'ยังไม่มีแบบทดสอบที่ถึงรอบ Checkpoint',
+        'ยังไม่มีแบบทดสอบที่พร้อมทำ',
         textAlign: TextAlign.center,
         style: TextStyle(fontSize: 13, color: Color(0xFF78906A)),
       ),
@@ -713,7 +713,7 @@ class _ExamIntroduction extends StatelessWidget {
             Expanded(
               child: _ExamMetric(
                 color: const Color(0xFFEAF6FB),
-                value: '${exam.questions.length}',
+                value: '${summary.totalQuestion}',
                 label: 'ข้อ',
               ),
             ),
@@ -723,14 +723,6 @@ class _ExamIntroduction extends StatelessWidget {
                 color: const Color(0xFFFFF0BF),
                 value: '${summary.timeLimitMinutes}',
                 label: 'นาที',
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _ExamMetric(
-                color: const Color(0xFFFFE7EB),
-                value: _scoreText(summary.totalScore),
-                label: 'คะแนน',
               ),
             ),
           ],
@@ -763,7 +755,7 @@ class _ExamIntroduction extends StatelessWidget {
             Expanded(
               child: FilledButton(
                 key: const Key('start-exam-button'),
-                onPressed: exam.questions.isEmpty || isStarting
+                onPressed: summary.totalQuestion < 1 || isStarting
                     ? null
                     : onStart,
                 style: FilledButton.styleFrom(
@@ -823,10 +815,6 @@ class _ExamMetric extends StatelessWidget {
     );
   }
 }
-
-String _scoreText(double value) => value == value.roundToDouble()
-    ? value.toInt().toString()
-    : value.toStringAsFixed(1);
 
 class _TestState extends StatelessWidget {
   final Widget child;

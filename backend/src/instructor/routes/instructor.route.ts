@@ -7,13 +7,15 @@ import {
   deleteInstructorQuestionBank,
   getInstructorDashboard,
   getInstructorExamWorkspace,
+  getInstructorQuestionImage,
   getInstructorQuestionBankDetail,
   importInstructorExamFile,
+  publishInstructorQuestionBank,
   updateInstructorQuestionBankSettings,
   updateInstructorQuestion,
   uploadInstructorQuestionImage,
 } from "../controllers/instructor.controller";
-import { examFileUpload } from "../../middlewares/examFileUpload";
+import { uploadExamFile } from "../../middlewares/examFileUpload";
 import { uploadQuestionImage } from "../../middlewares/questionImageUpload";
 import {
   createInstructorGradingDraft,
@@ -40,8 +42,16 @@ router.patch(
   updateInstructorQuestionBankSettings,
 );
 router.post(
+  "/question-banks/:bankId/publish",
+  publishInstructorQuestionBank,
+);
+router.post(
   "/question-banks/:bankId/questions",
   createInstructorQuestion,
+);
+router.get(
+  "/question-banks/:bankId/images/:filename",
+  getInstructorQuestionImage,
 );
 router.post(
   "/question-banks/:bankId/images",
@@ -63,7 +73,7 @@ router.delete(
 );
 router.post(
   "/question-banks/:bankId/import",
-  examFileUpload.single("exam_file"),
+  uploadExamFile,
   importInstructorExamFile,
 );
 

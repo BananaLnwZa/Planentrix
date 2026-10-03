@@ -81,6 +81,10 @@ export const apiEndpoints = {
       `/instructor/question-banks/${questionBankId}/questions`,
     questionById: (questionBankId: number, questionId: number) =>
       `/instructor/question-banks/${questionBankId}/questions/${questionId}`,
+    publish: (questionBankId: number) =>
+      `/instructor/question-banks/${questionBankId}/publish`,
+    image: (questionBankId: number, filename: string) =>
+      `/instructor/question-banks/${questionBankId}/images/${encodeURIComponent(filename)}`,
     importFile: (questionBankId: number) =>
       `/instructor/question-banks/${questionBankId}/import`,
   },

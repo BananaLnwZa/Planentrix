@@ -14,7 +14,41 @@ interface QuestionBankImportRow extends RowDataPacket {
   owner_instructor_id: number;
   bank_name: string;
   exam_period: "midterm" | "final";
+  status: "draft" | "published" | "archived";
 }
+
+const hasExpectedFileSignature = (filePath: string, extension: string) => {
+  const descriptor = fs.openSync(filePath, "r");
+  try {
+    const header = Buffer.alloc(8);
+    const bytesRead = fs.readSync(descriptor, header, 0, header.length, 0);
+    if (extension === ".pdf") {
+      return header.subarray(0, Math.min(bytesRead, 5)).toString("ascii") === "%PDF-";
+    }
+    return (
+      extension === ".docx" &&
+      bytesRead >= 4 &&
+      header[0] === 0x50 &&
+      header[1] === 0x4b &&
+      header[2] === 0x03 &&
+      header[3] === 0x04
+    );
+  } finally {
+    fs.closeSync(descriptor);
+  }
+};
+
+const removeParsedImages = (questions: ParsedQuestion[], outputDirectory: string) => {
+  const paths = questions.flatMap((question) => [
+    question.question_image_path,
+    ...question.choices.map((choice) => choice.choice_image_path),
+  ]);
+  for (const imagePath of paths) {
+    if (!imagePath) continue;
+    const filename = path.basename(imagePath);
+    fs.unlink(path.join(outputDirectory, filename), () => {});
+  }
+};
 
 export const importExamFile = async (req: Request, res: Response) => {
   try {
@@ -42,7 +76,7 @@ export const importExamFile = async (req: Request, res: Response) => {
 
     // 3. ตรวจสอบและเชื่อมตาราง question_banks ว่ามี ID นี้อยู่จริงหรือไม่
     const [bankRows] = await db.query<QuestionBankImportRow[]>(
-      `SELECT question_bank_id, owner_instructor_id, bank_name, exam_period
+      `SELECT question_bank_id, owner_instructor_id, bank_name, exam_period, status
        FROM question_banks WHERE question_bank_id = ?`,
       [question_bank_id]
     );
@@ -55,6 +89,13 @@ export const importExamFile = async (req: Request, res: Response) => {
     }
 
     const currentBank = bankRows[0];
+
+    if (currentBank.status !== "draft") {
+      if (fs.existsSync(req.file.path)) fs.unlink(req.file.path, () => {});
+      return res.status(409).json({
+        message: "นำเข้าไฟล์ได้เฉพาะพาร์ทสถานะฉบับร่างเท่านั้น",
+      });
+    }
 
     if (
       req.user.role === "instructor" &&
@@ -75,6 +116,13 @@ export const importExamFile = async (req: Request, res: Response) => {
     }
 
     const ext = path.extname(req.file.originalname).toLowerCase();
+
+    if (!hasExpectedFileSignature(req.file.path, ext)) {
+      fs.unlink(req.file.path, () => {});
+      return res.status(400).json({
+        message: "เนื้อหาไฟล์ไม่ตรงกับชนิด PDF หรือ DOCX ที่เลือก",
+      });
+    }
 
     let parsedQuestions: ParsedQuestion[] = [];
     let warnings: unknown[] = [];
@@ -98,11 +146,32 @@ export const importExamFile = async (req: Request, res: Response) => {
     }
 
     if (parsedQuestions.length === 0) {
+      removeParsedImages(parsedQuestions, outputImageDir);
       if (fs.existsSync(req.file.path)) {
         fs.unlink(req.file.path, () => {});
       }
       return res.status(400).json({
         message: "No questions could be parsed from this file. Please check the document format.",
+      });
+    }
+
+    const invalidQuestionIndex = parsedQuestions.findIndex((question) => {
+      const correctCount = question.choices.filter((choice) => choice.is_correct).length;
+      return (
+        !question.question_text.trim() ||
+        question.choices.length < 2 ||
+        question.choices.length > 20 ||
+        correctCount !== 1 ||
+        question.choices.some(
+          (choice) => !choice.choice_text.trim() && !choice.choice_image_path,
+        )
+      );
+    });
+    if (invalidQuestionIndex >= 0) {
+      removeParsedImages(parsedQuestions, outputImageDir);
+      fs.unlink(req.file.path, () => {});
+      return res.status(400).json({
+        message: `คำถามข้อ ${invalidQuestionIndex + 1} ต้องมี 2-20 ตัวเลือกและมีคำตอบถูกเพียง 1 ตัวเลือก`,
       });
     }
 
@@ -116,7 +185,9 @@ export const importExamFile = async (req: Request, res: Response) => {
       for (const q of parsedQuestions) {
         // บันทึกลงตาราง question (เชื่อมกับ question_bank_id)
         const [qResult] = await connection.query<ResultSetHeader>(
-          `INSERT INTO question (question_bank_id, question_text, question_image_path) VALUES (?, ?, ?)`,
+          `INSERT INTO question
+            (question_bank_id, question_text, question_image_path, question_score, is_active)
+           VALUES (?, ?, ?, 1, 1)`,
           [question_bank_id, q.question_text, q.question_image_path ?? null]
         );
 
@@ -127,8 +198,8 @@ export const importExamFile = async (req: Request, res: Response) => {
           const choice = q.choices[i];
           await connection.query(
             `INSERT INTO choice
-              (question_id, choice_order, choice_text, choice_image_path, is_correct)
-             VALUES (?, ?, ?, ?, ?)`,
+              (question_id, choice_order, choice_text, choice_image_path, is_correct, is_active)
+             VALUES (?, ?, ?, ?, ?, 1)`,
             [
               questionId,
               i + 1,
@@ -147,19 +218,10 @@ export const importExamFile = async (req: Request, res: Response) => {
         });
       }
 
-      await connection.query(
-        `UPDATE question_banks
-         SET default_draw_count = (
-           SELECT COUNT(*) FROM question
-           WHERE question_bank_id = ? AND is_active = 1
-         )
-         WHERE question_bank_id = ?`,
-        [question_bank_id, question_bank_id],
-      );
-
       await connection.commit();
     } catch (dbErr) {
       await connection.rollback();
+      removeParsedImages(parsedQuestions, outputImageDir);
       throw dbErr;
     } finally {
       connection.release();
