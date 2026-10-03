@@ -114,6 +114,7 @@ export const importExamFile = async (req: Request, res: Response) => {
     if (!fs.existsSync(outputImageDir)) {
       fs.mkdirSync(outputImageDir, { recursive: true });
     }
+    const outputDirs = outputImageDir;
 
     const ext = path.extname(req.file.originalname).toLowerCase();
 
@@ -129,11 +130,11 @@ export const importExamFile = async (req: Request, res: Response) => {
 
     // 5. แยกประมวลผลตามนามสกุลไฟล์
     if (ext === ".docx") {
-      const parsed = await parseDocxExamFile(req.file.path, outputImageDir);
+      const parsed = await parseDocxExamFile(req.file.path, outputDirs);
       parsedQuestions = parsed.questions;
       warnings = parsed.warnings;
     } else if (ext === ".pdf") {
-      const parsed = await parsePdfExamFile(req.file.path, outputImageDir);
+      const parsed = await parsePdfExamFile(req.file.path, outputDirs);
       parsedQuestions = parsed.questions;
       warnings = parsed.warnings;
     } else {
@@ -146,32 +147,11 @@ export const importExamFile = async (req: Request, res: Response) => {
     }
 
     if (parsedQuestions.length === 0) {
-      removeParsedImages(parsedQuestions, outputImageDir);
       if (fs.existsSync(req.file.path)) {
         fs.unlink(req.file.path, () => {});
       }
       return res.status(400).json({
         message: "No questions could be parsed from this file. Please check the document format.",
-      });
-    }
-
-    const invalidQuestionIndex = parsedQuestions.findIndex((question) => {
-      const correctCount = question.choices.filter((choice) => choice.is_correct).length;
-      return (
-        !question.question_text.trim() ||
-        question.choices.length < 2 ||
-        question.choices.length > 20 ||
-        correctCount !== 1 ||
-        question.choices.some(
-          (choice) => !choice.choice_text.trim() && !choice.choice_image_path,
-        )
-      );
-    });
-    if (invalidQuestionIndex >= 0) {
-      removeParsedImages(parsedQuestions, outputImageDir);
-      fs.unlink(req.file.path, () => {});
-      return res.status(400).json({
-        message: `คำถามข้อ ${invalidQuestionIndex + 1} ต้องมี 2-20 ตัวเลือกและมีคำตอบถูกเพียง 1 ตัวเลือก`,
       });
     }
 
@@ -217,6 +197,16 @@ export const importExamFile = async (req: Request, res: Response) => {
           choice_count: q.choices.length,
         });
       }
+
+      await connection.query(
+        `UPDATE question_banks
+         SET default_draw_count = (
+           SELECT COUNT(*) FROM question
+           WHERE question_bank_id = ? AND is_active = 1
+         )
+         WHERE question_bank_id = ?`,
+        [question_bank_id, question_bank_id],
+      );
 
       await connection.commit();
     } catch (dbErr) {
