@@ -160,7 +160,8 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
         subjectId: item.subjectId,
         subjectName: item.subjectName,
         detail: 'แผนทบทวนประจำสัปดาห์',
-        targetMinutes: (existing?.targetMinutes ?? 0) + item.targetMinutes,
+        targetMinutes: ((existing?.targetMinutes ?? 0) + item.targetMinutes)
+            .toInt(),
       );
     }
     if (planned.isNotEmpty) return planned.values.toList();
