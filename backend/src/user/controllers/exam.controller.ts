@@ -179,19 +179,113 @@ const getAccessibleExam = async (
   return rows[0] ?? null;
 };
 
+function getValidScores(bucket: QuestionRow[], targetCount: number): Map<number, QuestionRow[]> {
+  const dp: Map<number, QuestionRow[]>[] = Array.from({ length: targetCount + 1 }, () => new Map());
+  dp[0].set(0, []); 
+  
+  for (const q of bucket) {
+    const score = Number(q.question_score);
+    for (let c = targetCount - 1; c >= 0; c--) {
+      for (const [s, prevSubset] of Array.from(dp[c].entries())) {
+        const newScore = Number((s + score).toFixed(2));
+        if (newScore <= 100 && !dp[c + 1].has(newScore)) {
+          dp[c + 1].set(newScore, [...prevSubset, q]);
+        }
+      }
+    }
+  }
+  return dp[targetCount];
+}
+
+function getPartitions(total: number): number[][] {
+  const base = Math.floor(total / 3);
+  const rem = total % 3;
+  if (rem === 0) return [[base, base, base]];
+  if (rem === 1) return [
+    [base + 1, base, base], [base, base + 1, base], [base, base, base + 1]
+  ];
+  return [
+    [base + 1, base + 1, base], [base + 1, base, base + 1], [base, base + 1, base + 1]
+  ];
+}
+
 const getRandomQuestions = async (
   examId: number,
   drawCount: number,
   connection: PoolConnection,
 ) => {
-  const [questions] = await connection.query<QuestionRow[]>(
+  const [allQuestions] = await connection.query<QuestionRow[]>(
     `SELECT question_id, question_text, question_image_path, question_score
      FROM question
-     WHERE question_bank_id = ? AND is_active = 1
-     ORDER BY RAND()
-     LIMIT ?`,
-    [examId, drawCount],
+     WHERE question_bank_id = ? AND is_active = 1`,
+    [examId],
   );
+
+  if (allQuestions.length < drawCount) {
+    return { questions: [], choices: [] };
+  }
+
+  const shuffledQuestions = [...allQuestions].sort(() => 0.5 - Math.random());
+
+  const scores = shuffledQuestions.map((q) => Number(q.question_score));
+  const minScore = Math.min(...scores);
+  const maxScore = Math.max(...scores);
+
+  const easyBucket: QuestionRow[] = [];
+  const mediumBucket: QuestionRow[] = [];
+  const hardBucket: QuestionRow[] = [];
+
+  if (minScore === maxScore) {
+    shuffledQuestions.forEach((q, i) => {
+      if (i % 3 === 0) easyBucket.push(q);
+      else if (i % 3 === 1) mediumBucket.push(q);
+      else hardBucket.push(q);
+    });
+  } else {
+    const range = (maxScore - minScore) / 3;
+    for (const q of shuffledQuestions) {
+      const score = Number(q.question_score);
+      if (score < minScore + range) {
+        easyBucket.push(q);
+      } else if (score < maxScore - range) {
+        mediumBucket.push(q);
+      } else {
+        hardBucket.push(q);
+      }
+    }
+  }
+
+  let selectedQuestions: QuestionRow[] = [];
+  let found = false;
+  const partitions = getPartitions(drawCount);
+  
+  for (const [cE, cM, cH] of partitions) {
+    if (easyBucket.length < cE || mediumBucket.length < cM || hardBucket.length < cH) continue;
+
+    const easyCombinations = getValidScores(easyBucket, cE);
+    const medCombinations = getValidScores(mediumBucket, cM);
+    const hardCombinations = getValidScores(hardBucket, cH);
+
+    for (const [scoreE, subsetE] of easyCombinations.entries()) {
+      for (const [scoreM, subsetM] of medCombinations.entries()) {
+        const scoreH = Number((100 - scoreE - scoreM).toFixed(2));
+        if (hardCombinations.has(scoreH)) {
+          selectedQuestions = [...subsetE, ...subsetM, ...hardCombinations.get(scoreH)!];
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+    if (found) break;
+  }
+
+  if (!found) {
+    selectedQuestions = shuffledQuestions.slice(0, drawCount);
+  }
+
+  const questions = selectedQuestions;
+
   const [choices] = questions.length
     ? await connection.query<ChoiceRow[]>(
         `SELECT choice.choice_id, choice.question_id, choice.choice_order,
@@ -202,6 +296,7 @@ const getRandomQuestions = async (
         [questions.map((question) => Number(question.question_id))],
       )
     : [[] as ChoiceRow[], [] as unknown[]];
+
   return { questions, choices: choices as ChoiceRow[] };
 };
 
