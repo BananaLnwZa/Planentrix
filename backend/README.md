@@ -75,9 +75,11 @@ time in `Asia/Bangkok` reaches 18:00.
 
 ## Database migration
 
-Run `migrations/20260824_add_weekly_schedule_recommendations.sql` against the
-Planentrix MySQL database. It creates the three weekly recommendation tables and
-is idempotent when those tables already exist.
+Import the current Planentrix baseline schema, then run every SQL file in
+`migrations/` in filename order. The migration set now targets the current
+`academic_terms`, `student_terms`, `enrollments`, and `study_sessions` model;
+legacy migrations are retained as safe no-ops. See `migrations/README.md` for
+the table mapping and execution notes.
 
 Exam feedback maps subject types to review methods through the rules in
 `src/user/services/review-method.rules.ts`. The rules use `reading` for theory,
