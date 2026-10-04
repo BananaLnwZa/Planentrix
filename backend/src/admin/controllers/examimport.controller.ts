@@ -4,6 +4,7 @@ import path from "path";
 import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
 import {
+  ImageOutputDirs,
   parseDocxExamFile,
   parsePdfExamFile,
   ParsedQuestion,
@@ -38,15 +39,18 @@ const hasExpectedFileSignature = (filePath: string, extension: string) => {
   }
 };
 
-const removeParsedImages = (questions: ParsedQuestion[], outputDirectory: string) => {
-  const paths = questions.flatMap((question) => [
-    question.question_image_path,
-    ...question.choices.map((choice) => choice.choice_image_path),
-  ]);
-  for (const imagePath of paths) {
-    if (!imagePath) continue;
-    const filename = path.basename(imagePath);
-    fs.unlink(path.join(outputDirectory, filename), () => {});
+const removeParsedImages = (questions: ParsedQuestion[], outputDirs: ImageOutputDirs) => {
+  for (const question of questions) {
+    if (question.question_image_path) {
+      const filename = path.basename(question.question_image_path);
+      fs.unlink(path.join(outputDirs.questionDir, filename), () => {});
+    }
+    for (const choice of question.choices) {
+      if (choice.choice_image_path) {
+        const filename = path.basename(choice.choice_image_path);
+        fs.unlink(path.join(outputDirs.choiceDir, filename), () => {});
+      }
+    }
   }
 };
 
@@ -110,11 +114,16 @@ export const importExamFile = async (req: Request, res: Response) => {
     }
 
     // 4. กำหนดโฟลเดอร์สำหรับเก็บรูปภาพและสร้างหากยังไม่มี
-    const outputImageDir = path.join(__dirname, "../../uploads/questions");
-    if (!fs.existsSync(outputImageDir)) {
-      fs.mkdirSync(outputImageDir, { recursive: true });
+    const outputDirs: ImageOutputDirs = {
+      questionDir: path.join(__dirname, "../../uploads/questions"),
+      choiceDir: path.join(__dirname, "../../uploads/choices"),
+    };
+    if (!fs.existsSync(outputDirs.questionDir)) {
+      fs.mkdirSync(outputDirs.questionDir, { recursive: true });
     }
-    const outputDirs = outputImageDir;
+    if (!fs.existsSync(outputDirs.choiceDir)) {
+      fs.mkdirSync(outputDirs.choiceDir, { recursive: true });
+    }
 
     const ext = path.extname(req.file.originalname).toLowerCase();
 
@@ -167,8 +176,13 @@ export const importExamFile = async (req: Request, res: Response) => {
         const [qResult] = await connection.query<ResultSetHeader>(
           `INSERT INTO question
             (question_bank_id, question_text, question_image_path, question_score, is_active)
-           VALUES (?, ?, ?, 1, 1)`,
-          [question_bank_id, q.question_text, q.question_image_path ?? null]
+           VALUES (?, ?, ?, ?, 1)`,
+          [
+            question_bank_id,
+            q.question_text,
+            q.question_image_path ?? null,
+            q.score || 1, // บันทึกคะแนนดิบ ถ้าไม่มีให้ค่าเริ่มต้นเป็น 1
+          ]
         );
 
         const questionId = qResult.insertId;
@@ -194,6 +208,7 @@ export const importExamFile = async (req: Request, res: Response) => {
           question_id: questionId,
           question_text: q.question_text,
           question_image_path: q.question_image_path,
+          score: q.score || 1, // ส่งคะแนนดิบกลับไปใน Response ด้วย
           choice_count: q.choices.length,
         });
       }
@@ -211,7 +226,7 @@ export const importExamFile = async (req: Request, res: Response) => {
       await connection.commit();
     } catch (dbErr) {
       await connection.rollback();
-      removeParsedImages(parsedQuestions, outputImageDir);
+      removeParsedImages(parsedQuestions, outputDirs);
       throw dbErr;
     } finally {
       connection.release();
