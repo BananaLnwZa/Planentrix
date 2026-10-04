@@ -245,7 +245,6 @@ class ExamSubmissionResult {
   final int checkpointIntervalWeeks;
   final int weakTopicCount;
   final int reviewMinutesDelta;
-  final ExamReviewMethod? reviewMethod;
 
   const ExamSubmissionResult({
     required this.historyId,
@@ -257,7 +256,6 @@ class ExamSubmissionResult {
     this.checkpointIntervalWeeks = 0,
     this.weakTopicCount = 0,
     this.reviewMinutesDelta = 0,
-    this.reviewMethod,
   });
 
   factory ExamSubmissionResult.fromJson(Map<String, dynamic> json) {
@@ -273,35 +271,8 @@ class ExamSubmissionResult {
       checkpointIntervalWeeks: _asInt(json['checkpoint_interval_weeks']),
       weakTopicCount: _asInt(json['weak_topic_count']),
       reviewMinutesDelta: _asInt(json['review_minutes_delta']),
-      reviewMethod: json['review_method'] is Map
-          ? ExamReviewMethod.fromJson(
-              Map<String, dynamic>.from(json['review_method'] as Map),
-            )
-          : null,
     );
   }
-}
-
-class ExamReviewMethod {
-  final int studyTypeId;
-  final String studyTypeName;
-  final bool fallbackUsed;
-
-  const ExamReviewMethod({
-    required this.studyTypeId,
-    required this.studyTypeName,
-    required this.fallbackUsed,
-  });
-
-  factory ExamReviewMethod.fromJson(Map<String, dynamic> json) =>
-      ExamReviewMethod(
-        studyTypeId: _asInt(json['study_type_id']),
-        studyTypeName: '${json['study_type_name'] ?? ''}',
-        fallbackUsed:
-            json['fallback_used'] == true ||
-            json['fallback_used'] == 1 ||
-            json['fallback_used'] == '1',
-      );
 }
 
 class WeakTopicInsight {
@@ -315,8 +286,6 @@ class WeakTopicInsight {
   final double actualScore;
   final double maximumScore;
   final double percentage;
-  final int studyTypeId;
-  final String studyTypeName;
 
   const WeakTopicInsight({
     required this.scheduleTimeId,
@@ -329,8 +298,6 @@ class WeakTopicInsight {
     required this.actualScore,
     required this.maximumScore,
     required this.percentage,
-    this.studyTypeId = 0,
-    this.studyTypeName = '',
   });
 
   factory WeakTopicInsight.fromJson(Map<String, dynamic> json) {
@@ -345,8 +312,6 @@ class WeakTopicInsight {
       actualScore: _asDouble(json['actual_score']),
       maximumScore: _asDouble(json['max_score']),
       percentage: _asDouble(json['percentage']),
-      studyTypeId: _asInt(json['study_type_id']),
-      studyTypeName: '${json['study_type_name'] ?? ''}',
     );
   }
 }

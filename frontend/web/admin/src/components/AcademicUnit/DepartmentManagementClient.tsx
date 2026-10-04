@@ -17,6 +17,7 @@ import type {
   FacultyOption,
 } from "@/interfaces/academic-unit.interface";
 import { academicUnitManagementService } from "@/services/academic-unit-management.service";
+import AdminSelect from "@/components/ui/AdminSelect";
 
 const sortDepartments = (items: Department[]) =>
   [...items].sort(
@@ -215,25 +216,21 @@ export default function DepartmentManagementClient() {
           </div>
         </div>
 
-        <label className="mt-6 block text-sm text-[#526b75]" htmlFor="department-faculty">
+        <p className="mt-6 text-sm text-[#526b75]">
           คณะ
-        </label>
-        <select
-          id="department-faculty"
+        </p>
+        <AdminSelect
           value={facultyId}
-          onChange={(event) => setFacultyId(event.target.value)}
-          required
+          onChange={setFacultyId}
+          ariaLabel="เลือกคณะ"
+          placeholder="เลือกคณะ"
           disabled={selectableFaculties.length === 0}
-          className="mt-2 h-11 w-full rounded-xl border border-[#d5e2e6] bg-white px-3 text-sm text-[#526b75] outline-none focus:border-[#66a8bf] disabled:cursor-not-allowed disabled:bg-gray-100"
-        >
-          <option value="">เลือกคณะ</option>
-          {selectableFaculties.map((faculty) => (
-            <option key={faculty.faculty_id} value={faculty.faculty_id}>
-              {faculty.faculty_name} ({faculty.faculty_code})
-              {faculty.is_active ? "" : " (ปิดใช้งาน)"}
-            </option>
-          ))}
-        </select>
+          className="mt-2"
+          options={selectableFaculties.map((faculty) => ({
+            value: String(faculty.faculty_id),
+            label: `${faculty.faculty_name} (${faculty.faculty_code})${faculty.is_active ? "" : " (ปิดใช้งาน)"}`,
+          }))}
+        />
         {activeFaculties.length === 0 && !editingDepartment && !loading && (
           <p className="mt-2 text-xs text-[#b66a55]">
             ยังไม่มีคณะที่เปิดใช้งาน กรุณาเพิ่มหรือเปิดใช้งานคณะก่อน

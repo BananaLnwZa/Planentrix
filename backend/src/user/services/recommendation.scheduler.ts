@@ -208,7 +208,7 @@ const buildSegments = (item: RecommendationItemDraft): DemandSegment[] => {
     remaining -= amount;
   };
 
-  if (item.scheduleTypeId === 3) {
+  if (item.scheduleTypeCode === "homework") {
     for (const demand of [...item.workloadDemands].sort(
       (left, right) =>
         left.priority - right.priority ||
@@ -259,17 +259,44 @@ const chooseSlot = (
     assignedPerDay.set(slot.date, (assignedPerDay.get(slot.date) ?? 0) + 1);
   }
   valid.sort((left, right) => {
-    const leftPreferred = preferredKeys.has(left.key) ? 0 : 1;
-    const rightPreferred = preferredKeys.has(right.key) ? 0 : 1;
-    if (leftPreferred !== rightPreferred) return leftPreferred - rightPreferred;
+    const leftPrevious = preferredKeys.has(left.key) ? 0 : 1;
+    const rightPrevious = preferredKeys.has(right.key) ? 0 : 1;
+    const preservePrevious =
+      segment.item.previousAdherenceRate !== null &&
+      segment.item.previousAdherenceRate >= 70;
+    const abandonPrevious =
+      segment.item.previousAdherenceRate !== null &&
+      segment.item.previousAdherenceRate < 40;
+    if (preservePrevious && leftPrevious !== rightPrevious) {
+      return leftPrevious - rightPrevious;
+    }
+    if (preservePrevious && leftPrevious === 0 && rightPrevious === 0) {
+      if (left.date !== right.date) return left.date.localeCompare(right.date);
+      return left.startMinute - right.startMinute;
+    }
     if (segment.kind === "quiz" || segment.kind === "exam") {
       if (left.date !== right.date) return right.date.localeCompare(left.date);
     } else {
       const leftCount = assignedPerDay.get(left.date) ?? 0;
       const rightCount = assignedPerDay.get(right.date) ?? 0;
       if (leftCount !== rightCount) return leftCount - rightCount;
-      if (left.date !== right.date) return left.date.localeCompare(right.date);
+      const preferredDays = segment.item.behaviorPreferredDays;
+      if (preferredDays.length > 0) {
+        const leftDay = preferredDays.includes(left.day) ? 0 : 1;
+        const rightDay = preferredDays.includes(right.day) ? 0 : 1;
+        if (leftDay !== rightDay) return leftDay - rightDay;
+      }
+      const preferredStart = segment.item.behaviorPreferredStartMinute;
+      if (preferredStart !== null) {
+        const leftDistance = Math.abs(left.startMinute - preferredStart);
+        const rightDistance = Math.abs(right.startMinute - preferredStart);
+        if (leftDistance !== rightDistance) return leftDistance - rightDistance;
+      }
     }
+    if (!abandonPrevious && leftPrevious !== rightPrevious) {
+      return leftPrevious - rightPrevious;
+    }
+    if (left.date !== right.date) return left.date.localeCompare(right.date);
     return left.startMinute - right.startMinute;
   });
   return valid[0];
@@ -448,6 +475,10 @@ export const buildSchedulePlan = (input: SchedulePlanInput) => {
         (sum, block) => sum + durationMinutes(block.start_time, block.end_time),
         0
       );
+    // A recalculation during the current week cannot undo time blocks that
+    // have already passed. Keep the persisted target valid for those blocks,
+    // while future blocks can still be removed when the new rule target is 0.
+    item.targetMinutes = Math.max(item.targetMinutes, item.allocatedMinutes);
   }
 
   const preferredByItem = new Map<string, Set<string>>();
@@ -498,9 +529,21 @@ export const buildSchedulePlan = (input: SchedulePlanInput) => {
 
       let sessionSlot: CandidateSlot | null = selected.slot;
       let sessionMinutes = 0;
+      const preferredSessionMinutes =
+        selected.segment.item.behaviorPreferredSessionMinutes;
+      const behaviorSessionLimit =
+        preferredSessionMinutes ??
+        (selected.segment.item.behaviorCompletionRate !== null &&
+        selected.segment.item.behaviorCompletionRate < 70
+          ? 60
+          : sessionLimit);
+      const itemSessionLimit = Math.min(
+        sessionLimit,
+        behaviorSessionLimit
+      );
       while (
         sessionSlot &&
-        sessionMinutes < sessionLimit &&
+        sessionMinutes < itemSessionLimit &&
         selected.segment.allocatedMinutes < selected.segment.targetMinutes &&
         selected.segment.item.allocatedMinutes < selected.segment.item.targetMinutes
       ) {
@@ -536,7 +579,7 @@ export const buildSchedulePlan = (input: SchedulePlanInput) => {
     userId: input.userId,
     termId: input.termId,
     subjectId: block.subject_id,
-    scheduleTypeId: Number(block.schedule_type_id) as 2 | 3,
+    scheduleTypeId: Number(block.schedule_type_id),
     scheduledDate: block.scheduled_date,
     startTime: block.start_time,
     endTime: block.end_time,

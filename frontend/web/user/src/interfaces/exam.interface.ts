@@ -59,8 +59,6 @@ export interface WeakTopicInsight {
   actualScore: number;
   maximumScore: number;
   percentage: number;
-  studyTypeId: number;
-  studyTypeName: string;
 }
 
 export interface ExamCheckpointInsight {
@@ -105,9 +103,4 @@ export interface ExamSubmissionResult {
   weakTopicCount: number;
   reviewMinutesDelta: number;
   scheduleRecommendationId: number | null;
-  reviewMethod: {
-    studyTypeId: number;
-    studyTypeName: string;
-    fallbackUsed: boolean;
-  } | null;
 }

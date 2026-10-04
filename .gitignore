@@ -1,2 +1,7 @@
 /.codex_spreadsheet/
 /backend/src/uploads/
+/artifacts/
+/docs/
+/tools/
+/output
+/tmp

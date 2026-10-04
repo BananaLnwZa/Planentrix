@@ -106,6 +106,33 @@ export const scoreGapMinutes = (gap: number) => {
 export const weakTopicMinutes = (count: number) =>
   Math.min(WEAK_TOPIC_CAP_MINUTES, Math.max(0, count) * 30);
 
+export const examReviewFloorMinutes = (
+  calculatedMinutes: number,
+  isNearExam: boolean
+) => {
+  if (!isNearExam) return 0;
+  return Math.max(0, STANDARD_BLOCK_MINUTES - Math.max(0, calculatedMinutes));
+};
+
+export const adherenceRate = (
+  plannedMinutes: number,
+  adherentMinutes: number
+) => {
+  if (plannedMinutes <= 0) return null;
+  return Math.min(
+    100,
+    Math.round((Math.max(0, adherentMinutes) / plannedMinutes) * 10_000) / 100
+  );
+};
+
+export const completionRate = (plannedMinutes: number, actualMinutes: number) => {
+  if (plannedMinutes <= 0) return null;
+  return Math.min(
+    100,
+    Math.round((Math.max(0, actualMinutes) / plannedMinutes) * 10_000) / 100
+  );
+};
+
 export const examProximityMinutes = (
   weekStart: string,
   weekEnd: string,

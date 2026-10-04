@@ -58,7 +58,7 @@ All routes require a user JWT in the `Authorization` header and are mounted at
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `POST` | `/generate` | Generate a pending recommendation. Body may contain `trigger_type` and Monday `target_week_start`. |
+| `POST` | `/generate` | Generate a pending recommendation. Body may contain `trigger_type`, Monday `target_week_start`, `source_exam_attempt_id`, and `workload_id`. |
 | `GET` | `/latest?week_start=YYYY-MM-DD` | Get the latest non-superseded recommendation. |
 | `GET` | `/schedule?week_start=YYYY-MM-DD` | Get recurring classes plus the accepted weekly plan. |
 | `GET` | `/:recommendation_id` | Get recommendation items, reasons, changes, and preview blocks. |
@@ -73,6 +73,25 @@ changes, workload score changes, and constraint changes. The server checks
 every minute on Sunday and creates the following week's recommendation once the
 time in `Asia/Bangkok` reaches 18:00.
 
+Only the Sunday `weekend` run uses reading behavior from `study_sessions`.
+For each enrollment it records the previous week's actual minutes, minutes that
+overlap the accepted review plan, completion rate, and adherence percentage.
+Behavior never adds to the review target: it chooses whether to preserve the
+previous plan or prefer the user's actual reading days/start time, and uses the
+typical completed-session duration to split or merge blocks. Completing a timer
+session does not generate a recommendation.
+
+Review has no unconditional base time. A normal week therefore has no review
+block when score-gap, weak-topic, and behavior rules all produce zero minutes.
+During the week immediately before or overlapping a midterm/final period, the
+exam rule raises the calculated review target to a minimum of 60 minutes; it
+does not add another hour when the target is already at least 60 minutes.
+
+Schedule and workload categories are resolved by `type_code`, not fixed numeric
+IDs. The required active codes are `review` and `homework` in `schedule_types`,
+and `assignment` and `project` in `workload_types`. Classes remain in
+`class_meetings` and are not a schedule type.
+
 ## Database migration
 
 Import the current Planentrix baseline schema, then run every SQL file in
@@ -80,10 +99,3 @@ Import the current Planentrix baseline schema, then run every SQL file in
 `academic_terms`, `student_terms`, `enrollments`, and `study_sessions` model;
 legacy migrations are retained as safe no-ops. See `migrations/README.md` for
 the table mapping and execution notes.
-
-Exam feedback maps subject types to review methods through the rules in
-`src/user/services/review-method.rules.ts`. The rules use `reading` for theory,
-`practice` for programming/database/AI/web, `review` for system design and
-projects, and `video` for networking/security. An unmapped subject type falls
-back to the `review` study type. Exam-part scores still independently decide weak
-topics using the existing below-50-percent rule.

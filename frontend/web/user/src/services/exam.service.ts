@@ -111,8 +111,6 @@ const weakTopicFromJson = (value: unknown): WeakTopicInsight => {
     actualScore: number(json.actual_score),
     maximumScore: number(json.max_score),
     percentage: number(json.percentage),
-    studyTypeId: number(json.study_type_id),
-    studyTypeName: text(json.study_type_name),
   };
 };
 
@@ -228,7 +226,6 @@ class ExamService {
         }
       );
       const json = record(response.data);
-      const reviewMethodJson = record(json.review_method);
       return {
         historyId: number(json.exam_score_history_id),
         actualScore: number(json.actual_score),
@@ -241,13 +238,6 @@ class ExamService {
         reviewMinutesDelta: number(json.review_minutes_delta),
         scheduleRecommendationId: json.schedule_recommendation_id
           ? number(json.schedule_recommendation_id)
-          : null,
-        reviewMethod: reviewMethodJson.study_type_id
-          ? {
-              studyTypeId: number(reviewMethodJson.study_type_id),
-              studyTypeName: text(reviewMethodJson.study_type_name),
-              fallbackUsed: Boolean(reviewMethodJson.fallback_used),
-            }
           : null,
       };
     } catch (error) {

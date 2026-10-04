@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  adherenceRate,
+  completionRate,
   durationMinutes,
+  examReviewFloorMinutes,
   examProximityMinutes,
   resolveTargetWeek,
   scoreGapMinutes,
@@ -11,6 +14,7 @@ import {
 } from "./recommendation.rules";
 import { buildSchedulePlan, validateNoOverlaps } from "./recommendation.scheduler";
 import type {
+  BaseBlockRow,
   ClassBlockRow,
   ConstraintRow,
   RecommendationItemDraft,
@@ -30,6 +34,14 @@ test("calculates score-gap and weak-topic rule minutes", () => {
   assert.equal(scoreGapMinutes(10), 60);
   assert.equal(scoreGapMinutes(20), 90);
   assert.equal(weakTopicMinutes(7), 180);
+});
+
+test("uses exams as a 60-minute floor instead of adding another hour", () => {
+  assert.equal(examReviewFloorMinutes(0, true), 60);
+  assert.equal(examReviewFloorMinutes(30, true), 30);
+  assert.equal(examReviewFloorMinutes(60, true), 0);
+  assert.equal(examReviewFloorMinutes(120, true), 0);
+  assert.equal(examReviewFloorMinutes(0, false), 0);
 });
 
 test("calculates exam proximity from the target week", () => {
@@ -72,10 +84,11 @@ test("Sunday 18:00 Bangkok generates the following week", () => {
 });
 
 const makeReviewItem = (targetMinutes: number): RecommendationItemDraft => ({
-  key: "CS101:2",
+  key: "CS101:1",
   subjectId: "CS101",
   subjectName: "Computer Science",
-  scheduleTypeId: 2,
+  scheduleTypeId: 1,
+  scheduleTypeCode: "review",
   currentMinutes: 0,
   baseMinutes: targetMinutes,
   scoreGapMinutes: 0,
@@ -84,6 +97,14 @@ const makeReviewItem = (targetMinutes: number): RecommendationItemDraft => ({
   quizFloorMinutes: 0,
   workloadMinutes: 0,
   deadlineMinutes: 0,
+  behaviorAdjustmentMinutes: 0,
+  previousActualMinutes: 0,
+  previousAdherentMinutes: 0,
+  previousAdherenceRate: null,
+  behaviorCompletionRate: null,
+  behaviorPreferredDays: [],
+  behaviorPreferredStartMinute: null,
+  behaviorPreferredSessionMinutes: null,
   rawTargetMinutes: targetMinutes,
   maxTargetMinutes: 300,
   targetMinutes,
@@ -97,6 +118,13 @@ const makeReviewItem = (targetMinutes: number): RecommendationItemDraft => ({
   workloadDemands: [],
   placementDeadline: null,
   placementPriority: 9,
+});
+
+test("calculates adherence from time overlapping the accepted plan", () => {
+  assert.equal(adherenceRate(120, 60), 50);
+  assert.equal(adherenceRate(0, 0), null);
+  assert.equal(completionRate(120, 60), 50);
+  assert.equal(completionRate(120, 180), 100);
 });
 
 test("scheduler respects class conflicts and produces non-overlapping blocks", () => {
@@ -140,7 +168,7 @@ test("scheduler keeps equal-priority 30-minute units together by subject", () =>
   const first = makeReviewItem(60);
   const second = {
     ...makeReviewItem(60),
-    key: "CS102:2",
+    key: "CS102:1",
     subjectId: "CS102",
     subjectName: "Data Structures",
   };
@@ -204,4 +232,148 @@ test("scheduler reports unallocated time when capacity is insufficient", () => {
   assert.equal(result.items[0].allocatedMinutes, 360);
   assert.equal(result.items[0].unallocatedMinutes, 240);
   assert.equal(result.items[0].capacityLimited, true);
+});
+
+test("weekend behavior preferences guide review placement", () => {
+  const item = makeReviewItem(60);
+  item.behaviorPreferredDays = [3];
+  item.behaviorPreferredStartMinute = 18 * 60;
+  const result = buildSchedulePlan({
+    items: [item],
+    baseBlocks: [],
+    classBlocks: [],
+    busyBlocks: [],
+    constraint: {
+      constraint_id: 1,
+      day_off: null,
+      continuous_working_duration: 120,
+      break_minutes: 30,
+      start_time: "08:00:00",
+      end_time: "20:00:00",
+    } as unknown as ConstraintRow,
+    weekStart: "2026-08-24",
+    weekEnd: "2026-08-30",
+    userId: 1,
+    termId: 1,
+    now: new Date("2026-08-23T00:00:00.000Z"),
+    previousAcceptedRecommendationId: null,
+  });
+  assert.equal(result.blocks[0].scheduledDate, "2026-08-26");
+  assert.equal(result.blocks[0].startTime, "18:00:00");
+});
+
+test("high adherence preserves the accepted slot before using a new habit", () => {
+  const item = makeReviewItem(60);
+  item.currentMinutes = 60;
+  item.previousAdherenceRate = 80;
+  item.behaviorCompletionRate = 100;
+  item.behaviorPreferredDays = [3];
+  item.behaviorPreferredStartMinute = 18 * 60;
+  const baseBlocks = [
+    {
+      weekly_block_id: 12,
+      schedule_time_id: 1,
+      subject_id: "CS101",
+      schedule_type_id: 1,
+      scheduled_date: "2026-08-24",
+      start_time: "09:00:00",
+      end_time: "10:00:00",
+      source: "copied_previous",
+      is_user_modified: 0,
+    },
+  ] as unknown as BaseBlockRow[];
+  const result = buildSchedulePlan({
+    items: [item],
+    baseBlocks,
+    classBlocks: [],
+    busyBlocks: [],
+    constraint: {
+      constraint_id: 1,
+      day_off: null,
+      continuous_working_duration: 120,
+      break_minutes: 30,
+      start_time: "08:00:00",
+      end_time: "20:00:00",
+    } as unknown as ConstraintRow,
+    weekStart: "2026-08-24",
+    weekEnd: "2026-08-30",
+    userId: 1,
+    termId: 1,
+    now: new Date("2026-08-23T00:00:00.000Z"),
+    previousAcceptedRecommendationId: 8,
+  });
+  assert.equal(result.blocks[0].scheduledDate, "2026-08-24");
+  assert.equal(result.blocks[0].startTime, "09:00:00");
+});
+
+test("typical session length splits the same target across days", () => {
+  const item = makeReviewItem(120);
+  item.previousAdherenceRate = 30;
+  item.behaviorCompletionRate = 50;
+  item.behaviorPreferredDays = [3, 5];
+  item.behaviorPreferredStartMinute = 18 * 60;
+  item.behaviorPreferredSessionMinutes = 60;
+  const result = buildSchedulePlan({
+    items: [item],
+    baseBlocks: [],
+    classBlocks: [],
+    busyBlocks: [],
+    constraint: {
+      constraint_id: 1,
+      day_off: null,
+      continuous_working_duration: 120,
+      break_minutes: 30,
+      start_time: "08:00:00",
+      end_time: "20:00:00",
+    } as unknown as ConstraintRow,
+    weekStart: "2026-08-24",
+    weekEnd: "2026-08-30",
+    userId: 1,
+    termId: 1,
+    now: new Date("2026-08-23T00:00:00.000Z"),
+    previousAcceptedRecommendationId: null,
+  });
+  assert.deepEqual(
+    result.blocks.map((block) => [
+      block.scheduledDate,
+      durationMinutes(block.startTime, block.endTime),
+    ]),
+    [
+      ["2026-08-26", 60],
+      ["2026-08-28", 60],
+    ]
+  );
+});
+
+test("current-week recalculation keeps already elapsed blocks valid", () => {
+  const item = makeReviewItem(0);
+  item.currentMinutes = 60;
+  const baseBlocks = [
+    {
+      weekly_block_id: 11,
+      schedule_time_id: 1,
+      subject_id: "CS101",
+      schedule_type_id: 1,
+      scheduled_date: "2026-08-24",
+      start_time: "08:00:00",
+      end_time: "09:00:00",
+      source: "copied_previous",
+      is_user_modified: 0,
+    },
+  ] as unknown as BaseBlockRow[];
+  const result = buildSchedulePlan({
+    items: [item],
+    baseBlocks,
+    classBlocks: [],
+    busyBlocks: [],
+    constraint: null,
+    weekStart: "2026-08-24",
+    weekEnd: "2026-08-30",
+    userId: 1,
+    termId: 1,
+    now: new Date("2026-08-24T04:00:00.000Z"),
+    previousAcceptedRecommendationId: 9,
+  });
+  assert.equal(result.items[0].targetMinutes, 60);
+  assert.equal(result.items[0].allocatedMinutes, 60);
 });

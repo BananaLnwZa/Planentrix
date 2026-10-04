@@ -1,9 +1,8 @@
 import type { RowDataPacket } from "mysql2/promise";
 
-export const REVIEW_SCHEDULE_TYPE_ID = 2;
-export const HOMEWORK_SCHEDULE_TYPE_ID = 3;
-export const CLASS_SCHEDULE_TYPE_ID = 1;
-export const RULE_VERSION = "1.0.0";
+export const RULE_VERSION = "2.1.0-behavior-placement";
+
+export type RecommendationScheduleType = "review" | "homework";
 
 export type RecommendationTrigger =
   | "weekend"
@@ -39,7 +38,7 @@ export interface GenerateRecommendationInput {
   triggerType: RecommendationTrigger;
   now?: Date;
   targetWeekStart?: string;
-  examScoreHistoryId?: number | null;
+  examAttemptId?: number | null;
   workloadId?: number | null;
 }
 
@@ -126,7 +125,8 @@ export interface RecommendationItemDraft {
   key: string;
   subjectId: string;
   subjectName: string;
-  scheduleTypeId: 2 | 3;
+  scheduleTypeId: number;
+  scheduleTypeCode: RecommendationScheduleType;
   currentMinutes: number;
   baseMinutes: number;
   scoreGapMinutes: number;
@@ -135,6 +135,14 @@ export interface RecommendationItemDraft {
   quizFloorMinutes: number;
   workloadMinutes: number;
   deadlineMinutes: number;
+  behaviorAdjustmentMinutes: number;
+  previousActualMinutes: number;
+  previousAdherentMinutes: number;
+  previousAdherenceRate: number | null;
+  behaviorCompletionRate: number | null;
+  behaviorPreferredDays: number[];
+  behaviorPreferredStartMinute: number | null;
+  behaviorPreferredSessionMinutes: number | null;
   rawTargetMinutes: number;
   maxTargetMinutes: number;
   targetMinutes: number;
@@ -167,7 +175,7 @@ export interface PlannedBlock {
   userId: number;
   termId: number;
   subjectId: string;
-  scheduleTypeId: 2 | 3;
+  scheduleTypeId: number;
   scheduledDate: string;
   startTime: string;
   endTime: string;

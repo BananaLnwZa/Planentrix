@@ -150,8 +150,6 @@ class FakeExamRepository implements ExamRepository {
           actualScore: 20,
           maximumScore: 50,
           percentage: 40,
-          studyTypeId: 2,
-          studyTypeName: 'Practice',
         ),
       ],
       nextCheckpoints: [
@@ -388,9 +386,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('weak-topic-section')), findsOneWidget);
-    expect(find.byKey(const Key('review-method-section')), findsNothing);
     expect(find.byKey(const Key('checkpoint-section')), findsOneWidget);
-    expect(find.text('วิธีทบทวนที่แนะนำ'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

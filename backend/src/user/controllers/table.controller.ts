@@ -3,7 +3,6 @@ import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/prom
 import db from "../../config/db";
 
 const WEEKLY_ID_OFFSET = 1_000_000_000;
-const ALLOWED_TYPES = [2, 3];
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
 
 type UserRequest = Request & { user?: { id: number; role?: string } };
@@ -12,6 +11,7 @@ interface TermRow extends RowDataPacket {
 }
 interface ScheduleRow extends RowDataPacket {
   schedule_time_id: number; schedule_type_id: number; schedule_type_name: string;
+  schedule_type_code: "class" | "review" | "homework";
   subject_id: string; subject_name: string; teacher_name: string; credits: number;
   schedule_day: number; start_time: string; end_time: string;
   classroom: string | null; note: string | null;
@@ -51,8 +51,8 @@ const validate = (day: unknown, start: unknown, end: unknown) => {
   return { scheduleDay, startTime, endTime };
 };
 
-const CLASS_SQL = `SELECT cm.class_meeting_id AS schedule_time_id, 1 AS schedule_type_id,
-  'Class' AS schedule_type_name, s.subject_id, s.subject_name,
+const CLASS_SQL = `SELECT cm.class_meeting_id AS schedule_time_id, 0 AS schedule_type_id,
+  'class' AS schedule_type_code,'Class' AS schedule_type_name, s.subject_id, s.subject_name,
   COALESCE(GROUP_CONCAT(DISTINCT CONCAT(i.first_name, ' ', i.last_name) SEPARATOR ', '), '') AS teacher_name,
   CAST(s.credits AS DOUBLE) AS credits,
   FIELD(cm.day_of_week,'monday','tuesday','wednesday','thursday','friday','saturday','sunday') AS schedule_day,
@@ -69,7 +69,7 @@ const CLASS_SQL = `SELECT cm.class_meeting_id AS schedule_time_id, 1 AS schedule
  GROUP BY cm.class_meeting_id,s.subject_id,s.subject_name,s.credits,cm.day_of_week,cm.start_time,cm.end_time,cm.classroom`;
 
 const WEEKLY_SQL = `SELECT (? + wb.weekly_block_id) AS schedule_time_id, wb.schedule_type_id,
-  COALESCE(t.type_name,CASE wb.schedule_type_id WHEN 2 THEN 'Study' ELSE 'Homework' END) AS schedule_type_name,
+  LOWER(t.type_code) AS schedule_type_code,t.type_name AS schedule_type_name,
   s.subject_id,s.subject_name,'' AS teacher_name,CAST(s.credits AS DOUBLE) AS credits,
   DAYOFWEEK(wb.scheduled_date + INTERVAL 1 DAY) AS schedule_day,
   TIME_FORMAT(wb.start_time,'%H:%i') AS start_time,TIME_FORMAT(wb.end_time,'%H:%i') AS end_time,
@@ -79,7 +79,7 @@ const WEEKLY_SQL = `SELECT (? + wb.weekly_block_id) AS schedule_time_id, wb.sche
  INNER JOIN enrollments e ON e.enrollment_id=wb.enrollment_id
  INNER JOIN course_sections cs ON cs.section_id=e.section_id
  INNER JOIN subjects s ON s.subject_id=cs.subject_id
- LEFT JOIN schedule_types t ON t.schedule_type_id=wb.schedule_type_id
+ INNER JOIN schedule_types t ON t.schedule_type_id=wb.schedule_type_id
  WHERE wr.student_term_id=? AND wr.status='accepted'`;
 
 export const getScheduleForCurrentTerm = async (req: Request, res: Response) => {
@@ -120,9 +120,25 @@ export const getScheduleTimeById = async (req: Request, res: Response) => {
   } catch (error) { console.error("getScheduleTimeById error:", error); return res.status(500).json({ message: "Internal server error" }); }
 };
 
-const ensureTypes = (connection: PoolConnection) => connection.query(`INSERT INTO schedule_types(schedule_type_id,type_code,type_name,is_active)
-  VALUES(1,'class','Class',1),(2,'study','Study',1),(3,'homework','Homework',1)
-  ON DUPLICATE KEY UPDATE type_code=VALUES(type_code),type_name=VALUES(type_name),is_active=1`);
+const resolveEditableType = async (
+  connection: PoolConnection,
+  scheduleTypeId: unknown,
+  scheduleTypeCode: unknown,
+) => {
+  const id = Number(scheduleTypeId);
+  const code = typeof scheduleTypeCode === "string"
+    ? scheduleTypeCode.trim().toLowerCase()
+    : "";
+  const [rows] = await connection.query<RowDataPacket[]>(
+    `SELECT schedule_type_id,LOWER(type_code) AS type_code,type_name
+     FROM schedule_types
+     WHERE is_active=1 AND LOWER(type_code) IN ('review','homework')
+       AND ((? > 0 AND schedule_type_id=?) OR (?<>'' AND LOWER(type_code)=?))
+     LIMIT 1`,
+    [Number.isInteger(id) ? id : 0, Number.isInteger(id) ? id : 0, code, code],
+  );
+  return rows[0] ?? null;
+};
 
 const getAcceptedRecommendation = async (connection: PoolConnection, termId: number) => {
   const weekStart=localDate(monday()); const end=monday(); end.setDate(end.getDate()+6); const weekEnd=localDate(end);
@@ -137,8 +153,8 @@ const getAcceptedRecommendation = async (connection: PoolConnection, termId: num
 
 export const addTime = async (req: Request, res: Response) => {
   const userId=getUserId(req,res); if(!userId)return;
-  const {subject_id,schedule_day,start_time,end_time,schedule_type_id}=req.body;
-  if(!subject_id || !ALLOWED_TYPES.includes(Number(schedule_type_id))) return res.status(400).json({message:"subject_id and schedule_type_id 2 or 3 are required"});
+  const {subject_id,schedule_day,start_time,end_time,schedule_type_id,schedule_type_code}=req.body;
+  if(!subject_id) return res.status(400).json({message:"subject_id is required"});
   const valid=validate(schedule_day,start_time,end_time); if(valid.error)return res.status(400).json({message:valid.error});
   const connection=await db.getConnection();
   try{
@@ -148,10 +164,12 @@ export const addTime = async (req: Request, res: Response) => {
       INNER JOIN course_sections cs ON cs.section_id=e.section_id INNER JOIN subjects s ON s.subject_id=cs.subject_id
       WHERE e.student_term_id=? AND e.status='enrolled' AND s.subject_id=? LIMIT 1`,[term.term_id,subject_id]);
     if(!subjects[0]){await connection.rollback();return res.status(404).json({message:"Subject is not enrolled in the current term"});}
-    await ensureTypes(connection); const recommendationId=await getAcceptedRecommendation(connection,term.term_id);
+    const scheduleType=await resolveEditableType(connection,schedule_type_id,schedule_type_code);
+    if(!scheduleType){await connection.rollback();return res.status(400).json({message:"An active review or homework schedule type is required"});}
+    const recommendationId=await getAcceptedRecommendation(connection,term.term_id);
     const [result]=await connection.query<ResultSetHeader>(`INSERT INTO weekly_schedule_block(recommendation_id,enrollment_id,schedule_type_id,scheduled_date,start_time,end_time,source,is_user_modified)
-      VALUES(?,?,?,?,?,?,'user_added',1)`,[recommendationId,subjects[0].enrollment_id,Number(schedule_type_id),dateForDay(valid.scheduleDay!),normalizeTime(valid.startTime!),normalizeTime(valid.endTime!)]);
-    await connection.commit(); return res.status(201).json({message:"Schedule time added successfully",schedule_time_id:WEEKLY_ID_OFFSET+result.insertId,user_id:userId,term_id:term.term_id,subject_id,subject_name:subjects[0].subject_name,schedule_day:valid.scheduleDay,start_time:valid.startTime,end_time:valid.endTime,schedule_type_id:Number(schedule_type_id)});
+      VALUES(?,?,?,?,?,?,'user_added',1)`,[recommendationId,subjects[0].enrollment_id,Number(scheduleType.schedule_type_id),dateForDay(valid.scheduleDay!),normalizeTime(valid.startTime!),normalizeTime(valid.endTime!)]);
+    await connection.commit(); return res.status(201).json({message:"Schedule time added successfully",schedule_time_id:WEEKLY_ID_OFFSET+result.insertId,user_id:userId,term_id:term.term_id,subject_id,subject_name:subjects[0].subject_name,schedule_day:valid.scheduleDay,start_time:valid.startTime,end_time:valid.endTime,schedule_type_id:Number(scheduleType.schedule_type_id),schedule_type_code:scheduleType.type_code,schedule_type_name:scheduleType.type_name});
   }catch(error){await connection.rollback();console.error("addTime error:",error);return res.status(500).json({message:"Internal server error"});}finally{connection.release();}
 };
 

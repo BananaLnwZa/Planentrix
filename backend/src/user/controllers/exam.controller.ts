@@ -14,6 +14,7 @@ import {
   remainingSecondsFor,
   scoreSnapshotQuestions,
 } from "../services/exam-attempt.rules";
+import { safelyGenerateRecommendation } from "../services/recommendation.engine";
 
 type UserRequest = Request & {
   user?: { id?: number | string; role?: string };
@@ -593,8 +594,7 @@ export const getExamInsights = async (req: Request, res: Response) => {
          result.bank_name_snapshot AS topic_name,
          subject.subject_id, subject.subject_name,
          result.bank_name_snapshot AS exam_name,
-         result.actual_score, result.max_score, result.percentage,
-         4 AS study_type_id, 'review' AS study_type_name
+         result.actual_score, result.max_score, result.percentage
        FROM exam_attempt_bank_results result
        INNER JOIN exam_attempts attempt
          ON attempt.exam_attempt_id = result.exam_attempt_id
@@ -618,8 +618,23 @@ export const getExamInsights = async (req: Request, res: Response) => {
          subject.subject_id, subject.subject_name,
          checkpoint.next_checkpoint_at, checkpoint.interval_weeks,
          checkpoint.weak_topic_count,
-         (checkpoint.weak_topic_count * 30) AS review_minutes_delta,
-         2 AS review_schedule_type_id
+         COALESCE((
+           SELECT item.difference_minutes
+           FROM weekly_recommendation recommendation
+           INNER JOIN weekly_recommendation_item item
+             ON item.recommendation_id = recommendation.recommendation_id
+            AND item.enrollment_id = checkpoint.enrollment_id
+           INNER JOIN schedule_types schedule_type
+             ON schedule_type.schedule_type_id = item.schedule_type_id
+            AND LOWER(schedule_type.type_code) = 'review'
+           WHERE recommendation.source_exam_attempt_id = checkpoint.source_exam_attempt_id
+           ORDER BY recommendation.version DESC
+           LIMIT 1
+         ), 0) AS review_minutes_delta,
+         (SELECT schedule_type_id FROM schedule_types
+          WHERE is_active=1 AND LOWER(type_code)='review' LIMIT 1
+         ) AS review_schedule_type_id,
+         'review' AS review_schedule_type_code
        FROM exam_checkpoints checkpoint
        INNER JOIN enrollments enrollment
          ON enrollment.enrollment_id = checkpoint.enrollment_id
@@ -971,9 +986,30 @@ export const submitExam = async (req: Request, res: Response) => {
         message: "This exam attempt is no longer active",
       });
     }
+    const [subjectRows] = await connection.query<RowDataPacket[]>(
+      `SELECT cs.subject_id FROM exam_attempts ea
+       INNER JOIN enrollments e ON e.enrollment_id=ea.enrollment_id
+       INNER JOIN course_sections cs ON cs.section_id=e.section_id
+       WHERE ea.exam_attempt_id=? LIMIT 1`,
+      [result.historyId],
+    );
+    const subjectId = subjectRows[0]?.subject_id;
     await connection.commit();
+    const recommendationResult = await safelyGenerateRecommendation({
+      userId,
+      triggerType: "exam_submitted",
+      examAttemptId: result.historyId,
+    });
+    const recommendationItems = recommendationResult.recommendation?.items as
+      | Array<Record<string, unknown>>
+      | undefined;
+    const reviewItem = recommendationItems?.find(
+      (item) =>
+        item.schedule_type_code === "review" && item.subject_id === subjectId,
+    );
     return res.json({
       message: "Exam submitted successfully",
+      exam_attempt_id: result.historyId,
       exam_score_history_id: result.historyId,
       actual_score: result.actualScore,
       exam_max_score: result.maximumScore,
@@ -982,11 +1018,10 @@ export const submitExam = async (req: Request, res: Response) => {
       next_checkpoint_at: result.nextCheckpointAt,
       checkpoint_interval_weeks: result.checkpointIntervalWeeks,
       weak_topic_count: result.weakTopicCount,
-      review_minutes_delta: result.weakTopicCount ? 30 : 0,
-      schedule_recommendation_id: null,
-      review_method: result.weakTopicCount
-        ? { study_type_id: 4, study_type_name: "review", fallback_used: false }
-        : null,
+      review_minutes_delta: Number(reviewItem?.difference_minutes ?? 0),
+      schedule_recommendation_id:
+        recommendationResult.recommendation?.recommendation_id ?? null,
+      recommendation_warning: recommendationResult.warning,
     });
   } catch (error) {
     await connection.rollback();

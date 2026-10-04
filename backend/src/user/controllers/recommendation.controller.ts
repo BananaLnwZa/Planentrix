@@ -81,7 +81,9 @@ export const generateWeeklyRecommendation = async (req: Request, res: Response) 
       userId,
       triggerType,
       targetWeekStart,
-      examScoreHistoryId: positiveInteger(req.body.exam_score_history_id),
+      examAttemptId: positiveInteger(
+        req.body.source_exam_attempt_id ?? req.body.exam_attempt_id
+      ),
       workloadId: positiveInteger(req.body.workload_id),
     });
     return res.status(201).json({
