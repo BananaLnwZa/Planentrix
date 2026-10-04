@@ -5,7 +5,6 @@ import path from "path";
 import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
 import { importExamFile } from "../../admin/controllers/examimport.controller";
-import { selectBalancedExamQuestions } from "../../services/exam-selection";
 
 type ExamPeriod = "midterm" | "final";
 
@@ -21,7 +20,6 @@ interface QuestionBankRow extends RowDataPacket {
   owner_instructor_id: number;
   bank_name: string;
   exam_period: ExamPeriod;
-  default_draw_count: number;
   time_limit_minutes: number;
   status: "draft" | "published" | "archived";
   question_count: number;
@@ -31,7 +29,6 @@ interface QuestionBankRow extends RowDataPacket {
 
 interface QuestionBankSettingsLockRow extends RowDataPacket {
   question_bank_id: number;
-  default_draw_count: number | string;
   time_limit_minutes: number | string;
   status: "draft" | "published" | "archived";
 }
@@ -136,7 +133,6 @@ const questionBankSelect = `SELECT
   qb.owner_instructor_id,
   qb.bank_name,
   qb.exam_period,
-  qb.default_draw_count,
   qb.time_limit_minutes,
   qb.status,
   COUNT(q.question_id) AS question_count,
@@ -151,7 +147,6 @@ const serializeQuestionBank = (bank: QuestionBankRow) => ({
   ...bank,
   question_bank_id: Number(bank.question_bank_id),
   owner_instructor_id: Number(bank.owner_instructor_id),
-  default_draw_count: Number(bank.default_draw_count),
   time_limit_minutes: Number(bank.time_limit_minutes),
   question_count: Number(bank.question_count),
 });
@@ -309,7 +304,7 @@ const getOwnedQuestionBank = async (
      WHERE qb.question_bank_id = ? AND qb.owner_instructor_id = ?
      GROUP BY qb.question_bank_id, qb.subject_id, s.subject_name,
        qb.owner_instructor_id, qb.bank_name, qb.exam_period,
-       qb.default_draw_count, qb.time_limit_minutes, qb.status,
+       qb.time_limit_minutes, qb.status,
        qb.created_at, qb.updated_at
      LIMIT 1`,
     [questionBankId, instructorId],
@@ -517,7 +512,7 @@ export const getInstructorExamWorkspace = async (
        WHERE qb.owner_instructor_id = ? AND qb.status <> 'archived'
        GROUP BY qb.question_bank_id, qb.subject_id, s.subject_name,
          qb.owner_instructor_id, qb.bank_name, qb.exam_period,
-         qb.default_draw_count, qb.time_limit_minutes, qb.status,
+         qb.time_limit_minutes, qb.status,
          qb.created_at, qb.updated_at
        ORDER BY qb.updated_at DESC, qb.question_bank_id DESC`,
       [instructorId],
@@ -896,17 +891,9 @@ export const updateInstructorQuestionBankSettings = async (
   if (!instructorId) return;
 
   const questionBankId = Number(req.params.bankId);
-  const defaultDrawCount = Number(req.body.default_draw_count);
   const timeLimitMinutes = Number(req.body.time_limit_minutes);
   if (!Number.isInteger(questionBankId) || questionBankId <= 0) {
     return res.status(400).json({ message: "รหัสพาร์ทไม่ถูกต้อง" });
-  }
-  if (
-    !Number.isInteger(defaultDrawCount) ||
-    defaultDrawCount < 1 ||
-    defaultDrawCount > 999
-  ) {
-    return res.status(400).json({ message: "จำนวนข้อที่สุ่มต้องอยู่ระหว่าง 1-999 ข้อ" });
   }
   if (
     !Number.isInteger(timeLimitMinutes) ||
@@ -920,7 +907,7 @@ export const updateInstructorQuestionBankSettings = async (
   try {
     await connection.beginTransaction();
     const [banks] = await connection.query<QuestionBankSettingsLockRow[]>(
-      `SELECT question_bank_id, default_draw_count, time_limit_minutes, status
+      `SELECT question_bank_id, time_limit_minutes, status
        FROM question_banks
        WHERE question_bank_id = ? AND owner_instructor_id = ?
        LIMIT 1 FOR UPDATE`,
@@ -969,10 +956,10 @@ export const updateInstructorQuestionBankSettings = async (
 
     await connection.query(
       `UPDATE question_banks
-       SET default_draw_count = ?, time_limit_minutes = ?
+       SET time_limit_minutes = ?
        WHERE question_bank_id = ? AND owner_instructor_id = ?
          AND status = 'draft'`,
-      [defaultDrawCount, timeLimitMinutes, questionBankId, instructorId],
+      [timeLimitMinutes, questionBankId, instructorId],
     );
     await connection.commit();
     const updated = await getOwnedQuestionBank(questionBankId, instructorId);
@@ -1004,7 +991,7 @@ export const publishInstructorQuestionBank = async (
   try {
     await connection.beginTransaction();
     const [banks] = await connection.query<QuestionBankSettingsLockRow[]>(
-      `SELECT question_bank_id, default_draw_count, time_limit_minutes, status
+      `SELECT question_bank_id, time_limit_minutes, status
        FROM question_banks
        WHERE question_bank_id = ? AND owner_instructor_id = ?
        LIMIT 1 FOR UPDATE`,
@@ -1037,12 +1024,6 @@ export const publishInstructorQuestionBank = async (
        ORDER BY question.question_id`,
       [questionBankId],
     );
-    if (questions.length < Number(bank.default_draw_count)) {
-      await connection.rollback();
-      return res.status(409).json({
-        message: `ต้องมีคำถามอย่างน้อย ${Number(bank.default_draw_count)} ข้อก่อนเผยแพร่`,
-      });
-    }
     const invalidQuestion = questions.find(
       (question) =>
         Number(question.choice_count) < 2 || Number(question.correct_count) !== 1,
@@ -1051,20 +1032,6 @@ export const publishInstructorQuestionBank = async (
       await connection.rollback();
       return res.status(409).json({
         message: `คำถามรหัส ${Number(invalidQuestion.question_id)} ต้องมีอย่างน้อย 2 ตัวเลือกและมีคำตอบถูกเพียง 1 ตัวเลือก`,
-      });
-    }
-
-    const validSelection = selectBalancedExamQuestions(
-      questions,
-      Number(bank.default_draw_count),
-      `publish:${questionBankId}`,
-    );
-    if (!validSelection) {
-      await connection.rollback();
-      return res.status(409).json({
-        message:
-          `ยังเผยแพร่ไม่ได้: ต้องมีชุดคำถามจำนวน ${Number(bank.default_draw_count)} ข้อ ` +
-          "ที่แบ่งระดับง่าย ปานกลาง ยากใกล้เคียงกัน และรวมได้ 100 คะแนนพอดี",
       });
     }
 
@@ -1243,7 +1210,6 @@ export const createInstructorQuestionBank = async (
   const subjectId = String(req.body.subject_id ?? "").trim().toUpperCase();
   const bankName = String(req.body.bank_name ?? "").trim();
   const examPeriod = String(req.body.exam_period ?? "") as ExamPeriod;
-  const defaultDrawCount = Number(req.body.default_draw_count ?? 10);
   const timeLimitMinutes = Number(req.body.time_limit_minutes ?? 60);
 
   if (!/^[A-Z0-9_-]{1,20}$/.test(subjectId)) {
@@ -1254,13 +1220,6 @@ export const createInstructorQuestionBank = async (
   }
   if (examPeriod !== "midterm" && examPeriod !== "final") {
     return res.status(400).json({ message: "ช่วงสอบต้องเป็น midterm หรือ final" });
-  }
-  if (
-    !Number.isInteger(defaultDrawCount) ||
-    defaultDrawCount < 1 ||
-    defaultDrawCount > 999
-  ) {
-    return res.status(400).json({ message: "จำนวนข้อเริ่มต้นต้องอยู่ระหว่าง 1-999" });
   }
   if (
     !Number.isInteger(timeLimitMinutes) ||
@@ -1308,6 +1267,8 @@ export const createInstructorQuestionBank = async (
       });
     }
 
+    // Keep a compatibility value for databases that still require the legacy
+    // column. Exam generation no longer reads this value.
     const [result] = await db.query<ResultSetHeader>(
       `INSERT INTO question_banks
         (subject_id, owner_instructor_id, bank_name, exam_period,
@@ -1318,7 +1279,7 @@ export const createInstructorQuestionBank = async (
         instructorId,
         bankName,
         examPeriod,
-        defaultDrawCount,
+        1,
         timeLimitMinutes,
       ],
     );

@@ -5,7 +5,7 @@ export interface ExamSummary {
   subjectName: string;
   examName: string;
   totalScore: number;
-  totalQuestion: number;
+  totalQuestion: number | null;
   timeLimitMinutes: number;
 }
 

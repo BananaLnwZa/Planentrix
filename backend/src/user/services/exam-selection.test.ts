@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { selectBalancedExamQuestions } from "../../services/exam-selection";
+import {
+  selectAutomaticBalancedExamQuestions,
+  selectBalancedExamQuestions,
+} from "../../services/exam-selection";
 
 const exactQuestions = [
   { question_id: 1, question_score: 5 },
@@ -76,4 +79,37 @@ test("rejects a bank that cannot produce an exact 100 point exam", () => {
     "impossible",
   );
   assert.equal(result, null);
+});
+
+test("automatically determines the question count for a 100 point exam", () => {
+  const result = selectAutomaticBalancedExamQuestions(
+    Array.from({ length: 15 }, (_, index) => ({
+      question_id: index + 1,
+      question_score: 10,
+    })),
+    "automatic-count",
+  );
+
+  assert.ok(result);
+  assert.equal(result.questions.length, 10);
+  assert.equal(result.totalScore, 100);
+  assert.ok(
+    Math.max(...Object.values(result.distribution)) -
+      Math.min(...Object.values(result.distribution)) <=
+      1,
+  );
+});
+
+test("automatic selection uses the same count distribution for every seed", () => {
+  const questions = Array.from({ length: 15 }, (_, index) => ({
+    question_id: index + 1,
+    question_score: 10,
+  }));
+  const first = selectAutomaticBalancedExamQuestions(questions, "student-a");
+  const second = selectAutomaticBalancedExamQuestions(questions, "student-b");
+
+  assert.ok(first);
+  assert.ok(second);
+  assert.equal(first.questions.length, second.questions.length);
+  assert.deepEqual(first.distribution, second.distribution);
 });

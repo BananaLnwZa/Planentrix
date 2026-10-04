@@ -42,7 +42,7 @@ export default function ExamListPanel({
               {exam.examName || exam.subjectName}
             </p>
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#71858E]">
-              <ExamMeta icon={<CircleHelp />} text={`${exam.totalQuestion} ข้อ`} />
+              <ExamMeta icon={<CircleHelp />} text="ระบบกำหนดจำนวนข้อ" />
               <ExamMeta icon={<Clock3 />} text={`${exam.timeLimitMinutes} นาที`} />
             </div>
           </div>
