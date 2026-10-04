@@ -7,7 +7,7 @@ import type {
   RowDataPacket,
 } from "mysql2/promise";
 import db from "../../config/db";
-import { selectBalancedExamQuestions } from "../../services/exam-selection";
+import { selectAutomaticBalancedExamQuestions } from "../../services/exam-selection";
 import {
   checkpointWeeksFor,
   parseSnapshotChoices,
@@ -26,7 +26,7 @@ interface ExamRow extends RowDataPacket {
   subject_name: string;
   exam_name: string;
   total_score: number | string;
-  total_question: number;
+  total_question: number | null;
   time_limit: number;
   exam_period: "midterm" | "final";
   due_checkpoint_id: number | null;
@@ -116,7 +116,7 @@ const ACCESSIBLE_EXAM_SQL = `SELECT
   subject.subject_name,
   qb.bank_name AS exam_name,
   100.00 AS total_score,
-  LEAST(qb.default_draw_count, COUNT(CASE WHEN question.is_active = 1 THEN 1 END)) AS total_question,
+  NULL AS total_question,
   qb.time_limit_minutes AS time_limit,
   qb.exam_period,
   (
@@ -162,8 +162,8 @@ WHERE student_term.user_id = ?
 
 const accessibleExamGroup = `GROUP BY
   qb.question_bank_id, e.enrollment_id, qb.subject_id, subject.subject_name,
-  qb.bank_name, qb.default_draw_count, qb.time_limit_minutes, qb.exam_period
-HAVING total_question > 0
+  qb.bank_name, qb.time_limit_minutes, qb.exam_period
+HAVING COUNT(CASE WHEN question.is_active = 1 THEN 1 END) > 0
   AND (previous_result_count = 0 OR due_checkpoint_id IS NOT NULL)`;
 
 const getAccessibleExam = async (
@@ -182,7 +182,6 @@ const getAccessibleExam = async (
 
 const getRandomQuestions = async (
   examId: number,
-  drawCount: number,
   seed: string,
   connection: PoolConnection,
 ) => {
@@ -193,7 +192,7 @@ const getRandomQuestions = async (
     [examId],
   );
 
-  const selection = selectBalancedExamQuestions(allQuestions, drawCount, seed);
+  const selection = selectAutomaticBalancedExamQuestions(allQuestions, seed);
   const questions = selection?.questions ?? [];
 
   const [choices] = questions.length
@@ -749,15 +748,13 @@ export const startExam = async (req: Request, res: Response) => {
       });
     }
 
-    const drawCount = Number(exam.total_question);
     const randomSeed = randomUUID();
     const { questions, choices } = await getRandomQuestions(
       examId,
-      drawCount,
       randomSeed,
       connection,
     );
-    if (questions.length !== drawCount || !questions.length) {
+    if (!questions.length) {
       await connection.rollback();
       return res.status(409).json({
         message:

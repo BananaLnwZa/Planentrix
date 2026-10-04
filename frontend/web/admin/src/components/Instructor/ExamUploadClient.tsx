@@ -45,7 +45,6 @@ interface PartItem {
   examPeriod: ExamPeriod;
   createdAt: string;
   questionCount: number;
-  defaultDrawCount: number;
   timeLimitMinutes: number;
   status: InstructorQuestionBank["status"];
 }
@@ -217,7 +216,6 @@ function mapQuestionBankToPart(bank: InstructorQuestionBank): PartItem {
     examPeriod: bank.exam_period,
     createdAt: formatCreatedDate(bank.created_at),
     questionCount: bank.question_count,
-    defaultDrawCount: bank.default_draw_count,
     timeLimitMinutes: bank.time_limit_minutes,
     status: bank.status,
   };
@@ -243,7 +241,6 @@ export default function ExamUploadClient() {
   const [partSubjectId, setPartSubjectId] = useState("");
   const [partPeriod, setPartPeriod] = useState<ExamPeriod>("midterm");
   const [partTimeLimit, setPartTimeLimit] = useState("60");
-  const [partDefaultDrawCount, setPartDefaultDrawCount] = useState("10");
   const [partError, setPartError] = useState("");
 
   const [examSubjectId, setExamSubjectId] = useState("");
@@ -261,7 +258,6 @@ export default function ExamUploadClient() {
   const [isClearingQuestions, setIsClearingQuestions] = useState(false);
   const [isSavingPartSettings, setIsSavingPartSettings] = useState(false);
   const [partSettingsTimeLimit, setPartSettingsTimeLimit] = useState("60");
-  const [partSettingsDrawCount, setPartSettingsDrawCount] = useState("10");
   const [partSettingsError, setPartSettingsError] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
   const [isCreatingQuestion, setIsCreatingQuestion] = useState(false);
@@ -337,7 +333,6 @@ export default function ExamUploadClient() {
     setPartSubjectId("");
     setPartPeriod("midterm");
     setPartTimeLimit("60");
-    setPartDefaultDrawCount("10");
     setPartError("");
   };
 
@@ -354,7 +349,6 @@ export default function ExamUploadClient() {
     event.preventDefault();
     const normalizedPartName = partName.trim();
     const timeLimit = Number(partTimeLimit);
-    const defaultDrawCount = Number(partDefaultDrawCount);
 
     if (!partSubjectId || !normalizedPartName) {
       setPartError("กรุณาเลือกวิชาและกรอกชื่อพาร์ท");
@@ -364,15 +358,6 @@ export default function ExamUploadClient() {
       setPartError("เวลาทำข้อสอบต้องอยู่ระหว่าง 1-1,440 นาที");
       return;
     }
-    if (
-      !Number.isInteger(defaultDrawCount) ||
-      defaultDrawCount < 1 ||
-      defaultDrawCount > 999
-    ) {
-      setPartError("จำนวนข้อที่สุ่มต้องอยู่ระหว่าง 1-999 ข้อ");
-      return;
-    }
-
     const duplicatedPart = parts.some(
       (part) =>
         part.subjectId === partSubjectId &&
@@ -393,7 +378,6 @@ export default function ExamUploadClient() {
         subject_id: partSubjectId,
         bank_name: normalizedPartName,
         exam_period: partPeriod,
-        default_draw_count: defaultDrawCount,
         time_limit_minutes: timeLimit,
       });
       setNotice(`สร้างพาร์ท “${response.question_bank.bank_name}” แล้ว`);
@@ -511,7 +495,6 @@ export default function ExamUploadClient() {
       );
       setPartDetail(detail);
       setPartSettingsTimeLimit(String(detail.question_bank.time_limit_minutes));
-      setPartSettingsDrawCount(String(detail.question_bank.default_draw_count));
       setPartSettingsError("");
     } catch (error) {
       setDetailError(
@@ -539,27 +522,16 @@ export default function ExamUploadClient() {
   const savePartSettings = async () => {
     if (!selectedPart || !partDetail) return;
     const timeLimit = Number(partSettingsTimeLimit);
-    const defaultDrawCount = Number(partSettingsDrawCount);
     if (!Number.isInteger(timeLimit) || timeLimit < 1 || timeLimit > 1440) {
       setPartSettingsError("เวลาทำข้อสอบต้องอยู่ระหว่าง 1-1,440 นาที");
       return;
     }
-    if (
-      !Number.isInteger(defaultDrawCount) ||
-      defaultDrawCount < 1 ||
-      defaultDrawCount > 999
-    ) {
-      setPartSettingsError("จำนวนข้อที่สุ่มต้องอยู่ระหว่าง 1-999 ข้อ");
-      return;
-    }
-
     setIsSavingPartSettings(true);
     setPartSettingsError("");
     try {
       const response = await instructorExamService.updateQuestionBankSettings(
         Number(selectedPart.id),
         {
-          default_draw_count: defaultDrawCount,
           time_limit_minutes: timeLimit,
         },
       );
@@ -572,12 +544,11 @@ export default function ExamUploadClient() {
         current
           ? {
               ...current,
-              defaultDrawCount,
               timeLimitMinutes: timeLimit,
             }
           : current,
       );
-      setNotice("บันทึกจำนวนข้อสุ่มและเวลาทำข้อสอบแล้ว");
+      setNotice("บันทึกเวลาทำข้อสอบแล้ว");
       await loadWorkspace();
     } catch (error) {
       setPartSettingsError(
@@ -923,7 +894,6 @@ export default function ExamUploadClient() {
                         {getPeriodLabel(part.examPeriod)}
                       </span>
                       <span>{part.questionCount} ข้อ</span>
-                      <span>สุ่ม {part.defaultDrawCount} ข้อ</span>
                       <span>{part.timeLimitMinutes} นาที</span>
                       <span
                         className={
@@ -1022,24 +992,7 @@ export default function ExamUploadClient() {
             <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7">
               {!isDetailLoading && partDetail && (
                 <section className="mb-5 rounded-2xl border border-[#d9e9ee] bg-white p-4 sm:p-5">
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
-                    <div>
-                      <label className="text-sm font-medium text-[#4c626c]">
-                        จำนวนข้อที่สุ่มต่อครั้ง <span className="text-[#c76450]">*</span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="999"
-                          value={partSettingsDrawCount}
-                          disabled={partDetail.question_bank.status !== "draft"}
-                          onChange={(event) => {
-                            setPartSettingsDrawCount(event.target.value);
-                            setPartSettingsError("");
-                          }}
-                          className={inputClass}
-                        />
-                      </label>
-                    </div>
+                  <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
                     <div className="flex-1">
                       <label className="text-sm font-medium text-[#4c626c]">
                         เวลาทำข้อสอบ (นาที) <span className="text-[#c76450]">*</span>
@@ -1392,21 +1345,7 @@ export default function ExamUploadClient() {
                 />
               </label>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block text-sm font-medium text-[#4c626c]">
-                  จำนวนข้อที่สุ่มต่อครั้ง <span className="text-[#c76450]">*</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="999"
-                    value={partDefaultDrawCount}
-                    onChange={(event) => {
-                      setPartDefaultDrawCount(event.target.value);
-                      setPartError("");
-                    }}
-                    className={inputClass}
-                  />
-                </label>
+              <div>
                 <label className="block text-sm font-medium text-[#4c626c]">
                   เวลาทำข้อสอบ (นาที) <span className="text-[#c76450]">*</span>
                   <input

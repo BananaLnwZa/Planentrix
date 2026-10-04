@@ -37,7 +37,8 @@ const summaryFromJson = (value: unknown): ExamSummary => {
     subjectName: text(json.subject_name),
     examName: text(json.exam_name),
     totalScore: number(json.total_score),
-    totalQuestion: number(json.total_question),
+    totalQuestion:
+      json.total_question == null ? null : number(json.total_question),
     timeLimitMinutes: number(json.time_limit),
   };
 };

@@ -12,7 +12,6 @@ export interface InstructorQuestionBank {
   owner_instructor_id: number;
   bank_name: string;
   exam_period: InstructorExamPeriod;
-  default_draw_count: number;
   time_limit_minutes: number;
   status: "draft" | "published" | "archived";
   question_count: number;
@@ -68,7 +67,6 @@ export interface CreateInstructorQuestionResponse {
 }
 
 export interface UpdateInstructorQuestionBankSettingsRequest {
-  default_draw_count: number;
   time_limit_minutes: number;
 }
 
@@ -87,7 +85,6 @@ export interface CreateInstructorQuestionBankRequest {
   subject_id: string;
   bank_name: string;
   exam_period: InstructorExamPeriod;
-  default_draw_count: number;
   time_limit_minutes: number;
 }
 

@@ -34,6 +34,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/uploads/questions", (_req, res) => {
   res.status(404).json({ message: "Question images require an authorized exam session" });
 });
+app.use("/uploads/choices", (_req, res) => {
+  res.status(404).json({ message: "Choice images require an authorized exam session" });
+});
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/auth", authRouter);

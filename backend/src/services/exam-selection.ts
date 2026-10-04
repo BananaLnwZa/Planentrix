@@ -208,3 +208,32 @@ export const selectBalancedExamQuestions = <T extends ScoredExamQuestion>(
 
   return null;
 };
+
+export const selectAutomaticBalancedExamQuestions = <
+  T extends ScoredExamQuestion,
+>(
+  questions: T[],
+  seed: string,
+): BalancedExamSelection<T> | null => {
+  const validScores = questions
+    .map((question) => scoreToCents(question.question_score))
+    .filter((score): score is number => score !== null);
+  if (validScores.length !== questions.length || questions.length < 3) {
+    return null;
+  }
+
+  const smallestScore = Math.min(...validScores);
+  const maximumPossibleCount = Math.min(
+    questions.length,
+    Math.floor(TARGET_EXAM_SCORE_CENTS / smallestScore),
+  );
+
+  // Start at three so every generated exam contains easy, medium, and hard
+  // questions. Trying counts in ascending order also keeps the exam concise.
+  for (let drawCount = 3; drawCount <= maximumPossibleCount; drawCount += 1) {
+    const selection = selectBalancedExamQuestions(questions, drawCount, seed);
+    if (selection) return selection;
+  }
+
+  return null;
+};

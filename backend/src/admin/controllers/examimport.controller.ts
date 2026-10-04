@@ -213,16 +213,6 @@ export const importExamFile = async (req: Request, res: Response) => {
         });
       }
 
-      await connection.query(
-        `UPDATE question_banks
-         SET default_draw_count = (
-           SELECT COUNT(*) FROM question
-           WHERE question_bank_id = ? AND is_active = 1
-         )
-         WHERE question_bank_id = ?`,
-        [question_bank_id, question_bank_id],
-      );
-
       await connection.commit();
     } catch (dbErr) {
       await connection.rollback();
