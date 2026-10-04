@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS exam_attempts (
   enrollment_id INT NOT NULL,
   source_checkpoint_id INT NULL,
   exam_period ENUM('midterm', 'final') NOT NULL,
+  random_seed VARCHAR(64) NULL,
   started_at DATETIME NOT NULL,
   submitted_at DATETIME NULL,
   actual_score DECIMAL(8,2) NULL,

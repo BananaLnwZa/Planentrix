@@ -21,3 +21,7 @@ They originally targeted the removed `terms`, `schedule_time`, and
 
 All active migrations are designed to be safe when the target object already
 exists. Review and back up production data before applying any schema change.
+
+Migration 20261004 adds `exam_attempts.random_seed`. New attempts store this
+seed so their deterministic 100-point question selection can be audited and
+replayed with the same question-bank contents.

@@ -1,4 +1,5 @@
 import path from "path";
+import { randomUUID } from "crypto";
 import type { Request, Response } from "express";
 import type {
   PoolConnection,
@@ -6,6 +7,7 @@ import type {
   RowDataPacket,
 } from "mysql2/promise";
 import db from "../../config/db";
+import { selectBalancedExamQuestions } from "../../services/exam-selection";
 import {
   checkpointWeeksFor,
   parseSnapshotChoices,
@@ -113,8 +115,7 @@ const ACCESSIBLE_EXAM_SQL = `SELECT
   qb.subject_id,
   subject.subject_name,
   qb.bank_name AS exam_name,
-  ROUND(AVG(CASE WHEN question.is_active = 1 THEN question.question_score END)
-    * LEAST(qb.default_draw_count, COUNT(CASE WHEN question.is_active = 1 THEN 1 END)), 2) AS total_score,
+  100.00 AS total_score,
   LEAST(qb.default_draw_count, COUNT(CASE WHEN question.is_active = 1 THEN 1 END)) AS total_question,
   qb.time_limit_minutes AS time_limit,
   qb.exam_period,
@@ -179,39 +180,10 @@ const getAccessibleExam = async (
   return rows[0] ?? null;
 };
 
-function getValidScores(bucket: QuestionRow[], targetCount: number): Map<number, QuestionRow[]> {
-  const dp: Map<number, QuestionRow[]>[] = Array.from({ length: targetCount + 1 }, () => new Map());
-  dp[0].set(0, []); 
-  
-  for (const q of bucket) {
-    const score = Number(q.question_score);
-    for (let c = targetCount - 1; c >= 0; c--) {
-      for (const [s, prevSubset] of Array.from(dp[c].entries())) {
-        const newScore = Number((s + score).toFixed(2));
-        if (newScore <= 100 && !dp[c + 1].has(newScore)) {
-          dp[c + 1].set(newScore, [...prevSubset, q]);
-        }
-      }
-    }
-  }
-  return dp[targetCount];
-}
-
-function getPartitions(total: number): number[][] {
-  const base = Math.floor(total / 3);
-  const rem = total % 3;
-  if (rem === 0) return [[base, base, base]];
-  if (rem === 1) return [
-    [base + 1, base, base], [base, base + 1, base], [base, base, base + 1]
-  ];
-  return [
-    [base + 1, base + 1, base], [base + 1, base, base + 1], [base, base + 1, base + 1]
-  ];
-}
-
 const getRandomQuestions = async (
   examId: number,
   drawCount: number,
+  seed: string,
   connection: PoolConnection,
 ) => {
   const [allQuestions] = await connection.query<QuestionRow[]>(
@@ -221,70 +193,8 @@ const getRandomQuestions = async (
     [examId],
   );
 
-  if (allQuestions.length < drawCount) {
-    return { questions: [], choices: [] };
-  }
-
-  const shuffledQuestions = [...allQuestions].sort(() => 0.5 - Math.random());
-
-  const scores = shuffledQuestions.map((q) => Number(q.question_score));
-  const minScore = Math.min(...scores);
-  const maxScore = Math.max(...scores);
-
-  const easyBucket: QuestionRow[] = [];
-  const mediumBucket: QuestionRow[] = [];
-  const hardBucket: QuestionRow[] = [];
-
-  if (minScore === maxScore) {
-    shuffledQuestions.forEach((q, i) => {
-      if (i % 3 === 0) easyBucket.push(q);
-      else if (i % 3 === 1) mediumBucket.push(q);
-      else hardBucket.push(q);
-    });
-  } else {
-    const range = (maxScore - minScore) / 3;
-    for (const q of shuffledQuestions) {
-      const score = Number(q.question_score);
-      if (score < minScore + range) {
-        easyBucket.push(q);
-      } else if (score < maxScore - range) {
-        mediumBucket.push(q);
-      } else {
-        hardBucket.push(q);
-      }
-    }
-  }
-
-  let selectedQuestions: QuestionRow[] = [];
-  let found = false;
-  const partitions = getPartitions(drawCount);
-  
-  for (const [cE, cM, cH] of partitions) {
-    if (easyBucket.length < cE || mediumBucket.length < cM || hardBucket.length < cH) continue;
-
-    const easyCombinations = getValidScores(easyBucket, cE);
-    const medCombinations = getValidScores(mediumBucket, cM);
-    const hardCombinations = getValidScores(hardBucket, cH);
-
-    for (const [scoreE, subsetE] of easyCombinations.entries()) {
-      for (const [scoreM, subsetM] of medCombinations.entries()) {
-        const scoreH = Number((100 - scoreE - scoreM).toFixed(2));
-        if (hardCombinations.has(scoreH)) {
-          selectedQuestions = [...subsetE, ...subsetM, ...hardCombinations.get(scoreH)!];
-          found = true;
-          break;
-        }
-      }
-      if (found) break;
-    }
-    if (found) break;
-  }
-
-  if (!found) {
-    selectedQuestions = shuffledQuestions.slice(0, drawCount);
-  }
-
-  const questions = selectedQuestions;
+  const selection = selectBalancedExamQuestions(allQuestions, drawCount, seed);
+  const questions = selection?.questions ?? [];
 
   const [choices] = questions.length
     ? await connection.query<ChoiceRow[]>(
@@ -840,15 +750,18 @@ export const startExam = async (req: Request, res: Response) => {
     }
 
     const drawCount = Number(exam.total_question);
+    const randomSeed = randomUUID();
     const { questions, choices } = await getRandomQuestions(
       examId,
       drawCount,
+      randomSeed,
       connection,
     );
     if (questions.length !== drawCount || !questions.length) {
       await connection.rollback();
       return res.status(409).json({
-        message: "จำนวนคำถามที่เปิดใช้งานไม่เพียงพอสำหรับการสุ่ม",
+        message:
+          "ไม่สามารถสร้างข้อสอบที่แบ่งระดับใกล้เคียงกันและรวมได้ 100 คะแนนพอดี กรุณาแจ้งอาจารย์ผู้สอน",
       });
     }
     const choicesByQuestion = new Map<number, ChoiceRow[]>();
@@ -875,10 +788,15 @@ export const startExam = async (req: Request, res: Response) => {
 
     const [attemptResult] = await connection.query<ResultSetHeader>(
       `INSERT INTO exam_attempts
-        (enrollment_id, source_checkpoint_id, exam_period,
+        (enrollment_id, source_checkpoint_id, exam_period, random_seed,
          started_at, status, weak_topic_count)
-       VALUES (?, ?, ?, NOW(), 'in_progress', 0)`,
-      [exam.schedule_time_id, exam.due_checkpoint_id, exam.exam_period],
+       VALUES (?, ?, ?, ?, NOW(), 'in_progress', 0)`,
+      [
+        exam.schedule_time_id,
+        exam.due_checkpoint_id,
+        exam.exam_period,
+        randomSeed,
+      ],
     );
     for (const [index, question] of questions.entries()) {
       const options = choicesByQuestion.get(Number(question.question_id)) ?? [];

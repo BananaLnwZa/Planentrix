@@ -5,6 +5,7 @@ import path from "path";
 import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
 import { importExamFile } from "../../admin/controllers/examimport.controller";
+import { selectBalancedExamQuestions } from "../../services/exam-selection";
 
 type ExamPeriod = "midterm" | "final";
 
@@ -40,6 +41,13 @@ interface QuestionDetailRow extends RowDataPacket {
   question_text: string;
   question_image_path: string | null;
   question_score: number | string;
+}
+
+interface PublishableQuestionRow extends RowDataPacket {
+  question_id: number;
+  question_score: number | string;
+  choice_count: number | string;
+  correct_count: number | string;
 }
 
 interface ChoiceDetailRow extends RowDataPacket {
@@ -1016,15 +1024,16 @@ export const publishInstructorQuestionBank = async (
       });
     }
 
-    const [questions] = await connection.query<RowDataPacket[]>(
+    const [questions] = await connection.query<PublishableQuestionRow[]>(
       `SELECT question.question_id,
+         question.question_score,
          COUNT(choice.choice_id) AS choice_count,
          SUM(CASE WHEN choice.is_correct = 1 THEN 1 ELSE 0 END) AS correct_count
        FROM question
        LEFT JOIN choice
          ON choice.question_id = question.question_id AND choice.is_active = 1
        WHERE question.question_bank_id = ? AND question.is_active = 1
-       GROUP BY question.question_id
+       GROUP BY question.question_id, question.question_score
        ORDER BY question.question_id`,
       [questionBankId],
     );
@@ -1042,6 +1051,20 @@ export const publishInstructorQuestionBank = async (
       await connection.rollback();
       return res.status(409).json({
         message: `คำถามรหัส ${Number(invalidQuestion.question_id)} ต้องมีอย่างน้อย 2 ตัวเลือกและมีคำตอบถูกเพียง 1 ตัวเลือก`,
+      });
+    }
+
+    const validSelection = selectBalancedExamQuestions(
+      questions,
+      Number(bank.default_draw_count),
+      `publish:${questionBankId}`,
+    );
+    if (!validSelection) {
+      await connection.rollback();
+      return res.status(409).json({
+        message:
+          `ยังเผยแพร่ไม่ได้: ต้องมีชุดคำถามจำนวน ${Number(bank.default_draw_count)} ข้อ ` +
+          "ที่แบ่งระดับง่าย ปานกลาง ยากใกล้เคียงกัน และรวมได้ 100 คะแนนพอดี",
       });
     }
 
