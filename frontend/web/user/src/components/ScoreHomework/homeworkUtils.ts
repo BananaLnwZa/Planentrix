@@ -7,19 +7,23 @@ import { formatDisplayDate as formatDate } from "@/utils/dateTime";
 
 export { formatDisplayDate, formatDisplayTime } from "@/utils/dateTime";
 
+export const getWorkloadTypeLabel = (typeCode: string = "") => {
+  const code = typeCode.trim().toLowerCase();
+  return code ? code.charAt(0).toUpperCase() + code.slice(1) : "Workload";
+};
+
 export const workloadPalette: Record<
   string,
   { normal: string; hover: string }
 > = {
   quiz: { normal: "#C5DBAA", hover: "#A5BE85" },
-  final: { normal: "#FFE7AB", hover: "#F6D481" },
   midterm: { normal: "#B3F7EF", hover: "#74DBD0" },
   project: { normal: "#FA86A3", hover: "#D45A78" },
   assignment: { normal: "#EECDF9", hover: "#D19EE2" },
 };
 
-export const getWorkloadPalette = (typeName: string) =>
-  workloadPalette[typeName.trim().toLowerCase()] ?? {
+export const getWorkloadPalette = (typeCode: string = "") =>
+  workloadPalette[typeCode.trim().toLowerCase()] ?? {
     normal: "#E6E6E6",
     hover: "#BDBDBD",
   };

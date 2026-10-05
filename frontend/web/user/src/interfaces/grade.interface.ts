@@ -12,6 +12,7 @@ export interface GradeWorkload {
   workload_id: number;
   workload_name: string;
   workload_type_id: number;
+  workload_type_code: string;
   workload_type_name: string;
   deadline_date: string;
   deadline_time: string;

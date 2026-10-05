@@ -1103,12 +1103,17 @@ export const addPreviewBlock = async (
     const header = await editableHeader(connection, userId, recommendationId);
     const block = validateBlock(input, header);
     const types = await loadScheduleTypes(connection);
-    const type = Number(input.schedule_type_id);
+    const code = typeof input.schedule_type_code === "string"
+      ? input.schedule_type_code.trim().toLowerCase()
+      : "";
+    const type = code
+      ? code === "review" ? types.review : code === "homework" ? types.homework : NaN
+      : Number(input.schedule_type_id);
     if (![types.review, types.homework].includes(type)) {
       throw new RecommendationServiceError(
         400,
         "INVALID_SCHEDULE_TYPE",
-        "schedule_type_id must refer to an active review or homework type"
+        "schedule_type_code or schedule_type_id must refer to an active review or homework type"
       );
     }
     const [enrollments] = await connection.query<RowDataPacket[]>(

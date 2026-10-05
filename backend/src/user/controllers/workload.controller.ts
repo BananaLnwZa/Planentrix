@@ -5,6 +5,7 @@ import { safelyGenerateRecommendation } from "../services/recommendation.engine"
 
 interface WorkloadTypeRow extends RowDataPacket {
   workload_type_id: number;
+  workload_type_code: string;
   workload_type_name: string;
 }
 
@@ -60,6 +61,23 @@ const recommendationForWorkload = (userId: number, workloadId: number | null) =>
     triggerType: "workload_changed",
     workloadId,
   });
+
+export const getWorkloadTypes = async (req: Request, res: Response) => {
+  try {
+    if (authenticatedUserId(req, res) === null) return;
+    const [rows] = await db.query<WorkloadTypeRow[]>(
+      `SELECT workload_type_id, LOWER(type_code) AS workload_type_code,
+              type_name AS workload_type_name
+       FROM workload_types
+       WHERE is_active = 1
+       ORDER BY workload_type_id`,
+    );
+    return res.json({ message: "Workload types retrieved successfully", data: rows });
+  } catch (error) {
+    console.error("getWorkloadTypes error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 export const getSubjectsForWorkload = async (req: Request, res: Response) => {
   try {
@@ -142,7 +160,8 @@ export const createWorkload = async (req: Request, res: Response) => {
 
     const [[typeRows], [enrollmentRows]] = await Promise.all([
       db.query<WorkloadTypeRow[]>(
-        `SELECT workload_type_id, type_name AS workload_type_name
+        `SELECT workload_type_id, LOWER(type_code) AS workload_type_code,
+                type_name AS workload_type_name
          FROM workload_types
          WHERE workload_type_id = ? AND is_active = 1
          LIMIT 1`,
@@ -196,6 +215,7 @@ export const createWorkload = async (req: Request, res: Response) => {
       user_id: userId,
       schedule_time_id: enrollmentId,
       workload_type_id: workloadTypeId,
+      workload_type_code: typeRows[0].workload_type_code,
       workload_type_name: typeRows[0].workload_type_name,
       workload_name: workloadName,
       deadline_date: deadlineDate,
@@ -374,6 +394,7 @@ export const getPendingWorkloads = async (req: Request, res: Response) => {
       `SELECT workload.workload_id,
               workload.workload_name,
               workload.workload_type_id,
+              LOWER(workload_type.type_code) AS workload_type_code,
               workload_type.type_name AS workload_type_name,
               workload.enrollment_id AS schedule_time_id,
               subject.subject_id,

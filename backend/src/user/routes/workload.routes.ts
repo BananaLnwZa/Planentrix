@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { verifyToken } from "../../middlewares/verifyToken";
 import {
+  getWorkloadTypes,
   getSubjectsForWorkload,
   createWorkload,
   updateWorkload,
@@ -12,6 +13,7 @@ import {
 
 const router = Router();
 
+router.get("/types", verifyToken, getWorkloadTypes);
 router.get("/subjects", verifyToken, getSubjectsForWorkload);
 router.post("/add", verifyToken, createWorkload);
 router.put("/update/:workload_id", verifyToken, updateWorkload);

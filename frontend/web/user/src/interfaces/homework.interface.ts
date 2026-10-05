@@ -7,21 +7,15 @@ export interface HomeworkSubject {
 
 export interface HomeworkTypeOption {
   id: number;
+  code: string;
   name: string;
 }
-
-export const HOMEWORK_TYPE_OPTIONS: HomeworkTypeOption[] = [
-  { id: 4, name: "quiz" },
-  { id: 2, name: "final" },
-  { id: 1, name: "midterm" },
-  { id: 5, name: "project" },
-  { id: 3, name: "assignment" },
-];
 
 export interface HomeworkTask {
   workload_id: number;
   schedule_time_id: number;
   workload_type_id: number;
+  workload_type_code: string;
   workload_type_name: string;
   subject_id: string;
   subject_name: string;

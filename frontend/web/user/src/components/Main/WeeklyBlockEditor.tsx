@@ -9,6 +9,7 @@ import type {
   WeeklyBlockInput,
   WeeklyScheduleBlock,
 } from "@/interfaces/recommendation.interface";
+import type { EditableScheduleTypeCode } from "@/interfaces/table.interface";
 import type { UserConstraint } from "@/interfaces/profile.interface";
 import {
   findConstraintOverlap,
@@ -50,8 +51,8 @@ export default function WeeklyBlockEditor({
 }: WeeklyBlockEditorProps) {
   const defaultSubject = block?.subject_id ?? subjects[0]?.subject_id ?? "";
   const [subjectId, setSubjectId] = useState(defaultSubject);
-  const [scheduleTypeId, setScheduleTypeId] = useState<2 | 3>(
-    block?.schedule_type_id ?? 2
+  const [scheduleTypeCode, setScheduleTypeCode] = useState<EditableScheduleTypeCode>(
+    block?.schedule_type_code ?? "review"
   );
   const [scheduledDate, setScheduledDate] = useState(
     block?.scheduled_date ?? weekStart
@@ -97,7 +98,7 @@ export default function WeeklyBlockEditor({
     }
     const input: WeeklyBlockInput = {
       subject_id: subjectId,
-      schedule_type_id: scheduleTypeId,
+      schedule_type_code: scheduleTypeCode,
       scheduled_date: scheduledDate,
       start_time: startTime,
       end_time: endTime,
@@ -174,7 +175,7 @@ export default function WeeklyBlockEditor({
         </h2>
         {block && (
           <p className="mt-1 text-xs text-[#84939A]">
-            {subjectName} · {scheduleTypeId === 2 ? "ทบทวน" : "ทำการบ้าน"}
+            {subjectName} · {scheduleTypeCode === "review" ? "ทบทวน" : "ทำการบ้าน"}
           </p>
         )}
 
@@ -198,14 +199,14 @@ export default function WeeklyBlockEditor({
               <label className="block">
                 <span className="mb-1 block text-xs">ประเภทเวลา</span>
                 <select
-                  value={scheduleTypeId}
+                  value={scheduleTypeCode}
                   onChange={(event) =>
-                    setScheduleTypeId(Number(event.target.value) as 2 | 3)
+                    setScheduleTypeCode(event.target.value as EditableScheduleTypeCode)
                   }
                   className="w-full rounded-xl border border-[#CCD9DE] bg-white px-3 py-2.5 outline-none focus:border-[#73A9BC]"
                 >
-                  <option value={2}>ทบทวน</option>
-                  <option value={3}>ทำการบ้าน</option>
+                  <option value="review">ทบทวน</option>
+                  <option value="homework">ทำการบ้าน</option>
                 </select>
               </label>
             </>

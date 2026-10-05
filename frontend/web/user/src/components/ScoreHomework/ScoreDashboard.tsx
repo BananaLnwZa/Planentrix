@@ -12,7 +12,7 @@ import type {
 import gradeService from "@/services/grade.service";
 import GpaGauge from "./GpaGauge";
 import ScoreEntryModal from "./ScoreEntryModal";
-import { getWorkloadPalette } from "./homeworkUtils";
+import { getWorkloadPalette, getWorkloadTypeLabel } from "./homeworkUtils";
 import { GPA_BY_GRADE } from "./gradeOptions";
 
 const getScoreSummary = (workloads: GradeWorkload[]) => {
@@ -279,7 +279,7 @@ export default function ScoreDashboard({
           ) : (
             <div className="max-h-[180px] overflow-y-auto">
               {completedWorkloads.map((workload, index) => {
-                const palette = getWorkloadPalette(workload.workload_type_name);
+                const palette = getWorkloadPalette(workload.workload_type_code);
                 return (
                   <div
                     key={workload.workload_id}
@@ -291,7 +291,7 @@ export default function ScoreDashboard({
                       className="mx-auto max-w-[80px] truncate rounded-full border border-black/30 px-2 py-1 text-center text-black/60"
                       style={{ backgroundColor: palette.normal }}
                     >
-                      {workload.workload_type_name}
+                      {getWorkloadTypeLabel(workload.workload_type_code)}
                     </span>
                     <button
                       type="button"

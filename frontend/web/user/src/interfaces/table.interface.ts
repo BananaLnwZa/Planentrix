@@ -1,4 +1,6 @@
-export type ScheduleTypeId = 1 | 2 | 3;
+export type ScheduleTypeId = number;
+export type EditableScheduleTypeCode = "review" | "homework";
+export type ScheduleTypeCode = "class" | EditableScheduleTypeCode;
 
 export interface ScheduleTerm {
   term_id: number;
@@ -10,6 +12,7 @@ export interface ScheduleTerm {
 export interface ScheduleItem {
   schedule_time_id: number;
   schedule_type_id: ScheduleTypeId;
+  schedule_type_code: ScheduleTypeCode;
   schedule_type_name: string;
   subject_id: string;
   subject_name: string;
@@ -59,7 +62,7 @@ export interface CurrentTermSubjectsResponse {
 }
 
 export interface AddScheduleRequest {
-  schedule_type_id: 2 | 3;
+  schedule_type_code: EditableScheduleTypeCode;
   subject_id: string;
   schedule_day: number;
   start_time: string;
@@ -67,6 +70,7 @@ export interface AddScheduleRequest {
 }
 
 export interface AddScheduleResponse extends AddScheduleRequest {
+  schedule_type_id: number;
   message: string;
   schedule_time_id: number;
   user_id: number;

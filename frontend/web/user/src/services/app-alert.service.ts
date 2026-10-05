@@ -85,7 +85,7 @@ export const buildAppAlerts = (
   const accepted = sources.weeklySchedule?.accepted_recommendation;
 
   for (const item of sources.currentSchedule?.data ?? []) {
-    if (item.schedule_type_id !== 1) continue;
+    if (item.schedule_type_code !== "class") continue;
     const occurrence = recurringOccurrence(item, now);
     if (!occurrence) continue;
     alerts.push(
@@ -101,14 +101,14 @@ export const buildAppAlerts = (
 
   if (accepted) {
     for (const block of sources.weeklySchedule?.weekly_blocks ?? []) {
-      if (block.schedule_type_id !== 2 && block.schedule_type_id !== 3) continue;
+      if (block.schedule_type_code !== "review" && block.schedule_type_code !== "homework") continue;
       const start = parseDateTime(block.scheduled_date, block.start_time);
       const end = parseDateTime(block.scheduled_date, block.end_time);
       if (!start || !end || end.getTime() <= now.getTime()) continue;
       alerts.push(
         sessionAlert({
           id: `weekly:${block.weekly_block_id}`,
-          kind: block.schedule_type_id === 2 ? "review" : "homework_session",
+          kind: block.schedule_type_code === "review" ? "review" : "homework_session",
           subjectName: block.subject_name,
           start,
           end,
@@ -117,13 +117,13 @@ export const buildAppAlerts = (
     }
   } else {
     for (const item of sources.currentSchedule?.data ?? []) {
-      if (item.schedule_type_id !== 2 && item.schedule_type_id !== 3) continue;
+      if (item.schedule_type_code !== "review" && item.schedule_type_code !== "homework") continue;
       const occurrence = recurringOccurrence(item, now);
       if (!occurrence) continue;
       alerts.push(
         sessionAlert({
           id: `schedule:${item.schedule_time_id}:${localDateText(occurrence.start)}`,
-          kind: item.schedule_type_id === 2 ? "review" : "homework_session",
+          kind: item.schedule_type_code === "review" ? "review" : "homework_session",
           subjectName: item.subject_name,
           start: occurrence.start,
           end: occurrence.end,

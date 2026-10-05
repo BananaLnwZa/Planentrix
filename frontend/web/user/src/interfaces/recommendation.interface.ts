@@ -1,3 +1,5 @@
+import type { EditableScheduleTypeCode } from "./table.interface";
+
 export type RecommendationTrigger =
   | "weekend"
   | "exam_submitted"
@@ -42,7 +44,8 @@ export interface WeeklyScheduleBlock {
   term_id: number;
   subject_id: string;
   subject_name: string;
-  schedule_type_id: 2 | 3;
+  schedule_type_id: number;
+  schedule_type_code: EditableScheduleTypeCode;
   schedule_type_name: string;
   scheduled_date: string;
   start_time: string;
@@ -56,7 +59,8 @@ export interface WeeklyRecommendationItem {
   recommendation_id: number;
   subject_id: string;
   subject_name: string;
-  schedule_type_id: 2 | 3;
+  schedule_type_id: number;
+  schedule_type_code: EditableScheduleTypeCode;
   schedule_type_name: string;
   current_minutes: number;
   base_minutes: number;
@@ -106,7 +110,8 @@ export interface RecurringClassBlock {
   schedule_time_id: number;
   subject_id: string;
   subject_name: string;
-  schedule_type_id: 1;
+  schedule_type_id: 0;
+  schedule_type_code: "class";
   schedule_type_name: string;
   schedule_day: number;
   start_time: string;
@@ -125,7 +130,7 @@ export interface AcceptedWeeklySchedule {
 
 export interface WeeklyBlockInput {
   subject_id: string;
-  schedule_type_id: 2 | 3;
+  schedule_type_code: EditableScheduleTypeCode;
   scheduled_date: string;
   start_time: string;
   end_time: string;

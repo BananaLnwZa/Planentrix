@@ -232,11 +232,11 @@ export default function RecommendationCard({
   }, [refreshKey]);
 
   const reviewItems = useMemo(
-    () => recommendation?.items.filter((item) => item.schedule_type_id === 2) ?? [],
+    () => recommendation?.items.filter((item) => item.schedule_type_code === "review") ?? [],
     [recommendation]
   );
   const homeworkItems = useMemo(
-    () => recommendation?.items.filter((item) => item.schedule_type_id === 3) ?? [],
+    () => recommendation?.items.filter((item) => item.schedule_type_code === "homework") ?? [],
     [recommendation]
   );
   const weekLabel =

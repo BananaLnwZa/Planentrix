@@ -42,7 +42,7 @@ export default function ScheduleDetailsPopup({
   onSave,
   onDelete,
 }: ScheduleDetailsPopupProps) {
-  const isClass = item.schedule_type_id === 1;
+  const isClass = item.schedule_type_code === "class";
   const [isEditing, setIsEditing] = useState(false);
   const [scheduleDay, setScheduleDay] = useState(item.schedule_day);
   const [startTime, setStartTime] = useState(item.start_time);
@@ -55,7 +55,7 @@ export default function ScheduleDetailsPopup({
   const [pendingInput, setPendingInput] =
     useState<UpdateScheduleRequest | null>(null);
   const deletableScheduleTypeName =
-    item.schedule_type_id === 2 ? "อ่านหนังสือ" : "การบ้าน";
+    item.schedule_type_code === "review" ? "อ่านหนังสือ" : "การบ้าน";
   const hasInvalidTimeRange = Boolean(
     startTime && endTime && startTime >= endTime
   );
@@ -156,7 +156,7 @@ export default function ScheduleDetailsPopup({
             <p className="text-xs text-[#78909C]">
               {isClass
                 ? "คาบเรียน"
-                : item.schedule_type_id === 2
+                : item.schedule_type_code === "review"
                   ? "อ่านหนังสือ"
                   : "การบ้าน"}
             </p>

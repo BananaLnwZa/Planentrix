@@ -7,6 +7,7 @@ import CustomSelect from "@/components/common/CustomSelect";
 import DaySelect from "@/components/common/DaySelect";
 import type {
   AddScheduleRequest,
+  EditableScheduleTypeCode,
   ScheduleItem,
   ScheduleSubject,
 } from "@/interfaces/table.interface";
@@ -36,7 +37,7 @@ export default function AddSchedulePopup({
   onClose,
   onSubmit,
 }: AddSchedulePopupProps) {
-  const [scheduleTypeId, setScheduleTypeId] = useState<2 | 3 | null>(null);
+  const [scheduleTypeCode, setScheduleTypeCode] = useState<EditableScheduleTypeCode | null>(null);
   const [subjectId, setSubjectId] = useState("");
   const [scheduleDay, setScheduleDay] = useState(1);
   const [startTime, setStartTime] = useState("08:00");
@@ -54,7 +55,7 @@ export default function AddSchedulePopup({
           endTime > item.start_time
       )
     : undefined;
-  const isComplete = Boolean(scheduleTypeId && subjectId && startTime && endTime);
+  const isComplete = Boolean(scheduleTypeCode && subjectId && startTime && endTime);
   const canSubmit =
     isComplete &&
     !hasInvalidTimeRange &&
@@ -77,10 +78,10 @@ export default function AddSchedulePopup({
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!canSubmit || !scheduleTypeId) return;
+    if (!canSubmit || !scheduleTypeCode) return;
 
     const input: AddScheduleRequest = {
-      schedule_type_id: scheduleTypeId,
+      schedule_type_code: scheduleTypeCode,
       subject_id: subjectId,
       schedule_day: scheduleDay,
       start_time: startTime,
@@ -156,24 +157,24 @@ export default function AddSchedulePopup({
             <legend className="mb-2 text-sm text-[#536D79]">ประเภทบล็อกเวลา</legend>
             <div className="grid grid-cols-2 gap-2.5">
               <ScheduleTypeOption
-                value={2}
+                value="review"
                 label="อ่านหนังสือ"
                 icon={<BookOpen aria-hidden="true" size={18} />}
-                selected={scheduleTypeId === 2}
+                selected={scheduleTypeCode === "review"}
                 colorClass="border-[#E8CF7C] bg-[#FFF6D8] text-[#856C29]"
                 onSelect={() => {
-                  setScheduleTypeId(2);
+                  setScheduleTypeCode("review");
                   clearSubmitError();
                 }}
               />
               <ScheduleTypeOption
-                value={3}
+                value="homework"
                 label="การบ้าน"
                 icon={<ClipboardPenLine aria-hidden="true" size={18} />}
-                selected={scheduleTypeId === 3}
+                selected={scheduleTypeCode === "homework"}
                 colorClass="border-[#E9B1AC] bg-[#FCE2DF] text-[#96534D]"
                 onSelect={() => {
-                  setScheduleTypeId(3);
+                  setScheduleTypeCode("homework");
                   clearSubmitError();
                 }}
               />
@@ -315,7 +316,7 @@ function ScheduleTypeOption({
   colorClass,
   onSelect,
 }: {
-  value: 2 | 3;
+  value: EditableScheduleTypeCode;
   label: string;
   icon: React.ReactNode;
   selected: boolean;

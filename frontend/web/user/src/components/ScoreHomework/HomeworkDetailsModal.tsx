@@ -10,6 +10,7 @@ import {
   formatDisplayDate,
   formatDisplayTime,
   getWorkloadPalette,
+  getWorkloadTypeLabel,
   toDateTimeLocalValue,
 } from "./homeworkUtils";
 import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
@@ -36,7 +37,7 @@ export default function HomeworkDetailsModal({
   const [deadline, setDeadline] = useState(toDateTimeLocalValue(task.deadline));
   const [note, setNote] = useState(task.note);
   const [validation, setValidation] = useState<string | null>(null);
-  const palette = getWorkloadPalette(task.workload_type_name);
+  const palette = getWorkloadPalette(task.workload_type_code);
 
   const submit = () => {
     const parsedDeadline = new Date(deadline);
@@ -84,7 +85,7 @@ export default function HomeworkDetailsModal({
               style={{ backgroundColor: palette.normal }}
               className="inline-flex rounded-full border border-black/20 px-3 py-1 text-xs text-black/60"
             >
-              {task.workload_type_name}
+              {getWorkloadTypeLabel(task.workload_type_code)}
             </span>
           </DetailsRow>
           <DetailsRow label="ชื่องาน">

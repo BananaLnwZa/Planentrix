@@ -61,6 +61,7 @@ const weeklyDisplayItem = (block: WeeklyScheduleBlock): DisplayScheduleItem => (
   scheduled_date: block.scheduled_date,
   is_user_modified: block.is_user_modified,
   schedule_type_id: block.schedule_type_id,
+  schedule_type_code: block.schedule_type_code,
   schedule_type_name: block.schedule_type_name,
   subject_id: block.subject_id,
   subject_name: block.subject_name,

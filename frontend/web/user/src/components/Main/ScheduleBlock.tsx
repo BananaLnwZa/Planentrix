@@ -2,22 +2,27 @@ import type { CSSProperties } from "react";
 import type { DisplayScheduleItem } from "@/interfaces/table.interface";
 
 const scheduleTypeStyles = {
-  1: {
+  class: {
     block:
       "border-[#A7D286] bg-gradient-to-br from-[#EFF9E6] to-[#DDF1C9] text-[#4E713A] hover:from-[#E6F5D8] hover:to-[#D2EABC]",
     dot: "bg-[#8FC56A]",
   },
-  2: {
+  review: {
     block:
       "border-[#E7C96E] bg-gradient-to-br from-[#FFF8DE] to-[#FFF0BA] text-[#806720] hover:from-[#FFF3CA] hover:to-[#FFE9A2]",
     dot: "bg-[#E6BE4D]",
   },
-  3: {
+  homework: {
     block:
       "border-[#E7AAA4] bg-gradient-to-br from-[#FDE8E5] to-[#F8D1CD] text-[#8A4B46] hover:from-[#F9DBD7] hover:to-[#F3C1BC]",
     dot: "bg-[#DF8E86]",
   },
 } as const;
+
+const unknownTypeStyle = {
+  block: "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200",
+  dot: "bg-slate-400",
+};
 
 export default function ScheduleBlock({
   item,
@@ -28,7 +33,7 @@ export default function ScheduleBlock({
   style: CSSProperties;
   onClick: () => void;
 }) {
-  const typeStyle = scheduleTypeStyles[item.schedule_type_id];
+  const typeStyle = scheduleTypeStyles[item.schedule_type_code] ?? unknownTypeStyle;
 
   return (
     <button

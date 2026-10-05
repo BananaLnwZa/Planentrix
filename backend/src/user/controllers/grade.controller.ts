@@ -50,6 +50,7 @@ interface WorkloadRow extends RowDataPacket {
   workload_id: number;
   workload_name: string;
   workload_type_id: number;
+  workload_type_code: string;
   workload_type_name: string;
   deadline_date: string;
   deadline_time: string;
@@ -194,6 +195,7 @@ const loadWorkloads = async (termId: number, completedOnly = false) => {
             workload.workload_id,
             workload.workload_name,
             workload.workload_type_id,
+            LOWER(workload_type.type_code) AS workload_type_code,
             workload_type.type_name AS workload_type_name,
             DATE_FORMAT(workload.deadline_date, '%Y-%m-%d') AS deadline_date,
             TIME_FORMAT(workload.deadline_time, '%H:%i:%s') AS deadline_time,

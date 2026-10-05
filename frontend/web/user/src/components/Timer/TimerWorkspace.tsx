@@ -146,7 +146,7 @@ export default function TimerWorkspace() {
       setSubjects(setup.subjects);
       setDashboard(dashboardData);
       const plannedReviewItems = weeklySchedule?.accepted_recommendation?.items
-        .filter((item) => item.schedule_type_id === 2 && item.target_minutes > 0)
+        .filter((item) => item.schedule_type_code === "review" && item.target_minutes > 0)
         .map((item) => ({
           subjectId: item.subject_id,
           subjectName: item.subject_name,

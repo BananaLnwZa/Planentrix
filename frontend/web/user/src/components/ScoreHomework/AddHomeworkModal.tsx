@@ -2,23 +2,25 @@
 
 import { useState } from "react";
 import { Check, LoaderCircle, X } from "lucide-react";
-import {
-  HOMEWORK_TYPE_OPTIONS,
-  type CreateHomeworkInput,
-  type HomeworkSubject,
+import type {
+  CreateHomeworkInput,
+  HomeworkSubject,
+  HomeworkTypeOption,
 } from "@/interfaces/homework.interface";
-import { getWorkloadPalette } from "./homeworkUtils";
+import { getWorkloadPalette, getWorkloadTypeLabel } from "./homeworkUtils";
 import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
 import CustomSelect from "@/components/common/CustomSelect";
 
 export default function AddHomeworkModal({
   subjects,
+  types,
   isSaving,
   serverError,
   onClose,
   onSave,
 }: {
   subjects: HomeworkSubject[];
+  types: HomeworkTypeOption[];
   isSaving: boolean;
   serverError: string | null;
   onClose: () => void;
@@ -35,6 +37,7 @@ export default function AddHomeworkModal({
     const parsedDeadline = new Date(deadline);
     if (
       !subjectId ||
+      !types.some((option) => option.id === typeId) ||
       typeId === null ||
       !name.trim() ||
       !deadline ||
@@ -85,7 +88,7 @@ export default function AddHomeworkModal({
               }}
               options={subjects.map((subject) => ({
                 value: String(subject.schedule_time_id),
-                label: `${subject.subject_id} ${subject.subject_name}`,
+                label: subject.subject_name,
               }))}
               placeholder="เลือกวิชา"
               compact
@@ -95,8 +98,8 @@ export default function AddHomeworkModal({
 
           <LabeledField label="ประเภท" alignStart>
             <div className="flex flex-wrap gap-1.5">
-              {HOMEWORK_TYPE_OPTIONS.map((option) => {
-                const palette = getWorkloadPalette(option.name);
+              {types.map((option) => {
+                const palette = getWorkloadPalette(option.code);
                 const selected = option.id === typeId;
                 return (
                   <button
@@ -113,7 +116,7 @@ export default function AddHomeworkModal({
                         : "border-black/25 hover:-translate-y-0.5"
                     }`}
                   >
-                    {option.name}
+                    {getWorkloadTypeLabel(option.code)}
                   </button>
                 );
               })}

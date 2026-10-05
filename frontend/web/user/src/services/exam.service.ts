@@ -127,7 +127,7 @@ const checkpointFromJson = (value: unknown): ExamCheckpointInsight => {
     intervalWeeks: number(json.interval_weeks),
     weakTopicCount: number(json.weak_topic_count),
     reviewMinutesDelta: number(json.review_minutes_delta),
-    reviewScheduleTypeId: number(json.review_schedule_type_id) || 2,
+    reviewScheduleTypeId: number(json.review_schedule_type_id),
   };
 };
 

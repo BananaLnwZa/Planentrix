@@ -4,6 +4,7 @@ import type {
   HomeworkOverview,
   HomeworkSubject,
   HomeworkTask,
+  HomeworkTypeOption,
   UpdateHomeworkInput,
 } from "@/interfaces/homework.interface";
 import { authenticatedApiClient } from "./api.client";
@@ -12,6 +13,7 @@ interface HomeworkApiRow {
   workload_id: number | string;
   schedule_time_id: number | string;
   workload_type_id: number | string;
+  workload_type_code?: string;
   workload_type_name?: string;
   subject_id?: string;
   subject_name?: string;
@@ -49,6 +51,7 @@ const toTask = (row: HomeworkApiRow): HomeworkTask => ({
   workload_id: Number(row.workload_id),
   schedule_time_id: Number(row.schedule_time_id),
   workload_type_id: Number(row.workload_type_id),
+  workload_type_code: row.workload_type_code ?? "",
   workload_type_name: row.workload_type_name ?? "งาน",
   subject_id: row.subject_id ?? "",
   subject_name: row.subject_name ?? "",
@@ -59,6 +62,25 @@ const toTask = (row: HomeworkApiRow): HomeworkTask => ({
 
 class HomeworkService {
   private readonly apiClient = authenticatedApiClient;
+
+  async getTypes(): Promise<HomeworkTypeOption[]> {
+    try {
+      const response = await this.apiClient.get<{
+        data: Array<{
+          workload_type_id: number | string;
+          workload_type_code: string;
+          workload_type_name: string;
+        }>;
+      }>("/user/workload/types");
+      return response.data.data.map((row) => ({
+        id: Number(row.workload_type_id),
+        code: row.workload_type_code,
+        name: row.workload_type_name,
+      }));
+    } catch (error) {
+      throw this.toError(error, "ไม่สามารถโหลดประเภทงานได้");
+    }
+  }
 
   async getHomeworkOverview(): Promise<HomeworkOverview> {
     try {
@@ -84,8 +106,7 @@ class HomeworkService {
   async getSubjects(): Promise<HomeworkSubject[]> {
     try {
       const response = await this.apiClient.get<{ data?: HomeworkSubject[] }>(
-        "/user/workload/subjects",
-        { params: { schedule_type_id: 1 } }
+        "/user/workload/subjects"
       );
       return response.data.data ?? [];
     } catch (error) {
@@ -117,6 +138,7 @@ class HomeworkService {
         workload_id: Number(response.data.workload_id),
         schedule_time_id: input.schedule_time_id,
         workload_type_id: input.workload_type_id,
+        workload_type_code: response.data.workload_type_code ?? "",
         workload_type_name: response.data.workload_type_name ?? "งาน",
         subject_id: subject?.subject_id ?? "",
         subject_name: subject?.subject_name ?? "",

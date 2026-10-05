@@ -3,16 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Check,
-  CircleAlert,
   ClipboardCheck,
   LoaderCircle,
   Plus,
-  RefreshCw,
 } from "lucide-react";
 import type {
   CreateHomeworkInput,
   HomeworkSubject,
   HomeworkTask,
+  HomeworkTypeOption,
   UpdateHomeworkInput,
 } from "@/interfaces/homework.interface";
 import homeworkService from "@/services/homework.service";
@@ -38,6 +37,7 @@ export default function HomeworkDashboard({
   const [hasCurrentTerm, setHasCurrentTerm] = useState<boolean | null>(null);
   const [hasWorkloads, setHasWorkloads] = useState(false);
   const [subjects, setSubjects] = useState<HomeworkSubject[]>([]);
+  const [types, setTypes] = useState<HomeworkTypeOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -88,9 +88,14 @@ export default function HomeworkDashboard({
     if (!hasCurrentTerm || !canAddHomework) return;
     setModalError(null);
     try {
-      const result = await homeworkService.getSubjects();
+      const [result, typeOptions] = await Promise.all([
+        homeworkService.getSubjects(),
+        homeworkService.getTypes(),
+      ]);
       if (!result.length) throw new Error("ยังไม่มีรายวิชาในเทอมปัจจุบัน กรุณาสร้างตารางเรียนก่อน");
+      if (!typeOptions.length) throw new Error("ยังไม่มีประเภทงานที่เปิดใช้งาน");
       setSubjects(result);
+      setTypes(typeOptions);
       setIsAddOpen(true);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "โหลดรายวิชาไม่สำเร็จ");
@@ -231,6 +236,7 @@ export default function HomeworkDashboard({
 
       {isAddOpen && (
         <AddHomeworkModal
+          types={types}
           subjects={subjects}
           isSaving={isAdding}
           serverError={modalError}
