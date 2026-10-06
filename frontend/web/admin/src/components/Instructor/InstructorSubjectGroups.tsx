@@ -19,6 +19,7 @@ import type {
   InstructorAssignedSection,
   InstructorWorkspaceResponse,
 } from "@/interfaces/instructor-workspace.interface";
+import { formatDisplayDateTime } from "@/utils/dateTime";
 
 interface InstructorSubjectGroupsProps {
   workspace: InstructorWorkspaceResponse;
@@ -210,7 +211,7 @@ export default function InstructorSubjectGroups({
             )}
 
             {activeTab === "results" && (
-              sectionResults.length ? <div className="space-y-3">{sectionResults.map((result) => <article key={result.exam_attempt_id} className="flex flex-col gap-3 rounded-[20px] border border-[#e1eaed] bg-white p-4 sm:flex-row sm:items-center"><span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#eeeafa] text-[#7165a2]"><ClipboardList size={20} /></span><div className="min-w-0 flex-1"><p className="font-medium text-[#3e555f]">{`${result.first_name} ${result.last_name}`.trim() || result.user_name}</p><p className="mt-1 text-xs text-[#87979e]">{periodLabel(result.exam_period)} · ส่งเมื่อ {new Date(result.submitted_at).toLocaleString("th-TH")}</p></div><div className="text-left sm:text-right"><p className="text-lg font-semibold text-[#4d8093]">{result.actual_score}/{result.max_score}</p><p className="text-xs text-[#82939a]">{result.percentage.toFixed(2)}% · จุดอ่อน {result.weak_topic_count}</p></div></article>)}</div> : <EmptyPanel icon={BarChart3} title="ยังไม่มีผลสอบที่ส่งแล้ว" />
+              sectionResults.length ? <div className="space-y-3">{sectionResults.map((result) => <article key={result.exam_attempt_id} className="flex flex-col gap-3 rounded-[20px] border border-[#e1eaed] bg-white p-4 sm:flex-row sm:items-center"><span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#eeeafa] text-[#7165a2]"><ClipboardList size={20} /></span><div className="min-w-0 flex-1"><p className="font-medium text-[#3e555f]">{`${result.first_name} ${result.last_name}`.trim() || result.user_name}</p><p className="mt-1 text-xs text-[#87979e]">{periodLabel(result.exam_period)} · ส่งเมื่อ {formatDisplayDateTime(result.submitted_at)}</p></div><div className="text-left sm:text-right"><p className="text-lg font-semibold text-[#4d8093]">{result.actual_score}/{result.max_score}</p><p className="text-xs text-[#82939a]">{result.percentage.toFixed(2)}% · จุดอ่อน {result.weak_topic_count}</p></div></article>)}</div> : <EmptyPanel icon={BarChart3} title="ยังไม่มีผลสอบที่ส่งแล้ว" />
             )}
 
             {activeTab === "weaknesses" && (

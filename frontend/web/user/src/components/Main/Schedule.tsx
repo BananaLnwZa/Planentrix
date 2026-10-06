@@ -18,6 +18,7 @@ import type { UserConstraint } from "@/interfaces/profile.interface";
 import recommendationService from "@/services/recommendation.service";
 import profileService from "@/services/profile.service";
 import tableService from "@/services/table.service";
+import { formatDisplayDate } from "@/utils/dateTime";
 import AddSchedulePopup from "./AddSchedulePopup";
 import ScheduleDetailsPopup from "./ScheduleDetailsPopup";
 import ScheduleGrid from "./ScheduleGrid";
@@ -294,7 +295,7 @@ export default function Schedule({
           </h2>
           {acceptedRecommendation && (
             <p className="text-[9px] text-[#71907A]">
-              กำลังใช้แผนวันที่ {acceptedRecommendation.week_start} – {acceptedRecommendation.week_end}
+              กำลังใช้แผนวันที่ {formatDisplayDate(acceptedRecommendation.week_start)} – {formatDisplayDate(acceptedRecommendation.week_end)}
             </p>
           )}
         </div>

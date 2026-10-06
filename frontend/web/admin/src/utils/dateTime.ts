@@ -1,4 +1,5 @@
 const pad2 = (value: number) => String(value).padStart(2, "0");
+const twoDigitYear = (value: number) => pad2(value % 100);
 
 const parseDate = (value: string | Date) => {
   if (value instanceof Date) return value;
@@ -14,13 +15,13 @@ export const formatDisplayDate = (
   if (typeof value === "string") {
     const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|\s)/);
     if (dateOnly) {
-      return `${dateOnly[3]}/${dateOnly[2]}/${dateOnly[1]}`;
+      return `${dateOnly[3]}/${dateOnly[2]}/${dateOnly[1].slice(-2)}`;
     }
   }
 
   const date = parseDate(value);
   if (Number.isNaN(date.getTime())) return fallback;
-  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`;
+  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${twoDigitYear(date.getFullYear())}`;
 };
 
 export const formatDisplayDateTime = (

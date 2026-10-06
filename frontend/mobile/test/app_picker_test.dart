@@ -210,7 +210,7 @@ void main() {
       find.byKey(const Key('app-date-time-picker-dialog')),
       findsOneWidget,
     );
-    expect(find.text('13/08/2026 18:45'), findsOneWidget);
+    expect(find.text('13/08/26 18:45'), findsOneWidget);
     expect(find.byKey(const Key('app-year-selector')), findsOneWidget);
     final icon = tester.widget<Icon>(find.byIcon(Icons.calendar_month_rounded));
     expect(icon.color, appDateTimePickerColor);

@@ -210,7 +210,7 @@ void main() {
     expect(find.byKey(const Key('study-statistics')), findsOneWidget);
     expect(find.byKey(const Key('study-history')), findsOneWidget);
     expect(find.text('Business Intelligence'), findsOneWidget);
-    expect(find.text('08/2026'), findsOneWidget);
+    expect(find.text('08/26'), findsOneWidget);
     expect(find.text('Progress แยกตามวิชาที่แนะนำ'), findsOneWidget);
     expect(find.byKey(const Key('weekly-review-BI101')), findsOneWidget);
     expect(find.text('00 ชม. 30 นาที'), findsOneWidget);

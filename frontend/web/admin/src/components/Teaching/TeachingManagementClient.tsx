@@ -39,9 +39,11 @@ import type {
 } from "@/interfaces/teaching-management.interface";
 import { teachingManagementService } from "@/services/teaching-management.service";
 import AdminSelect from "@/components/ui/AdminSelect";
+import { DatePickerInput } from "@/components/common/LocalizedDateTimeInput";
 import ClassMeetingModal, {
   classMeetingDayLabels,
 } from "@/components/Teaching/ClassMeetingModal";
+import { formatDisplayDate } from "@/utils/dateTime";
 
 const sectionStatusOptions: Array<{ value: CourseSectionStatus; label: string }> = [
   { value: "draft", label: "ฉบับร่าง" },
@@ -88,11 +90,7 @@ const nextTermStatus: Record<
 
 const formatTermDate = (date: string | null) => {
   if (!date) return "ไม่ระบุ";
-  return new Intl.DateTimeFormat("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(`${date}T00:00:00`));
+  return formatDisplayDate(date, "ไม่ระบุ");
 };
 
 const dateInputClass =
@@ -252,20 +250,20 @@ function TermModal({ term, onClose, onSaved }: TermModalProps) {
           </label>
           <label className="text-sm font-medium text-[#4c626c]">
             วันเปิดภาคเรียน
-            <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className={dateInputClass} />
+            <DatePickerInput value={startDate} onChange={(event) => setStartDate(event.target.value)} className={dateInputClass} />
           </label>
           <label className="text-sm font-medium text-[#4c626c]">
             วันสิ้นสุดภาคเรียน
-            <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className={dateInputClass} />
+            <DatePickerInput value={endDate} onChange={(event) => setEndDate(event.target.value)} className={dateInputClass} />
           </label>
 
           <div className="rounded-2xl border border-[#e1ebee] bg-[#f8fcfd] p-4 sm:col-span-2">
             <p className="text-sm font-medium text-[#4c626c]">ช่วงสอบ (ไม่บังคับ)</p>
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
-              <label className="text-xs text-[#71858e]">เริ่มกลางภาค<input type="date" value={midtermStart} onChange={(event) => setMidtermStart(event.target.value)} className={dateInputClass} /></label>
-              <label className="text-xs text-[#71858e]">สิ้นสุดกลางภาค<input type="date" value={midtermEnd} onChange={(event) => setMidtermEnd(event.target.value)} className={dateInputClass} /></label>
-              <label className="text-xs text-[#71858e]">เริ่มปลายภาค<input type="date" value={finalStart} onChange={(event) => setFinalStart(event.target.value)} className={dateInputClass} /></label>
-              <label className="text-xs text-[#71858e]">สิ้นสุดปลายภาค<input type="date" value={finalEnd} onChange={(event) => setFinalEnd(event.target.value)} className={dateInputClass} /></label>
+              <label className="text-xs text-[#71858e]">เริ่มกลางภาค<DatePickerInput value={midtermStart} onChange={(event) => setMidtermStart(event.target.value)} className={dateInputClass} /></label>
+              <label className="text-xs text-[#71858e]">สิ้นสุดกลางภาค<DatePickerInput value={midtermEnd} onChange={(event) => setMidtermEnd(event.target.value)} className={dateInputClass} /></label>
+              <label className="text-xs text-[#71858e]">เริ่มปลายภาค<DatePickerInput value={finalStart} onChange={(event) => setFinalStart(event.target.value)} className={dateInputClass} /></label>
+              <label className="text-xs text-[#71858e]">สิ้นสุดปลายภาค<DatePickerInput value={finalEnd} onChange={(event) => setFinalEnd(event.target.value)} className={dateInputClass} /></label>
             </div>
           </div>
 

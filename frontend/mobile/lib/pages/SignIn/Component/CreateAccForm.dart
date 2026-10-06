@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../common/AppDatePicker.dart';
 import '../../../common/AppDropdown.dart';
+import '../../../common/DateTimeFormat.dart';
 import '../../../interfaces/auth.interface.dart';
 import '../../../services/auth.service.dart';
 import 'Selectgender.dart';
@@ -35,8 +36,13 @@ String? formatBirthDateForApi(String value) {
 
   final day = int.tryParse(parts[0]);
   final month = int.tryParse(parts[1]);
-  final year = int.tryParse(parts[2]);
-  if (day == null || month == null || year == null) return null;
+  final inputYear = int.tryParse(parts[2]);
+  if (day == null || month == null || inputYear == null) return null;
+
+  final currentTwoDigitYear = DateTime.now().year % 100;
+  final year = inputYear < 100
+      ? (inputYear <= currentTwoDigitYear ? 2000 + inputYear : 1900 + inputYear)
+      : inputYear;
 
   final date = DateTime(year, month, day);
   if (date.year != year || date.month != month || date.day != day) return null;
@@ -229,10 +235,7 @@ class CreateAccountFormState extends State<CreateAccountForm> {
     }
 
     setState(() {
-      birthDateController.text =
-          '${selectedDate.day.toString().padLeft(2, '0')}/'
-          '${selectedDate.month.toString().padLeft(2, '0')}/'
-          '${selectedDate.year}';
+      birthDateController.text = formatDisplayDate(selectedDate);
     });
   }
 
@@ -630,7 +633,7 @@ class CreateAccountFormState extends State<CreateAccountForm> {
                   style: inputTextStyle.copyWith(color: Colors.grey.shade600),
 
                   decoration: _inputDecoration(
-                    hintText: 'dd/mm/yyyy',
+                    hintText: 'dd/mm/yy',
 
                     contentPadding: const EdgeInsets.only(
                       left: 18,

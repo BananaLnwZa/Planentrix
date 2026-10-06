@@ -25,3 +25,7 @@ exists. Review and back up production data before applying any schema change.
 Migration 20261004 adds `exam_attempts.random_seed`. New attempts store this
 seed so their deterministic 100-point question selection can be audited and
 replayed with the same question-bank contents.
+
+Migration 20261006 removes the obsolete `admin.address` column. Admin and
+instructor registration, profiles, and account management no longer collect
+or return postal addresses.

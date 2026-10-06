@@ -33,6 +33,7 @@ import type {
 import instructorExamService from "@/services/instructor-exam.service";
 import InstructorQuestionEditModal from "@/components/Instructor/InstructorQuestionEditModal";
 import AuthenticatedQuestionImage from "@/components/Instructor/AuthenticatedQuestionImage";
+import { formatDisplayDate } from "@/utils/dateTime";
 
 type ExamPeriod = "midterm" | "final";
 type ModalName = "part" | "exam" | null;
@@ -190,11 +191,7 @@ function getPeriodLabel(period: ExamPeriod) {
 }
 
 function formatCreatedDate(value: string) {
-  return new Intl.DateTimeFormat("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
+  return formatDisplayDate(value);
 }
 
 function getChoiceLabel(choiceOrder: number, choiceIndex: number) {

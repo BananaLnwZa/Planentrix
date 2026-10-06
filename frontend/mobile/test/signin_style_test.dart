@@ -193,7 +193,7 @@ void main() {
     expect(durationToMinutes('', '45'), 45);
     expect(convertDisplayTimeTo24Hour('06:00 PM'), '18:00');
     expect(convertDisplayTimeTo24Hour('12:05 AM'), '00:05');
-    expect(formatBirthDateForApi('31/12/2000'), '2000-12-31');
+    expect(formatBirthDateForApi('31/12/00'), '2000-12-31');
   });
 
   testWidgets('password eye buttons toggle password visibility', (
@@ -269,7 +269,7 @@ void main() {
       find.byType(CreateAccountForm),
     );
     fillValidAccount(accountState);
-    accountState.birthDateController.text = '31/12/2000';
+    accountState.birthDateController.text = '31/12/00';
 
     final constraintState = tester.state<ConstraintState>(
       find.byType(Constraint),

@@ -149,8 +149,8 @@ void main() {
 
     expect(find.byKey(const Key('term-details-popup')), findsOneWidget);
     expect(find.text('รายละเอียดเทอมปัจจุบัน'), findsOneWidget);
-    expect(find.text('01/07/2026 – 07/07/2026'), findsWidgets);
-    expect(find.text('16/07/2026 – 22/07/2026'), findsWidgets);
+    expect(find.text('01/07/26 – 07/07/26'), findsWidgets);
+    expect(find.text('16/07/26 – 22/07/26'), findsWidgets);
 
     await tester.tap(find.byKey(const Key('end-term-button')));
     await tester.pumpAndSettle();

@@ -31,6 +31,7 @@ export type LocalizedDateTimeInputProps = Omit<
 };
 
 const pad2 = (value: number) => String(value).padStart(2, "0");
+const twoDigitYear = (value: number) => pad2(value % 100);
 const monthNames = [
   "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
   "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม",
@@ -56,15 +57,15 @@ const parseTimePart = (value?: string | null) => {
 
 const displayValue = (type: PickerType, value: string) => {
   if (!value) {
-    if (type === "date") return "dd/mm/yyyy";
+    if (type === "date") return "dd/mm/yy";
     if (type === "time") return "--:--";
-    return "dd/mm/yyyy --:--";
+    return "dd/mm/yy --:--";
   }
   if (type === "time") return value.slice(0, 5);
   const parsed = parseDatePart(value);
   const date = parsed
-    ? `${pad2(parsed.getDate())}/${pad2(parsed.getMonth() + 1)}/${parsed.getFullYear()}`
-    : "dd/mm/yyyy";
+    ? `${pad2(parsed.getDate())}/${pad2(parsed.getMonth() + 1)}/${twoDigitYear(parsed.getFullYear())}`
+    : "dd/mm/yy";
   return type === "datetime-local"
     ? `${date} ${parseTimePart(value) ? value.slice(11, 16) : "--:--"}`
     : date;

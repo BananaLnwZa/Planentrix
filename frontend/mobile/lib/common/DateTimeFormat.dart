@@ -3,10 +3,11 @@
 import 'package:flutter/material.dart';
 
 String _twoDigits(int value) => value.toString().padLeft(2, '0');
+String _twoDigitYear(int value) => _twoDigits(value % 100);
 
 String formatDisplayDate(DateTime value) {
   final local = value.toLocal();
-  return '${_twoDigits(local.day)}/${_twoDigits(local.month)}/${local.year}';
+  return '${_twoDigits(local.day)}/${_twoDigits(local.month)}/${_twoDigitYear(local.year)}';
 }
 
 String formatDisplayTime24(DateTime value) {
@@ -21,4 +22,4 @@ String formatTimeOfDay24(TimeOfDay value) =>
     '${_twoDigits(value.hour)}:${_twoDigits(value.minute)}';
 
 String formatDisplayMonthYear(int year, int month) =>
-    '${_twoDigits(month)}/$year';
+    '${_twoDigits(month)}/${_twoDigitYear(year)}';

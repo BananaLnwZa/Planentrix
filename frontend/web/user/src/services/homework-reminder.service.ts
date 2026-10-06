@@ -1,4 +1,5 @@
 import type { HomeworkTask } from "@/interfaces/homework.interface";
+import { formatDisplayDateTime } from "@/utils/dateTime";
 
 export const HOMEWORK_REMINDER_LEAD_TIME_MS = 24 * 60 * 60 * 1000;
 
@@ -157,11 +158,6 @@ class HomeworkReminderService {
     const delivered = this.getDeliveredReminders();
     if (delivered[task.workload_id] === signature) return;
 
-    const formatter = new Intl.DateTimeFormat("th-TH", {
-      dateStyle: "medium",
-      timeStyle: "short",
-      hour12: false,
-    });
     let notification: Notification;
     try {
       // Record first so multiple open tabs do not normally show the same reminder.
@@ -170,7 +166,7 @@ class HomeworkReminderService {
       notification = new Notification(
         "งานใกล้ถึงกำหนดส่ง",
         {
-          body: `วิชา: ${task.subject_name} • งาน: ${task.workload_name} • กำหนดส่ง: ${formatter.format(task.deadline)} น.`,
+          body: `วิชา: ${task.subject_name} • งาน: ${task.workload_name} • กำหนดส่ง: ${formatDisplayDateTime(task.deadline)} น.`,
           icon: "/images/logo.png",
           tag: `homework-${task.workload_id}`,
         }
