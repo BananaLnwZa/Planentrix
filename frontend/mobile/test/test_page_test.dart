@@ -357,6 +357,8 @@ void main() {
 
     expect(find.byKey(const Key('exam-runner')), findsOneWidget);
     expect(find.byKey(const Key('exam-question-101')), findsOneWidget);
+    expect(find.byKey(const Key('question-score-101')), findsOneWidget);
+    expect(find.text('50 คะแนน'), findsOneWidget);
     expect(tester.takeException(), isNull, reason: 'first exam question');
 
     await tester.tap(find.byKey(const Key('next-question-button')));

@@ -4,6 +4,14 @@ import '../../../interfaces/exam.interface.dart';
 import 'AuthenticatedExamImage.dart';
 import 'ExamChoiceButton.dart';
 
+String _questionScoreText(double value) {
+  if (value == value.roundToDouble()) return value.toInt().toString();
+  return value
+      .toStringAsFixed(2)
+      .replaceFirst(RegExp(r'0+$'), '')
+      .replaceFirst(RegExp(r'\.$'), '');
+}
+
 class ExamQuestionCard extends StatelessWidget {
   final ExamQuestion question;
   final int? selectedChoiceId;
@@ -33,9 +41,41 @@ class ExamQuestionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            question.partName,
-            style: const TextStyle(fontSize: 11, color: Color(0xFF92A1A7)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  question.partName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF92A1A7),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                key: Key('question-score-${question.questionId}'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF0BF),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${_questionScoreText(question.score)} คะแนน',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF8A6B27),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           Text(
