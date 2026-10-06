@@ -4,7 +4,7 @@ class ExamProgressHeader extends StatelessWidget {
   final String examName;
   final int currentQuestion;
   final int totalQuestions;
-  final Duration remainingTime;
+  final Duration? remainingTime;
 
   const ExamProgressHeader({
     super.key,
@@ -16,8 +16,11 @@ class ExamProgressHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final minutes = remainingTime.inMinutes.toString().padLeft(2, '0');
-    final seconds = (remainingTime.inSeconds % 60).toString().padLeft(2, '0');
+    final minutes = (remainingTime?.inMinutes ?? 0).toString().padLeft(2, '0');
+    final seconds = ((remainingTime?.inSeconds ?? 0) % 60).toString().padLeft(
+      2,
+      '0',
+    );
     return Column(
       key: const Key('exam-progress-header'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,35 +54,36 @@ class ExamProgressHeader extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
-              Container(
-                key: const Key('exam-countdown'),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF0BF),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.access_time_rounded,
-                      size: 15,
-                      color: Color(0xFF8A6B27),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$minutes:$seconds',
-                      style: const TextStyle(
-                        fontSize: 13,
+              if (remainingTime != null) const SizedBox(width: 10),
+              if (remainingTime != null)
+                Container(
+                  key: const Key('exam-countdown'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF0BF),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.access_time_rounded,
+                        size: 15,
                         color: Color(0xFF8A6B27),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Text(
+                        '$minutes:$seconds',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF8A6B27),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),

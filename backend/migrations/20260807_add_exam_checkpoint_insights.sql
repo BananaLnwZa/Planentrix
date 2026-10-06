@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS question_banks (
   owner_instructor_id INT NOT NULL,
   bank_name VARCHAR(200) NOT NULL,
   exam_period ENUM('midterm', 'final') NOT NULL,
-  default_draw_count SMALLINT UNSIGNED NOT NULL,
   time_limit_minutes SMALLINT UNSIGNED NOT NULL,
   status ENUM('draft', 'published', 'archived') NOT NULL DEFAULT 'draft',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -21,7 +20,6 @@ CREATE TABLE IF NOT EXISTS question_banks (
   CONSTRAINT fk_question_banks_subject
     FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT chk_question_banks_draw_count CHECK (default_draw_count > 0),
   CONSTRAINT chk_question_banks_time_limit CHECK (time_limit_minutes > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_0900_ai_ci;

@@ -39,7 +39,7 @@ const summaryFromJson = (value: unknown): ExamSummary => {
     totalScore: number(json.total_score),
     totalQuestion:
       json.total_question == null ? null : number(json.total_question),
-    timeLimitMinutes: number(json.time_limit),
+    timeLimitMinutes: json.time_limit == null ? null : number(json.time_limit),
   };
 };
 
@@ -184,7 +184,7 @@ class ExamService {
       const json = record(record(response.data).data);
       return {
         attemptId: number(json.exam_attempt_id),
-        remainingSeconds: number(json.remaining_seconds),
+        remainingSeconds: json.remaining_seconds == null ? null : number(json.remaining_seconds),
         resumed: Boolean(json.resumed),
         exam: examDetailFromJson(json.exam),
         answers: list(json.answers).map((answer) => {

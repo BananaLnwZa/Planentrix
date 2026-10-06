@@ -13,7 +13,7 @@ const getAdminWebUrl = () => {
 export const getRoleHomeUrl = (role: AuthRole): string | null => {
   if (role === "user") return "/Main";
   if (role === "university_staff") {
-    return `${getAdminWebUrl().replace(/\/$/, "")}/Main`;
+    return `${getAdminWebUrl().replace(/\/$/, "")}/Teaching`;
   }
   if (role === "instructor") {
     return `${getAdminWebUrl().replace(/\/$/, "")}/Instructor/Main`;

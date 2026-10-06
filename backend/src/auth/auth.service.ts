@@ -62,7 +62,6 @@ interface AdminProfileRow extends AdminIdRow {
   first_name: string | null;
   last_name: string | null;
   phone_number: string | null;
-  address: string | null;
   department_id: number | null;
   role: "university_staff" | "instructor";
   status: string;
@@ -629,7 +628,6 @@ export const registerAdmin = async (
   const firstName = requiredString(body.first_name, "first_name").trim();
   const lastName = requiredString(body.last_name, "last_name").trim();
   const phoneNumber = optionalString(body.phone_number ?? body.phone);
-  const address = optionalString(body.address);
   let departmentId = optionalInteger(body.department_id, "department_id");
   const departmentCode = optionalString(body.major);
 
@@ -703,8 +701,8 @@ export const registerAdmin = async (
   await db.query(
     `INSERT INTO admin
       (admin_name, admin_email, admin_password, first_name, last_name, phone,
-       address, department_id, role, must_change_password)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       department_id, role, must_change_password)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       adminName,
       adminEmail,
@@ -712,7 +710,6 @@ export const registerAdmin = async (
       firstName,
       lastName,
       phoneNumber,
-      address,
       departmentId,
       accountRole,
       accountRole === "instructor" ? 1 : 0,
@@ -836,7 +833,7 @@ export const getAccountProfile = async (id: number, role: AuthRole) => {
   if (role === "university_staff" || role === "instructor") {
     const [rows] = await db.query<AdminProfileRow[]>(
       `SELECT admin_id, admin_name, admin_email, first_name, last_name,
-              phone AS phone_number, address, department_id, role, status,
+              phone AS phone_number, department_id, role, status,
               must_change_password
        FROM admin
        WHERE admin_id = ? AND status = 'active'

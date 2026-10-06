@@ -33,6 +33,18 @@ export interface TeachingSubject {
   department_ids: number[];
 }
 
+export interface TeachingCurriculumSubject {
+  curriculum_subject_id: number;
+  subject_id: string;
+  department_id: number;
+  faculty_id: number;
+  department_name: string;
+  faculty_name: string;
+  year_level: number;
+  semester_no: number;
+  is_required: boolean;
+}
+
 export interface TeachingInstructor {
   admin_id: number;
   admin_name: string;
@@ -80,6 +92,7 @@ export interface TeachingCourseSection {
   updated_at: string;
   instructors: SectionInstructor[];
   meetings: TeachingClassMeeting[];
+  curriculum_subject_ids: number[];
 }
 
 export interface TeachingWorkspaceResponse {
@@ -87,6 +100,7 @@ export interface TeachingWorkspaceResponse {
   academic_terms: TeachingAcademicTerm[];
   subjects: TeachingSubject[];
   instructors: TeachingInstructor[];
+  curriculum_subjects: TeachingCurriculumSubject[];
   sections: TeachingCourseSection[];
 }
 
@@ -108,8 +122,9 @@ export interface SaveCourseSectionPayload {
   section_number: string;
   capacity: number | null;
   status: CourseSectionStatus;
-  owner_instructor_id: number;
+  owner_instructor_id: number | null;
   co_instructor_ids: number[];
+  curriculum_subject_ids: number[];
 }
 
 export interface SaveClassMeetingPayload {

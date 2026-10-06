@@ -74,8 +74,8 @@ export default function ClassMeetingModal({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!instructorId || !startTime || !endTime) {
-      setError("กรุณาเลือกผู้สอน วัน และเวลาเรียนให้ครบ");
+    if (!instructorId || !startTime || !endTime || !classroom.trim()) {
+      setError("กรุณาเลือกผู้สอน วัน เวลา และห้องเรียนให้ครบ");
       return;
     }
     if (startTime >= endTime) {
@@ -249,7 +249,7 @@ export default function ClassMeetingModal({
           </label>
 
           <label className="text-sm font-medium text-[#4c626c] sm:col-span-2">
-            ห้องเรียน (ไม่บังคับ)
+            ห้องเรียน
             <span className="relative block">
               <MapPin className="pointer-events-none absolute left-4 top-1/2 mt-1 -translate-y-1/2 text-[#6d99a9]" size={17} />
               <input

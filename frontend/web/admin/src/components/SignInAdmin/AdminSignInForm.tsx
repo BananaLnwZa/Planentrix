@@ -49,7 +49,6 @@ const adminSignInSchema = z
         (value) => value === "" || /^\d{10}$/.test(value),
         "Phone number must contain exactly 10 digits",
       ),
-    address: z.string().trim(),
   })
   .superRefine((data, context) => {
     if (data.role !== "university_staff" && data.role !== "instructor") {
@@ -79,7 +78,6 @@ const defaultValues: AdminSignInFormData = {
   first_name: "",
   last_name: "",
   phone_number: "",
-  address: "",
 };
 
 const fieldClass = (invalid: boolean) =>
@@ -159,7 +157,6 @@ export default function AdminSignInForm() {
         first_name: data.first_name.trim(),
         last_name: data.last_name.trim(),
         phone_number: data.phone_number || null,
-        address: data.address || null,
       });
       setSuccessMessage(
         response.role === "instructor"
@@ -395,21 +392,6 @@ export default function AdminSignInForm() {
               }
               {...register("phone_number", { onChange: clearMessages })}
               className={fieldClass(Boolean(errors.phone_number))}
-            />
-          </FormField>
-
-          <FormField
-            id="new-admin-address"
-            label="Address (optional)"
-            error={errors.address?.message}
-          >
-            <input
-              id="new-admin-address"
-              type="text"
-              autoComplete="off"
-              placeholder="Enter address"
-              {...register("address", { onChange: clearMessages })}
-              className={fieldClass(Boolean(errors.address))}
             />
           </FormField>
         </div>

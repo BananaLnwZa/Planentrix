@@ -4,6 +4,10 @@ import { promises as fs } from "fs";
 import path from "path";
 import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
+import {
+  EXAM_TIME_LIMITS_ENABLED,
+  questionBankTimeLimitSql,
+} from "../../config/exam-timing";
 import { importExamFile } from "../../admin/controllers/examimport.controller";
 
 type ExamPeriod = "midterm" | "final";
@@ -20,9 +24,10 @@ interface QuestionBankRow extends RowDataPacket {
   owner_instructor_id: number;
   bank_name: string;
   exam_period: ExamPeriod;
-  time_limit_minutes: number;
+  time_limit_minutes: number | null;
   status: "draft" | "published" | "archived";
   question_count: number;
+  total_score: number | string;
   created_at: Date | string;
   updated_at: Date | string;
 }
@@ -133,9 +138,10 @@ const questionBankSelect = `SELECT
   qb.owner_instructor_id,
   qb.bank_name,
   qb.exam_period,
-  qb.time_limit_minutes,
+  ${questionBankTimeLimitSql("qb")} AS time_limit_minutes,
   qb.status,
   COUNT(q.question_id) AS question_count,
+  COALESCE(SUM(q.question_score), 0) AS total_score,
   qb.created_at,
   qb.updated_at
 FROM question_banks qb
@@ -147,8 +153,10 @@ const serializeQuestionBank = (bank: QuestionBankRow) => ({
   ...bank,
   question_bank_id: Number(bank.question_bank_id),
   owner_instructor_id: Number(bank.owner_instructor_id),
-  time_limit_minutes: Number(bank.time_limit_minutes),
+  time_limit_minutes:
+    bank.time_limit_minutes === null ? null : Number(bank.time_limit_minutes),
   question_count: Number(bank.question_count),
+  total_score: Number(bank.total_score),
 });
 
 const validateQuestionScore = (value: unknown): number | null => {
@@ -304,7 +312,7 @@ const getOwnedQuestionBank = async (
      WHERE qb.question_bank_id = ? AND qb.owner_instructor_id = ?
      GROUP BY qb.question_bank_id, qb.subject_id, s.subject_name,
        qb.owner_instructor_id, qb.bank_name, qb.exam_period,
-       qb.time_limit_minutes, qb.status,
+       time_limit_minutes, qb.status,
        qb.created_at, qb.updated_at
      LIMIT 1`,
     [questionBankId, instructorId],
@@ -512,7 +520,7 @@ export const getInstructorExamWorkspace = async (
        WHERE qb.owner_instructor_id = ? AND qb.status <> 'archived'
        GROUP BY qb.question_bank_id, qb.subject_id, s.subject_name,
          qb.owner_instructor_id, qb.bank_name, qb.exam_period,
-         qb.time_limit_minutes, qb.status,
+         time_limit_minutes, qb.status,
          qb.created_at, qb.updated_at
        ORDER BY qb.updated_at DESC, qb.question_bank_id DESC`,
       [instructorId],
@@ -890,6 +898,10 @@ export const updateInstructorQuestionBankSettings = async (
   const instructorId = requireInstructor(req, res);
   if (!instructorId) return;
 
+  if (!EXAM_TIME_LIMITS_ENABLED) {
+    return res.status(409).json({ message: "การตั้งเวลาสอบถูกปิดใช้งานชั่วคราว" });
+  }
+
   const questionBankId = Number(req.params.bankId);
   const timeLimitMinutes = Number(req.body.time_limit_minutes);
   if (!Number.isInteger(questionBankId) || questionBankId <= 0) {
@@ -991,7 +1003,7 @@ export const publishInstructorQuestionBank = async (
   try {
     await connection.beginTransaction();
     const [banks] = await connection.query<QuestionBankSettingsLockRow[]>(
-      `SELECT question_bank_id, time_limit_minutes, status
+      `SELECT question_bank_id, status
        FROM question_banks
        WHERE question_bank_id = ? AND owner_instructor_id = ?
        LIMIT 1 FOR UPDATE`,
@@ -1222,9 +1234,10 @@ export const createInstructorQuestionBank = async (
     return res.status(400).json({ message: "ช่วงสอบต้องเป็น midterm หรือ final" });
   }
   if (
-    !Number.isInteger(timeLimitMinutes) ||
-    timeLimitMinutes < 1 ||
-    timeLimitMinutes > 1440
+    EXAM_TIME_LIMITS_ENABLED &&
+    (!Number.isInteger(timeLimitMinutes) ||
+      timeLimitMinutes < 1 ||
+      timeLimitMinutes > 1440)
   ) {
     return res.status(400).json({ message: "เวลาทำข้อสอบต้องอยู่ระหว่าง 1-1,440 นาที" });
   }
@@ -1267,21 +1280,18 @@ export const createInstructorQuestionBank = async (
       });
     }
 
-    // Keep a compatibility value for databases that still require the legacy
-    // column. Exam generation no longer reads this value.
     const [result] = await db.query<ResultSetHeader>(
-      `INSERT INTO question_banks
+      EXAM_TIME_LIMITS_ENABLED
+        ? `INSERT INTO question_banks
         (subject_id, owner_instructor_id, bank_name, exam_period,
-         default_draw_count, time_limit_minutes, status)
-       VALUES (?, ?, ?, ?, ?, ?, 'draft')`,
-      [
-        subjectId,
-        instructorId,
-        bankName,
-        examPeriod,
-        1,
-        timeLimitMinutes,
-      ],
+         time_limit_minutes, status)
+       VALUES (?, ?, ?, ?, ?, 'draft')`
+        : `INSERT INTO question_banks
+        (subject_id, owner_instructor_id, bank_name, exam_period, status)
+       VALUES (?, ?, ?, ?, 'draft')`,
+      EXAM_TIME_LIMITS_ENABLED
+        ? [subjectId, instructorId, bankName, examPeriod, timeLimitMinutes]
+        : [subjectId, instructorId, bankName, examPeriod],
     );
 
     const created = await getOwnedQuestionBank(result.insertId, instructorId);

@@ -70,10 +70,11 @@ class ExamCard extends StatelessWidget {
                           icon: Icons.help_outline,
                           text: '${exam.totalQuestion} ข้อ',
                         ),
-                        _Meta(
-                          icon: Icons.timer_outlined,
-                          text: '${exam.timeLimitMinutes} นาที',
-                        ),
+                        if (exam.timeLimitMinutes != null)
+                          _Meta(
+                            icon: Icons.timer_outlined,
+                            text: '${exam.timeLimitMinutes} นาที',
+                          ),
                       ],
                     ),
                   ],

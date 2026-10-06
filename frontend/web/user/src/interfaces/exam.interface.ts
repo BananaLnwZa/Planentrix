@@ -6,7 +6,7 @@ export interface ExamSummary {
   examName: string;
   totalScore: number;
   totalQuestion: number | null;
-  timeLimitMinutes: number;
+  timeLimitMinutes: number | null;
 }
 
 export interface ExamChoice {
@@ -86,7 +86,7 @@ export interface ExamAnswer {
 
 export interface ExamAttemptSession {
   attemptId: number;
-  remainingSeconds: number;
+  remainingSeconds: number | null;
   resumed: boolean;
   answers: ExamAnswer[];
   exam: ExamDetail;

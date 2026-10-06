@@ -43,7 +43,9 @@ export default function ExamListPanel({
             </p>
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#71858E]">
               <ExamMeta icon={<CircleHelp />} text="ระบบกำหนดจำนวนข้อ" />
-              <ExamMeta icon={<Clock3 />} text={`${exam.timeLimitMinutes} นาที`} />
+              {exam.timeLimitMinutes !== null && (
+                <ExamMeta icon={<Clock3 />} text={`${exam.timeLimitMinutes} นาที`} />
+              )}
             </div>
           </div>
           {openingExamId === exam.examRepositoryId ? (

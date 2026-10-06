@@ -12,9 +12,10 @@ export interface InstructorQuestionBank {
   owner_instructor_id: number;
   bank_name: string;
   exam_period: InstructorExamPeriod;
-  time_limit_minutes: number;
+  time_limit_minutes: number | null;
   status: "draft" | "published" | "archived";
   question_count: number;
+  total_score: number;
   created_at: string;
   updated_at: string;
 }

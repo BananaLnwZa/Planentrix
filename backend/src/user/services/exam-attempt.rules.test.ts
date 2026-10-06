@@ -51,6 +51,11 @@ test("calculates server-authoritative remaining time", () => {
   assert.equal(remainingSecondsFor(1, 61), 0);
 });
 
+test("untimed exams never expire, even after a long pause", () => {
+  assert.equal(remainingSecondsFor(null, 0), null);
+  assert.equal(remainingSecondsFor(null, 86400 * 365), null);
+});
+
 test("uses one or two week checkpoint intervals for weak scores", () => {
   assert.equal(checkpointWeeksFor(39.99), 1);
   assert.equal(checkpointWeeksFor(40), 2);

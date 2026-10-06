@@ -96,9 +96,11 @@ export const scoreSnapshotQuestions = (
 };
 
 export const remainingSecondsFor = (
-  timeLimitMinutes: number,
+  timeLimitMinutes: number | null,
   elapsedSeconds: number,
-) => Math.max(0, timeLimitMinutes * 60 - elapsedSeconds);
+) => timeLimitMinutes === null
+  ? null
+  : Math.max(0, timeLimitMinutes * 60 - elapsedSeconds);
 
 export const checkpointWeeksFor = (percentage: number) =>
   percentage < 40 ? 1 : 2;

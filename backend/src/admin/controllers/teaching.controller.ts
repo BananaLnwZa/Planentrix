@@ -40,6 +40,18 @@ interface SubjectOptionRow extends RowDataPacket {
   department_ids: string;
 }
 
+interface CurriculumOptionRow extends RowDataPacket {
+  curriculum_subject_id: number;
+  subject_id: string;
+  department_id: number;
+  faculty_id: number;
+  department_name: string;
+  faculty_name: string;
+  year_level: number;
+  semester_no: number;
+  is_required: number;
+}
+
 interface InstructorOptionRow extends RowDataPacket {
   admin_id: number;
   admin_name: string;
@@ -87,14 +99,20 @@ interface MeetingRow extends RowDataPacket {
   last_name: string;
 }
 
+interface SectionCurriculumRow extends RowDataPacket {
+  section_id: number;
+  curriculum_subject_id: number;
+}
+
 interface SectionPayload {
   subjectId: string;
   academicTermId: number;
   sectionNumber: string;
   capacity: number | null;
   status: SectionStatus;
-  ownerInstructorId: number;
+  ownerInstructorId: number | null;
   coInstructorIds: number[];
+  curriculumSubjectIds: number[];
 }
 
 interface MeetingPayload {
@@ -295,6 +313,9 @@ const parseMeetingPayload = (
   if (!startTime || !endTime || startTime >= endTime) {
     return { message: "เวลาเริ่มต้องอยู่ก่อนเวลาสิ้นสุด" };
   }
+  if (!classroomText) {
+    return { message: "กรุณาระบุห้องเรียนหรือสถานที่เรียน" };
+  }
   if (classroomText.length > 100) {
     return { message: "ชื่อห้องเรียนต้องไม่เกิน 100 ตัวอักษร" };
   }
@@ -305,7 +326,7 @@ const parseMeetingPayload = (
       dayOfWeek,
       startTime,
       endTime,
-      classroom: classroomText || null,
+      classroom: classroomText,
     },
   };
 };
@@ -321,10 +342,18 @@ const parseSectionPayload = (
     capacityValue === null || capacityValue === undefined || capacityValue === ""
       ? null
       : Number(capacityValue);
-  const status = String(body.status ?? "open") as SectionStatus;
-  const ownerInstructorId = Number(body.owner_instructor_id);
+  const status = String(body.status ?? "draft") as SectionStatus;
+  const ownerInstructorId =
+    body.owner_instructor_id === null ||
+    body.owner_instructor_id === undefined ||
+    body.owner_instructor_id === ""
+      ? null
+      : Number(body.owner_instructor_id);
   const coInstructorIds = Array.isArray(body.co_instructor_ids)
     ? [...new Set(body.co_instructor_ids.map(Number))]
+    : [];
+  const curriculumSubjectIds = Array.isArray(body.curriculum_subject_ids)
+    ? [...new Set(body.curriculum_subject_ids.map(Number))]
     : [];
 
   if (!/^[A-Z0-9_-]{1,20}$/.test(subjectId)) {
@@ -342,8 +371,20 @@ const parseSectionPayload = (
   if (!["draft", "open", "closed", "completed", "cancelled"].includes(status)) {
     return { message: "สถานะกลุ่มเรียนไม่ถูกต้อง" };
   }
-  if (!Number.isInteger(ownerInstructorId) || ownerInstructorId <= 0) {
-    return { message: "กรุณาเลือกอาจารย์เจ้าของวิชา" };
+  if (
+    ownerInstructorId !== null &&
+    (!Number.isInteger(ownerInstructorId) || ownerInstructorId <= 0)
+  ) {
+    return { message: "ข้อมูลอาจารย์เจ้าของวิชาไม่ถูกต้อง" };
+  }
+  if (ownerInstructorId === null && coInstructorIds.length > 0) {
+    return { message: "กรุณาเลือกอาจารย์เจ้าของวิชาก่อนเพิ่มผู้สอนร่วม" };
+  }
+  if (
+    curriculumSubjectIds.length === 0 ||
+    curriculumSubjectIds.some((id) => !Number.isInteger(id) || id <= 0)
+  ) {
+    return { message: "กรุณาเลือกสาขาและชั้นปีที่สามารถลงกลุ่มเรียนนี้ได้" };
   }
   if (
     coInstructorIds.some(
@@ -362,6 +403,7 @@ const parseSectionPayload = (
       status,
       ownerInstructorId,
       coInstructorIds,
+      curriculumSubjectIds,
     },
   };
 };
@@ -379,31 +421,68 @@ const validateSectionReferences = async (
        EXISTS(
          SELECT 1 FROM academic_terms
          WHERE academic_term_id = ? AND status IN ('draft', 'active')
-       ) AS term_exists`,
-    [payload.subjectId, payload.academicTermId],
+       ) AS term_exists,
+       (SELECT status FROM academic_terms
+        WHERE academic_term_id = ? LIMIT 1) AS term_status`,
+    [payload.subjectId, payload.academicTermId, payload.academicTermId],
   );
   if (!Number(references[0]?.subject_exists)) return "ไม่พบวิชาที่เปิดใช้งาน";
   if (!Number(references[0]?.term_exists)) return "ไม่พบภาคการศึกษาที่เลือก";
+  if (
+    String(references[0]?.term_status) === "draft" &&
+    payload.status !== "draft" &&
+    payload.status !== "cancelled"
+  ) {
+    return "Section ในภาคการศึกษาฉบับร่างต้องเป็นฉบับร่างจนกว่าจะเปิดเทอม";
+  }
 
-  const instructorIds = [payload.ownerInstructorId, ...payload.coInstructorIds];
-  const placeholders = instructorIds.map(() => "?").join(", ");
-  const [instructors] = await connection.query<RowDataPacket[]>(
-    `SELECT a.admin_id
-     FROM admin a
-     WHERE a.admin_id IN (${placeholders})
-       AND a.role = 'instructor'
-       AND a.status = 'active'
-       AND EXISTS (
-         SELECT 1
-         FROM curriculum_subjects curriculum
-         WHERE BINARY curriculum.subject_id = ?
-           AND curriculum.department_id = a.department_id
-           AND curriculum.is_active = 1
-       )`,
-    [...instructorIds, payload.subjectId],
+  const curriculumPlaceholders = payload.curriculumSubjectIds
+    .map(() => "?")
+    .join(", ");
+  const [curricula] = await connection.query<RowDataPacket[]>(
+    `SELECT curriculum.curriculum_subject_id
+     FROM curriculum_subjects curriculum
+     INNER JOIN academic_terms term
+       ON term.academic_term_id = ?
+      AND term.semester_no = curriculum.semester_no
+     WHERE curriculum.curriculum_subject_id IN (${curriculumPlaceholders})
+       AND BINARY curriculum.subject_id = ?
+       AND curriculum.is_active = 1`,
+    [payload.academicTermId, ...payload.curriculumSubjectIds, payload.subjectId],
   );
-  if (instructors.length !== instructorIds.length) {
-    return "อาจารย์ต้องเปิดใช้งานและอยู่ในสาขาที่มีวิชานี้ในหลักสูตร";
+  if (curricula.length !== payload.curriculumSubjectIds.length) {
+    return "สาขา ชั้นปี หรือภาคเรียนตามแผนไม่ตรงกับวิชาและภาคการศึกษาที่เลือก";
+  }
+
+  const instructorIds = [
+    ...(payload.ownerInstructorId === null ? [] : [payload.ownerInstructorId]),
+    ...payload.coInstructorIds,
+  ];
+  if (instructorIds.length > 0) {
+    const placeholders = instructorIds.map(() => "?").join(", ");
+    const [instructors] = await connection.query<RowDataPacket[]>(
+      `SELECT a.admin_id
+       FROM admin a
+       WHERE a.admin_id IN (${placeholders})
+         AND a.role = 'instructor'
+         AND a.status = 'active'
+         AND EXISTS (
+           SELECT 1
+           FROM curriculum_subjects curriculum
+           WHERE curriculum.curriculum_subject_id IN (${curriculumPlaceholders})
+             AND BINARY curriculum.subject_id = ?
+             AND curriculum.department_id = a.department_id
+             AND curriculum.is_active = 1
+         )`,
+      [
+        ...instructorIds,
+        ...payload.curriculumSubjectIds,
+        payload.subjectId,
+      ],
+    );
+    if (instructors.length !== instructorIds.length) {
+      return "อาจารย์ต้องเปิดใช้งานและอยู่ในสาขาที่มีวิชานี้ในหลักสูตร";
+    }
   }
   return null;
 };
@@ -497,7 +576,9 @@ const saveAssignments = async (
     instructorId: number;
     role: "owner" | "co_instructor";
   }> = [
-    { instructorId: payload.ownerInstructorId, role: "owner" },
+    ...(payload.ownerInstructorId === null
+      ? []
+      : [{ instructorId: payload.ownerInstructorId, role: "owner" as const }]),
     ...payload.coInstructorIds.map((instructorId) => ({
       instructorId,
       role: "co_instructor" as const,
@@ -515,11 +596,44 @@ const saveAssignments = async (
     );
   }
   const instructorIds = assignments.map((assignment) => assignment.instructorId);
-  const placeholders = instructorIds.map(() => "?").join(", ");
+  if (instructorIds.length === 0) {
+    await connection.query(
+      "DELETE FROM section_instructors WHERE section_id = ?",
+      [sectionId],
+    );
+  } else {
+    const placeholders = instructorIds.map(() => "?").join(", ");
+    await connection.query(
+      `DELETE FROM section_instructors
+       WHERE section_id = ? AND instructor_id NOT IN (${placeholders})`,
+      [sectionId, ...instructorIds],
+    );
+  }
+};
+
+const saveCurriculumMappings = async (
+  connection: PoolConnection,
+  sectionId: number,
+  curriculumSubjectIds: number[],
+  adminId: number,
+) => {
+  for (const curriculumSubjectId of curriculumSubjectIds) {
+    await connection.query(
+      `INSERT INTO section_curriculum_subjects
+        (section_id, curriculum_subject_id, assigned_by_admin_id)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         assigned_by_admin_id = VALUES(assigned_by_admin_id),
+         assigned_at = CURRENT_TIMESTAMP`,
+      [sectionId, curriculumSubjectId, adminId],
+    );
+  }
+  const placeholders = curriculumSubjectIds.map(() => "?").join(", ");
   await connection.query(
-    `DELETE FROM section_instructors
-     WHERE section_id = ? AND instructor_id NOT IN (${placeholders})`,
-    [sectionId, ...instructorIds],
+    `DELETE FROM section_curriculum_subjects
+     WHERE section_id = ?
+       AND curriculum_subject_id NOT IN (${placeholders})`,
+    [sectionId, ...curriculumSubjectIds],
   );
 };
 
@@ -562,6 +676,28 @@ export const getTeachingWorkspace = async (req: Request, res: Response) => {
          AND department.is_active = 1
          AND faculty.is_active = 1
        ORDER BY instructor.first_name, instructor.last_name, instructor.admin_id`,
+    );
+    const [curriculumSubjects] = await db.query<CurriculumOptionRow[]>(
+      `SELECT
+         curriculum.curriculum_subject_id,
+         curriculum.subject_id,
+         curriculum.department_id,
+         department.faculty_id,
+         department.department_name,
+         faculty.faculty_name,
+         curriculum.year_level,
+         curriculum.semester_no,
+         curriculum.is_required
+       FROM curriculum_subjects curriculum
+       INNER JOIN departments department
+         ON department.department_id = curriculum.department_id
+       INNER JOIN faculties faculty
+         ON faculty.faculty_id = department.faculty_id
+       WHERE curriculum.is_active = 1
+         AND department.is_active = 1
+         AND faculty.is_active = 1
+       ORDER BY curriculum.subject_id, faculty.faculty_name,
+         department.department_name, curriculum.year_level`,
     );
     const [sections] = await db.query<SectionRow[]>(
       `${sectionSelect}
@@ -608,6 +744,11 @@ export const getTeachingWorkspace = async (req: Request, res: Response) => {
          meeting.start_time,
          meeting.class_meeting_id`,
     );
+    const [sectionCurricula] = await db.query<SectionCurriculumRow[]>(
+      `SELECT section_id, curriculum_subject_id
+       FROM section_curriculum_subjects
+       ORDER BY section_id, curriculum_subject_id`,
+    );
 
     const assignmentsBySection = new Map<number, AssignmentRow[]>();
     for (const assignment of assignments) {
@@ -620,6 +761,12 @@ export const getTeachingWorkspace = async (req: Request, res: Response) => {
       const sectionMeetings = meetingsBySection.get(meeting.section_id) ?? [];
       sectionMeetings.push(meeting);
       meetingsBySection.set(meeting.section_id, sectionMeetings);
+    }
+    const curriculaBySection = new Map<number, number[]>();
+    for (const mapping of sectionCurricula) {
+      const ids = curriculaBySection.get(mapping.section_id) ?? [];
+      ids.push(Number(mapping.curriculum_subject_id));
+      curriculaBySection.set(mapping.section_id, ids);
     }
 
     return res.json({
@@ -634,11 +781,22 @@ export const getTeachingWorkspace = async (req: Request, res: Response) => {
           .map(Number),
       })),
       instructors,
+      curriculum_subjects: curriculumSubjects.map((curriculum) => ({
+        ...curriculum,
+        curriculum_subject_id: Number(curriculum.curriculum_subject_id),
+        department_id: Number(curriculum.department_id),
+        faculty_id: Number(curriculum.faculty_id),
+        year_level: Number(curriculum.year_level),
+        semester_no: Number(curriculum.semester_no),
+        is_required: Boolean(curriculum.is_required),
+      })),
       sections: sections.map((section) => ({
         ...section,
         capacity: section.capacity === null ? null : Number(section.capacity),
         instructors: assignmentsBySection.get(Number(section.section_id)) ?? [],
         meetings: meetingsBySection.get(Number(section.section_id)) ?? [],
+        curriculum_subject_ids:
+          curriculaBySection.get(Number(section.section_id)) ?? [],
       })),
     });
   } catch (error) {
@@ -739,13 +897,10 @@ export const updateAcademicTerm = async (req: Request, res: Response) => {
       await connection.rollback();
       return res.status(404).json({ message: "ไม่พบภาคการศึกษาที่ต้องการแก้ไข" });
     }
-    if (
-      payload.status === "active" &&
-      await hasOtherActiveTerm(connection, termId)
-    ) {
+    if (payload.status !== existing[0].status) {
       await connection.rollback();
-      return res.status(409).json({
-        message: "มีภาคการศึกษาที่กำลังใช้งานอยู่แล้ว กรุณาสิ้นสุดภาคการศึกษาเดิมก่อน",
+      return res.status(400).json({
+        message: "กรุณาเปลี่ยนสถานะจากขั้นตรวจสอบความพร้อม",
       });
     }
 
@@ -753,7 +908,7 @@ export const updateAcademicTerm = async (req: Request, res: Response) => {
       `UPDATE academic_terms
        SET academic_year = ?, semester_no = ?, start_date = ?, end_date = ?,
            midterm_start_date = ?, midterm_end_date = ?,
-           final_start_date = ?, final_end_date = ?, status = ?, updated_at = NOW()
+           final_start_date = ?, final_end_date = ?, updated_at = NOW()
        WHERE academic_term_id = ?`,
       [
         payload.academicYear,
@@ -764,7 +919,6 @@ export const updateAcademicTerm = async (req: Request, res: Response) => {
         payload.midtermEnd,
         payload.finalStart,
         payload.finalEnd,
-        payload.status,
         termId,
       ],
     );
@@ -819,11 +973,70 @@ export const updateAcademicTermStatus = async (req: Request, res: Response) => {
         message: "มีภาคการศึกษาที่กำลังใช้งานอยู่แล้ว กรุณาสิ้นสุดภาคการศึกษาเดิมก่อน",
       });
     }
+    if (status === "active") {
+      const [readinessRows] = await connection.query<RowDataPacket[]>(
+        `SELECT
+           section.section_id,
+           section.subject_id,
+           section.section_number,
+           EXISTS(
+             SELECT 1 FROM section_curriculum_subjects mapping
+             WHERE mapping.section_id = section.section_id
+           ) AS has_curriculum,
+           EXISTS(
+             SELECT 1 FROM section_instructors assignment
+             WHERE assignment.section_id = section.section_id
+               AND assignment.instructor_role = 'owner'
+           ) AS has_owner,
+           EXISTS(
+             SELECT 1 FROM class_meetings meeting
+             WHERE meeting.section_id = section.section_id
+           ) AS has_meeting,
+           NOT EXISTS(
+             SELECT 1 FROM class_meetings meeting
+             WHERE meeting.section_id = section.section_id
+               AND (meeting.classroom IS NULL OR TRIM(meeting.classroom) = '')
+           ) AS meetings_have_rooms
+         FROM course_sections section
+         WHERE section.academic_term_id = ?
+           AND section.status <> 'cancelled'
+         ORDER BY section.subject_id, section.section_number
+         FOR UPDATE`,
+        [termId],
+      );
+      if (readinessRows.length === 0) {
+        await connection.rollback();
+        return res.status(409).json({
+          message: "ต้องมีอย่างน้อยหนึ่ง Section ก่อนเปิดภาคการศึกษา",
+        });
+      }
+      const incomplete = readinessRows.find(
+        (section) =>
+          !Number(section.has_curriculum) ||
+          !Number(section.has_owner) ||
+          !Number(section.has_meeting) ||
+          !Number(section.meetings_have_rooms),
+      );
+      if (incomplete) {
+        await connection.rollback();
+        return res.status(409).json({
+          message: `ยังเปิดภาคการศึกษาไม่ได้: ${incomplete.subject_id} กลุ่ม ${incomplete.section_number} มีข้อมูลไม่ครบ`,
+        });
+      }
+    }
     await connection.query(
       `UPDATE academic_terms SET status = ?, updated_at = NOW()
        WHERE academic_term_id = ?`,
       [status, termId],
     );
+    if (status === "active") {
+      await connection.query(
+        `UPDATE course_sections
+         SET status = 'open', updated_at = NOW()
+         WHERE academic_term_id = ? AND status = 'draft'`,
+        [termId],
+      );
+    }
     await connection.commit();
     return res.json({ message: "Academic term status updated successfully" });
   } catch (error) {
@@ -872,6 +1085,12 @@ export const createCourseSection = async (req: Request, res: Response) => {
       ],
     );
     await saveAssignments(connection, result.insertId, payload, adminId);
+    await saveCurriculumMappings(
+      connection,
+      result.insertId,
+      payload.curriculumSubjectIds,
+      adminId,
+    );
     await createSectionGradingSchemeFromDefault(
       connection,
       payload.subjectId,
@@ -976,6 +1195,12 @@ export const updateCourseSection = async (req: Request, res: Response) => {
       ],
     );
     await saveAssignments(connection, sectionId, payload, adminId);
+    await saveCurriculumMappings(
+      connection,
+      sectionId,
+      payload.curriculumSubjectIds,
+      adminId,
+    );
     await connection.commit();
     return res.json({ message: "Course section updated successfully" });
   } catch (error: unknown) {
@@ -1008,6 +1233,25 @@ export const updateCourseSectionStatus = async (
     return res.status(400).json({ message: "สถานะกลุ่มเรียนไม่ถูกต้อง" });
   }
   try {
+    if (status === "open") {
+      const [terms] = await db.query<RowDataPacket[]>(
+        `SELECT term.status
+         FROM course_sections section
+         INNER JOIN academic_terms term
+           ON term.academic_term_id = section.academic_term_id
+         WHERE section.section_id = ?
+         LIMIT 1`,
+        [sectionId],
+      );
+      if (!terms[0]) {
+        return res.status(404).json({ message: "ไม่พบกลุ่มเรียน" });
+      }
+      if (String(terms[0].status) !== "active") {
+        return res.status(409).json({
+          message: "เปิด Section ได้เมื่อภาคการศึกษามีสถานะกำลังใช้งานเท่านั้น",
+        });
+      }
+    }
     const [result] = await db.query<ResultSetHeader>(
       "UPDATE course_sections SET status = ? WHERE section_id = ?",
       [status, sectionId],

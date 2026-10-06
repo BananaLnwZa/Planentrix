@@ -39,7 +39,6 @@ export interface ManagedInstructor extends ManagedAccountActivity {
   last_name: string;
   admin_email: string;
   phone: string | null;
-  address: string | null;
   department_id: number | null;
   department_code: string | null;
   department_name: string | null;
@@ -85,7 +84,6 @@ export interface UpdateManagedInstructorRequest {
   first_name: string;
   last_name: string;
   phone: string | null;
-  address: string | null;
   department_id: number;
   version: string;
 }

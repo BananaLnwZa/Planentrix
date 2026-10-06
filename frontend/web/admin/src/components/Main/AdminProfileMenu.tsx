@@ -4,7 +4,6 @@ import {
   BadgeCheck,
   Hash,
   Mail,
-  MapPin,
   Phone,
   UserRound,
 } from "lucide-react";
@@ -150,16 +149,6 @@ export default function AdminProfileMenu({
                 </dt>
                 <dd className="text-right text-[#354850]">
                   {displayValue(profile?.phone_number)}
-                </dd>
-              </div>
-
-              <div className="flex items-start justify-between gap-4">
-                <dt className="flex shrink-0 items-center gap-2 text-[#7a8a91]">
-                  <MapPin aria-hidden="true" size={15} />
-                  ที่อยู่
-                </dt>
-                <dd className="max-w-44 text-right leading-5 text-[#354850]">
-                  {displayValue(profile?.address)}
                 </dd>
               </div>
 

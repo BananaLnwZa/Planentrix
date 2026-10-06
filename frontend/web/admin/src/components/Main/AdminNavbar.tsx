@@ -1,8 +1,8 @@
 import {
-  BarChart3,
   BookOpen,
   Building2,
   CalendarRange,
+  ChevronDown,
   Landmark,
   UserPlus,
   UsersRound,
@@ -10,14 +10,15 @@ import {
 import Link from "next/link";
 import AdminProfileMenu from "./AdminProfileMenu";
 
-const navItems = [
-  { label: "สถิติ", href: "/Main", icon: BarChart3 },
-  { label: "ผู้ใช้งาน", href: "/ManageUsers", icon: UsersRound },
-  { label: "เพิ่มแอดมิน", href: "/SignInAdmin", icon: UserPlus },
-  { label: "วิชา", href: "/Subject", icon: BookOpen },
-  { label: "การเปิดสอน", href: "/Teaching", icon: CalendarRange },
+const academicItems = [
+  { label: "รายวิชาและหลักสูตร", href: "/Subject", icon: BookOpen },
   { label: "คณะ", href: "/Faculty", icon: Landmark },
   { label: "สาขา", href: "/Department", icon: Building2 },
+];
+
+const accountItems = [
+  { label: "นักศึกษาและอาจารย์", href: "/ManageUsers", icon: UsersRound },
+  { label: "เพิ่มบัญชีเว็บ", href: "/SignInAdmin", icon: UserPlus },
 ];
 
 interface AdminNavbarProps {
@@ -29,8 +30,50 @@ interface AdminNavbarProps {
 export default function AdminNavbar({
   adminName,
   adminId,
-  activeHref = "/Main",
+  activeHref = "/Teaching",
 }: AdminNavbarProps) {
+  const menuItem = (
+    { label, href, icon: Icon }: (typeof academicItems)[number],
+    compact = false,
+  ) => {
+    const active = href === activeHref;
+    return (
+      <Link
+        key={href}
+        href={href}
+        aria-current={active ? "page" : undefined}
+        className={`inline-flex items-center gap-2 text-sm transition ${compact ? "w-full rounded-xl px-3 py-2.5" : "h-10 rounded-full px-3.5 sm:px-4"} ${
+          active
+            ? "bg-white text-[#3b7085] shadow-sm"
+            : "text-[#38515c] hover:bg-white/55 hover:text-[#347d99]"
+        }`}
+      >
+        <Icon aria-hidden="true" size={17} strokeWidth={1.8} />
+        <span>{label}</span>
+      </Link>
+    );
+  };
+
+  const dropdown = (
+    label: string,
+    items: typeof academicItems,
+  ) => {
+    const active = items.some((item) => item.href === activeHref);
+    return (
+      <details className="group relative shrink-0">
+        <summary
+          className={`flex h-10 cursor-pointer list-none items-center gap-2 rounded-full px-3.5 text-sm transition marker:content-none sm:px-4 ${active ? "bg-white text-[#3b7085] shadow-sm" : "text-[#38515c] hover:bg-white/55 hover:text-[#347d99]"}`}
+        >
+          <span>{label}</span>
+          <ChevronDown size={15} className="transition group-open:rotate-180" />
+        </summary>
+        <div className="absolute right-0 top-12 z-50 w-64 rounded-2xl border border-white/90 bg-[#eef9fc] p-2 shadow-[0_14px_34px_rgba(48,83,97,0.2)]">
+          {items.map((item) => menuItem(item, true))}
+        </div>
+      </details>
+    );
+  };
+
   return (
     <nav
       aria-label="เมนูหลักผู้ดูแลระบบ"
@@ -39,26 +82,10 @@ export default function AdminNavbar({
       <div className="flex items-center justify-between gap-3">
         <AdminProfileMenu adminName={adminName} adminId={adminId} />
 
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {navItems.map(({ label, href, icon: Icon }) => {
-            const active = href === activeHref;
-
-            return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={active ? "page" : undefined}
-              className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-full px-3.5 text-sm transition sm:px-4 ${
-                active
-                  ? "bg-white text-[#3b7085] shadow-sm"
-                  : "text-[#38515c] hover:bg-white/55 hover:text-[#347d99]"
-              }`}
-            >
-              <Icon aria-hidden="true" size={17} strokeWidth={1.8} />
-              <span>{label}</span>
-            </Link>
-            );
-          })}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1">
+          {menuItem({ label: "การเปิดสอน", href: "/Teaching", icon: CalendarRange })}
+          {dropdown("ข้อมูลการศึกษา", academicItems)}
+          {dropdown("จัดการบัญชี", accountItems)}
         </div>
       </div>
     </nav>

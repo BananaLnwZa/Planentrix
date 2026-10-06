@@ -32,7 +32,6 @@ export default function EditInstructorModal({
   const [lastName, setLastName] = useState(instructor.last_name);
   const [email, setEmail] = useState(instructor.admin_email);
   const [phone, setPhone] = useState(instructor.phone ?? "");
-  const [address, setAddress] = useState(instructor.address ?? "");
   const [departmentId, setDepartmentId] = useState(
     instructor.department_id?.toString() ?? "",
   );
@@ -76,7 +75,6 @@ export default function EditInstructorModal({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         phone: phone.trim() || null,
-        address: address.trim() || null,
         department_id: Number(departmentId),
         version: instructor.version,
       });
@@ -144,10 +142,6 @@ export default function EditInstructorModal({
                 );
               })}
             </select>
-          </label>
-          <label className="block text-sm font-medium text-[#4c626c] sm:col-span-2">
-            ที่อยู่
-            <textarea value={address} onChange={(event) => setAddress(event.target.value)} maxLength={255} rows={3} className="mt-2 w-full resize-none rounded-xl border border-[#dbe6ea] bg-[#fbfdfe] px-3.5 py-3 font-normal text-[#304852] outline-none focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]" />
           </label>
 
           {error && <p role="alert" className="rounded-xl bg-[#fff0ec] px-3.5 py-3 text-sm text-[#a9503c] sm:col-span-2">{error}</p>}

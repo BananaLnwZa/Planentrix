@@ -43,10 +43,11 @@ class _ExamDetailsPopup extends StatelessWidget {
             icon: Icons.help_outline,
             text: '${summary.totalQuestion} ข้อ',
           ),
-          _Detail(
-            icon: Icons.timer_outlined,
-            text: '${summary.timeLimitMinutes} นาที',
-          ),
+          if (summary.timeLimitMinutes != null)
+            _Detail(
+              icon: Icons.timer_outlined,
+              text: '${summary.timeLimitMinutes} นาที',
+            ),
           if (summary.totalQuestion < 1) ...[
             const SizedBox(height: 12),
             const Text(

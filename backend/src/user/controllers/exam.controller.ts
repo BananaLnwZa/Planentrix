@@ -7,6 +7,10 @@ import type {
   RowDataPacket,
 } from "mysql2/promise";
 import db from "../../config/db";
+import {
+  EXAM_TIME_LIMITS_ENABLED,
+  questionBankTimeLimitSql,
+} from "../../config/exam-timing";
 import { selectAutomaticBalancedExamQuestions } from "../../services/exam-selection";
 import {
   checkpointWeeksFor,
@@ -28,7 +32,7 @@ interface ExamRow extends RowDataPacket {
   exam_name: string;
   total_score: number | string;
   total_question: number | null;
-  time_limit: number;
+  time_limit: number | null;
   exam_period: "midterm" | "final";
   due_checkpoint_id: number | null;
   previous_result_count: number;
@@ -57,7 +61,7 @@ interface AttemptRow extends RowDataPacket {
   started_at: Date | string;
   elapsed_seconds: number | string;
   status: "in_progress" | "submitted" | "expired" | "cancelled";
-  time_limit_minutes: number | string;
+  time_limit_minutes: number | string | null;
   exam_period: "midterm" | "final";
   bank_name: string;
 }
@@ -118,7 +122,7 @@ const ACCESSIBLE_EXAM_SQL = `SELECT
   qb.bank_name AS exam_name,
   100.00 AS total_score,
   NULL AS total_question,
-  qb.time_limit_minutes AS time_limit,
+  ${questionBankTimeLimitSql("qb")} AS time_limit,
   qb.exam_period,
   (
     SELECT checkpoint.exam_checkpoint_id
@@ -163,7 +167,7 @@ WHERE student_term.user_id = ?
 
 const accessibleExamGroup = `GROUP BY
   qb.question_bank_id, e.enrollment_id, qb.subject_id, subject.subject_name,
-  qb.bank_name, qb.time_limit_minutes, qb.exam_period
+  qb.bank_name, time_limit, qb.exam_period
 HAVING COUNT(CASE WHEN question.is_active = 1 THEN 1 END) > 0
   AND (previous_result_count = 0 OR due_checkpoint_id IS NOT NULL)`;
 
@@ -299,7 +303,7 @@ const loadAttemptForUpdate = async (
     `SELECT attempt.exam_attempt_id, attempt.enrollment_id,
        attempt.source_checkpoint_id, attempt.started_at,
        TIMESTAMPDIFF(SECOND, attempt.started_at, NOW()) AS elapsed_seconds,
-       attempt.status, bank.time_limit_minutes, attempt.exam_period,
+       attempt.status, ${questionBankTimeLimitSql("bank")} AS time_limit_minutes, attempt.exam_period,
        bank.bank_name
      FROM exam_attempts attempt
      INNER JOIN enrollments enrollment
@@ -399,23 +403,25 @@ const finalizeAttempt = async (
     options.timedOut === true ||
     attempt.status === "expired" ||
     remainingSecondsFor(
-      Number(attempt.time_limit_minutes),
+      attempt.time_limit_minutes === null
+        ? null
+        : Number(attempt.time_limit_minutes),
       Number(attempt.elapsed_seconds),
-    ) <= 0;
+    ) === 0;
   const percentage = (score.actualScore / score.maximumScore) * 100;
   const weak = percentage < 50;
 
   await connection.query(
     `UPDATE exam_attempts
      SET submitted_at = CASE WHEN ? = 1
-          THEN COALESCE(submitted_at, DATE_ADD(started_at, INTERVAL ? MINUTE))
+          THEN COALESCE(submitted_at, DATE_ADD(started_at, INTERVAL ? MINUTE), NOW())
           ELSE NOW() END,
        actual_score = ?, max_score = ?, weak_topic_count = ?,
        status = 'submitted', updated_at = NOW()
      WHERE exam_attempt_id = ? AND status IN ('in_progress', 'expired')`,
     [
       timedOut ? 1 : 0,
-      Number(attempt.time_limit_minutes),
+      attempt.time_limit_minutes,
       score.actualScore,
       score.maximumScore,
       weak ? 1 : 0,
@@ -688,7 +694,7 @@ export const startExam = async (req: Request, res: Response) => {
       `SELECT attempt.exam_attempt_id, attempt.enrollment_id,
          attempt.source_checkpoint_id, attempt.started_at,
          TIMESTAMPDIFF(SECOND, attempt.started_at, NOW()) AS elapsed_seconds,
-         attempt.status, bank.time_limit_minutes, attempt.exam_period,
+         attempt.status, ${questionBankTimeLimitSql("bank")} AS time_limit_minutes, attempt.exam_period,
          bank.bank_name
        FROM exam_attempts attempt
        INNER JOIN question_banks bank ON bank.question_bank_id = ?
@@ -711,10 +717,12 @@ export const startExam = async (req: Request, res: Response) => {
     const activeAttempt = activeRows[0];
     if (activeAttempt) {
       const remainingSeconds = remainingSecondsFor(
-        Number(activeAttempt.time_limit_minutes),
+        activeAttempt.time_limit_minutes === null
+          ? null
+          : Number(activeAttempt.time_limit_minutes),
         Number(activeAttempt.elapsed_seconds),
       );
-      if (activeAttempt.status === "expired" || remainingSeconds <= 0) {
+      if (activeAttempt.status === "expired" || remainingSeconds === 0) {
         await finalizeAttempt(connection, activeAttempt.exam_attempt_id, examId, {
           expectedUserId: userId,
           timedOut: true,
@@ -853,7 +861,7 @@ export const startExam = async (req: Request, res: Response) => {
       data: {
         exam_attempt_id: Number(attemptResult.insertId),
         started_at: startedRows[0]?.started_at,
-        remaining_seconds: Math.max(0, Number(exam.time_limit) * 60),
+        remaining_seconds: remainingSecondsFor(exam.time_limit, 0),
         resumed: false,
         answers: [],
         exam: serializeAttemptExam(
@@ -909,9 +917,11 @@ export const saveExamAnswer = async (req: Request, res: Response) => {
     if (
       attempt.status === "expired" ||
       remainingSecondsFor(
-        Number(attempt.time_limit_minutes),
+        attempt.time_limit_minutes === null
+          ? null
+          : Number(attempt.time_limit_minutes),
         Number(attempt.elapsed_seconds),
-      ) <= 0
+      ) === 0
     ) {
       await finalizeAttempt(connection, attemptId, examId, {
         expectedUserId: userId,
@@ -1093,6 +1103,8 @@ export const getExamAttemptImage = async (req: Request, res: Response) => {
 };
 
 export const submitExpiredExamAttempts = async () => {
+  if (!EXAM_TIME_LIMITS_ENABLED) return 0;
+
   const [candidates] = await db.query<RowDataPacket[]>(
     `SELECT DISTINCT attempt.exam_attempt_id,
        attempt_question.source_bank_id AS question_bank_id

@@ -45,7 +45,8 @@ interface PartItem {
   examPeriod: ExamPeriod;
   createdAt: string;
   questionCount: number;
-  timeLimitMinutes: number;
+  totalScore: number;
+  timeLimitMinutes: number | null;
   status: InstructorQuestionBank["status"];
 }
 
@@ -216,6 +217,7 @@ function mapQuestionBankToPart(bank: InstructorQuestionBank): PartItem {
     examPeriod: bank.exam_period,
     createdAt: formatCreatedDate(bank.created_at),
     questionCount: bank.question_count,
+    totalScore: bank.total_score,
     timeLimitMinutes: bank.time_limit_minutes,
     status: bank.status,
   };
@@ -494,7 +496,7 @@ export default function ExamUploadClient() {
         Number(part.id),
       );
       setPartDetail(detail);
-      setPartSettingsTimeLimit(String(detail.question_bank.time_limit_minutes));
+      setPartSettingsTimeLimit(String(detail.question_bank.time_limit_minutes ?? 60));
       setPartSettingsError("");
     } catch (error) {
       setDetailError(
@@ -605,6 +607,7 @@ export default function ExamUploadClient() {
     setPartDetail(updatedDetail);
     setEditingQuestion(null);
     setNotice("บันทึกการแก้ไขข้อสอบแล้ว");
+    await loadWorkspace();
   };
 
   const createQuestion = async (payload: UpdateInstructorQuestionRequest) => {
@@ -894,7 +897,10 @@ export default function ExamUploadClient() {
                         {getPeriodLabel(part.examPeriod)}
                       </span>
                       <span>{part.questionCount} ข้อ</span>
-                      <span>{part.timeLimitMinutes} นาที</span>
+                      <span className="rounded-full bg-[#e8f6fa] px-2.5 py-1 font-medium text-[#477f93]">
+                        คะแนนรวม {formatScore(part.totalScore)} คะแนน
+                      </span>
+                      <span>{part.timeLimitMinutes === null ? "ไม่จำกัดเวลา" : `${part.timeLimitMinutes} นาที`}</span>
                       <span
                         className={
                           part.status === "published"
@@ -963,6 +969,16 @@ export default function ExamUploadClient() {
                     </span>
                     <span className="rounded-full bg-[#f1f5f6] px-3 py-1.5">
                       {partDetail?.questions.length ?? selectedPart.questionCount} ข้อ
+                    </span>
+                    <span className="rounded-full bg-[#eaf6fa] px-3 py-1.5 font-medium text-[#477f93]">
+                      คะแนนรวม {formatScore(
+                        partDetail
+                          ? partDetail.questions.reduce(
+                              (total, question) => total + Math.round(question.question_score * 100),
+                              0,
+                            ) / 100
+                          : selectedPart.totalScore,
+                      )} คะแนน
                     </span>
                     <span
                       className={`rounded-full px-3 py-1.5 ${

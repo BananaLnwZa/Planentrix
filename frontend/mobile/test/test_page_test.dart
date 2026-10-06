@@ -8,6 +8,10 @@ import 'package:mobile/services/exam.service.dart';
 import 'package:mobile/services/term.service.dart';
 
 class FakeExamRepository implements ExamRepository {
+  final int? remainingSeconds;
+
+  FakeExamRepository({this.remainingSeconds = 1800});
+
   int? submittedExamId;
   final List<ExamAnswer> submittedAnswers = [];
   bool submitted = false;
@@ -174,7 +178,7 @@ class FakeExamRepository implements ExamRepository {
     final exam = _examDetail(examRepositoryId, includeQuestions: true);
     return ExamAttemptSession(
       attemptId: 501,
-      remainingSeconds: 1800,
+      remainingSeconds: remainingSeconds,
       resumed: false,
       exam: exam,
     );
@@ -234,6 +238,31 @@ void setPhoneSize(WidgetTester tester, [Size size = const Size(360, 640)]) {
 }
 
 void main() {
+  testWidgets('untimed attempts hide the countdown and never auto-submit', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+    final repository = FakeExamRepository(remainingSeconds: null);
+    await tester.pumpWidget(
+      MaterialApp(home: TestPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('exam-card-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('start-exam-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('exam-countdown')), findsNothing);
+    await tester.pump(const Duration(days: 2));
+    expect(repository.submitted, isFalse);
+    await tester.tap(find.byKey(const Key('exam-choice-1002')));
+    await tester.pumpAndSettle();
+    expect(repository.submittedAnswers.single.choiceId, 1002);
+    expect(repository.submitted, isFalse);
+    expect(find.byKey(const Key('exam-runner')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('test page uses the shared no-term state', (tester) async {
     setPhoneSize(tester);
     await tester.pumpWidget(

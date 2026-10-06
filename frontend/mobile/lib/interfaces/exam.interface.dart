@@ -6,7 +6,7 @@ class ExamSummary {
   final String examName;
   final double totalScore;
   final int totalQuestion;
-  final int timeLimitMinutes;
+  final int? timeLimitMinutes;
 
   const ExamSummary({
     required this.examRepositoryId,
@@ -28,7 +28,9 @@ class ExamSummary {
       examName: '${json['exam_name'] ?? ''}',
       totalScore: _asDouble(json['total_score']),
       totalQuestion: _asInt(json['total_question']),
-      timeLimitMinutes: _asInt(json['time_limit']),
+      timeLimitMinutes: json['time_limit'] == null
+          ? null
+          : _asInt(json['time_limit']),
     );
   }
 }
@@ -134,7 +136,7 @@ class ExamDetail {
 
 class ExamAttemptSession {
   final int attemptId;
-  final int remainingSeconds;
+  final int? remainingSeconds;
   final bool resumed;
   final List<ExamAnswer> answers;
   final ExamDetail exam;
@@ -151,7 +153,9 @@ class ExamAttemptSession {
     final rawAnswers = json['answers'];
     return ExamAttemptSession(
       attemptId: _asInt(json['exam_attempt_id']),
-      remainingSeconds: _asInt(json['remaining_seconds']),
+      remainingSeconds: json['remaining_seconds'] == null
+          ? null
+          : _asInt(json['remaining_seconds']),
       resumed:
           json['resumed'] == true ||
           json['resumed'] == 1 ||

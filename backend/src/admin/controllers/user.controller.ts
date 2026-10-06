@@ -36,7 +36,6 @@ interface ManagedInstructorRow extends RowDataPacket {
   last_name: string;
   admin_email: string;
   phone: string | null;
-  address: string | null;
   department_id: number | null;
   department_code: string | null;
   department_name: string | null;
@@ -117,7 +116,6 @@ const managedInstructorSelect = `SELECT
   a.last_name,
   a.admin_email,
   a.phone,
-  a.address,
   a.department_id,
   d.department_code,
   d.department_name,
@@ -350,7 +348,6 @@ export const updateManagedInstructor = async (req: Request, res: Response) => {
       first_name,
       last_name,
       phone,
-      address,
       department_id,
       version,
     } = req.body;
@@ -359,7 +356,6 @@ export const updateManagedInstructor = async (req: Request, res: Response) => {
     const normalizedFirstName = String(first_name ?? "").trim();
     const normalizedLastName = String(last_name ?? "").trim();
     const normalizedPhone = String(phone ?? "").trim() || null;
-    const normalizedAddress = String(address ?? "").trim() || null;
     const departmentId = Number(department_id);
 
     if (
@@ -389,11 +385,8 @@ export const updateManagedInstructor = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "First name and last name are required" });
     }
 
-    if (
-      (normalizedPhone && normalizedPhone.length > 20) ||
-      (normalizedAddress && normalizedAddress.length > 255)
-    ) {
-      return res.status(400).json({ message: "Phone or address is too long" });
+    if (normalizedPhone && normalizedPhone.length > 20) {
+      return res.status(400).json({ message: "Phone is too long" });
     }
 
     if (!Number.isInteger(departmentId) || departmentId <= 0) {
@@ -423,7 +416,7 @@ export const updateManagedInstructor = async (req: Request, res: Response) => {
     const [result] = await db.query<ResultSetHeader>(
       `UPDATE admin
        SET admin_name = ?, admin_email = ?, first_name = ?, last_name = ?,
-           phone = ?, address = ?, department_id = ?
+           phone = ?, department_id = ?
        WHERE admin_id = ?
          AND role = 'instructor'
          AND updated_at = STR_TO_DATE(?, '%Y-%m-%d %H:%i:%s.%f')`,
@@ -433,7 +426,6 @@ export const updateManagedInstructor = async (req: Request, res: Response) => {
         normalizedFirstName,
         normalizedLastName,
         normalizedPhone,
-        normalizedAddress,
         departmentId,
         instructorId,
         version,

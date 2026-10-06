@@ -43,11 +43,14 @@ export default function ExamModal({
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [warning, setWarning] = useState(false);
   const [showSubmitConfirmation, setShowSubmitConfirmation] = useState(false);
-  const [remainingSeconds, setRemainingSeconds] = useState(
-    Math.max(1, exam.summary.timeLimitMinutes) * 60
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(
+    exam.summary.timeLimitMinutes === null
+      ? null
+      : Math.max(1, exam.summary.timeLimitMinutes) * 60
   );
   const [result, setResult] = useState<ExamSubmissionResult | null>(null);
   const didAutoSubmit = useRef(false);
+  const hasTimeLimit = remainingSeconds !== null;
 
   const submitAnswers = useCallback(async () => {
     if (attemptId === null) return;
@@ -94,12 +97,14 @@ export default function ExamModal({
   };
 
   useEffect(() => {
-    if (!started || result || isSubmitting) return;
+    if (!started || result || isSubmitting || !hasTimeLimit) return;
     const timer = window.setInterval(() => {
-      setRemainingSeconds((current) => Math.max(0, current - 1));
+      setRemainingSeconds((current) =>
+        current === null ? null : Math.max(0, current - 1)
+      );
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [started, result, isSubmitting]);
+  }, [started, result, isSubmitting, hasTimeLimit]);
 
   useEffect(() => {
     if (
@@ -172,10 +177,12 @@ export default function ExamModal({
             <p className="mt-1 text-sm text-[#738892]">{exam.summary.subjectName}</p>
             <div className="mt-6 grid grid-cols-2 gap-3 text-center text-xs text-[#59707B]">
               <div className="rounded-2xl bg-[#EAF6FB] p-3">อัตโนมัติ<br />จำนวนข้อ</div>
-              <div className="rounded-2xl bg-[#FFF0BF] p-3">{exam.summary.timeLimitMinutes}<br />นาที</div>
+              {exam.summary.timeLimitMinutes !== null && (
+                <div className="rounded-2xl bg-[#FFF0BF] p-3">{exam.summary.timeLimitMinutes}<br />นาที</div>
+              )}
             </div>
             <p className="mt-5 text-xs leading-5 text-[#778990]">
-              เมื่อเริ่มแล้วเวลาจะนับถอยหลัง และต้องเลือกคำตอบก่อนจึงจะไปข้อถัดไปได้
+              {hasTimeLimit && "เมื่อเริ่มแล้วเวลาจะนับถอยหลัง และ"}ต้องเลือกคำตอบก่อนจึงจะไปข้อถัดไปได้
             </p>
             <div className="mt-6 flex justify-center gap-3">
               <button type="button" onClick={onClose} className="rounded-full border border-[#BAC6CB] px-5 py-2 text-sm text-[#63747C]">ยกเลิก</button>
@@ -201,9 +208,11 @@ export default function ExamModal({
                     ข้อ {currentIndex + 1}/{activeExam.questions.length}
                   </h2>
                 </div>
-                <span className="flex items-center gap-1 rounded-full bg-[#FFF0BF] px-3 py-1.5 text-sm text-[#8A6B27]">
-                  <Clock3 className="h-4 w-4" /> {timeText(remainingSeconds)}
-                </span>
+                {remainingSeconds !== null && (
+                  <span className="flex items-center gap-1 rounded-full bg-[#FFF0BF] px-3 py-1.5 text-sm text-[#8A6B27]">
+                    <Clock3 className="h-4 w-4" /> {timeText(remainingSeconds)}
+                  </span>
+                )}
               </div>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#E6EEF1]">
                 <div className="h-full rounded-full bg-[#8CCBE8]" style={{ width: `${((currentIndex + 1) / activeExam.questions.length) * 100}%` }} />

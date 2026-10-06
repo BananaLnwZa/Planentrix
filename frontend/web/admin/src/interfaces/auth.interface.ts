@@ -12,7 +12,6 @@ export interface RegisterAdminRequest {
   first_name: string;
   last_name: string;
   phone_number?: string | null;
-  address?: string | null;
 }
 
 export interface RegisterAdminResponse {
@@ -46,7 +45,6 @@ export interface AdminProfile {
   first_name: string | null;
   last_name: string | null;
   phone_number: string | null;
-  address: string | null;
   department_id: number | null;
   role: "university_staff" | "instructor";
   status: string;

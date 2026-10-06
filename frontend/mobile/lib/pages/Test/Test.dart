@@ -50,6 +50,7 @@ class _TestPageState extends State<TestPage> {
   String? _error;
   String? _submitError;
   Duration _remainingTime = Duration.zero;
+  bool _hasTimeLimit = false;
   Timer? _timer;
 
   @override
@@ -180,8 +181,9 @@ class _TestPageState extends State<TestPage> {
           ..addAll(restoredAnswers);
         _currentQuestionIndex = firstUnanswered < 0 ? 0 : firstUnanswered;
         _showAnswerWarning = false;
+        _hasTimeLimit = session.remainingSeconds != null;
         _remainingTime = Duration(
-          seconds: session.remainingSeconds.clamp(0, 86400),
+          seconds: (session.remainingSeconds ?? 0).clamp(0, 86400),
         );
       });
       _startCountdown();
@@ -196,6 +198,7 @@ class _TestPageState extends State<TestPage> {
 
   void _startCountdown() {
     _timer?.cancel();
+    if (!_hasTimeLimit) return;
     if (_remainingTime.inSeconds <= 0) {
       unawaited(_submitExam(skipConfirmation: true));
       return;
@@ -237,7 +240,7 @@ class _TestPageState extends State<TestPage> {
         _showAnswerWarning = false;
         _savingQuestionId = null;
       });
-      if (_remainingTime == Duration.zero) {
+      if (_hasTimeLimit && _remainingTime == Duration.zero) {
         unawaited(_submitExam(skipConfirmation: true));
       }
     } catch (error) {
@@ -246,7 +249,7 @@ class _TestPageState extends State<TestPage> {
         _savingQuestionId = null;
         _submitError = '$error';
       });
-      if (_remainingTime == Duration.zero) {
+      if (_hasTimeLimit && _remainingTime == Duration.zero) {
         unawaited(_submitExam(skipConfirmation: true));
       }
     }
@@ -535,7 +538,7 @@ class _TestPageState extends State<TestPage> {
           examName: exam.summary.examName,
           currentQuestion: _currentQuestionIndex + 1,
           totalQuestions: exam.questions.length,
-          remainingTime: _remainingTime,
+          remainingTime: _hasTimeLimit ? _remainingTime : null,
         ),
         const SizedBox(height: 13),
         ExamQuestionCard(
@@ -717,20 +720,21 @@ class _ExamIntroduction extends StatelessWidget {
                 label: 'ข้อ',
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _ExamMetric(
-                color: const Color(0xFFFFF0BF),
-                value: '${summary.timeLimitMinutes}',
-                label: 'นาที',
+            if (summary.timeLimitMinutes != null) const SizedBox(width: 10),
+            if (summary.timeLimitMinutes != null)
+              Expanded(
+                child: _ExamMetric(
+                  color: const Color(0xFFFFF0BF),
+                  value: '${summary.timeLimitMinutes}',
+                  label: 'นาที',
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 20),
-        const Text(
-          'เมื่อเริ่มแล้วเวลาจะนับถอยหลัง และต้องเลือกคำตอบก่อนจึงจะไปข้อถัดไปได้',
-          style: TextStyle(
+        Text(
+          '${summary.timeLimitMinutes != null ? 'เมื่อเริ่มแล้วเวลาจะนับถอยหลัง และ' : ''}ต้องเลือกคำตอบก่อนจึงจะไปข้อถัดไปได้',
+          style: const TextStyle(
             fontSize: 11,
             height: 1.55,
             color: Color(0xFF778990),
