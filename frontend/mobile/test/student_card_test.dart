@@ -138,7 +138,7 @@ void main() {
                 gender: 'Female',
                 major: 'COMSCI',
                 year: '3',
-                birthDate: '16/07/2004',
+                birthDate: '16/07/04',
                 onTap: () => wasTapped = true,
               ),
             ),
@@ -160,7 +160,7 @@ void main() {
     expect(find.text('42'), findsOneWidget);
     expect(find.text('Female'), findsOneWidget);
     expect(find.text('COMSCI'), findsOneWidget);
-    expect(find.text('16/07/2004'), findsOneWidget);
+    expect(find.text('16/07/04'), findsOneWidget);
     expect(tester.getSize(find.byKey(const Key('student-card'))).width, 320);
     expect(
       tester.getSize(find.byKey(const Key('student-card'))).height,
@@ -300,7 +300,7 @@ void main() {
 
     expect(find.text('NichaAPI'), findsOneWidget);
     expect(find.text('Female'), findsOneWidget);
-    expect(find.text('16/07/2004'), findsOneWidget);
+    expect(find.text('16/07/04'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('student-card')));
     await tester.pumpAndSettle();

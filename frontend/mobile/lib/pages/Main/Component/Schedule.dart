@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../common/DateTimeFormat.dart';
 import '../../../interfaces/table.interface.dart';
 import '../../../interfaces/recommendation.interface.dart';
 import '../../../interfaces/profile.interface.dart';
@@ -367,8 +368,8 @@ ScheduleItem _weeklyScheduleItem(WeeklyScheduleBlock block) => ScheduleItem(
 );
 
 String _displayScheduleDate(String value) {
-  final parts = value.split('-');
-  return parts.length == 3 ? '${parts[2]}/${parts[1]}/${parts[0]}' : value;
+  final date = DateTime.tryParse(value);
+  return date == null ? value : formatDisplayDate(date);
 }
 
 class _Legend extends StatelessWidget {

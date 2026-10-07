@@ -86,7 +86,7 @@ HomeworkTaskData _task(DateTime deadline) => HomeworkTaskData(
   subject: 'Business Intelligence',
   assignment: 'Dashboard Analysis',
   deadline: deadline,
-  dueDate: '22/08/2026',
+  dueDate: '22/08/26',
   dueTime: '19:00',
 );
 

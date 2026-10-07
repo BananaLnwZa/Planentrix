@@ -16,6 +16,7 @@ type PickerType = "date" | "time" | "datetime-local";
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & { type: PickerType };
 
 const pad = (value: number) => String(value).padStart(2, "0");
+const twoDigitYear = (value: number) => pad(value % 100);
 const months = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 const weekdays = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
 const toDateValue = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -28,10 +29,10 @@ const parseTime = (value: string) => {
   return match ? { hour: Number(match[1]), minute: Number(match[2]) } : null;
 };
 const display = (type: PickerType, value: string) => {
-  if (!value) return type === "date" ? "dd/mm/yyyy" : type === "time" ? "--:--" : "dd/mm/yyyy --:--";
+  if (!value) return type === "date" ? "dd/mm/yy" : type === "time" ? "--:--" : "dd/mm/yy --:--";
   if (type === "time") return value.slice(0, 5);
   const date = parseDate(value);
-  const dateText = date ? `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}` : "dd/mm/yyyy";
+  const dateText = date ? `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${twoDigitYear(date.getFullYear())}` : "dd/mm/yy";
   return type === "date" ? dateText : `${dateText} ${value.slice(11, 16)}`;
 };
 const setForwardedRef = (ref: ForwardedRef<HTMLInputElement>, element: HTMLInputElement | null) => {

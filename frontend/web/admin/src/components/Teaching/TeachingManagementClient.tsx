@@ -41,6 +41,7 @@ import { DatePickerInput } from "@/components/common/LocalizedDateTimeInput";
 import ClassMeetingModal, {
   classMeetingDayLabels,
 } from "@/components/Teaching/ClassMeetingModal";
+import { formatDisplayDate } from "@/utils/dateTime";
 
 const sectionStatusOptions: Array<{ value: CourseSectionStatus; label: string }> = [
   { value: "draft", label: "ฉบับร่าง" },
@@ -87,11 +88,7 @@ const nextTermStatus: Record<
 
 const formatTermDate = (date: string | null) => {
   if (!date) return "ไม่ระบุ";
-  return new Intl.DateTimeFormat("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(`${date}T00:00:00`));
+  return formatDisplayDate(date, "ไม่ระบุ");
 };
 
 const dateInputClass =

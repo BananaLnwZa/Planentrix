@@ -24,7 +24,7 @@ List<HomeworkTaskData> sampleTasks() => [
     subject: 'Numerical Method',
     assignment: 'แบบฝึกหัด 2',
     deadline: DateTime(2026, 5, 4, 17),
-    dueDate: '04/05/2026',
+    dueDate: '04/05/26',
     dueTime: '17:00',
     note: 'ทบทวนบทที่ 2',
   ),
@@ -37,7 +37,7 @@ List<HomeworkTaskData> sampleTasks() => [
     subject: 'Web Programing',
     assignment: 'แบบฝึกหัด 1',
     deadline: DateTime(2026, 5, 12, 17),
-    dueDate: '12/05/2026',
+    dueDate: '12/05/26',
     dueTime: '17:00',
   ),
   HomeworkTaskData(
@@ -49,7 +49,7 @@ List<HomeworkTaskData> sampleTasks() => [
     subject: 'Numerical Method',
     assignment: 'แบบฝึกหัด 4',
     deadline: DateTime(2026, 5, 12, 17),
-    dueDate: '12/05/2026',
+    dueDate: '12/05/26',
     dueTime: '17:00',
   ),
   HomeworkTaskData(
@@ -61,7 +61,7 @@ List<HomeworkTaskData> sampleTasks() => [
     subject: 'Numerical Method',
     assignment: 'แบบฝึกหัด 5',
     deadline: DateTime(2026, 5, 16, 17),
-    dueDate: '16/05/2026',
+    dueDate: '16/05/26',
     dueTime: '17:00',
   ),
   HomeworkTaskData(
@@ -73,7 +73,7 @@ List<HomeworkTaskData> sampleTasks() => [
     subject: 'Numerical Method',
     assignment: 'งานล่าช้า',
     deadline: DateTime(2026, 5, 2, 15),
-    dueDate: '02/05/2026',
+    dueDate: '02/05/26',
     dueTime: '15:00',
   ),
 ];
@@ -171,7 +171,7 @@ class SharedHomeworkScoreRepository
     subject: 'Mobile Development',
     assignment: 'งานเชื่อมหน้า',
     deadline: DateTime(2026, 5, 4, 17),
-    dueDate: '04/05/2026',
+    dueDate: '04/05/26',
     dueTime: '17:00',
   );
 
@@ -279,7 +279,7 @@ void main() {
     });
 
     expect(task.deadline, DateTime(2026, 5, 4, 17, 5));
-    expect(task.dueDate, '04/05/2026');
+    expect(task.dueDate, '04/05/26');
   });
 
   test('homework types use the IDs defined by the backend database', () {
@@ -389,8 +389,8 @@ void main() {
       ),
     );
     expect(find.text('ส่งพรุ่งนี้'), findsOneWidget);
-    expect(find.text('12/05/2026'), findsWidgets);
-    expect(find.text('16/05/2026'), findsWidgets);
+    expect(find.text('12/05/26'), findsWidgets);
+    expect(find.text('16/05/26'), findsWidgets);
     expect(find.text('ล่าช้า'), findsOneWidget);
     expect(find.byKey(const Key('homework-task-0-0')), findsOneWidget);
     expect(find.byKey(const Key('homework-task-1-0')), findsOneWidget);
@@ -551,7 +551,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('homework-details-deadline')),
-        matching: find.text('04/05/2026 17:00'),
+        matching: find.text('04/05/26 17:00'),
       ),
       findsOneWidget,
     );

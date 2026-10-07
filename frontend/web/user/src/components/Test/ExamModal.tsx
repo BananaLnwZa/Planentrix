@@ -15,6 +15,10 @@ const timeText = (seconds: number) =>
   `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 const scoreText = (value: number) =>
   Number.isInteger(value) ? String(value) : value.toFixed(1);
+const questionScoreText = (value: number) =>
+  Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 
 export default function ExamModal({
   exam,
@@ -220,7 +224,14 @@ export default function ExamModal({
             </header>
 
             <div className="mt-6 rounded-2xl border border-[#DCE4E7] bg-white p-5">
-              <p className="text-xs text-[#92A1A7]">{question.partName}</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="min-w-0 truncate text-xs text-[#92A1A7]">
+                  {question.partName}
+                </p>
+                <span className="shrink-0 rounded-full bg-[#FFF0BF] px-3 py-1 text-xs font-medium text-[#8A6B27]">
+                  {questionScoreText(question.score)} คะแนน
+                </span>
+              </div>
               <h3 className="mt-2 text-base leading-7 text-[#405B69]">{question.text}</h3>
               <AuthenticatedExamImage
                 imageUrl={question.imageUrl}

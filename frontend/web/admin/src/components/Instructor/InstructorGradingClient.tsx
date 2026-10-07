@@ -22,6 +22,7 @@ import type {
   InstructorGradingWorkspaceResponse,
 } from "@/interfaces/instructor-grading.interface";
 import { instructorGradingService } from "@/services/instructor-grading.service";
+import { formatDisplayDateTime } from "@/utils/dateTime";
 
 const GRADE_CODES: GradeCode[] = ["A", "B+", "B", "C+", "C", "D+", "D", "F"];
 const DEFAULT_MINIMUMS: Record<GradeCode, string> = {
@@ -384,7 +385,7 @@ export default function InstructorGradingClient() {
                       </div>
                     )}
                     {selectedScheme.status === "published" && selectedScheme.published_at && (
-                      <div className="flex items-center gap-2 border-t border-[#e3ecef] bg-[#f5fbf8] px-5 py-3 text-xs text-[#5f7e6f]"><Clock3 size={15} />เผยแพร่เมื่อ {new Date(selectedScheme.published_at).toLocaleString("th-TH")}</div>
+                      <div className="flex items-center gap-2 border-t border-[#e3ecef] bg-[#f5fbf8] px-5 py-3 text-xs text-[#5f7e6f]"><Clock3 size={15} />เผยแพร่เมื่อ {formatDisplayDateTime(selectedScheme.published_at)}</div>
                     )}
                   </div>
                 )}
