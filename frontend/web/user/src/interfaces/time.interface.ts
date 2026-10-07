@@ -95,11 +95,18 @@ export interface SubjectStudyHistory {
   session_count: number;
 }
 
+export interface MonthlyStudyWeek {
+  week_number: number;
+  total_minutes: number;
+  session_count: number;
+}
+
 export interface MonthlyStudyHistory {
   month_key: string;
   total_minutes: number;
   session_count: number;
   subjects: SubjectStudyHistory[];
+  weeks?: MonthlyStudyWeek[];
 }
 
 export interface StudyDashboard {

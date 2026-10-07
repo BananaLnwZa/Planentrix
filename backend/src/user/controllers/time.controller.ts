@@ -29,6 +29,10 @@ interface HistoryRow extends RowDataPacket {
   month_key: string; subject_id: string; subject_name: string;
   total_minutes: string | number; session_count: number;
 }
+interface MonthlyWeekRow extends RowDataPacket {
+  month_key: string; week_number: number;
+  total_minutes: string | number; session_count: number;
+}
 interface SubjectHistoryAccumulator {
   subject_id: string;
   subject_name: string;
@@ -40,6 +44,7 @@ interface MonthHistoryAccumulator {
   total_minutes: number;
   session_count: number;
   subjects: Map<string, SubjectHistoryAccumulator>;
+  weeks: Map<number, { week_number: number; total_minutes: number; session_count: number }>;
 }
 
 const SESSION_SELECT = `SELECT ss.study_session_id AS study_time_id,
@@ -205,6 +210,12 @@ export const getStudyDashboard=async(req:Request,res:Response)=>{
       ROUND(SUM(ss.accumulated_seconds)/60,2) AS total_minutes,COUNT(*) AS session_count FROM study_sessions ss
       INNER JOIN enrollments e ON e.enrollment_id=ss.enrollment_id INNER JOIN course_sections cs ON cs.section_id=e.section_id INNER JOIN subjects s ON s.subject_id=cs.subject_id
       WHERE e.student_term_id=? AND ss.status='completed' GROUP BY month_key,s.subject_id,s.subject_name ORDER BY month_key DESC,s.subject_name`,[term.term_id]);
+    const [monthlyWeekRows]=await db.query<MonthlyWeekRow[]>(`SELECT DATE_FORMAT(ss.started_at,'%Y-%m') AS month_key,
+      FLOOR((DAYOFMONTH(ss.started_at)-1)/7)+1 AS week_number,
+      ROUND(SUM(ss.accumulated_seconds)/60,2) AS total_minutes,COUNT(*) AS session_count FROM study_sessions ss
+      INNER JOIN enrollments e ON e.enrollment_id=ss.enrollment_id
+      WHERE e.student_term_id=? AND ss.status='completed'
+      GROUP BY month_key,week_number ORDER BY month_key DESC,week_number`,[term.term_id]);
     const start=termStart,weeksCount=Math.max(1,Math.floor((today.getTime()-start.getTime())/(7*86400000))+1),monthsCount=Math.max(1,(today.getFullYear()-start.getFullYear())*12+today.getMonth()-start.getMonth()+1);
     const totals = new Map<number, number>();
     for (const row of weekly) {
@@ -225,7 +236,7 @@ export const getStudyDashboard=async(req:Request,res:Response)=>{
       const lastMonth=new Date(displayEnd.getFullYear(),displayEnd.getMonth(),1);
       while(cursor<=lastMonth){
         const monthKey=`${cursor.getFullYear()}-${String(cursor.getMonth()+1).padStart(2,"0")}`;
-        months.set(monthKey,{month_key:monthKey,total_minutes:0,session_count:0,subjects:new Map<string,SubjectHistoryAccumulator>()});
+        months.set(monthKey,{month_key:monthKey,total_minutes:0,session_count:0,subjects:new Map<string,SubjectHistoryAccumulator>(),weeks:new Map()});
         cursor.setMonth(cursor.getMonth()+1);
       }
     }
@@ -237,6 +248,7 @@ export const getStudyDashboard=async(req:Request,res:Response)=>{
           total_minutes: 0,
           session_count: 0,
           subjects: new Map<string, SubjectHistoryAccumulator>(),
+          weeks: new Map(),
         };
         months.set(row.month_key, month);
       }
@@ -256,9 +268,29 @@ export const getStudyDashboard=async(req:Request,res:Response)=>{
       month.total_minutes += minutes;
       month.session_count += Number(row.session_count);
     }
+    for (const row of monthlyWeekRows) {
+      let month = months.get(row.month_key);
+      if (!month) {
+        month = {
+          month_key: row.month_key,
+          total_minutes: 0,
+          session_count: 0,
+          subjects: new Map<string, SubjectHistoryAccumulator>(),
+          weeks: new Map(),
+        };
+        months.set(row.month_key, month);
+      }
+      const weekNumber = Number(row.week_number);
+      month.weeks.set(weekNumber, {
+        week_number: weekNumber,
+        total_minutes: Number(toNumber(row.total_minutes).toFixed(2)),
+        session_count: Number(row.session_count),
+      });
+    }
     const history = Array.from(months.values()).sort((first,second)=>second.month_key.localeCompare(first.month_key)).map((month) => ({
       ...month,
       total_minutes: Number(month.total_minutes.toFixed(2)),
+      weeks: Array.from(month.weeks.values()).sort((first, second) => first.week_number - second.week_number),
       subjects: Array.from(month.subjects.values())
         .map((subject) => ({
           ...subject,
