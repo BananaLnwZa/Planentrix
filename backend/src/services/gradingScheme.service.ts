@@ -81,7 +81,6 @@ export const ensureSubjectDefaultGradingScheme = async (
      FROM grading_schemes
      WHERE BINARY subject_id = ?
        AND scheme_type = 'subject_default'
-       AND section_id IS NULL
        AND status <> 'archived'
      ORDER BY (status = 'published') DESC, version DESC
      LIMIT 1
@@ -94,58 +93,16 @@ export const ensureSubjectDefaultGradingScheme = async (
 
   const [result] = await connection.query<ResultSetHeader>(
     `INSERT INTO grading_schemes
-      (subject_id, section_id, source_scheme_id, scheme_type, version, status,
+      (subject_id, source_scheme_id, scheme_type, version, status,
        created_by_admin_id, updated_by_admin_id, published_by_admin_id,
        published_at)
-     VALUES (?, NULL, NULL, 'subject_default', 1, 'published', ?, ?, ?, NOW())`,
+     VALUES (?, NULL, 'subject_default', 1, 'published', ?, ?, ?, NOW())`,
     [subjectId, adminId, adminId, adminId],
   );
   await insertGradeBoundaries(
     connection,
     result.insertId,
     DEFAULT_GRADE_BOUNDARIES,
-  );
-  return result.insertId;
-};
-
-export const createSectionGradingSchemeFromDefault = async (
-  connection: PoolConnection,
-  subjectId: string,
-  sectionId: number,
-  adminId: number,
-  existingSourceSchemeId?: number,
-): Promise<number> => {
-  const [existing] = await connection.query<SchemeIdRow[]>(
-    `SELECT grading_scheme_id
-     FROM grading_schemes
-     WHERE section_id = ? AND scheme_type = 'section'
-     ORDER BY version DESC
-     LIMIT 1
-     FOR UPDATE`,
-    [sectionId],
-  );
-  if (existing[0]) {
-    return Number(existing[0].grading_scheme_id);
-  }
-
-  const sourceSchemeId =
-    existingSourceSchemeId ??
-    (await ensureSubjectDefaultGradingScheme(connection, subjectId, adminId));
-  const [result] = await connection.query<ResultSetHeader>(
-    `INSERT INTO grading_schemes
-      (subject_id, section_id, source_scheme_id, scheme_type, version, status,
-       created_by_admin_id, updated_by_admin_id)
-     VALUES (?, ?, ?, 'section', 1, 'draft', ?, ?)`,
-    [subjectId, sectionId, sourceSchemeId, adminId, adminId],
-  );
-  await connection.query(
-    `INSERT INTO grade_boundaries
-      (grading_scheme_id, grade_code, minimum_percentage, display_order)
-     SELECT ?, grade_code, minimum_percentage, display_order
-     FROM grade_boundaries
-     WHERE grading_scheme_id = ?
-     ORDER BY display_order`,
-    [result.insertId, sourceSchemeId],
   );
   return result.insertId;
 };

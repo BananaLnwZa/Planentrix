@@ -26,6 +26,7 @@ interface InstructorSubjectGroupsProps {
 }
 
 type DetailTab = "overview" | "students" | "results" | "weaknesses";
+type TermView = "current" | "history";
 
 interface SubjectGroup {
   key: string;
@@ -39,6 +40,28 @@ interface SubjectGroup {
 
 const roleLabel = (role: InstructorAssignedSection["instructor_role"]) =>
   role === "owner" ? "เจ้าของวิชา" : "ผู้สอนร่วม";
+
+const sectionStatusLabel = (status: InstructorAssignedSection["section_status"]) => {
+  const labels = {
+    draft: "ร่าง",
+    open: "เปิดสอน",
+    closed: "ปิดรับ",
+    completed: "จบแล้ว",
+    cancelled: "ยกเลิก",
+  } as const;
+  return labels[status];
+};
+
+const sectionStatusStyle = (status: InstructorAssignedSection["section_status"]) => {
+  const styles = {
+    draft: "bg-[#f2f3f5] text-[#707f86]",
+    open: "bg-[#e9f7ef] text-[#438064]",
+    closed: "bg-[#fff4e8] text-[#a56e35]",
+    completed: "bg-[#edf1f3] text-[#687a82]",
+    cancelled: "bg-[#fff0ec] text-[#b85e49]",
+  } as const;
+  return styles[status];
+};
 
 const periodLabel = (period: "midterm" | "final") =>
   period === "midterm" ? "กลางภาค" : "ปลายภาค";
@@ -59,6 +82,7 @@ export default function InstructorSubjectGroups({
 }: InstructorSubjectGroupsProps) {
   const [search, setSearch] = useState("");
   const [termFilter, setTermFilter] = useState("all");
+  const [termView, setTermView] = useState<TermView>("current");
   const [selectedSectionId, setSelectedSectionId] = useState<number | null>(
     workspace.sections[0]?.section_id ?? null,
   );
@@ -67,6 +91,8 @@ export default function InstructorSubjectGroups({
   const termOptions = useMemo(() => {
     const terms = new Map<number, string>();
     for (const section of workspace.sections) {
+      const isHistory = section.term_status === "completed" || section.term_status === "archived";
+      if ((termView === "history") !== isHistory) continue;
       terms.set(
         section.academic_term_id,
         `ปี ${section.academic_year} · ภาคเรียน ${section.semester_no}`,
@@ -79,12 +105,14 @@ export default function InstructorSubjectGroups({
         label,
       })),
     ];
-  }, [workspace.sections]);
+  }, [termView, workspace.sections]);
 
   const subjectGroups = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("th");
     const grouped = new Map<string, SubjectGroup>();
     for (const section of workspace.sections) {
+      const isHistory = section.term_status === "completed" || section.term_status === "archived";
+      if ((termView === "history") !== isHistory) continue;
       if (
         termFilter !== "all" &&
         section.academic_term_id !== Number(termFilter)
@@ -113,19 +141,20 @@ export default function InstructorSubjectGroups({
       grouped.set(key, group);
     }
     return [...grouped.values()];
-  }, [search, termFilter, workspace.sections]);
+  }, [search, termFilter, termView, workspace.sections]);
 
-  const selectedSection = workspace.sections.find(
-    (section) => section.section_id === selectedSectionId,
-  );
+  const visibleSections = subjectGroups.flatMap((group) => group.sections);
+  const selectedSection =
+    visibleSections.find((section) => section.section_id === selectedSectionId) ??
+    visibleSections[0];
   const sectionStudents = workspace.students.filter(
-    (student) => student.section_id === selectedSectionId,
+    (student) => student.section_id === selectedSection?.section_id,
   );
   const sectionResults = workspace.exam_results.filter(
-    (result) => result.section_id === selectedSectionId,
+    (result) => result.section_id === selectedSection?.section_id,
   );
   const sectionWeakTopics = workspace.weak_topics.filter(
-    (topic) => topic.section_id === selectedSectionId,
+    (topic) => topic.section_id === selectedSection?.section_id,
   );
 
   const selectSection = (sectionId: number) => {
@@ -152,12 +181,30 @@ export default function InstructorSubjectGroups({
           </label>
           <AdminSelect value={termFilter} onChange={setTermFilter} options={termOptions} ariaLabel="กรองภาคเรียน" appearance="cute" icon={CalendarDays} />
         </div>
+        <div className="mt-4 flex w-fit gap-1 rounded-2xl bg-[#f0f5f7] p-1">
+          {([
+            ["current", "กำลังสอน / เตรียมการ"],
+            ["history", "ประวัติภาคเรียน"],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => {
+                setTermView(value);
+                setTermFilter("all");
+              }}
+              className={`rounded-xl px-3 py-2 text-xs font-medium transition ${termView === value ? "bg-white text-[#477f93] shadow-sm" : "text-[#71838b] hover:text-[#405862]"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </section>
 
       {workspace.sections.length === 0 ? (
         <EmptyState icon={GraduationCap} title="ยังไม่มีกลุ่มเรียนที่ได้รับมอบหมาย" description="เมื่อเจ้าหน้าที่เปิดกลุ่มเรียนและเลือกอาจารย์ รายวิชาจะปรากฏที่นี่" />
       ) : subjectGroups.length === 0 ? (
-        <EmptyState icon={Search} title="ไม่พบวิชาและกลุ่มเรียน" description="ลองเปลี่ยนคำค้นหาหรือตัวกรองภาคเรียน" />
+        <EmptyState icon={Search} title={termView === "history" ? "ยังไม่มีประวัติวิชาและกลุ่มเรียน" : "ไม่พบวิชาและกลุ่มเรียน"} description="ลองเปลี่ยนคำค้นหาหรือตัวกรองภาคเรียน" />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {subjectGroups.map((group) => (
@@ -173,6 +220,7 @@ export default function InstructorSubjectGroups({
                     <button key={section.section_id} type="button" onClick={() => selectSection(section.section_id)} className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${selected ? "border-[#a9d2df] bg-[#ebf7fa] shadow-sm" : "border-[#e3ebee] bg-[#fafcfd] hover:border-[#bfd9e2] hover:bg-white"}`}>
                       <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl text-sm font-semibold ${selected ? "bg-white text-[#4d8498]" : "bg-[#edf3f5] text-[#657c85]"}`}>{section.section_number}</span>
                       <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-[#405862]">กลุ่ม {section.section_number}</span><span className="mt-0.5 block text-xs text-[#84949a]">{section.student_count} คน · {roleLabel(section.instructor_role)}</span></span>
+                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${sectionStatusStyle(section.section_status)}`}>{sectionStatusLabel(section.section_status)}</span>
                       <ChevronRight size={18} className={selected ? "text-[#518ba0]" : "text-[#9aa8ad]"} />
                     </button>
                   );
@@ -187,7 +235,10 @@ export default function InstructorSubjectGroups({
         <section className="overflow-hidden rounded-[28px] border border-white/90 bg-white/85 shadow-[0_16px_48px_rgba(68,103,117,0.09)]">
           <div className="flex flex-col gap-3 border-b border-[#e3ebee] bg-[linear-gradient(135deg,#f3fbfd_0%,#f7f4fc_100%)] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
             <div><p className="text-xs font-semibold text-[#5f8fa0]">{selectedSection.subject_id} · กลุ่ม {selectedSection.section_number}</p><h3 className="mt-1 text-xl font-semibold text-[#304b56]">{selectedSection.subject_name}</h3></div>
-            <span className="w-fit rounded-full bg-white px-3 py-1.5 text-xs text-[#6a5f99] shadow-sm">{roleLabel(selectedSection.instructor_role)}</span>
+            <div className="flex flex-wrap gap-2">
+              <span className={`w-fit rounded-full px-3 py-1.5 text-xs font-medium ${sectionStatusStyle(selectedSection.section_status)}`}>{sectionStatusLabel(selectedSection.section_status)}</span>
+              <span className="w-fit rounded-full bg-white px-3 py-1.5 text-xs text-[#6a5f99] shadow-sm">{roleLabel(selectedSection.instructor_role)}</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 border-b border-[#e5edef] bg-white p-2 sm:grid-cols-4">

@@ -1,15 +1,9 @@
 export type GradeCode = "A" | "B+" | "B" | "C+" | "C" | "D+" | "D" | "F";
 
-export interface InstructorGradingSection {
-  section_id: number;
+export interface InstructorGradingSubject {
   subject_id: string;
   subject_name: string;
-  academic_term_id: number;
-  academic_year: number;
-  semester_no: number;
-  section_number: string;
-  section_status: string;
-  instructor_role: "owner" | "co_instructor";
+  section_count: number;
   can_manage: boolean;
 }
 
@@ -24,7 +18,7 @@ export interface GradeBoundary {
 export interface InstructorGradingScheme {
   grading_scheme_id: number;
   subject_id: string;
-  section_id: number;
+  instructor_id: number;
   source_scheme_id: number | null;
   version: number;
   status: "draft" | "published" | "archived";
@@ -39,7 +33,7 @@ export interface InstructorGradingScheme {
 
 export interface InstructorGradingWorkspaceResponse {
   message: string;
-  sections: InstructorGradingSection[];
+  subjects: InstructorGradingSubject[];
   grading_schemes: InstructorGradingScheme[];
   grade_codes: GradeCode[];
 }

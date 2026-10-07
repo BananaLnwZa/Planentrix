@@ -83,6 +83,8 @@ export const apiEndpoints = {
       `/instructor/question-banks/${questionBankId}/questions/${questionId}`,
     publish: (questionBankId: number) =>
       `/instructor/question-banks/${questionBankId}/publish`,
+    draft: (questionBankId: number) =>
+      `/instructor/question-banks/${questionBankId}/draft`,
     image: (questionBankId: number, filename: string) =>
       `/instructor/question-banks/${questionBankId}/images/${encodeURIComponent(filename)}`,
     importFile: (questionBankId: number) =>

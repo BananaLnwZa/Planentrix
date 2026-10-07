@@ -29,11 +29,11 @@ class InstructorGradingService {
     );
   }
 
-  createDraft(sectionId: number): Promise<GradingMutationResponse> {
+  createDraft(subjectId: string): Promise<GradingMutationResponse> {
     return this.request(() =>
       this.apiClient.post<GradingMutationResponse>(
         apiEndpoints.instructorGrading.schemes,
-        { section_id: sectionId },
+        { subject_id: subjectId },
       ),
     );
   }

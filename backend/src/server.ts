@@ -23,6 +23,7 @@ import { requireRole } from "./middlewares/requireRole";
 import { verifyToken } from "./middlewares/verifyToken";
 import { startRecommendationScheduler } from "./user/services/recommendation.job";
 import { submitExpiredExamAttempts } from "./user/controllers/exam.controller";
+import { startAcademicTermScheduler } from "./admin/services/academic-term.job";
 
 dotenv.config();
 
@@ -85,6 +86,7 @@ console.log("Starting Planentrix server...");
 const server = app.listen(port, () => {
   console.log(`Planentrix server listening on http://localhost:${port}`);
   startRecommendationScheduler();
+  startAcademicTermScheduler();
   void submitExpiredExamAttempts().catch((error) => {
     console.error("Initial expired exam submission failed:", error);
   });

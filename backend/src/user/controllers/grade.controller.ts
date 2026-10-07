@@ -156,10 +156,21 @@ const loadPublishedGradingSchemes = async (
        ON scheme.grading_scheme_id = (
          SELECT candidate.grading_scheme_id
          FROM grading_schemes candidate
-         WHERE candidate.section_id = section.section_id
-           AND candidate.scheme_type = 'section'
+         WHERE candidate.subject_id = section.subject_id
            AND candidate.status = 'published'
-         ORDER BY candidate.version DESC, candidate.grading_scheme_id DESC
+           AND (
+             (candidate.scheme_type = 'instructor_subject'
+              AND candidate.instructor_id = (
+                SELECT owner_assignment.instructor_id
+                FROM section_instructors owner_assignment
+                WHERE owner_assignment.section_id = section.section_id
+                  AND owner_assignment.instructor_role = 'owner'
+                LIMIT 1
+              ))
+             OR candidate.scheme_type = 'subject_default'
+           )
+         ORDER BY (candidate.scheme_type = 'instructor_subject') DESC,
+                  candidate.version DESC, candidate.grading_scheme_id DESC
          LIMIT 1
        )
      INNER JOIN grade_boundaries boundary

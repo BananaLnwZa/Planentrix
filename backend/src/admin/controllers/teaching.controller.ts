@@ -5,10 +5,7 @@ import type {
   RowDataPacket,
 } from "mysql2/promise";
 import db from "../../config/db";
-import {
-  createSectionGradingSchemeFromDefault,
-  ensureSubjectDefaultGradingScheme,
-} from "../../services/gradingScheme.service";
+import { ensureSubjectDefaultGradingScheme } from "../../services/gradingScheme.service";
 
 type TermStatus = "draft" | "active" | "completed" | "archived";
 type SectionStatus = "draft" | "open" | "closed" | "completed" | "cancelled";
@@ -1115,7 +1112,7 @@ export const createCourseSection = async (req: Request, res: Response) => {
       await connection.rollback();
       return res.status(400).json({ message: referenceError });
     }
-    const sourceSchemeId = await ensureSubjectDefaultGradingScheme(
+    await ensureSubjectDefaultGradingScheme(
       connection,
       payload.subjectId,
       adminId,
@@ -1140,13 +1137,6 @@ export const createCourseSection = async (req: Request, res: Response) => {
       result.insertId,
       payload.curriculumSubjectIds,
       adminId,
-    );
-    await createSectionGradingSchemeFromDefault(
-      connection,
-      payload.subjectId,
-      result.insertId,
-      adminId,
-      sourceSchemeId,
     );
     await connection.commit();
     return res.status(201).json({

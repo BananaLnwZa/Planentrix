@@ -5,6 +5,7 @@ export interface InstructorAssignedSection {
   academic_term_id: number;
   academic_year: number;
   semester_no: number;
+  term_status: "draft" | "active" | "completed" | "archived";
   section_number: string;
   capacity: number | null;
   section_status: "draft" | "open" | "closed" | "completed" | "cancelled";

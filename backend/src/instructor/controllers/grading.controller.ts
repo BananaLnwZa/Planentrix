@@ -13,22 +13,17 @@ import {
   type GradeCode,
 } from "../../services/gradingScheme.service";
 
-interface GradingSectionRow extends RowDataPacket {
-  section_id: number;
+interface GradingSubjectRow extends RowDataPacket {
   subject_id: string;
   subject_name: string;
-  academic_term_id: number;
-  academic_year: number;
-  semester_no: number;
-  section_number: string;
-  section_status: string;
-  instructor_role: "owner" | "co_instructor";
+  section_count: number;
+  can_manage: number | boolean;
 }
 
 interface GradingSchemeRow extends RowDataPacket {
   grading_scheme_id: number;
   subject_id: string;
-  section_id: number;
+  instructor_id: number | null;
   source_scheme_id: number | null;
   version: number;
   status: "draft" | "published" | "archived";
@@ -48,15 +43,11 @@ interface GradeBoundaryRow extends RowDataPacket {
   display_order: number;
 }
 
-interface SectionAccessRow extends RowDataPacket {
-  section_id: number;
+interface SubjectAccessRow extends RowDataPacket {
   subject_id: string;
-  instructor_role: "owner" | "co_instructor";
 }
 
-interface SchemeAccessRow extends GradingSchemeRow {
-  instructor_role: "owner" | "co_instructor";
-}
+type SchemeAccessRow = GradingSchemeRow;
 
 const requireInstructor = (req: Request, res: Response): number | null => {
   if (!req.user?.id) {
@@ -81,10 +72,7 @@ const validateBoundaries = (
   | { valid: true; boundaries: GradeBoundaryInput[] }
   | { valid: false; error: string } => {
   if (!Array.isArray(value) || value.length !== GRADE_CODES.length) {
-    return {
-      valid: false,
-      error: "กรุณากำหนดคะแนนขั้นต่ำให้ครบทุกเกรด A ถึง F",
-    };
+    return { valid: false, error: "กรุณากำหนดคะแนนขั้นต่ำให้ครบทุกเกรด A ถึง F" };
   }
 
   const byCode = new Map<string, number>();
@@ -113,26 +101,23 @@ const validateBoundaries = (
     byCode.set(gradeCode, minimum);
   }
 
-  const ordered = GRADE_CODES.map((gradeCode, index) => ({
+  const boundaries = GRADE_CODES.map((gradeCode, index) => ({
     grade_code: gradeCode,
     minimum_percentage: byCode.get(gradeCode) as number,
     display_order: index + 1,
   }));
-  if (ordered[ordered.length - 1].minimum_percentage !== 0) {
+  if (boundaries[boundaries.length - 1].minimum_percentage !== 0) {
     return { valid: false, error: "คะแนนขั้นต่ำของเกรด F ต้องเป็น 0" };
   }
-  for (let index = 1; index < ordered.length; index += 1) {
-    if (
-      ordered[index - 1].minimum_percentage <=
-      ordered[index].minimum_percentage
-    ) {
+  for (let index = 1; index < boundaries.length; index += 1) {
+    if (boundaries[index - 1].minimum_percentage <= boundaries[index].minimum_percentage) {
       return {
         valid: false,
-        error: `คะแนนขั้นต่ำของเกรด ${ordered[index - 1].grade_code} ต้องมากกว่าเกรด ${ordered[index].grade_code}`,
+        error: `คะแนนขั้นต่ำของเกรด ${boundaries[index - 1].grade_code} ต้องมากกว่าเกรด ${boundaries[index].grade_code}`,
       };
     }
   }
-  return { valid: true, boundaries: ordered };
+  return { valid: true, boundaries };
 };
 
 const serializeScheme = (
@@ -141,9 +126,8 @@ const serializeScheme = (
 ) => ({
   ...scheme,
   grading_scheme_id: Number(scheme.grading_scheme_id),
-  section_id: Number(scheme.section_id),
-  source_scheme_id:
-    scheme.source_scheme_id === null ? null : Number(scheme.source_scheme_id),
+  instructor_id: scheme.instructor_id === null ? null : Number(scheme.instructor_id),
+  source_scheme_id: scheme.source_scheme_id === null ? null : Number(scheme.source_scheme_id),
   version: Number(scheme.version),
   boundaries: boundaries.map((boundary) => ({
     grade_boundary_id: Number(boundary.grade_boundary_id),
@@ -154,25 +138,27 @@ const serializeScheme = (
   })),
 });
 
-const getSectionAccess = async (
+const getSubjectAccess = async (
   connection: PoolConnection,
-  sectionId: number,
+  subjectId: string,
   instructorId: number,
-): Promise<SectionAccessRow | undefined> => {
-  const [rows] = await connection.query<SectionAccessRow[]>(
-    `SELECT section.section_id, section.subject_id, assignment.instructor_role
-     FROM course_sections section
-     INNER JOIN section_instructors assignment
-       ON assignment.section_id = section.section_id
-      AND assignment.instructor_id = ?
-     INNER JOIN academic_terms term
-       ON term.academic_term_id = section.academic_term_id
-     WHERE section.section_id = ?
-       AND section.status <> 'cancelled'
-       AND term.status <> 'archived'
+): Promise<SubjectAccessRow | undefined> => {
+  const [rows] = await connection.query<SubjectAccessRow[]>(
+    `SELECT subject.subject_id
+     FROM subjects subject
+     WHERE BINARY subject.subject_id = ?
+       AND EXISTS (
+         SELECT 1
+         FROM course_sections section
+         INNER JOIN section_instructors assignment
+           ON assignment.section_id = section.section_id
+         WHERE section.subject_id = subject.subject_id
+           AND assignment.instructor_id = ?
+           AND assignment.instructor_role = 'owner'
+       )
      LIMIT 1
      FOR UPDATE`,
-    [instructorId, sectionId],
+    [subjectId, instructorId],
   );
   return rows[0];
 };
@@ -183,76 +169,59 @@ const getSchemeAccess = async (
   instructorId: number,
 ): Promise<SchemeAccessRow | undefined> => {
   const [rows] = await connection.query<SchemeAccessRow[]>(
-    `SELECT scheme.grading_scheme_id, scheme.subject_id, scheme.section_id,
+    `SELECT scheme.grading_scheme_id, scheme.subject_id, scheme.instructor_id,
             scheme.source_scheme_id, scheme.version, scheme.status,
             scheme.created_by_admin_id, scheme.updated_by_admin_id,
             scheme.published_by_admin_id, scheme.published_at,
-            scheme.created_at, scheme.updated_at,
-            assignment.instructor_role
+            scheme.created_at, scheme.updated_at
      FROM grading_schemes scheme
-     INNER JOIN section_instructors assignment
-       ON assignment.section_id = scheme.section_id
-      AND assignment.instructor_id = ?
-     INNER JOIN course_sections section
-       ON section.section_id = scheme.section_id
-     INNER JOIN academic_terms term
-       ON term.academic_term_id = section.academic_term_id
      WHERE scheme.grading_scheme_id = ?
-       AND section.status <> 'cancelled'
-       AND term.status <> 'archived'
+       AND scheme.scheme_type = 'instructor_subject'
+       AND scheme.instructor_id = ?
+       AND EXISTS (
+         SELECT 1
+         FROM course_sections section
+         INNER JOIN section_instructors assignment
+           ON assignment.section_id = section.section_id
+         WHERE section.subject_id = scheme.subject_id
+           AND assignment.instructor_id = ?
+           AND assignment.instructor_role = 'owner'
+       )
      LIMIT 1
      FOR UPDATE`,
-    [instructorId, schemeId],
+    [schemeId, instructorId, instructorId],
   );
   return rows[0];
 };
 
-export const getInstructorGradingWorkspace = async (
-  req: Request,
-  res: Response,
-) => {
+export const getInstructorGradingWorkspace = async (req: Request, res: Response) => {
   const instructorId = requireInstructor(req, res);
   if (!instructorId) return;
 
   try {
-    const [sections] = await db.query<GradingSectionRow[]>(
-      `SELECT section.section_id, section.subject_id, subject.subject_name,
-              section.academic_term_id, term.academic_year, term.semester_no,
-              section.section_number, section.status AS section_status,
-              assignment.instructor_role
+    const [subjects] = await db.query<GradingSubjectRow[]>(
+      `SELECT subject.subject_id, subject.subject_name,
+              COUNT(DISTINCT section.section_id) AS section_count,
+              MAX(assignment.instructor_role = 'owner') AS can_manage
        FROM section_instructors assignment
-       INNER JOIN course_sections section
-         ON section.section_id = assignment.section_id
+       INNER JOIN course_sections section ON section.section_id = assignment.section_id
        INNER JOIN subjects subject ON subject.subject_id = section.subject_id
-       INNER JOIN academic_terms term
-         ON term.academic_term_id = section.academic_term_id
        WHERE assignment.instructor_id = ?
-         AND section.status <> 'cancelled'
-         AND term.status <> 'archived'
-       ORDER BY term.academic_year DESC, term.semester_no DESC,
-         subject.subject_id, section.section_number`,
+       GROUP BY subject.subject_id, subject.subject_name
+       ORDER BY subject.subject_name, subject.subject_id`,
       [instructorId],
     );
+
     const [schemes] = await db.query<GradingSchemeRow[]>(
-      `SELECT DISTINCT
-              scheme.grading_scheme_id, scheme.subject_id, scheme.section_id,
-              scheme.source_scheme_id, scheme.version, scheme.status,
-              scheme.created_by_admin_id, scheme.updated_by_admin_id,
-              scheme.published_by_admin_id, scheme.published_at,
-              scheme.created_at, scheme.updated_at
-       FROM grading_schemes scheme
-       INNER JOIN section_instructors assignment
-         ON assignment.section_id = scheme.section_id
-        AND assignment.instructor_id = ?
-       INNER JOIN course_sections section
-         ON section.section_id = scheme.section_id
-        AND section.status <> 'cancelled'
-       INNER JOIN academic_terms term
-         ON term.academic_term_id = section.academic_term_id
-        AND term.status <> 'archived'
-       ORDER BY scheme.section_id, scheme.version DESC`,
+      `SELECT grading_scheme_id, subject_id, instructor_id, source_scheme_id,
+              version, status, created_by_admin_id, updated_by_admin_id,
+              published_by_admin_id, published_at, created_at, updated_at
+       FROM grading_schemes
+       WHERE instructor_id = ? AND scheme_type = 'instructor_subject'
+       ORDER BY subject_id, version DESC, grading_scheme_id DESC`,
       [instructorId],
     );
+
     const [boundaries] = await db.query<GradeBoundaryRow[]>(
       `SELECT boundary.grade_boundary_id, boundary.grading_scheme_id,
               boundary.grade_code, boundary.minimum_percentage,
@@ -260,15 +229,8 @@ export const getInstructorGradingWorkspace = async (
        FROM grade_boundaries boundary
        INNER JOIN grading_schemes scheme
          ON scheme.grading_scheme_id = boundary.grading_scheme_id
-       INNER JOIN section_instructors assignment
-         ON assignment.section_id = scheme.section_id
-        AND assignment.instructor_id = ?
-       INNER JOIN course_sections section
-         ON section.section_id = scheme.section_id
-        AND section.status <> 'cancelled'
-       INNER JOIN academic_terms term
-         ON term.academic_term_id = section.academic_term_id
-        AND term.status <> 'archived'
+       WHERE scheme.instructor_id = ?
+         AND scheme.scheme_type = 'instructor_subject'
        ORDER BY boundary.grading_scheme_id, boundary.display_order`,
       [instructorId],
     );
@@ -276,26 +238,18 @@ export const getInstructorGradingWorkspace = async (
     const boundariesByScheme = new Map<number, GradeBoundaryRow[]>();
     for (const boundary of boundaries) {
       const schemeId = Number(boundary.grading_scheme_id);
-      const current = boundariesByScheme.get(schemeId) ?? [];
-      current.push(boundary);
-      boundariesByScheme.set(schemeId, current);
+      boundariesByScheme.set(schemeId, [...(boundariesByScheme.get(schemeId) ?? []), boundary]);
     }
 
     return res.json({
       message: "Instructor grading workspace retrieved successfully",
-      sections: sections.map((section) => ({
-        ...section,
-        section_id: Number(section.section_id),
-        academic_term_id: Number(section.academic_term_id),
-        academic_year: Number(section.academic_year),
-        semester_no: Number(section.semester_no),
-        can_manage: section.instructor_role === "owner",
+      subjects: subjects.map((subject) => ({
+        ...subject,
+        section_count: Number(subject.section_count),
+        can_manage: Boolean(subject.can_manage),
       })),
       grading_schemes: schemes.map((scheme) =>
-        serializeScheme(
-          scheme,
-          boundariesByScheme.get(Number(scheme.grading_scheme_id)) ?? [],
-        ),
+        serializeScheme(scheme, boundariesByScheme.get(Number(scheme.grading_scheme_id)) ?? []),
       ),
       grade_codes: GRADE_CODES,
     });
@@ -305,67 +259,59 @@ export const getInstructorGradingWorkspace = async (
   }
 };
 
-export const createInstructorGradingDraft = async (
-  req: Request,
-  res: Response,
-) => {
+export const createInstructorGradingDraft = async (req: Request, res: Response) => {
   const instructorId = requireInstructor(req, res);
   if (!instructorId) return;
-  const sectionId = positiveId(req.body.section_id);
-  if (!sectionId) {
-    return res.status(400).json({ message: "รหัสกลุ่มเรียนไม่ถูกต้อง" });
+  const subjectId = String(req.body.subject_id ?? "").trim();
+  if (!subjectId || subjectId.length > 20) {
+    return res.status(400).json({ message: "รหัสรายวิชาไม่ถูกต้อง" });
   }
 
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    const access = await getSectionAccess(connection, sectionId, instructorId);
+    const access = await getSubjectAccess(connection, subjectId, instructorId);
     if (!access) {
       await connection.rollback();
-      return res.status(404).json({ message: "ไม่พบกลุ่มเรียนที่ได้รับมอบหมาย" });
-    }
-    if (access.instructor_role !== "owner") {
-      await connection.rollback();
-      return res.status(403).json({
-        message: "เฉพาะอาจารย์เจ้าของวิชาเท่านั้นที่สร้างเกณฑ์ตัดเกรดได้",
-      });
+      return res.status(404).json({ message: "ไม่พบรายวิชาที่ได้รับมอบหมายในฐานะเจ้าของวิชา" });
     }
 
     const [existing] = await connection.query<GradingSchemeRow[]>(
-      `SELECT grading_scheme_id, subject_id, section_id, source_scheme_id,
+      `SELECT grading_scheme_id, subject_id, instructor_id, source_scheme_id,
               version, status, created_by_admin_id, updated_by_admin_id,
               published_by_admin_id, published_at, created_at, updated_at
        FROM grading_schemes
-       WHERE section_id = ?
+       WHERE subject_id = ? AND instructor_id = ?
+         AND scheme_type = 'instructor_subject'
        ORDER BY version DESC
        FOR UPDATE`,
-      [sectionId],
+      [subjectId, instructorId],
     );
     if (existing.some((scheme) => scheme.status === "draft")) {
       await connection.rollback();
-      return res.status(409).json({
-        message: "กลุ่มเรียนนี้มีฉบับร่างอยู่แล้ว กรุณาแก้ไขฉบับเดิม",
-      });
+      return res.status(409).json({ message: "รายวิชานี้มีฉบับร่างอยู่แล้ว กรุณาแก้ไขฉบับเดิม" });
     }
 
-    const version =
-      existing.reduce((maximum, scheme) => Math.max(maximum, Number(scheme.version)), 0) +
-      1;
-    const source =
-      existing.find((scheme) => scheme.status === "published") ?? existing[0];
+    const version = existing.reduce((max, scheme) => Math.max(max, Number(scheme.version)), 0) + 1;
+    const [defaults] = await connection.query<GradingSchemeRow[]>(
+      `SELECT grading_scheme_id, subject_id, instructor_id, source_scheme_id,
+              version, status, created_by_admin_id, updated_by_admin_id,
+              published_by_admin_id, published_at, created_at, updated_at
+       FROM grading_schemes
+       WHERE subject_id = ? AND scheme_type = 'subject_default'
+         AND status <> 'archived'
+       ORDER BY (status = 'published') DESC, version DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [subjectId],
+    );
+    const source = existing.find((scheme) => scheme.status === "published") ?? existing[0] ?? defaults[0];
     const [result] = await connection.query<ResultSetHeader>(
       `INSERT INTO grading_schemes
-        (subject_id, section_id, source_scheme_id, scheme_type, version,
+        (subject_id, instructor_id, source_scheme_id, scheme_type, version,
          status, created_by_admin_id, updated_by_admin_id)
-       VALUES (?, ?, ?, 'section', ?, 'draft', ?, ?)`,
-      [
-        access.subject_id,
-        sectionId,
-        source?.grading_scheme_id ?? null,
-        version,
-        instructorId,
-        instructorId,
-      ],
+       VALUES (?, ?, ?, 'instructor_subject', ?, 'draft', ?, ?)`,
+      [subjectId, instructorId, source?.grading_scheme_id ?? null, version, instructorId, instructorId],
     );
 
     if (source) {
@@ -379,11 +325,7 @@ export const createInstructorGradingDraft = async (
         [result.insertId, source.grading_scheme_id],
       );
     } else {
-      await insertGradeBoundaries(
-        connection,
-        result.insertId,
-        DEFAULT_GRADE_BOUNDARIES,
-      );
+      await insertGradeBoundaries(connection, result.insertId, DEFAULT_GRADE_BOUNDARIES);
     }
 
     await connection.commit();
@@ -401,20 +343,13 @@ export const createInstructorGradingDraft = async (
   }
 };
 
-export const updateInstructorGradingDraft = async (
-  req: Request,
-  res: Response,
-) => {
+export const updateInstructorGradingDraft = async (req: Request, res: Response) => {
   const instructorId = requireInstructor(req, res);
   if (!instructorId) return;
   const schemeId = positiveId(req.params.schemeId);
-  if (!schemeId) {
-    return res.status(400).json({ message: "รหัสเกณฑ์ตัดเกรดไม่ถูกต้อง" });
-  }
+  if (!schemeId) return res.status(400).json({ message: "รหัสเกณฑ์ตัดเกรดไม่ถูกต้อง" });
   const validation = validateBoundaries(req.body.boundaries);
-  if (!validation.valid) {
-    return res.status(400).json({ message: validation.error });
-  }
+  if (!validation.valid) return res.status(400).json({ message: validation.error });
 
   const connection = await db.getConnection();
   try {
@@ -424,23 +359,12 @@ export const updateInstructorGradingDraft = async (
       await connection.rollback();
       return res.status(404).json({ message: "ไม่พบเกณฑ์ตัดเกรด" });
     }
-    if (scheme.instructor_role !== "owner") {
-      await connection.rollback();
-      return res.status(403).json({
-        message: "เฉพาะอาจารย์เจ้าของวิชาเท่านั้นที่แก้ไขเกณฑ์ได้",
-      });
-    }
     if (scheme.status !== "draft") {
       await connection.rollback();
-      return res.status(409).json({
-        message: "แก้ไขได้เฉพาะฉบับร่าง กรุณาสร้าง Version ใหม่",
-      });
+      return res.status(409).json({ message: "แก้ไขได้เฉพาะฉบับร่าง กรุณาสร้าง Version ใหม่" });
     }
 
-    await connection.query(
-      "DELETE FROM grade_boundaries WHERE grading_scheme_id = ?",
-      [schemeId],
-    );
+    await connection.query("DELETE FROM grade_boundaries WHERE grading_scheme_id = ?", [schemeId]);
     await insertGradeBoundaries(connection, schemeId, validation.boundaries);
     await connection.query(
       `UPDATE grading_schemes
@@ -459,16 +383,11 @@ export const updateInstructorGradingDraft = async (
   }
 };
 
-export const publishInstructorGradingScheme = async (
-  req: Request,
-  res: Response,
-) => {
+export const publishInstructorGradingScheme = async (req: Request, res: Response) => {
   const instructorId = requireInstructor(req, res);
   if (!instructorId) return;
   const schemeId = positiveId(req.params.schemeId);
-  if (!schemeId) {
-    return res.status(400).json({ message: "รหัสเกณฑ์ตัดเกรดไม่ถูกต้อง" });
-  }
+  if (!schemeId) return res.status(400).json({ message: "รหัสเกณฑ์ตัดเกรดไม่ถูกต้อง" });
 
   const connection = await db.getConnection();
   try {
@@ -477,12 +396,6 @@ export const publishInstructorGradingScheme = async (
     if (!scheme) {
       await connection.rollback();
       return res.status(404).json({ message: "ไม่พบเกณฑ์ตัดเกรด" });
-    }
-    if (scheme.instructor_role !== "owner") {
-      await connection.rollback();
-      return res.status(403).json({
-        message: "เฉพาะอาจารย์เจ้าของวิชาเท่านั้นที่ Publish เกณฑ์ได้",
-      });
     }
     if (scheme.status !== "draft") {
       await connection.rollback();
@@ -498,12 +411,10 @@ export const publishInstructorGradingScheme = async (
        FOR UPDATE`,
       [schemeId],
     );
-    const validation = validateBoundaries(
-      boundaryRows.map((boundary) => ({
-        grade_code: boundary.grade_code,
-        minimum_percentage: Number(boundary.minimum_percentage),
-      })),
-    );
+    const validation = validateBoundaries(boundaryRows.map((boundary) => ({
+      grade_code: boundary.grade_code,
+      minimum_percentage: Number(boundary.minimum_percentage),
+    })));
     if (!validation.valid) {
       await connection.rollback();
       return res.status(400).json({ message: validation.error });
@@ -512,9 +423,10 @@ export const publishInstructorGradingScheme = async (
     await connection.query(
       `UPDATE grading_schemes
        SET status = 'archived', updated_by_admin_id = ?, updated_at = NOW()
-       WHERE section_id = ? AND status = 'published'
-         AND grading_scheme_id <> ?`,
-      [instructorId, scheme.section_id, schemeId],
+       WHERE subject_id = ? AND instructor_id = ?
+         AND scheme_type = 'instructor_subject'
+         AND status = 'published' AND grading_scheme_id <> ?`,
+      [instructorId, scheme.subject_id, instructorId, schemeId],
     );
     const [result] = await connection.query<ResultSetHeader>(
       `UPDATE grading_schemes
@@ -529,10 +441,7 @@ export const publishInstructorGradingScheme = async (
     }
 
     await connection.commit();
-    return res.json({
-      message: `Publish เกณฑ์ตัดเกรด Version ${scheme.version} สำเร็จ`,
-      version: Number(scheme.version),
-    });
+    return res.json({ message: `Publish เกณฑ์ตัดเกรด Version ${scheme.version} สำเร็จ`, version: Number(scheme.version) });
   } catch (error) {
     await connection.rollback();
     console.error("publishInstructorGradingScheme error:", error);

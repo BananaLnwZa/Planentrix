@@ -11,6 +11,7 @@ import {
   getInstructorQuestionBankDetail,
   importInstructorExamFile,
   publishInstructorQuestionBank,
+  unpublishInstructorQuestionBank,
   updateInstructorQuestionBankSettings,
   updateInstructorQuestion,
   uploadInstructorQuestionImage,
@@ -44,6 +45,10 @@ router.patch(
 router.post(
   "/question-banks/:bankId/publish",
   publishInstructorQuestionBank,
+);
+router.post(
+  "/question-banks/:bankId/draft",
+  unpublishInstructorQuestionBank,
 );
 router.post(
   "/question-banks/:bankId/questions",

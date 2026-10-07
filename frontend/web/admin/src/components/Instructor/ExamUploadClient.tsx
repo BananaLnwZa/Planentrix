@@ -16,8 +16,8 @@ import {
   LoaderCircle,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
-  Settings2,
   Trash2,
   X,
 } from "lucide-react";
@@ -47,7 +47,6 @@ interface PartItem {
   createdAt: string;
   questionCount: number;
   totalScore: number;
-  timeLimitMinutes: number | null;
   status: InstructorQuestionBank["status"];
 }
 
@@ -215,7 +214,6 @@ function mapQuestionBankToPart(bank: InstructorQuestionBank): PartItem {
     createdAt: formatCreatedDate(bank.created_at),
     questionCount: bank.question_count,
     totalScore: bank.total_score,
-    timeLimitMinutes: bank.time_limit_minutes,
     status: bank.status,
   };
 }
@@ -238,8 +236,7 @@ export default function ExamUploadClient() {
 
   const [partName, setPartName] = useState("");
   const [partSubjectId, setPartSubjectId] = useState("");
-  const [partPeriod, setPartPeriod] = useState<ExamPeriod>("midterm");
-  const [partTimeLimit, setPartTimeLimit] = useState("60");
+  const [partPeriod, setPartPeriod] = useState<ExamPeriod | "">("");
   const [partError, setPartError] = useState("");
 
   const [examSubjectId, setExamSubjectId] = useState("");
@@ -248,6 +245,7 @@ export default function ExamUploadClient() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [examError, setExamError] = useState("");
+  const [examNotice, setExamNotice] = useState("");
   const [notice, setNotice] = useState("");
   const [selectedPart, setSelectedPart] = useState<PartItem | null>(null);
   const [partDetail, setPartDetail] =
@@ -255,9 +253,6 @@ export default function ExamUploadClient() {
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
   const [isClearingQuestions, setIsClearingQuestions] = useState(false);
-  const [isSavingPartSettings, setIsSavingPartSettings] = useState(false);
-  const [partSettingsTimeLimit, setPartSettingsTimeLimit] = useState("60");
-  const [partSettingsError, setPartSettingsError] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
   const [isCreatingQuestion, setIsCreatingQuestion] = useState(false);
   const [editingQuestion, setEditingQuestion] =
@@ -317,7 +312,7 @@ export default function ExamUploadClient() {
     (part) =>
       part.subjectId === examSubjectId &&
       part.examPeriod === examPeriod &&
-      part.status === "draft",
+      part.status !== "archived",
   );
 
   const closeModal = () => {
@@ -330,8 +325,7 @@ export default function ExamUploadClient() {
   const resetPartForm = () => {
     setPartName("");
     setPartSubjectId("");
-    setPartPeriod("midterm");
-    setPartTimeLimit("60");
+    setPartPeriod("");
     setPartError("");
   };
 
@@ -341,20 +335,24 @@ export default function ExamUploadClient() {
     setExamPeriod("midterm");
     setSelectedFile(null);
     setExamError("");
+    setExamNotice("");
     setIsDragging(false);
   };
 
   const handleCreatePart = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedPartName = partName.trim();
-    const timeLimit = Number(partTimeLimit);
 
-    if (!partSubjectId || !normalizedPartName) {
-      setPartError("กรุณาเลือกวิชาและกรอกชื่อพาร์ท");
+    if (!partSubjectId) {
+      setPartError("กรุณาเลือกวิชาของข้อสอบ");
       return;
     }
-    if (!Number.isInteger(timeLimit) || timeLimit < 1 || timeLimit > 1440) {
-      setPartError("เวลาทำข้อสอบต้องอยู่ระหว่าง 1-1,440 นาที");
+    if (!normalizedPartName) {
+      setPartError("กรุณากรอกชื่อพาร์ท");
+      return;
+    }
+    if (partPeriod !== "midterm" && partPeriod !== "final") {
+      setPartError("กรุณาเลือกช่วงสอบ");
       return;
     }
     const duplicatedPart = parts.some(
@@ -377,7 +375,6 @@ export default function ExamUploadClient() {
         subject_id: partSubjectId,
         bank_name: normalizedPartName,
         exam_period: partPeriod,
-        time_limit_minutes: timeLimit,
       });
       setNotice(`สร้างพาร์ท “${response.question_bank.bank_name}” แล้ว`);
       resetPartForm();
@@ -410,6 +407,7 @@ export default function ExamUploadClient() {
 
     setSelectedFile(file);
     setExamError("");
+    setExamNotice("");
   };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -445,11 +443,10 @@ export default function ExamUploadClient() {
         Number(selectedPart.id),
         selectedFile,
       );
-      setNotice(
-        `นำเข้าไฟล์ “${selectedFile.name}” สำเร็จ ${response.total_questions_imported} ข้อ`,
+      setExamNotice(
+        `เพิ่ม ${response.total_questions_imported} ข้อจาก “${selectedFile.name}” เข้าคลังพาร์ทแล้ว สามารถเลือกไฟล์อื่นเพิ่มได้`,
       );
-      resetExamForm();
-      closeModal();
+      setSelectedFile(null);
       await loadWorkspace();
     } catch (error) {
       setExamError(
@@ -493,8 +490,6 @@ export default function ExamUploadClient() {
         Number(part.id),
       );
       setPartDetail(detail);
-      setPartSettingsTimeLimit(String(detail.question_bank.time_limit_minutes ?? 60));
-      setPartSettingsError("");
     } catch (error) {
       setDetailError(
         error instanceof Error ? error.message : "ไม่สามารถโหลดข้อสอบได้",
@@ -507,7 +502,6 @@ export default function ExamUploadClient() {
   const closePartDetail = () => {
     if (
       isClearingQuestions ||
-      isSavingPartSettings ||
       isPublishing ||
       deletingQuestionId !== null
     ) return;
@@ -518,56 +512,15 @@ export default function ExamUploadClient() {
     setIsCreatingQuestion(false);
   };
 
-  const savePartSettings = async () => {
-    if (!selectedPart || !partDetail) return;
-    const timeLimit = Number(partSettingsTimeLimit);
-    if (!Number.isInteger(timeLimit) || timeLimit < 1 || timeLimit > 1440) {
-      setPartSettingsError("เวลาทำข้อสอบต้องอยู่ระหว่าง 1-1,440 นาที");
-      return;
-    }
-    setIsSavingPartSettings(true);
-    setPartSettingsError("");
-    try {
-      const response = await instructorExamService.updateQuestionBankSettings(
-        Number(selectedPart.id),
-        {
-          time_limit_minutes: timeLimit,
-        },
-      );
-      setPartDetail((current) =>
-        current
-          ? { ...current, question_bank: response.question_bank }
-          : current,
-      );
-      setSelectedPart((current) =>
-        current
-          ? {
-              ...current,
-              timeLimitMinutes: timeLimit,
-            }
-          : current,
-      );
-      setNotice("บันทึกเวลาทำข้อสอบแล้ว");
-      await loadWorkspace();
-    } catch (error) {
-      setPartSettingsError(
-        error instanceof Error ? error.message : "ไม่สามารถบันทึกการตั้งค่าได้",
-      );
-    } finally {
-      setIsSavingPartSettings(false);
-    }
-  };
-
   const publishSelectedPart = async () => {
     if (!selectedPart || !partDetail) return;
     if (
       !window.confirm(
-        "ต้องการเผยแพร่พาร์ทนี้ใช่ไหม? หลังเผยแพร่แล้วจะไม่สามารถแก้คำถามหรือการตั้งค่าได้",
+        "ต้องการเผยแพร่พาร์ทนี้ใช่ไหม? นักศึกษาจะเริ่มทำข้อสอบจากพาร์ทนี้ได้ และสามารถเปลี่ยนกลับเป็นฉบับร่างเพื่อแก้ไขภายหลังได้",
       )
     ) return;
 
     setIsPublishing(true);
-    setPartSettingsError("");
     try {
       const response = await instructorExamService.publishQuestionBank(
         Number(selectedPart.id),
@@ -581,8 +534,41 @@ export default function ExamUploadClient() {
       setNotice("เผยแพร่พาร์ทข้อสอบแล้ว นักศึกษาสามารถเริ่มทำได้");
       await loadWorkspace();
     } catch (error) {
-      setPartSettingsError(
+      setDetailError(
         error instanceof Error ? error.message : "ไม่สามารถเผยแพร่พาร์ทได้",
+      );
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const returnSelectedPartToDraft = async () => {
+    if (!selectedPart || !partDetail) return;
+    if (
+      !window.confirm(
+        "เปลี่ยนพาร์ทกลับเป็นฉบับร่างเพื่อแก้ไขใช่ไหม? นักศึกษาจะเริ่มทำข้อสอบใหม่จากพาร์ทนี้ไม่ได้จนกว่าจะเผยแพร่อีกครั้ง และหากมีผู้กำลังทำข้อสอบอยู่ ระบบจะไม่อนุญาตให้เปลี่ยนสถานะ",
+      )
+    ) return;
+
+    setIsPublishing(true);
+    setDetailError("");
+    try {
+      const response = await instructorExamService.returnQuestionBankToDraft(
+        Number(selectedPart.id),
+      );
+      setPartDetail((current) =>
+        current ? { ...current, question_bank: response.question_bank } : current,
+      );
+      setSelectedPart((current) =>
+        current ? { ...current, status: "draft" } : current,
+      );
+      setNotice("เปลี่ยนพาร์ทกลับเป็นฉบับร่างแล้ว สามารถแก้ไขคำถามและตัวเลือกได้");
+      await loadWorkspace();
+    } catch (error) {
+      setDetailError(
+        error instanceof Error
+          ? error.message
+          : "ไม่สามารถเปลี่ยนพาร์ทกลับเป็นฉบับร่างได้",
       );
     } finally {
       setIsPublishing(false);
@@ -743,7 +729,7 @@ export default function ExamUploadClient() {
               disabled={
                 isLoading ||
                 isSaving ||
-                !parts.some((part) => part.status === "draft")
+                parts.length === 0
               }
               onClick={() => {
                 resetExamForm();
@@ -752,7 +738,7 @@ export default function ExamUploadClient() {
               className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#5794aa] px-5 text-sm font-medium text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#477f93] hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#cfe7ef] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
               <Plus aria-hidden="true" size={18} />
-              สร้างข้อสอบ
+              เพิ่มข้อสอบเข้าคลัง
             </button>
           </div>
         </div>
@@ -897,7 +883,6 @@ export default function ExamUploadClient() {
                       <span className="rounded-full bg-[#e8f6fa] px-2.5 py-1 font-medium text-[#477f93]">
                         คะแนนรวม {formatScore(part.totalScore)} คะแนน
                       </span>
-                      <span>{part.timeLimitMinutes === null ? "ไม่จำกัดเวลา" : `${part.timeLimitMinutes} นาที`}</span>
                       <span
                         className={
                           part.status === "published"
@@ -922,9 +907,10 @@ export default function ExamUploadClient() {
                 <button
                   type="button"
                   onClick={() => void removePart(part.id)}
+                  disabled={part.status !== "draft"}
                   aria-label={`จัดเก็บพาร์ท ${part.name}`}
-                  title="จัดเก็บพาร์ท"
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#a76262] transition hover:bg-[#f7e5e5] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#f1d7d7]"
+                  title={part.status === "draft" ? "จัดเก็บพาร์ท" : "จัดเก็บได้เฉพาะพาร์ทฉบับร่าง"}
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#a76262] transition hover:bg-[#f7e5e5] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#f1d7d7] disabled:cursor-not-allowed disabled:text-[#b9c2c6] disabled:hover:bg-transparent"
                 >
                   <Archive aria-hidden="true" size={17} />
                 </button>
@@ -1005,73 +991,50 @@ export default function ExamUploadClient() {
             <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7">
               {!isDetailLoading && partDetail && (
                 <section className="mb-5 rounded-2xl border border-[#d9e9ee] bg-white p-4 sm:p-5">
-                  <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-[#4c626c]">
-                        เวลาทำข้อสอบ (นาที) <span className="text-[#c76450]">*</span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="1440"
-                          value={partSettingsTimeLimit}
-                          disabled={partDetail.question_bank.status !== "draft"}
-                          onChange={(event) => {
-                            setPartSettingsTimeLimit(event.target.value);
-                            setPartSettingsError("");
-                          }}
-                          className={inputClass}
-                        />
-                      </label>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void savePartSettings()}
-                      disabled={
-                        isSavingPartSettings ||
-                        partDetail.question_bank.status !== "draft"
-                      }
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#5794aa] px-4 text-sm font-medium text-white hover:bg-[#477f93] disabled:opacity-60"
-                    >
-                      {isSavingPartSettings ? (
-                        <LoaderCircle className="animate-spin" size={16} />
-                      ) : (
-                        <Settings2 size={16} />
-                      )}
-                      บันทึกการตั้งค่า
-                    </button>
-                  </div>
-                  {partSettingsError && (
-                    <p className="mt-3 rounded-xl bg-[#fff0ec] px-3 py-2 text-sm text-[#a9503c]">
-                      {partSettingsError}
-                    </p>
-                  )}
-                  <div className="mt-4 flex flex-wrap justify-end gap-2">
-                    {partDetail.question_bank.status === "draft" ? (
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {partDetail.question_bank.status !== "archived" ? (
                       <>
                         <button
                           type="button"
                           onClick={() => setIsCreatingQuestion(true)}
                           className="inline-flex items-center gap-2 rounded-xl border border-[#9fc8d6] bg-[#f2fafc] px-4 py-2.5 text-sm font-medium text-[#3f7d93] hover:bg-[#e6f5f9]"
                         >
-                          <Plus size={17} /> สร้างคำถามทีละข้อ
+                          <Plus size={17} /> เพิ่มคำถามทีละข้อ
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => void publishSelectedPart()}
-                          disabled={isPublishing || isSavingPartSettings}
-                          className="inline-flex items-center gap-2 rounded-xl bg-[#4f9471] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#407d5e] disabled:opacity-60"
-                        >
-                          {isPublishing ? (
-                            <LoaderCircle className="animate-spin" size={17} />
-                          ) : (
-                            <CheckCircle2 size={17} />
-                          )}
-                          {isPublishing ? "กำลังเผยแพร่" : "เผยแพร่ข้อสอบ"}
-                        </button>
+                        {partDetail.question_bank.status === "draft" && (
+                          <button
+                            type="button"
+                            onClick={() => void publishSelectedPart()}
+                            disabled={isPublishing}
+                            className="inline-flex items-center gap-2 rounded-xl bg-[#4f9471] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#407d5e] disabled:opacity-60"
+                          >
+                            {isPublishing ? (
+                              <LoaderCircle className="animate-spin" size={17} />
+                            ) : (
+                              <CheckCircle2 size={17} />
+                            )}
+                            {isPublishing ? "กำลังเผยแพร่" : "เผยแพร่ข้อสอบ"}
+                          </button>
+                        )}
+                        {partDetail.question_bank.status === "published" && (
+                          <button
+                            type="button"
+                            onClick={() => void returnSelectedPartToDraft()}
+                            disabled={isPublishing}
+                            className="inline-flex items-center gap-2 rounded-xl border border-[#d8d1ed] bg-[#f7f5fc] px-4 py-2.5 text-sm font-medium text-[#6b6195] hover:bg-[#efecf8] disabled:opacity-60"
+                          >
+                            {isPublishing ? (
+                              <LoaderCircle className="animate-spin" size={17} />
+                            ) : (
+                              <RotateCcw size={17} />
+                            )}
+                            กลับเป็นฉบับร่างเพื่อแก้ไข
+                          </button>
+                        )}
                       </>
                     ) : (
                       <p className="text-xs text-[#648077]">
-                        พาร์ทที่เผยแพร่แล้วถูกล็อก เพื่อให้ข้อสอบที่นักศึกษาทำตรงกันทุกคน
+                        พาร์ทนี้ถูกจัดเก็บแล้ว
                       </p>
                     )}
                   </div>
@@ -1358,23 +1321,6 @@ export default function ExamUploadClient() {
                 />
               </label>
 
-              <div>
-                <label className="block text-sm font-medium text-[#4c626c]">
-                  เวลาทำข้อสอบ (นาที) <span className="text-[#c76450]">*</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="1440"
-                    value={partTimeLimit}
-                    onChange={(event) => {
-                      setPartTimeLimit(event.target.value);
-                      setPartError("");
-                    }}
-                    className={inputClass}
-                  />
-                </label>
-              </div>
-
               <fieldset>
                 <legend className="text-sm font-medium text-[#4c626c]">
                   ช่วงสอบ
@@ -1398,7 +1344,10 @@ export default function ExamUploadClient() {
                         type="radio"
                         name="partPeriod"
                         checked={partPeriod === period.value}
-                        onChange={() => setPartPeriod(period.value)}
+                        onChange={() => {
+                          setPartPeriod(period.value);
+                          setPartError("");
+                        }}
                         className="accent-[#5794aa]"
                       />
                       {period.label}
@@ -1461,13 +1410,13 @@ export default function ExamUploadClient() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#4f879c]">
-                  New Exam
+                  Add Questions
                 </p>
                 <h3
                   id="create-exam-title"
                   className="mt-1 text-xl font-semibold text-[#304852]"
                 >
-                  สร้างข้อสอบ
+                  เพิ่มคำถามเข้าพาร์ท
                 </h3>
               </div>
               <button
@@ -1494,6 +1443,7 @@ export default function ExamUploadClient() {
                       setExamSubjectId(nextValue);
                       setExamPartId("");
                       setExamError("");
+                      setExamNotice("");
                     }}
                   />
                 </label>
@@ -1509,6 +1459,7 @@ export default function ExamUploadClient() {
                       setExamPeriod(nextValue as ExamPeriod);
                       setExamPartId("");
                       setExamError("");
+                      setExamNotice("");
                     }}
                   />
                 </label>
@@ -1520,7 +1471,7 @@ export default function ExamUploadClient() {
                     icon={Layers3}
                     options={selectableParts.map((part) => ({
                       value: part.id,
-                      label: part.name,
+                      label: `${part.name}${part.status === "published" ? " (เผยแพร่แล้ว)" : " (ฉบับร่าง)"}`,
                     }))}
                     placeholder={
                       !examSubjectId
@@ -1532,6 +1483,7 @@ export default function ExamUploadClient() {
                     onValueChange={(nextValue) => {
                       setExamPartId(nextValue);
                       setExamError("");
+                      setExamNotice("");
                     }}
                     disabled={!examSubjectId || selectableParts.length === 0}
                   />
@@ -1624,9 +1576,18 @@ export default function ExamUploadClient() {
                 </p>
               )}
 
+              {examNotice && (
+                <p
+                  role="status"
+                  className="rounded-xl bg-[#eefaf4] px-3.5 py-3 text-sm text-[#39785f]"
+                >
+                  {examNotice}
+                </p>
+              )}
+
               <div className="flex items-center gap-2 rounded-xl bg-[#f5f8f9] px-3.5 py-3 text-xs leading-5 text-[#7d8d93]">
                 <CalendarDays aria-hidden="true" className="shrink-0" size={16} />
-                ระบบจะแยกคำถาม ตัวเลือก เฉลย และรูปภาพลงในพาร์ทที่เลือก
+                ระบบจะเพิ่มคำถามลงในพาร์ทที่เลือกต่อจากคำถามเดิม สามารถเพิ่มได้หลายครั้ง
               </div>
 
               <div className="flex justify-end gap-2 pt-1">
@@ -1648,7 +1609,7 @@ export default function ExamUploadClient() {
                   ) : (
                     <ClipboardCheck aria-hidden="true" size={17} />
                   )}
-                  {isSaving ? "กำลังนำเข้า" : "สร้างข้อสอบ"}
+                  {isSaving ? "กำลังเพิ่มคำถาม" : "เพิ่มคำถาม"}
                 </button>
               </div>
             </form>

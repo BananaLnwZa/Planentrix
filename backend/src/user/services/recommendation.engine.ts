@@ -185,9 +185,16 @@ const loadEnrollments = async (connection: PoolConnection, termId: number) => {
         FROM grading_schemes gs
         INNER JOIN grade_boundaries gb ON gb.grading_scheme_id=gs.grading_scheme_id
         WHERE gs.status='published' AND gb.grade_code=e.target_grade_code
-          AND ((gs.scheme_type='section' AND gs.section_id=e.section_id)
-            OR (gs.scheme_type='subject_default' AND gs.subject_id=s.subject_id))
-        ORDER BY (gs.section_id IS NOT NULL) DESC,gs.version DESC LIMIT 1
+          AND gs.subject_id=s.subject_id
+          AND (gs.scheme_type='subject_default'
+            OR (gs.scheme_type='instructor_subject' AND gs.instructor_id=(
+              SELECT owner_assignment.instructor_id
+              FROM section_instructors owner_assignment
+              WHERE owner_assignment.section_id=e.section_id
+                AND owner_assignment.instructor_role='owner'
+              LIMIT 1
+            )))
+        ORDER BY (gs.scheme_type='instructor_subject') DESC,gs.version DESC LIMIT 1
        ) AS target_percentage,
        (SELECT (ea.actual_score/NULLIF(ea.max_score,0))*100
         FROM exam_attempts ea

@@ -12,7 +12,6 @@ export interface InstructorQuestionBank {
   owner_instructor_id: number;
   bank_name: string;
   exam_period: InstructorExamPeriod;
-  time_limit_minutes: number | null;
   status: "draft" | "published" | "archived";
   question_count: number;
   total_score: number;
@@ -67,11 +66,7 @@ export interface CreateInstructorQuestionResponse {
   question_id: number;
 }
 
-export interface UpdateInstructorQuestionBankSettingsRequest {
-  time_limit_minutes: number;
-}
-
-export interface UpdateInstructorQuestionBankSettingsResponse {
+export interface InstructorQuestionBankResponse {
   message: string;
   question_bank: InstructorQuestionBank;
 }
@@ -86,7 +81,6 @@ export interface CreateInstructorQuestionBankRequest {
   subject_id: string;
   bank_name: string;
   exam_period: InstructorExamPeriod;
-  time_limit_minutes: number;
 }
 
 export interface CreateInstructorQuestionBankResponse {

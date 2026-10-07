@@ -94,10 +94,10 @@ export const importExamFile = async (req: Request, res: Response) => {
 
     const currentBank = bankRows[0];
 
-    if (currentBank.status !== "draft") {
+    if (currentBank.status === "archived") {
       if (fs.existsSync(req.file.path)) fs.unlink(req.file.path, () => {});
       return res.status(409).json({
-        message: "นำเข้าไฟล์ได้เฉพาะพาร์ทสถานะฉบับร่างเท่านั้น",
+        message: "พาร์ทนี้ถูกจัดเก็บแล้ว ไม่สามารถเพิ่มคำถามได้",
       });
     }
 
@@ -170,6 +170,34 @@ export const importExamFile = async (req: Request, res: Response) => {
 
     try {
       await connection.beginTransaction();
+
+      const [lockedBankRows] = await connection.query<QuestionBankImportRow[]>(
+        `SELECT question_bank_id, owner_instructor_id, bank_name, exam_period, status
+         FROM question_banks
+         WHERE question_bank_id = ?
+         LIMIT 1 FOR UPDATE`,
+        [question_bank_id],
+      );
+      const lockedBank = lockedBankRows[0];
+      if (!lockedBank || lockedBank.status === "archived") {
+        await connection.rollback();
+        removeParsedImages(parsedQuestions, outputDirs);
+        if (fs.existsSync(req.file.path)) fs.unlink(req.file.path, () => {});
+        return res.status(409).json({
+          message: "พาร์ทนี้ถูกจัดเก็บแล้ว ไม่สามารถเพิ่มคำถามได้",
+        });
+      }
+      if (
+        req.user.role === "instructor" &&
+        Number(lockedBank.owner_instructor_id) !== req.user.id
+      ) {
+        await connection.rollback();
+        removeParsedImages(parsedQuestions, outputDirs);
+        if (fs.existsSync(req.file.path)) fs.unlink(req.file.path, () => {});
+        return res.status(403).json({
+          message: "Forbidden: This question bank belongs to another instructor",
+        });
+      }
 
       for (const q of parsedQuestions) {
         // บันทึกลงตาราง question (เชื่อมกับ question_bank_id)

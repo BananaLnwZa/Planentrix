@@ -8,10 +8,9 @@ import type {
   ImportInstructorExamResponse,
   InstructorExamErrorResponse,
   InstructorExamMessageResponse,
+  InstructorQuestionBankResponse,
   InstructorExamWorkspaceResponse,
   InstructorQuestionBankDetailResponse,
-  UpdateInstructorQuestionBankSettingsRequest,
-  UpdateInstructorQuestionBankSettingsResponse,
   UpdateInstructorQuestionRequest,
   UploadInstructorQuestionImageResponse,
 } from "@/interfaces/instructor-exam.interface";
@@ -62,24 +61,22 @@ class InstructorExamService {
     );
   }
 
-  async updateQuestionBankSettings(
+  async publishQuestionBank(
     questionBankId: number,
-    data: UpdateInstructorQuestionBankSettingsRequest,
-  ): Promise<UpdateInstructorQuestionBankSettingsResponse> {
+  ): Promise<InstructorQuestionBankResponse> {
     return this.request(() =>
-      this.apiClient.patch<UpdateInstructorQuestionBankSettingsResponse>(
-        apiEndpoints.instructorExams.questionBankById(questionBankId),
-        data,
+      this.apiClient.post<InstructorQuestionBankResponse>(
+        apiEndpoints.instructorExams.publish(questionBankId),
       ),
     );
   }
 
-  async publishQuestionBank(
+  async returnQuestionBankToDraft(
     questionBankId: number,
-  ): Promise<UpdateInstructorQuestionBankSettingsResponse> {
+  ): Promise<InstructorQuestionBankResponse> {
     return this.request(() =>
-      this.apiClient.post<UpdateInstructorQuestionBankSettingsResponse>(
-        apiEndpoints.instructorExams.publish(questionBankId),
+      this.apiClient.post<InstructorQuestionBankResponse>(
+        apiEndpoints.instructorExams.draft(questionBankId),
       ),
     );
   }

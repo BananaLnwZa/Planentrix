@@ -82,6 +82,7 @@ interface InstructorSectionRow extends RowDataPacket {
   academic_term_id: number;
   academic_year: number;
   semester_no: number;
+  term_status: "draft" | "active" | "completed" | "archived";
   section_number: string;
   capacity: number | null;
   section_status: "draft" | "open" | "closed" | "completed" | "cancelled";
@@ -333,6 +334,7 @@ export const getInstructorDashboard = async (req: Request, res: Response) => {
          section.academic_term_id,
          term.academic_year,
          term.semester_no,
+         term.status AS term_status,
          section.section_number,
          section.capacity,
          section.status AS section_status,
@@ -349,9 +351,9 @@ export const getInstructorDashboard = async (req: Request, res: Response) => {
          ON enrollment.section_id = section.section_id
        WHERE assignment.instructor_id = ?
          AND section.status <> 'cancelled'
-         AND term.status <> 'archived'
        GROUP BY section.section_id, section.subject_id, subject.subject_name,
          section.academic_term_id, term.academic_year, term.semester_no,
+         term.status,
          section.section_number, section.capacity, section.status,
          assignment.instructor_role
        ORDER BY term.academic_year DESC, term.semester_no DESC,
@@ -847,7 +849,7 @@ export const createInstructorQuestion = async (
       `SELECT question_bank_id
        FROM question_banks
        WHERE question_bank_id = ? AND owner_instructor_id = ?
-         AND status = 'draft'
+         AND status IN ('draft', 'published')
        LIMIT 1 FOR UPDATE`,
       [questionBankId, instructorId],
     );
@@ -1067,6 +1069,74 @@ export const publishInstructorQuestionBank = async (
   }
 };
 
+export const unpublishInstructorQuestionBank = async (
+  req: Request,
+  res: Response,
+) => {
+  const instructorId = requireInstructor(req, res);
+  if (!instructorId) return;
+
+  const questionBankId = Number(req.params.bankId);
+  if (!Number.isInteger(questionBankId) || questionBankId <= 0) {
+    return res.status(400).json({ message: "รหัสพาร์ทไม่ถูกต้อง" });
+  }
+
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [banks] = await connection.query<RowDataPacket[]>(
+      `SELECT question_bank_id, status
+       FROM question_banks
+       WHERE question_bank_id = ? AND owner_instructor_id = ?
+       LIMIT 1 FOR UPDATE`,
+      [questionBankId, instructorId],
+    );
+    const bank = banks[0];
+    if (!bank || bank.status === "archived") {
+      await connection.rollback();
+      return res.status(404).json({ message: "ไม่พบพาร์ทที่ต้องการแก้ไข" });
+    }
+
+    if (bank.status === "published") {
+      const [activeAttempts] = await connection.query<RowDataPacket[]>(
+        `SELECT attempt.exam_attempt_id
+         FROM exam_attempts attempt
+         INNER JOIN exam_attempt_questions attempt_question
+           ON attempt_question.exam_attempt_id = attempt.exam_attempt_id
+          AND attempt_question.source_bank_id = ?
+         WHERE attempt.status = 'in_progress'
+         LIMIT 1 FOR UPDATE`,
+        [questionBankId],
+      );
+      if (activeAttempts.length > 0) {
+        await connection.rollback();
+        return res.status(409).json({
+          message: "ยังมีนักศึกษากำลังทำข้อสอบพาร์ทนี้อยู่ กรุณารอให้ส่งข้อสอบก่อนเปลี่ยนเป็นฉบับร่าง",
+        });
+      }
+      await connection.query(
+        `UPDATE question_banks
+         SET status = 'draft', updated_at = NOW()
+         WHERE question_bank_id = ? AND owner_instructor_id = ?`,
+        [questionBankId, instructorId],
+      );
+    }
+    await connection.commit();
+
+    const updated = await getOwnedQuestionBank(questionBankId, instructorId);
+    return res.json({
+      message: "Question bank returned to draft successfully",
+      question_bank: updated ? serializeQuestionBank(updated) : null,
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error("unpublishInstructorQuestionBank error:", error);
+    return res.status(500).json({ message: "ไม่สามารถเปลี่ยนพาร์ทกลับเป็นฉบับร่างได้" });
+  } finally {
+    connection.release();
+  }
+};
+
 export const getInstructorQuestionImage = async (
   req: Request,
   res: Response,
@@ -1124,7 +1194,7 @@ export const uploadInstructorQuestionImage = async (
 
   try {
     const bank = await getOwnedQuestionBank(questionBankId, instructorId);
-    if (!bank || bank.status !== "draft") {
+    if (!bank || bank.status === "archived") {
       return res.status(404).json({ message: "ไม่พบพาร์ทสำหรับอัปโหลดรูป" });
     }
 
@@ -1321,7 +1391,7 @@ export const deleteInstructorQuestionBank = async (
   try {
     await connection.beginTransaction();
     const [banks] = await connection.query<RowDataPacket[]>(
-      `SELECT question_bank_id FROM question_banks
+      `SELECT question_bank_id, status FROM question_banks
        WHERE question_bank_id = ? AND owner_instructor_id = ?
        LIMIT 1 FOR UPDATE`,
       [questionBankId, instructorId],
@@ -1329,6 +1399,12 @@ export const deleteInstructorQuestionBank = async (
     if (banks.length === 0) {
       await connection.rollback();
       return res.status(404).json({ message: "ไม่พบพาร์ทที่ต้องการลบ" });
+    }
+    if (banks[0].status !== "draft") {
+      await connection.rollback();
+      return res.status(409).json({
+        message: "จัดเก็บได้เฉพาะพาร์ทที่มีสถานะฉบับร่างเท่านั้น",
+      });
     }
 
     const [activeAttempts] = await connection.query<RowDataPacket[]>(
