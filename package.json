@@ -1,5 +1,8 @@
 {
   "dependencies": {
     "mammoth": "^1.12.3"
+  },
+  "devDependencies": {
+    "typescript": "5.9"
   }
 }
