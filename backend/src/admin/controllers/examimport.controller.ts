@@ -54,6 +54,64 @@ const removeParsedImages = (questions: ParsedQuestion[], outputDirs: ImageOutput
   }
 };
 
+// ==========================================================================
+// ตรวจโครงสร้างโจทย์/ตัวเลือกก่อนบันทึก ถ้าข้อใดไม่ครบ จะไม่บันทึกทั้งไฟล์
+// ==========================================================================
+interface ValidationIssue {
+  question_no: number;
+  question_preview: string;
+  problems: string[];
+}
+
+const MIN_CHOICES = 2;
+
+const validateParsedQuestions = (questions: ParsedQuestion[]): ValidationIssue[] => {
+  const issues: ValidationIssue[] = [];
+
+  questions.forEach((q, index) => {
+    const problems: string[] = [];
+
+    // โจทย์ต้องมีข้อความหรือรูป
+    if (!q.question_text?.trim() && !q.question_image_path) {
+      problems.push("โจทย์ไม่มีข้อความและไม่มีรูปภาพ");
+    }
+
+    // ตัวเลือกต้องมีอย่างน้อย MIN_CHOICES ข้อ
+    if (!q.choices || q.choices.length === 0) {
+      problems.push("ไม่พบตัวเลือก");
+    } else if (q.choices.length < MIN_CHOICES) {
+      problems.push(`มีตัวเลือกเพียง ${q.choices.length} ข้อ (ต้องมีอย่างน้อย ${MIN_CHOICES} ข้อ)`);
+    }
+
+    if (q.choices?.length) {
+      // แต่ละตัวเลือกต้องมีข้อความหรือรูป
+      q.choices.forEach((c, i) => {
+        if (!c.choice_text?.trim() && !c.choice_image_path) {
+          problems.push(`ตัวเลือกลำดับที่ ${i + 1} ว่างเปล่า`);
+        }
+      });
+
+      // ต้องมีเฉลยพอดี 1 ข้อ
+      const correctCount = q.choices.filter((c) => c.is_correct).length;
+      if (correctCount === 0) {
+        problems.push("ไม่มีเครื่องหมายเฉลย (*)");
+      } else if (correctCount > 1) {
+        problems.push(`มีเฉลยมากกว่า 1 ข้อ (${correctCount} ข้อ)`);
+      }
+    }
+
+    if (problems.length > 0) {
+      issues.push({
+        question_no: index + 1,
+        question_preview: (q.question_text || "").slice(0, 60),
+        problems,
+      });
+    }
+  });
+
+  return issues;
+};
+
 export const importExamFile = async (req: Request, res: Response) => {
   try {
     // 1. ตรวจสอบสิทธิ์การใช้งาน
@@ -161,6 +219,23 @@ export const importExamFile = async (req: Request, res: Response) => {
       }
       return res.status(400).json({
         message: "No questions could be parsed from this file. Please check the document format.",
+        warnings,
+      });
+    }
+
+    // 5.1 ตรวจโครงสร้างโจทย์/ตัวเลือก ถ้าไม่ครบจะไม่บันทึกอะไรลง DB เลย
+    const issues = validateParsedQuestions(parsedQuestions);
+    if (issues.length > 0) {
+      // ลบรูปที่ parser เขียนไว้แล้ว เพราะจะไม่บันทึก
+      removeParsedImages(parsedQuestions, outputDirs);
+      if (fs.existsSync(req.file.path)) {
+        fs.unlink(req.file.path, () => {});
+      }
+      return res.status(422).json({
+        message: `โครงสร้างข้อสอบไม่ครบถ้วน ${issues.length} ข้อ จึงไม่บันทึกข้อมูลใดๆ กรุณาแก้ไฟล์แล้วนำเข้าใหม่`,
+        total_questions_parsed: parsedQuestions.length,
+        invalid_questions: issues,
+        warnings,
       });
     }
 

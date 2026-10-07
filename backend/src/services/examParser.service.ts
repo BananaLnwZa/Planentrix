@@ -23,7 +23,15 @@ export interface ParsedQuestion {
 }
 
 function stripTags(html: string): string {
-  return html.replace(/<[^>]+>/g, "").trim();
+  return html
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .trim();
 }
 
 function getImgSrc(html: string): string | null {
@@ -43,23 +51,32 @@ function ensureDirs(dirs: ImageOutputDirs) {
 // ฟังก์ชันแยกโจทย์, ตัวเลือก, เฉลย (*), และรูปภาพจาก HTML
 // ==========================================================================
 export function parseExamHtml(html: string): ParsedQuestion[] {
-  const paragraphs = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map(
+  // แปลงการขึ้นบรรทัดใหม่แบบ Shift+Enter (<br>) ให้เป็นย่อหน้าใหม่
+  // และแยกรายการ <li> ให้เป็นย่อหน้า เพื่อไม่ให้โจทย์กับตัวเลือกติดกันเป็นบรรทัดเดียว
+  const normalized = html
+    .replace(/<br\s*\/?>/gi, "</p><p>")
+    .replace(/<\/li>\s*<li[^>]*>/gi, "</p><p>")
+    .replace(/<li[^>]*>/gi, "<p>")
+    .replace(/<\/li>/gi, "</p>");
+
+  const paragraphs = [...normalized.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map(
     (m) => m[1]
   );
 
   const questions: ParsedQuestion[] = [];
   let currentQuestion: ParsedQuestion | null = null;
 
-  const questionPattern = /^(\d+)\.\s*(.*)$/;
-  // รองรับทั้ง ก-ฮ และ A-D
-  const choicePattern = /^(\*?)([ก-ฮa-dA-D])\.\s*(.*)$/;
+  const questionPattern = /^\s*(\d+)[\.\)]\s*(.*)$/;
+  // รองรับ ก. ก) (ก) ก (ไม่มีจุด) และ a-e / A-E พร้อมเครื่องหมาย * หน้าตัวเลือก
+  const choicePattern = /^\s*(\*?)\s*\(?([ก-ง]|[a-eA-E])(?:[\.\)]\s*|\s+)(.+)$/;
 
   for (const p of paragraphs) {
     const imgSrc = getImgSrc(p);
     const text = stripTags(p);
 
-    const questionMatch = text.match(questionPattern);
+    // เช็กตัวเลือกก่อนโจทย์ เพื่อไม่ให้ตัวเลือกที่ขึ้นต้นด้วยตัวเลขถูกมองเป็นโจทย์
     const choiceMatch = text.match(choicePattern);
+    const questionMatch = choiceMatch ? null : text.match(questionPattern);
 
     if (questionMatch) {
       if (currentQuestion) {
@@ -197,6 +214,9 @@ export async function parseDocxExamFile(filePath: string, dirs: ImageOutputDirs)
 // อ่านไฟล์ .pdf (ใช้ pdf-parse) พร้อมดักจับข้อผิดพลาด (Error Handling)
 // หมายเหตุ: ฟังก์ชันนี้ดึงเฉพาะข้อความ ไม่ได้แตกรูปจาก PDF
 // ==========================================================================
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 export async function parsePdfExamFile(filePath: string, dirs: ImageOutputDirs) {
   ensureDirs(dirs);
 
@@ -215,7 +235,7 @@ export async function parsePdfExamFile(filePath: string, dirs: ImageOutputDirs) 
       .split("\n")
       .map((line: string) => line.trim())
       .filter((line: string) => line.length > 0)
-      .map((line: string) => `<p>${line}</p>`)
+      .map((line: string) => `<p>${escapeHtml(line)}</p>`)
       .join("");
 
     const questions = parseExamHtml(formattedHtml);
