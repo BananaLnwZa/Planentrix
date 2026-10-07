@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from "axios";
 import Cookies from "js-cookie";
 import {
   CurriculumSubjectPayload,
+  CurriculumSubjectMutationResponse,
   SubjectManagementErrorResponse,
   SubjectMutationResponse,
   SubjectPayload,
@@ -62,9 +63,9 @@ class SubjectManagementService {
 
   async createCurriculumSubject(
     data: CurriculumSubjectPayload,
-  ): Promise<SubjectMutationResponse> {
+  ): Promise<CurriculumSubjectMutationResponse> {
     try {
-      const response = await this.apiClient.post<SubjectMutationResponse>(
+      const response = await this.apiClient.post<CurriculumSubjectMutationResponse>(
         apiEndpoints.subjects.curriculum,
         data,
       );
@@ -77,9 +78,9 @@ class SubjectManagementService {
   async updateCurriculumSubject(
     curriculumSubjectId: number,
     data: CurriculumSubjectPayload,
-  ): Promise<SubjectMutationResponse> {
+  ): Promise<CurriculumSubjectMutationResponse> {
     try {
-      const response = await this.apiClient.patch<SubjectMutationResponse>(
+      const response = await this.apiClient.patch<CurriculumSubjectMutationResponse>(
         apiEndpoints.subjects.curriculumById(curriculumSubjectId),
         data,
       );
@@ -92,9 +93,9 @@ class SubjectManagementService {
   async setCurriculumSubjectStatus(
     curriculumSubjectId: number,
     isActive: boolean,
-  ): Promise<SubjectMutationResponse> {
+  ): Promise<CurriculumSubjectMutationResponse> {
     try {
-      const response = await this.apiClient.patch<SubjectMutationResponse>(
+      const response = await this.apiClient.patch<CurriculumSubjectMutationResponse>(
         apiEndpoints.subjects.curriculumStatus(curriculumSubjectId),
         { is_active: isActive },
       );

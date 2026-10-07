@@ -13,6 +13,7 @@ import {
 import AdminSelect from "@/components/ui/AdminSelect";
 import type {
   CurriculumSubjectPayload,
+  CurriculumSubject,
   Subject,
   SubjectDepartment,
   SubjectFaculty,
@@ -22,11 +23,13 @@ import CurriculumSubjectModal from "./CurriculumSubjectModal";
 
 export default function CurriculumManagementPanel({
   subjects,
+  curriculumSubjects,
   faculties,
   departments,
   onChanged,
 }: {
   subjects: Subject[];
+  curriculumSubjects: CurriculumSubject[];
   faculties: SubjectFaculty[];
   departments: SubjectDepartment[];
   onChanged: (message: string) => Promise<void>;
@@ -37,7 +40,7 @@ export default function CurriculumManagementPanel({
   const [yearFilter, setYearFilter] = useState("all");
   const [termFilter, setTermFilter] = useState("all");
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingMapping, setEditingMapping] = useState<Subject | null>(null);
+  const [editingMapping, setEditingMapping] = useState<CurriculumSubject | null>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [error, setError] = useState("");
 
@@ -48,7 +51,7 @@ export default function CurriculumManagementPanel({
   );
   const filteredMappings = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("th");
-    return subjects.filter(
+    return curriculumSubjects.filter(
       (subject) =>
         (!query ||
           subject.subject_id.toLocaleLowerCase().includes(query) ||
@@ -62,7 +65,7 @@ export default function CurriculumManagementPanel({
           subject.academic_year === Number(yearFilter)) &&
         (termFilter === "all" || subject.term === Number(termFilter)),
     );
-  }, [departmentFilter, facultyFilter, search, subjects, termFilter, yearFilter]);
+  }, [curriculumSubjects, departmentFilter, facultyFilter, search, termFilter, yearFilter]);
 
   const handleSave = async (payload: CurriculumSubjectPayload) => {
     if (editingMapping) {
@@ -84,7 +87,7 @@ export default function CurriculumManagementPanel({
     );
   };
 
-  const handleStatus = async (subject: Subject) => {
+  const handleStatus = async (subject: CurriculumSubject) => {
     setStatusUpdatingId(subject.curriculum_subject_id);
     setError("");
     try {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, BookOpen, GraduationCap, LoaderCircle, RefreshCw, X } from "lucide-react";
 import {
   Subject,
+  CurriculumSubject,
   SubjectDepartment,
   SubjectFaculty,
   SubjectPayload,
@@ -19,15 +20,11 @@ import SubjectTypeLegend from "./SubjectTypeLegend";
 import CurriculumManagementPanel from "./CurriculumManagementPanel";
 
 const sortSubjects = (subjects: Subject[]) =>
-  [...subjects].sort(
-    (first, second) =>
-      first.academic_year - second.academic_year ||
-      first.term - second.term ||
-      first.subject_id.localeCompare(second.subject_id),
-  );
+  [...subjects].sort((first, second) => first.subject_id.localeCompare(second.subject_id));
 
 export default function SubjectManagementClient() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [curriculumSubjects, setCurriculumSubjects] = useState<CurriculumSubject[]>([]);
   const [subjectTypes, setSubjectTypes] = useState<SubjectType[]>([]);
   const [faculties, setFaculties] = useState<SubjectFaculty[]>([]);
   const [departments, setDepartments] = useState<SubjectDepartment[]>([]);
@@ -50,6 +47,7 @@ export default function SubjectManagementClient() {
     try {
       const response = await subjectManagementService.getSubjects();
       setSubjects(sortSubjects(response.subjects));
+      setCurriculumSubjects(response.curriculum_subjects);
       setSubjectTypes(response.subject_types);
       setFaculties(response.faculties);
       setDepartments(response.departments);
@@ -67,6 +65,7 @@ export default function SubjectManagementClient() {
       .then((response) => {
         if (!active) return;
         setSubjects(sortSubjects(response.subjects));
+        setCurriculumSubjects(response.curriculum_subjects);
         setSubjectTypes(response.subject_types);
         setFaculties(response.faculties);
         setDepartments(response.departments);
@@ -89,10 +88,7 @@ export default function SubjectManagementClient() {
       const matchesSearch =
         !query ||
         subject.subject_id.toLocaleLowerCase().includes(query) ||
-        subject.subject_name.toLocaleLowerCase().includes(query) ||
-        subject.faculty_name.toLocaleLowerCase().includes(query) ||
-        subject.department_name.toLocaleLowerCase().includes(query) ||
-        subject.department_code.toLocaleLowerCase().includes(query);
+        subject.subject_name.toLocaleLowerCase().includes(query);
       const matchesType =
         selectedType === "all" || subject.subject_type_id === Number(selectedType);
       const matchesStatus =
@@ -122,7 +118,7 @@ export default function SubjectManagementClient() {
       setSubjects((current) =>
         sortSubjects(
           current.map((subject) =>
-            subject.curriculum_subject_id === response.subject.curriculum_subject_id
+            subject.subject_id === response.subject.subject_id
               ? response.subject
               : subject,
           ),
@@ -236,6 +232,7 @@ export default function SubjectManagementClient() {
       ) : (
         <CurriculumManagementPanel
           subjects={subjects}
+          curriculumSubjects={curriculumSubjects}
           faculties={faculties}
           departments={departments}
           onChanged={handleCurriculumChanged}
@@ -247,8 +244,6 @@ export default function SubjectManagementClient() {
           key={editingSubject?.subject_id ?? "new-subject"}
           subject={editingSubject}
           subjectTypes={subjectTypes}
-          faculties={faculties}
-          departments={departments}
           onClose={() => { setFormOpen(false); setEditingSubject(null); }}
           onSave={handleSave}
         />

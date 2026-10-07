@@ -55,7 +55,7 @@ const LocalizedDateTimeInput = forwardRef<HTMLInputElement, Props>(function Loca
   const current = controlled ? value : internal;
   const hasDate = type !== "time";
   const hasTime = type !== "date";
-  const accent = type === "date" ? "#F080A7" : "#74B88A";
+  const accent = "#5794aa";
   const Icon = type === "time" ? Clock3 : CalendarDays;
 
   const emit = (next: string) => {
@@ -194,7 +194,7 @@ function Calendar({ date, month, min, max, accent, onDate, onMonth }: { date: Da
 
 function Time({ hour, minute, accent, onHour, onMinute }: { hour: number; minute: number; accent: string; onHour: (value: number) => void; onMinute: (value: number) => void }) {
   return <div>
-    <div className="mb-2 rounded-2xl bg-[#EFF8F1] py-2 text-center text-xl font-semibold text-[#385B44]"><Clock3 size={17} style={{ color: accent }} className="mr-1 inline" />{pad(hour)}:{pad(minute)}</div>
+    <div className="mb-2 rounded-2xl bg-[#eaf6fa] py-2 text-center text-xl font-semibold text-[#3c6f82]"><Clock3 size={17} style={{ color: accent }} className="mr-1 inline" />{pad(hour)}:{pad(minute)}</div>
     <div className="grid grid-cols-2 gap-2">
       <Numbers count={24} value={hour} accent={accent} label="ชั่วโมง" onChange={onHour} />
       <Numbers count={60} value={minute} accent={accent} label="นาที" onChange={onMinute} />

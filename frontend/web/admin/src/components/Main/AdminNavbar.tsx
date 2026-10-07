@@ -1,3 +1,5 @@
+"use client";
+
 import {
   BookOpen,
   Building2,
@@ -8,6 +10,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import AdminProfileMenu from "./AdminProfileMenu";
 
 const academicItems = [
@@ -18,7 +21,7 @@ const academicItems = [
 
 const accountItems = [
   { label: "นักศึกษาและอาจารย์", href: "/ManageUsers", icon: UsersRound },
-  { label: "เพิ่มบัญชีเว็บ", href: "/SignInAdmin", icon: UserPlus },
+  { label: "สร้างบัญชีเจ้าหน้าที่/อาจารย์", href: "/SignInAdmin", icon: UserPlus },
 ];
 
 interface AdminNavbarProps {
@@ -32,6 +35,32 @@ export default function AdminNavbar({
   adminId,
   activeHref = "/Teaching",
 }: AdminNavbarProps) {
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const closeMenusOutsideTarget = (event: PointerEvent) => {
+      const target = event.target as Node;
+      navRef.current
+        ?.querySelectorAll<HTMLDetailsElement>("details[open]")
+        .forEach((menu) => {
+          if (!menu.contains(target)) menu.removeAttribute("open");
+        });
+    };
+    const closeMenusWithEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      navRef.current
+        ?.querySelectorAll<HTMLDetailsElement>("details[open]")
+        .forEach((menu) => menu.removeAttribute("open"));
+    };
+
+    document.addEventListener("pointerdown", closeMenusOutsideTarget);
+    document.addEventListener("keydown", closeMenusWithEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeMenusOutsideTarget);
+      document.removeEventListener("keydown", closeMenusWithEscape);
+    };
+  }, []);
+
   const menuItem = (
     { label, href, icon: Icon }: (typeof academicItems)[number],
     compact = false,
@@ -76,6 +105,7 @@ export default function AdminNavbar({
 
   return (
     <nav
+      ref={navRef}
       aria-label="เมนูหลักผู้ดูแลระบบ"
       className="sticky top-3 z-40 mx-auto w-[calc(100%-24px)] max-w-[1440px] rounded-[22px] border border-white/80 bg-[#cfeefa]/95 px-3 py-2.5 shadow-[0_9px_24px_rgba(64,108,125,0.14)] backdrop-blur-xl sm:w-[calc(100%-40px)] sm:px-4"
     >

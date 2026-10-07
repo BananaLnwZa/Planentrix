@@ -30,6 +30,7 @@ export default function DepartmentManagementClient() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [faculties, setFaculties] = useState<FacultyOption[]>([]);
   const [facultyId, setFacultyId] = useState("");
+  const [filterFacultyId, setFilterFacultyId] = useState("");
   const [departmentCode, setDepartmentCode] = useState("");
   const [departmentName, setDepartmentName] = useState("");
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
@@ -44,6 +45,11 @@ export default function DepartmentManagementClient() {
     (faculty) =>
       faculty.is_active || faculty.faculty_id === editingDepartment?.faculty_id,
   );
+  const filteredDepartments = filterFacultyId
+    ? departments.filter(
+        (department) => department.faculty_id === Number(filterFacultyId),
+      )
+    : departments;
 
   const resetForm = () => {
     setEditingDepartment(null);
@@ -295,7 +301,11 @@ export default function DepartmentManagementClient() {
         <div className="flex items-center justify-between border-b border-[#e6eef1] px-5 py-4 sm:px-6">
           <div>
             <h2 className="font-semibold text-[#314750]">สาขาที่มีอยู่</h2>
-            <p className="mt-1 text-xs text-[#81939a]">ทั้งหมด {departments.length} สาขา</p>
+            <p className="mt-1 text-xs text-[#81939a]">
+              {filterFacultyId
+                ? `แสดง ${filteredDepartments.length} จาก ${departments.length} สาขา`
+                : `ทั้งหมด ${departments.length} สาขา`}
+            </p>
           </div>
           <button
             type="button"
@@ -330,6 +340,26 @@ export default function DepartmentManagementClient() {
           </div>
         ) : (
           <div className="overflow-x-auto">
+            <div className="flex flex-col gap-2 border-b border-[#e6eef1] px-5 py-4 sm:flex-row sm:items-center sm:px-6">
+              <label className="shrink-0 text-sm text-[#526b75]" htmlFor="department-faculty-filter">
+                กรองตามคณะ
+              </label>
+              <div id="department-faculty-filter" className="w-full sm:max-w-sm">
+                <AdminSelect
+                  value={filterFacultyId}
+                  onChange={setFilterFacultyId}
+                  ariaLabel="กรองสาขาตามคณะ"
+                  placeholder="ทุกคณะ"
+                  options={[
+                    { value: "", label: "ทุกคณะ" },
+                    ...faculties.map((faculty) => ({
+                      value: String(faculty.faculty_id),
+                      label: `${faculty.faculty_name} (${faculty.faculty_code})${faculty.is_active ? "" : " (ปิดใช้งาน)"}`,
+                    })),
+                  ]}
+                />
+              </div>
+            </div>
             <table className="w-full min-w-[900px] text-left text-sm">
               <thead className="bg-[#f7fafb] text-[#6f838b]">
                 <tr>
@@ -341,7 +371,13 @@ export default function DepartmentManagementClient() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#edf2f4]">
-                {departments.map((department) => (
+                {filteredDepartments.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-sm text-[#81939a]">
+                      ไม่มีสาขาในคณะที่เลือก
+                    </td>
+                  </tr>
+                ) : filteredDepartments.map((department) => (
                   <tr key={department.department_id} className="text-[#405861]">
                     <td className="px-6 py-4 font-medium text-[#377d97]">
                       {department.department_code}

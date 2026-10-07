@@ -4,14 +4,18 @@ export interface SubjectType {
 }
 
 export interface Subject {
-  curriculum_subject_id: number;
   subject_id: string;
   subject_name: string;
   credits: number;
-  term: number;
-  academic_year: number;
   subject_type_id: number;
   subject_type_name: string;
+  is_active: boolean;
+}
+
+export interface CurriculumSubject extends Subject {
+  curriculum_subject_id: number;
+  term: number;
+  academic_year: number;
   department_id: number;
   department_code: string;
   department_name: string;
@@ -19,21 +23,15 @@ export interface Subject {
   faculty_code: string;
   faculty_name: string;
   is_required: boolean;
-  is_active: boolean;
   subject_is_active: boolean;
   curriculum_is_active: boolean;
 }
 
 export interface SubjectPayload {
   subject_id?: string;
-  curriculum_subject_id?: number;
   subject_name: string;
   credits: number;
-  term: number;
-  academic_year: number;
   subject_type_id: number;
-  department_id: number;
-  is_required: boolean;
 }
 
 export interface CurriculumSubjectPayload {
@@ -60,6 +58,7 @@ export interface SubjectDepartment {
 export interface SubjectsResponse {
   message: string;
   subjects: Subject[];
+  curriculum_subjects: CurriculumSubject[];
   subject_types: SubjectType[];
   faculties: SubjectFaculty[];
   departments: SubjectDepartment[];
@@ -68,6 +67,11 @@ export interface SubjectsResponse {
 export interface SubjectMutationResponse {
   message: string;
   subject: Subject;
+}
+
+export interface CurriculumSubjectMutationResponse {
+  message: string;
+  subject: CurriculumSubject;
 }
 
 export interface SubjectManagementErrorResponse {

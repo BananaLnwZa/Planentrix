@@ -43,6 +43,7 @@ interface SubjectOptionRow extends RowDataPacket {
 interface CurriculumOptionRow extends RowDataPacket {
   curriculum_subject_id: number;
   subject_id: string;
+  subject_name: string;
   department_id: number;
   faculty_id: number;
   department_name: string;
@@ -465,23 +466,11 @@ const validateSectionReferences = async (
        FROM admin a
        WHERE a.admin_id IN (${placeholders})
          AND a.role = 'instructor'
-         AND a.status = 'active'
-         AND EXISTS (
-           SELECT 1
-           FROM curriculum_subjects curriculum
-           WHERE curriculum.curriculum_subject_id IN (${curriculumPlaceholders})
-             AND BINARY curriculum.subject_id = ?
-             AND curriculum.department_id = a.department_id
-             AND curriculum.is_active = 1
-         )`,
-      [
-        ...instructorIds,
-        ...payload.curriculumSubjectIds,
-        payload.subjectId,
-      ],
+         AND a.status = 'active'`,
+      instructorIds,
     );
     if (instructors.length !== instructorIds.length) {
-      return "อาจารย์ต้องเปิดใช้งานและอยู่ในสาขาที่มีวิชานี้ในหลักสูตร";
+      return "อาจารย์ที่เลือกต้องเป็นบัญชีอาจารย์ที่กำลังเปิดใช้งาน";
     }
   }
   return null;
@@ -494,7 +483,7 @@ const validateMeetingReferences = async (
   excludedMeetingId: number | null = null,
 ): Promise<string | null> => {
   const [sections] = await connection.query<RowDataPacket[]>(
-    `SELECT section.academic_term_id, section.status
+    `SELECT section.academic_term_id, section.subject_id, section.status
      FROM course_sections section
      INNER JOIN section_instructors assignment
        ON assignment.section_id = section.section_id
@@ -516,54 +505,97 @@ const validateMeetingReferences = async (
   }
 
   const [conflicts] = await connection.query<RowDataPacket[]>(
-    `SELECT
-       meeting.class_meeting_id,
-       meeting.section_id,
-       meeting.instructor_id,
-       meeting.classroom,
-       conflict_section.subject_id,
-       conflict_section.section_number
-     FROM class_meetings meeting
-     INNER JOIN course_sections conflict_section
-       ON conflict_section.section_id = meeting.section_id
-     WHERE conflict_section.academic_term_id = ?
-       AND conflict_section.status <> 'cancelled'
-       AND meeting.day_of_week = ?
-       AND meeting.start_time < ?
-       AND meeting.end_time > ?
-       AND (? IS NULL OR meeting.class_meeting_id <> ?)
-       AND (
-         meeting.section_id = ?
-         OR meeting.instructor_id = ?
-         OR (
+    `SELECT overlap.*
+     FROM (
+       SELECT
+         meeting.class_meeting_id,
+         meeting.section_id,
+         meeting.instructor_id,
+         meeting.classroom,
+         conflict_section.subject_id,
+         conflict_section.section_number,
+         (meeting.section_id = ?) AS same_section_conflict,
+         (meeting.instructor_id = ?) AS instructor_conflict,
+         (
            ? IS NOT NULL
            AND meeting.classroom IS NOT NULL
-           AND LOWER(TRIM(meeting.classroom)) = LOWER(?)
-         )
-       )
-     LIMIT 1`,
+           AND LOWER(TRIM(meeting.classroom)) = LOWER(TRIM(?))
+         ) AS room_conflict,
+         (
+           BINARY conflict_section.subject_id = ?
+           AND EXISTS (
+             SELECT 1
+             FROM section_curriculum_subjects current_mapping
+             INNER JOIN curriculum_subjects current_curriculum
+               ON current_curriculum.curriculum_subject_id =
+                  current_mapping.curriculum_subject_id
+             INNER JOIN section_curriculum_subjects conflict_mapping
+               ON conflict_mapping.section_id = meeting.section_id
+             INNER JOIN curriculum_subjects conflict_curriculum
+               ON conflict_curriculum.curriculum_subject_id =
+                  conflict_mapping.curriculum_subject_id
+             WHERE current_mapping.section_id = ?
+               AND BINARY current_curriculum.subject_id =
+                   conflict_curriculum.subject_id
+               AND current_curriculum.department_id =
+                   conflict_curriculum.department_id
+               AND current_curriculum.year_level =
+                   conflict_curriculum.year_level
+           )
+         ) AS cohort_conflict
+       FROM class_meetings meeting
+       INNER JOIN course_sections conflict_section
+         ON conflict_section.section_id = meeting.section_id
+       WHERE conflict_section.academic_term_id = ?
+         AND conflict_section.status <> 'cancelled'
+         AND meeting.day_of_week = ?
+         AND meeting.start_time < ?
+         AND meeting.end_time > ?
+         AND (? IS NULL OR meeting.class_meeting_id <> ?)
+     ) overlap
+     WHERE overlap.same_section_conflict = 1
+        OR overlap.instructor_conflict = 1
+        OR overlap.room_conflict = 1
+        OR overlap.cohort_conflict = 1`,
     [
+      sectionId,
+      payload.instructorId,
+      payload.classroom,
+      payload.classroom,
+      section.subject_id,
+      sectionId,
       section.academic_term_id,
       payload.dayOfWeek,
       payload.endTime,
       payload.startTime,
       excludedMeetingId,
       excludedMeetingId,
-      sectionId,
-      payload.instructorId,
-      payload.classroom,
-      payload.classroom,
     ],
   );
-  const conflict = conflicts[0];
-  if (!conflict) return null;
-  if (Number(conflict.section_id) === sectionId) {
+  const sameSectionConflict = conflicts.find((conflict) =>
+    Boolean(Number(conflict.same_section_conflict)),
+  );
+  if (sameSectionConflict) {
     return "ช่วงเวลานี้ชนกับคาบอื่นของกลุ่มเรียนเดียวกัน";
   }
-  if (Number(conflict.instructor_id) === payload.instructorId) {
-    return `อาจารย์มีคาบสอนซ้อนกับ ${conflict.subject_id} กลุ่ม ${conflict.section_number}`;
+  const instructorConflict = conflicts.find((conflict) =>
+    Boolean(Number(conflict.instructor_conflict)),
+  );
+  if (instructorConflict) {
+    return `อาจารย์มีคาบสอนซ้อนกับ ${instructorConflict.subject_id} กลุ่ม ${instructorConflict.section_number}`;
   }
-  return `ห้อง ${payload.classroom} ถูกใช้งานในช่วงเวลานี้แล้ว`;
+  const cohortConflict = conflicts.find((conflict) =>
+    Boolean(Number(conflict.cohort_conflict)),
+  );
+  if (cohortConflict) {
+    return `นักศึกษาวิชา ${cohortConflict.subject_id} สาขาและชั้นปีเดียวกันมีคาบซ้อนกับกลุ่ม ${cohortConflict.section_number}`;
+  }
+  const roomConflict = conflicts.find((conflict) =>
+    Boolean(Number(conflict.room_conflict)),
+  );
+  return roomConflict
+    ? `ห้อง ${payload.classroom} ถูกใช้งานในช่วงเวลานี้แล้ว`
+    : null;
 };
 
 const saveAssignments = async (
@@ -681,6 +713,7 @@ export const getTeachingWorkspace = async (req: Request, res: Response) => {
       `SELECT
          curriculum.curriculum_subject_id,
          curriculum.subject_id,
+         subject.subject_name,
          curriculum.department_id,
          department.faculty_id,
          department.department_name,
@@ -689,6 +722,9 @@ export const getTeachingWorkspace = async (req: Request, res: Response) => {
          curriculum.semester_no,
          curriculum.is_required
        FROM curriculum_subjects curriculum
+       INNER JOIN subjects subject
+         ON subject.subject_id = curriculum.subject_id
+        AND subject.is_active = 1
        INNER JOIN departments department
          ON department.department_id = curriculum.department_id
        INNER JOIN faculties faculty
@@ -1036,6 +1072,20 @@ export const updateAcademicTermStatus = async (req: Request, res: Response) => {
          WHERE academic_term_id = ? AND status = 'draft'`,
         [termId],
       );
+    } else if (status === "completed") {
+      await connection.query(
+        `UPDATE course_sections
+         SET status = 'completed', updated_at = NOW()
+         WHERE academic_term_id = ? AND status <> 'cancelled'`,
+        [termId],
+      );
+    } else if (status === "draft" && existing[0].status === "archived") {
+      await connection.query(
+        `UPDATE course_sections
+         SET status = 'draft', updated_at = NOW()
+         WHERE academic_term_id = ? AND status = 'completed'`,
+        [termId],
+      );
     }
     await connection.commit();
     return res.json({ message: "Academic term status updated successfully" });
@@ -1144,6 +1194,12 @@ export const updateCourseSection = async (req: Request, res: Response) => {
       await connection.rollback();
       return res.status(404).json({ message: "ไม่พบกลุ่มเรียน" });
     }
+    if (String(existing[0].subject_id) !== payload.subjectId) {
+      await connection.rollback();
+      return res.status(409).json({
+        message: "ไม่สามารถเปลี่ยนรายวิชาของ Section หลังสร้างแล้วได้",
+      });
+    }
     const [meetingRows] = await connection.query<RowDataPacket[]>(
       `SELECT class_meeting_id, instructor_id
        FROM class_meetings
@@ -1153,12 +1209,11 @@ export const updateCourseSection = async (req: Request, res: Response) => {
     );
     if (
       meetingRows.length > 0 &&
-      (String(existing[0].subject_id) !== payload.subjectId ||
-        Number(existing[0].academic_term_id) !== payload.academicTermId)
+      Number(existing[0].academic_term_id) !== payload.academicTermId
     ) {
       await connection.rollback();
       return res.status(409).json({
-        message: "กรุณาลบคาบเรียนก่อนเปลี่ยนวิชาหรือภาคการศึกษาของกลุ่ม",
+        message: "กรุณาลบคาบเรียนก่อนเปลี่ยนภาคการศึกษาของกลุ่ม",
       });
     }
     const desiredInstructorIds = new Set([
@@ -1182,11 +1237,10 @@ export const updateCourseSection = async (req: Request, res: Response) => {
     }
     await connection.query(
       `UPDATE course_sections
-       SET subject_id = ?, academic_term_id = ?, section_number = ?,
+       SET academic_term_id = ?, section_number = ?,
            capacity = ?, status = ?
        WHERE section_id = ?`,
       [
-        payload.subjectId,
         payload.academicTermId,
         payload.sectionNumber,
         payload.capacity,

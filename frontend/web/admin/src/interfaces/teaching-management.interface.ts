@@ -36,6 +36,7 @@ export interface TeachingSubject {
 export interface TeachingCurriculumSubject {
   curriculum_subject_id: number;
   subject_id: string;
+  subject_name: string;
   department_id: number;
   faculty_id: number;
   department_name: string;

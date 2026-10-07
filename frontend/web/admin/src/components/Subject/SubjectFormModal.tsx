@@ -1,12 +1,10 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { BookPlus, LoaderCircle, Save, X } from "lucide-react";
 import AdminSelect from "@/components/ui/AdminSelect";
 import type {
   Subject,
-  SubjectDepartment,
-  SubjectFaculty,
   SubjectPayload,
   SubjectType,
 } from "@/interfaces/subject-management.interface";
@@ -14,8 +12,6 @@ import type {
 interface SubjectFormModalProps {
   subject: Subject | null;
   subjectTypes: SubjectType[];
-  faculties: SubjectFaculty[];
-  departments: SubjectDepartment[];
   onClose: () => void;
   onSave: (data: SubjectPayload) => Promise<void>;
 }
@@ -25,11 +21,6 @@ interface FormState {
   subject_name: string;
   credits: string;
   subject_type_id: string;
-  faculty_id: string;
-  department_id: string;
-  academic_year: string;
-  term: string;
-  is_required: string;
 }
 
 const inputClass =
@@ -38,7 +29,6 @@ const inputClass =
 const createInitialState = (
   subject: Subject | null,
   subjectTypes: SubjectType[],
-  faculties: SubjectFaculty[],
 ): FormState => ({
   subject_id: subject?.subject_id ?? "",
   subject_name: subject?.subject_name ?? "",
@@ -46,34 +36,20 @@ const createInitialState = (
   subject_type_id: String(
     subject?.subject_type_id ?? subjectTypes[0]?.subject_type_id ?? "",
   ),
-  faculty_id: String(subject?.faculty_id ?? faculties[0]?.faculty_id ?? ""),
-  department_id: String(subject?.department_id ?? ""),
-  academic_year: String(subject?.academic_year ?? 1),
-  term: String(subject?.term ?? 1),
-  is_required: String(subject?.is_required ?? true),
 });
 
 export default function SubjectFormModal({
   subject,
   subjectTypes,
-  faculties,
-  departments,
   onClose,
   onSave,
 }: SubjectFormModalProps) {
   const [form, setForm] = useState<FormState>(() =>
-    createInitialState(subject, subjectTypes, faculties),
+    createInitialState(subject, subjectTypes),
   );
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const isEditing = Boolean(subject);
-  const availableDepartments = useMemo(
-    () =>
-      departments.filter(
-        (department) => department.faculty_id === Number(form.faculty_id),
-      ),
-    [departments, form.faculty_id],
-  );
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -104,8 +80,8 @@ export default function SubjectFormModal({
       setError("หน่วยกิตต้องเป็นจำนวนเต็มระหว่าง 1–9");
       return;
     }
-    if (!form.subject_type_id || !form.faculty_id || !form.department_id) {
-      setError("กรุณาเลือกประเภทวิชา คณะ และสาขาวิชาให้ครบ");
+    if (!form.subject_type_id) {
+      setError("กรุณาเลือกประเภทวิชา");
       return;
     }
 
@@ -114,16 +90,9 @@ export default function SubjectFormModal({
     try {
       await onSave({
         ...(!isEditing ? { subject_id: subjectId } : {}),
-        ...(isEditing
-          ? { curriculum_subject_id: subject!.curriculum_subject_id }
-          : {}),
         subject_name: form.subject_name.trim(),
         credits,
         subject_type_id: Number(form.subject_type_id),
-        department_id: Number(form.department_id),
-        academic_year: Number(form.academic_year),
-        term: Number(form.term),
-        is_required: form.is_required === "true",
       });
     } catch (saveError) {
       setError(
@@ -136,8 +105,7 @@ export default function SubjectFormModal({
     }
   };
 
-  const canSave =
-    subjectTypes.length > 0 && faculties.length > 0 && departments.length > 0;
+  const canSave = subjectTypes.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#243b45]/45 p-3 backdrop-blur-sm sm:p-5" role="dialog" aria-modal="true" aria-labelledby="subject-form-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose(); }}>
@@ -146,8 +114,8 @@ export default function SubjectFormModal({
           <div className="flex items-center gap-3">
             <span className="rounded-2xl bg-[#e8f5f9] p-3 text-[#478ca4]"><BookPlus size={22} /></span>
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.15em] text-[#64a0b5]">Curriculum subject</p>
-              <h2 id="subject-form-title" className="mt-0.5 text-xl font-semibold text-[#304852]">{isEditing ? "แก้ไขวิชาในหลักสูตร" : "เพิ่มวิชาในหลักสูตร"}</h2>
+              <p className="text-xs font-medium uppercase tracking-[0.15em] text-[#64a0b5]">Subject catalog</p>
+              <h2 id="subject-form-title" className="mt-0.5 text-xl font-semibold text-[#304852]">{isEditing ? "แก้ไขข้อมูลวิชาหลัก" : "เพิ่มวิชาหลัก"}</h2>
             </div>
           </div>
           <button type="button" onClick={onClose} disabled={saving} aria-label="ปิด" className="rounded-full p-2 text-[#7d9098] transition hover:bg-[#edf4f6] disabled:opacity-50"><X size={19} /></button>
@@ -169,29 +137,10 @@ export default function SubjectFormModal({
             <label className="text-sm font-medium text-[#4c626c]">หน่วยกิต
               <input type="number" inputMode="numeric" min="1" max="9" step="1" value={form.credits} onChange={(event) => updateField("credits", event.target.value)} className={inputClass} />
             </label>
-            <div className="text-sm font-medium text-[#4c626c]">
-              <span>คณะ</span>
-              <AdminSelect value={form.faculty_id} onChange={(value) => setForm((current) => ({ ...current, faculty_id: value, department_id: "" }))} ariaLabel="เลือกคณะ" placeholder="เลือกคณะ" className="mt-1.5" disabled={faculties.length === 0} options={faculties.map((faculty) => ({ value: String(faculty.faculty_id), label: `${faculty.faculty_name} (${faculty.faculty_code})` }))} />
-            </div>
-            <div className="text-sm font-medium text-[#4c626c]">
-              <span>สาขาวิชา</span>
-              <AdminSelect value={form.department_id} onChange={(value) => updateField("department_id", value)} ariaLabel="เลือกสาขาวิชา" placeholder="เลือกสาขาวิชา" className="mt-1.5" disabled={!form.faculty_id || availableDepartments.length === 0} options={availableDepartments.map((department) => ({ value: String(department.department_id), label: `${department.department_name} (${department.department_code})` }))} />
-            </div>
-            <div className="text-sm font-medium text-[#4c626c]">
-              <span>ชั้นปี</span>
-              <AdminSelect value={form.academic_year} onChange={(value) => updateField("academic_year", value)} ariaLabel="เลือกชั้นปี" className="mt-1.5" tone="violet" options={Array.from({ length: 4 }, (_, index) => ({ value: String(index + 1), label: `ชั้นปีที่ ${index + 1}` }))} />
-            </div>
-            <div className="text-sm font-medium text-[#4c626c]">
-              <span>ภาคการศึกษา</span>
-              <AdminSelect value={form.term} onChange={(value) => updateField("term", value)} ariaLabel="เลือกภาคการศึกษา" className="mt-1.5" tone="violet" options={[{ value: "1", label: "เทอม 1" }, { value: "2", label: "เทอม 2" }, { value: "3", label: "ภาคฤดูร้อน" }]} />
-            </div>
-            <div className="text-sm font-medium text-[#4c626c] sm:col-span-2">
-              <span>ประเภทในหลักสูตร</span>
-              <AdminSelect value={form.is_required} onChange={(value) => updateField("is_required", value)} ariaLabel="เลือกประเภทในหลักสูตร" className="mt-1.5" options={[{ value: "true", label: "วิชาบังคับ" }, { value: "false", label: "วิชาเลือก" }]} />
-            </div>
           </div>
 
-          {!canSave && <p className="mt-5 rounded-xl bg-[#fff8e8] px-3.5 py-3 text-sm text-[#946c21]">ต้องมีประเภทวิชา คณะ และสาขาที่เปิดใช้งานก่อนจึงจะเพิ่มวิชาได้</p>}
+          <p className="mt-5 rounded-xl bg-[#f0f7fa] px-3.5 py-3 text-sm text-[#557583]">คณะ สาขา ชั้นปี และภาคเรียน จะกำหนดในแท็บ “โครงสร้างหลักสูตร” หลังสร้างวิชาหลักแล้ว</p>
+          {!canSave && <p className="mt-3 rounded-xl bg-[#fff8e8] px-3.5 py-3 text-sm text-[#946c21]">ต้องมีประเภทวิชาที่เปิดใช้งานก่อนจึงจะเพิ่มวิชาได้</p>}
           {error && <p role="alert" className="mt-5 rounded-xl bg-[#fff0ec] px-3.5 py-3 text-sm text-[#a9503c]">{error}</p>}
           <div className="mt-6 flex justify-end gap-2 border-t border-[#edf1f3] pt-5">
             <button type="button" onClick={onClose} disabled={saving} className="rounded-xl px-4 py-2.5 text-sm text-[#687b84] transition hover:bg-[#eef4f6] disabled:opacity-50">ยกเลิก</button>

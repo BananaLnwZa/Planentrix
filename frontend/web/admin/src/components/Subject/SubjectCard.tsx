@@ -1,4 +1,4 @@
-import { ArchiveX, BookMarked, Building2, GraduationCap, Pencil, RotateCcw } from "lucide-react";
+import { ArchiveX, BookOpen, Pencil, RotateCcw } from "lucide-react";
 import { Subject } from "@/interfaces/subject-management.interface";
 import { getSubjectTypeStyle } from "./SubjectTypeLegend";
 
@@ -28,13 +28,8 @@ export default function SubjectCard({ subject, onEdit, onStatusChange }: Subject
         {subject.is_active ? "เปิดใช้งาน" : "ปิดใช้งาน"}
       </span>
 
-      <dl className="mt-4 grid gap-2.5 text-sm text-[#60747d]">
-        <div className="flex items-center gap-2"><Building2 size={15} className="text-[#7da5b4]" /><dt className="sr-only">คณะและสาขา</dt><dd className="truncate">{subject.faculty_name} · {subject.department_name}</dd></div>
-        <div className="flex items-center gap-2"><BookMarked size={15} className="text-[#7da5b4]" /><dt className="sr-only">ประเภทในหลักสูตร</dt><dd>{subject.is_required ? "วิชาบังคับ" : "วิชาเลือก"}</dd></div>
-      </dl>
-
       <div className="mt-auto flex items-center justify-between border-t border-[#edf1f3] pt-4">
-        <span className="inline-flex items-center gap-1.5 text-xs text-[#93a0a6]"><GraduationCap size={14} /> ชั้นปี {subject.academic_year} · {subject.department_code}</span>
+        <span className="inline-flex items-center gap-1.5 text-xs text-[#93a0a6]"><BookOpen size={14} /> ข้อมูลวิชาหลัก</span>
         <div className="flex gap-2">
           <button type="button" onClick={() => onEdit(subject)} aria-label={`แก้ไขวิชา ${subject.subject_name}`} className="inline-flex size-9 items-center justify-center rounded-xl bg-[#e9f5f9] text-[#43839a] transition hover:bg-[#d9edf4]"><Pencil size={16} /></button>
           <button type="button" onClick={() => onStatusChange(subject)} aria-label={`${subject.is_active ? "ปิดใช้งาน" : "กู้คืน"}วิชา ${subject.subject_name}`} className={`inline-flex size-9 items-center justify-center rounded-xl transition ${subject.is_active ? "bg-[#fff0ec] text-[#c6644d] hover:bg-[#ffe1d9]" : "bg-[#e9f6ef] text-[#438064] hover:bg-[#d9ede3]"}`}>

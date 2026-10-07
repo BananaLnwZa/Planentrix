@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
-  Clock3,
   LoaderCircle,
   MapPin,
   Trash2,
@@ -20,6 +19,7 @@ import type {
 } from "@/interfaces/teaching-management.interface";
 import { teachingManagementService } from "@/services/teaching-management.service";
 import AdminSelect from "@/components/ui/AdminSelect";
+import { TimePickerInput } from "@/components/common/LocalizedDateTimeInput";
 
 export const classMeetingDayLabels: Record<ClassMeetingDay, string> = {
   monday: "วันจันทร์",
@@ -219,33 +219,28 @@ export default function ClassMeetingModal({
 
           <label className="text-sm font-medium text-[#4c626c]">
             เวลาเริ่ม
-            <span className="relative block">
-              <Clock3 className="pointer-events-none absolute left-4 top-1/2 mt-1 -translate-y-1/2 text-[#6d99a9]" size={17} />
-              <input
-                type="time"
-                value={startTime}
-                onChange={(event) => {
-                  setStartTime(event.target.value);
-                  setError("");
-                }}
-                className={`${inputClass} pl-11`}
-              />
-            </span>
+            <TimePickerInput
+              value={startTime}
+              onChange={(event) => {
+                setStartTime(event.target.value);
+                setError("");
+              }}
+              className={inputClass}
+              aria-label="เลือกเวลาเริ่มเรียน"
+            />
           </label>
           <label className="text-sm font-medium text-[#4c626c]">
             เวลาเลิก
-            <span className="relative block">
-              <Clock3 className="pointer-events-none absolute left-4 top-1/2 mt-1 -translate-y-1/2 text-[#6d99a9]" size={17} />
-              <input
-                type="time"
-                value={endTime}
-                onChange={(event) => {
-                  setEndTime(event.target.value);
-                  setError("");
-                }}
-                className={`${inputClass} pl-11`}
-              />
-            </span>
+            <TimePickerInput
+              value={endTime}
+              onChange={(event) => {
+                setEndTime(event.target.value);
+                setError("");
+              }}
+              min={startTime}
+              className={inputClass}
+              aria-label="เลือกเวลาเลิกเรียน"
+            />
           </label>
 
           <label className="text-sm font-medium text-[#4c626c] sm:col-span-2">

@@ -5,13 +5,14 @@ import { BookPlus, LoaderCircle, Save, X } from "lucide-react";
 import AdminSelect from "@/components/ui/AdminSelect";
 import type {
   CurriculumSubjectPayload,
+  CurriculumSubject,
   Subject,
   SubjectDepartment,
   SubjectFaculty,
 } from "@/interfaces/subject-management.interface";
 
 interface CurriculumSubjectModalProps {
-  mapping: Subject | null;
+  mapping: CurriculumSubject | null;
   subjects: Subject[];
   faculties: SubjectFaculty[];
   departments: SubjectDepartment[];
@@ -19,9 +20,9 @@ interface CurriculumSubjectModalProps {
   onSave: (payload: CurriculumSubjectPayload) => Promise<void>;
 }
 
-const uniqueSubjects = (subjects: Subject[]) =>
-  [...new Map(subjects.map((subject) => [subject.subject_id, subject])).values()]
-    .filter((subject) => subject.subject_is_active)
+const activeSubjects = (subjects: Subject[]) =>
+  subjects
+    .filter((subject) => subject.is_active)
     .sort((first, second) => first.subject_id.localeCompare(second.subject_id));
 
 export default function CurriculumSubjectModal({
@@ -32,7 +33,7 @@ export default function CurriculumSubjectModal({
   onClose,
   onSave,
 }: CurriculumSubjectModalProps) {
-  const catalog = useMemo(() => uniqueSubjects(subjects), [subjects]);
+  const catalog = useMemo(() => activeSubjects(subjects), [subjects]);
   const defaultFacultyId = mapping?.faculty_id ?? faculties[0]?.faculty_id;
   const [subjectId, setSubjectId] = useState(mapping?.subject_id ?? "");
   const [facultyId, setFacultyId] = useState(

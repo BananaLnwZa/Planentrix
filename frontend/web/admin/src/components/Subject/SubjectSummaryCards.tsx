@@ -11,7 +11,7 @@ export default function SubjectSummaryCards({ subjects, subjectTypes }: SubjectS
   const inactiveSubjects = subjects.length - activeSubjects;
 
   const cards = [
-    { label: "วิชาทั้งหมด", value: subjects.length, note: "รายวิชาในหลักสูตร", icon: BookCopy, style: "bg-[#e9f7fc] text-[#4794af]" },
+    { label: "วิชาทั้งหมด", value: subjects.length, note: "รายการในคลังวิชาหลัก", icon: BookCopy, style: "bg-[#e9f7fc] text-[#4794af]" },
     { label: "เปิดใช้งาน", value: activeSubjects, note: "นำไปสร้างตารางเรียนใหม่ได้", icon: CircleCheckBig, style: "bg-[#eef8f2] text-[#579578]" },
     { label: "ปิดใช้งาน", value: inactiveSubjects, note: "เก็บไว้สำหรับข้อมูลย้อนหลัง", icon: Archive, style: "bg-[#fff1eb] text-[#d47b60]" },
     { label: "ประเภทวิชา", value: subjectTypes.length, note: "ประเภทจากฐานข้อมูล", icon: Shapes, style: "bg-[#f1effb] text-[#8174b8]" },

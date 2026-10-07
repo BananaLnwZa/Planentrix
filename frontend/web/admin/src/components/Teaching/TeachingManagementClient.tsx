@@ -8,7 +8,6 @@ import {
   CalendarPlus,
   CheckCircle2,
   CircleOff,
-  ClipboardCheck,
   Clock3,
   DoorOpen,
   GraduationCap,
@@ -34,11 +33,11 @@ import type {
   TeachingCourseSection,
   TeachingCurriculumSubject,
   TeachingInstructor,
-  TeachingSubject,
   TeachingWorkspaceResponse,
 } from "@/interfaces/teaching-management.interface";
 import { teachingManagementService } from "@/services/teaching-management.service";
 import AdminSelect from "@/components/ui/AdminSelect";
+import { DatePickerInput } from "@/components/common/LocalizedDateTimeInput";
 import ClassMeetingModal, {
   classMeetingDayLabels,
 } from "@/components/Teaching/ClassMeetingModal";
@@ -98,7 +97,7 @@ const formatTermDate = (date: string | null) => {
 const dateInputClass =
   "mt-2 h-11 w-full rounded-xl border border-[#dbe6ea] bg-[#fbfdfe] px-3.5 text-sm font-normal text-[#304852] outline-none transition focus:border-[#79bdd4] focus:ring-4 focus:ring-[#e1f4fa]";
 
-type TeachingFlowStep = "terms" | "sections" | "schedule" | "readiness";
+type TeachingFlowStep = "terms" | "sections";
 
 const teachingFlowSteps: Array<{
   value: TeachingFlowStep;
@@ -106,16 +105,14 @@ const teachingFlowSteps: Array<{
   description: string;
   icon: typeof CalendarDays;
 }> = [
-  { value: "terms", label: "1. ภาคการศึกษา", description: "สร้างเทอมฉบับร่าง", icon: CalendarDays },
-  { value: "sections", label: "2. วิชาและ Section", description: "เลือกวิชาและกลุ่มผู้เรียน", icon: BookOpen },
-  { value: "schedule", label: "3. ผู้สอนและตาราง", description: "จัดอาจารย์ วัน เวลา และห้อง", icon: Clock3 },
-  { value: "readiness", label: "4. ตรวจสอบความพร้อม", description: "ตรวจแล้วเปิดภาคการศึกษา", icon: ClipboardCheck },
+  { value: "terms", label: "1. ภาคการศึกษา", description: "สร้าง เปิด และสิ้นสุดเทอม", icon: CalendarDays },
+  { value: "sections", label: "2. Section และตารางเรียน", description: "จัดกลุ่ม ผู้สอน วัน เวลา และห้อง", icon: BookOpen },
 ];
 
 const preferredTermId = (workspace: TeachingWorkspaceResponse) => {
   const term =
-    workspace.academic_terms.find((item) => item.status === "draft") ??
     workspace.academic_terms.find((item) => item.status === "active") ??
+    workspace.academic_terms.find((item) => item.status === "draft") ??
     workspace.academic_terms[0];
   return term ? String(term.academic_term_id) : "";
 };
@@ -252,20 +249,41 @@ function TermModal({ term, onClose, onSaved }: TermModalProps) {
           </label>
           <label className="text-sm font-medium text-[#4c626c]">
             วันเปิดภาคเรียน
-            <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className={dateInputClass} />
+            <DatePickerInput
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              className={dateInputClass}
+              aria-label="เลือกวันเปิดภาคเรียน"
+              required
+            />
           </label>
           <label className="text-sm font-medium text-[#4c626c]">
             วันสิ้นสุดภาคเรียน
-            <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className={dateInputClass} />
+            <DatePickerInput
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+              min={startDate || undefined}
+              className={dateInputClass}
+              aria-label="เลือกวันสิ้นสุดภาคเรียน"
+              required
+            />
           </label>
 
           <div className="rounded-2xl border border-[#e1ebee] bg-[#f8fcfd] p-4 sm:col-span-2">
             <p className="text-sm font-medium text-[#4c626c]">ช่วงสอบ (ไม่บังคับ)</p>
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
-              <label className="text-xs text-[#71858e]">เริ่มกลางภาค<input type="date" value={midtermStart} onChange={(event) => setMidtermStart(event.target.value)} className={dateInputClass} /></label>
-              <label className="text-xs text-[#71858e]">สิ้นสุดกลางภาค<input type="date" value={midtermEnd} onChange={(event) => setMidtermEnd(event.target.value)} className={dateInputClass} /></label>
-              <label className="text-xs text-[#71858e]">เริ่มปลายภาค<input type="date" value={finalStart} onChange={(event) => setFinalStart(event.target.value)} className={dateInputClass} /></label>
-              <label className="text-xs text-[#71858e]">สิ้นสุดปลายภาค<input type="date" value={finalEnd} onChange={(event) => setFinalEnd(event.target.value)} className={dateInputClass} /></label>
+              <label className="text-xs text-[#71858e]">เริ่มกลางภาค
+                <DatePickerInput value={midtermStart} onChange={(event) => setMidtermStart(event.target.value)} min={startDate || undefined} max={endDate || undefined} className={dateInputClass} aria-label="เลือกวันเริ่มสอบกลางภาค" />
+              </label>
+              <label className="text-xs text-[#71858e]">สิ้นสุดกลางภาค
+                <DatePickerInput value={midtermEnd} onChange={(event) => setMidtermEnd(event.target.value)} min={midtermStart || startDate || undefined} max={endDate || undefined} className={dateInputClass} aria-label="เลือกวันสิ้นสุดสอบกลางภาค" />
+              </label>
+              <label className="text-xs text-[#71858e]">เริ่มปลายภาค
+                <DatePickerInput value={finalStart} onChange={(event) => setFinalStart(event.target.value)} min={midtermEnd || startDate || undefined} max={endDate || undefined} className={dateInputClass} aria-label="เลือกวันเริ่มสอบปลายภาค" />
+              </label>
+              <label className="text-xs text-[#71858e]">สิ้นสุดปลายภาค
+                <DatePickerInput value={finalEnd} onChange={(event) => setFinalEnd(event.target.value)} min={finalStart || startDate || undefined} max={endDate || undefined} className={dateInputClass} aria-label="เลือกวันสิ้นสุดสอบปลายภาค" />
+              </label>
             </div>
           </div>
 
@@ -296,7 +314,6 @@ function TermModal({ term, onClose, onSaved }: TermModalProps) {
 interface SectionModalProps {
   section: TeachingCourseSection | null;
   terms: TeachingAcademicTerm[];
-  subjects: TeachingSubject[];
   instructors: TeachingInstructor[];
   curriculumSubjects: TeachingCurriculumSubject[];
   defaultTermId?: number | null;
@@ -307,7 +324,6 @@ interface SectionModalProps {
 function SectionModal({
   section,
   terms,
-  subjects,
   instructors,
   curriculumSubjects,
   defaultTermId,
@@ -319,7 +335,6 @@ function SectionModal({
     section?.instructors
       .filter((item) => item.instructor_role === "co_instructor")
       .map((item) => String(item.instructor_id)) ?? [];
-  const [subjectId, setSubjectId] = useState(section?.subject_id ?? "");
   const [termId, setTermId] = useState(
     section
       ? String(section.academic_term_id)
@@ -341,6 +356,7 @@ function SectionModal({
   );
   const [ownerId, setOwnerId] = useState(owner ? String(owner.instructor_id) : "");
   const [coInstructorIds, setCoInstructorIds] = useState(initialCoInstructorIds);
+  const [instructorSearch, setInstructorSearch] = useState("");
   const [curriculumSubjectIds, setCurriculumSubjectIds] = useState<number[]>(
     section?.curriculum_subject_ids ?? [],
   );
@@ -350,30 +366,54 @@ function SectionModal({
   const selectedTerm = terms.find(
     (term) => term.academic_term_id === Number(termId),
   );
+  const termCurricula = curriculumSubjects.filter(
+    (curriculum) => curriculum.semester_no === selectedTerm?.semester_no,
+  );
+  const primaryCurriculum = curriculumSubjects.find(
+    (curriculum) =>
+      curriculum.curriculum_subject_id === curriculumSubjectIds[0],
+  );
+  const subjectId = section?.subject_id ?? primaryCurriculum?.subject_id ?? "";
   const eligibleCurricula = curriculumSubjects.filter(
     (curriculum) =>
       curriculum.subject_id === subjectId &&
       curriculum.semester_no === selectedTerm?.semester_no,
   );
-  const selectedCurricula = eligibleCurricula.filter((curriculum) =>
-    curriculumSubjectIds.includes(curriculum.curriculum_subject_id),
+  const normalizedInstructorSearch = instructorSearch.trim().toLocaleLowerCase("th");
+  const filteredInstructorOptions = instructors.filter((instructor) => {
+    if (!normalizedInstructorSearch) return true;
+    return `${instructor.first_name} ${instructor.last_name} ${instructor.admin_name} ${instructor.department_name} ${instructor.faculty_name}`
+      .toLocaleLowerCase("th")
+      .includes(normalizedInstructorSearch);
+  });
+  const ownerInstructorOptions = instructors.filter(
+    (instructor) =>
+      String(instructor.admin_id) === ownerId ||
+      filteredInstructorOptions.some(
+        (option) => option.admin_id === instructor.admin_id,
+      ),
   );
-  const eligibleDepartmentIds = new Set(
-    selectedCurricula.map((curriculum) => curriculum.department_id),
-  );
-  const eligibleInstructors = instructors.filter((instructor) =>
-    eligibleDepartmentIds.has(instructor.department_id),
-  );
-  const coInstructorOptions = eligibleInstructors.filter(
+  const coInstructorOptions = filteredInstructorOptions.filter(
     (instructor) =>
       String(instructor.admin_id) !== ownerId &&
       !coInstructorIds.includes(String(instructor.admin_id)),
   );
-  const selectedCoInstructors = eligibleInstructors.filter((instructor) =>
+  const selectedCoInstructors = instructors.filter((instructor) =>
     coInstructorIds.includes(String(instructor.admin_id)),
   );
   const instructorLabel = (instructor: TeachingInstructor) =>
     `${instructor.first_name} ${instructor.last_name}`.trim() || instructor.admin_name;
+
+  const handleCurriculumToggle = (
+    curriculumSubjectId: number,
+    checked: boolean,
+  ) => {
+    const nextIds = checked
+      ? [...curriculumSubjectIds, curriculumSubjectId]
+      : curriculumSubjectIds.filter((id) => id !== curriculumSubjectId);
+    setCurriculumSubjectIds(nextIds);
+    setError("");
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -438,7 +478,9 @@ function SectionModal({
               {section ? "แก้ไขข้อมูล Section" : "เพิ่มวิชาและ Section"}
             </h2>
             <p className="mt-1 text-sm text-[#7d9098]">
-              เลือกวิชาและกลุ่มผู้เรียน ส่วนอาจารย์สามารถกำหนดต่อในขั้นถัดไป
+              {section
+                ? "แก้ไขกลุ่ม ผู้สอน ตารางเรียน และสาขาที่เรียนร่วม โดยไม่เปลี่ยนรายวิชาของ Section"
+                : "เลือกวิชาในแผนการเรียน แล้วกำหนดกลุ่ม ผู้สอน และตารางเรียนในหน้าเดียว"}
             </p>
           </div>
           <button type="button" onClick={onClose} disabled={saving} aria-label="ปิด" className="rounded-full p-2 text-[#7d9098] transition hover:bg-[#edf4f6] disabled:opacity-50"><X size={19} /></button>
@@ -446,25 +488,6 @@ function SectionModal({
 
         <form onSubmit={handleSubmit} className="mt-6 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium text-[#4c626c] sm:col-span-2">
-            วิชา
-            <AdminSelect
-              value={subjectId}
-              onChange={(value) => {
-                setSubjectId(value);
-                setOwnerId("");
-                setCoInstructorIds([]);
-                setCurriculumSubjectIds([]);
-                setError("");
-              }}
-              options={subjects.map((subject) => ({ value: subject.subject_id, label: `${subject.subject_id} · ${subject.subject_name}` }))}
-              ariaLabel="เลือกวิชา"
-              placeholder="เลือกวิชา"
-              appearance="cute"
-              icon={BookOpen}
-              className="mt-2"
-            />
-          </label>
-          <label className="text-sm font-medium text-[#4c626c]">
             ภาคการศึกษา
             <AdminSelect
               value={termId}
@@ -494,15 +517,63 @@ function SectionModal({
             )}
           </label>
 
+          {section ? (
+            <div className="text-sm font-medium text-[#4c626c] sm:col-span-2">
+              <span>รายวิชาของ Section</span>
+              <div className="mt-2 flex items-center gap-3 rounded-2xl border border-[#dbe6ea] bg-[#f3f7f8] px-4 py-3.5">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#5794aa] shadow-sm">
+                  <BookOpen size={19} />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-[#36515d]">
+                    {section.subject_id} · {section.subject_name}
+                  </p>
+                  <p className="mt-0.5 text-xs font-normal text-[#82939a]">
+                    รายวิชาถูกกำหนดตั้งแต่สร้าง Section และไม่สามารถเปลี่ยนได้
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <label className="text-sm font-medium text-[#4c626c] sm:col-span-2">
+              วิชาในแผนการเรียน
+              <AdminSelect
+                value={primaryCurriculum ? String(primaryCurriculum.curriculum_subject_id) : ""}
+                onChange={(value) => {
+                  setCurriculumSubjectIds(value ? [Number(value)] : []);
+                  setOwnerId("");
+                  setCoInstructorIds([]);
+                  setError("");
+                }}
+                options={termCurricula.map((curriculum) => ({
+                  value: String(curriculum.curriculum_subject_id),
+                  label: `${curriculum.subject_id} · ${curriculum.subject_name}`,
+                  description: `${curriculum.faculty_name} · ${curriculum.department_name} · ชั้นปี ${curriculum.year_level} · ${curriculum.is_required ? "วิชาบังคับ" : "วิชาเลือก"}`,
+                }))}
+                ariaLabel="เลือกวิชาในแผนการเรียน"
+                placeholder={termId ? "เลือกวิชา สาขา และชั้นปี" : "เลือกภาคการศึกษาก่อน"}
+                appearance="cute"
+                icon={BookOpen}
+                className="mt-2"
+                disabled={!termId || termCurricula.length === 0}
+              />
+              <span className="mt-1 block text-[11px] font-normal text-[#96a4aa]">
+                ระบบจะกำหนดวิชาหลัก สาขา ชั้นปี และภาคเรียนจากรายการนี้โดยอัตโนมัติ
+              </span>
+            </label>
+          )}
+
           <div className="rounded-2xl border border-[#dce9ee] bg-[#f8fcfd] p-4 sm:col-span-2">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2 text-[#4f879c]">
                   <GraduationCap size={18} />
-                  <p className="text-sm font-medium">สาขาและชั้นปีที่ลงเรียนได้</p>
+                  <p className="text-sm font-medium">สาขาที่เรียนร่วม Section เดียวกัน</p>
                 </div>
                 <p className="mt-1 text-xs text-[#82939a]">
-                  เลือกได้หลายรายการ หาก Section นี้ใช้เรียนร่วมกันหลายสาขา
+                  {section
+                    ? "ติ๊กเพิ่มหรือนำสาขาที่เรียนร่วมออกได้ โดยรายวิชายังคงเดิม"
+                    : "ไม่ต้องเลือกเพิ่มหาก Section นี้มีเพียงสาขาเดียว"}
                 </p>
               </div>
               <span className="rounded-full bg-white px-2.5 py-1 text-xs text-[#5c8797] shadow-sm">
@@ -511,7 +582,7 @@ function SectionModal({
             </div>
             {!subjectId || !termId ? (
               <p className="mt-3 rounded-xl border border-dashed border-[#d4e3e7] bg-white px-3 py-4 text-center text-xs text-[#8a999f]">
-                เลือกวิชาและภาคการศึกษาก่อน
+                {section ? "ไม่พบข้อมูลวิชาของ Section" : "เลือกวิชาในแผนการเรียนก่อน"}
               </p>
             ) : eligibleCurricula.length === 0 ? (
               <p className="mt-3 rounded-xl border border-[#f0d8ce] bg-[#fff8f5] px-3 py-4 text-center text-xs text-[#a36a56]">
@@ -523,6 +594,10 @@ function SectionModal({
                   const checked = curriculumSubjectIds.includes(
                     curriculum.curriculum_subject_id,
                   );
+                  const isPrimary =
+                    !section &&
+                    curriculum.curriculum_subject_id ===
+                      primaryCurriculum?.curriculum_subject_id;
                   return (
                     <label
                       key={curriculum.curriculum_subject_id}
@@ -531,17 +606,12 @@ function SectionModal({
                       <input
                         type="checkbox"
                         checked={checked}
+                        disabled={isPrimary}
                         onChange={(event) => {
-                          setCurriculumSubjectIds((current) =>
-                            event.target.checked
-                              ? [...current, curriculum.curriculum_subject_id]
-                              : current.filter(
-                                  (id) => id !== curriculum.curriculum_subject_id,
-                                ),
+                          handleCurriculumToggle(
+                            curriculum.curriculum_subject_id,
+                            event.target.checked,
                           );
-                          setOwnerId("");
-                          setCoInstructorIds([]);
-                          setError("");
                         }}
                         className="mt-0.5 size-4 accent-[#5794aa]"
                       />
@@ -552,6 +622,7 @@ function SectionModal({
                         <span className="mt-0.5 block text-xs text-[#82939a]">
                           {curriculum.faculty_name} · ชั้นปี {curriculum.year_level}
                           {curriculum.is_required ? " · วิชาบังคับ" : " · วิชาเลือก"}
+                          {isPrimary ? " · รายการหลัก" : ""}
                         </span>
                       </span>
                     </label>
@@ -568,38 +639,32 @@ function SectionModal({
             จำนวนรับ (ไม่บังคับ)
             <input value={capacity} onChange={(event) => setCapacity(event.target.value)} inputMode="numeric" placeholder="เช่น 40" className={dateInputClass} />
           </label>
-          <label className="text-sm font-medium text-[#4c626c]">
-            สถานะกลุ่มเรียน
-            <AdminSelect
-              value={status}
-              onChange={(value) => setStatus(value as CourseSectionStatus)}
-              options={sectionStatusOptions.filter((option) =>
-                selectedTerm?.status === "draft"
-                  ? option.value === "draft" || option.value === "cancelled"
-                  : true,
-              )}
-              ariaLabel="เลือกสถานะกลุ่มเรียน"
-              appearance="cute"
-              icon={DoorOpen}
-              className="mt-2"
-            />
-          </label>
-
           <div className="rounded-2xl border border-[#e2e5f0] bg-[#faf9fe] p-4 sm:col-span-2">
             <div className="flex items-center gap-2 text-[#62578f]"><GraduationCap size={18} /><p className="text-sm font-medium">อาจารย์ผู้สอน <span className="font-normal text-[#8b83ad]">(กำหนดภายหลังได้)</span></p></div>
+            <label className="relative mt-3 block">
+              <span className="sr-only">ค้นหาอาจารย์</span>
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8a83ad]" size={16} />
+              <input
+                value={instructorSearch}
+                onChange={(event) => setInstructorSearch(event.target.value)}
+                placeholder="ค้นหาชื่อ คณะ หรือสาขาของอาจารย์"
+                className="h-11 w-full rounded-xl border border-[#dedbea] bg-white pl-10 pr-3.5 text-sm font-normal text-[#405862] outline-none transition focus:border-[#a49bd0] focus:ring-4 focus:ring-[#efecfa]"
+              />
+            </label>
+            <p className="mt-2 text-xs font-normal text-[#8b83ad]">เลือกอาจารย์จากคณะหรือสาขาใดก็ได้ ไม่จำเป็นต้องตรงกับสาขาของนักศึกษา</p>
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium text-[#4c626c]">
                 อาจารย์เจ้าของวิชา
                 <AdminSelect
                   value={ownerId}
                   onChange={(value) => { setOwnerId(value); setCoInstructorIds((current) => current.filter((id) => id !== value)); setError(""); }}
-                  options={eligibleInstructors.map((instructor) => ({ value: String(instructor.admin_id), label: instructorLabel(instructor), description: instructor.department_name }))}
+                  options={ownerInstructorOptions.map((instructor) => ({ value: String(instructor.admin_id), label: instructorLabel(instructor), description: `${instructor.faculty_name} · ${instructor.department_name}` }))}
                   ariaLabel="เลือกอาจารย์เจ้าของวิชา"
-                  placeholder={!curriculumSubjectIds.length ? "เลือกสาขาและชั้นปีก่อน" : eligibleInstructors.length ? "เลือกอาจารย์" : "ยังไม่มีอาจารย์ในสาขาที่เลือก"}
+                  placeholder={filteredInstructorOptions.length ? "เลือกอาจารย์" : "ไม่พบอาจารย์จากคำค้นหา"}
                   appearance="cute"
                   icon={UserRound}
                   className="mt-2"
-                  disabled={!curriculumSubjectIds.length || eligibleInstructors.length === 0}
+                  disabled={filteredInstructorOptions.length === 0}
                 />
               </label>
               <label className="text-sm font-medium text-[#4c626c]">
@@ -610,7 +675,7 @@ function SectionModal({
                     if (value) setCoInstructorIds((current) => [...current, value]);
                     setError("");
                   }}
-                  options={coInstructorOptions.map((instructor) => ({ value: String(instructor.admin_id), label: instructorLabel(instructor), description: instructor.department_name }))}
+                  options={coInstructorOptions.map((instructor) => ({ value: String(instructor.admin_id), label: instructorLabel(instructor), description: `${instructor.faculty_name} · ${instructor.department_name}` }))}
                   ariaLabel="เลือกอาจารย์ผู้สอนร่วม"
                   placeholder={coInstructorOptions.length ? "เพิ่มผู้สอนร่วม" : "ไม่มีอาจารย์ให้เลือกเพิ่ม"}
                   appearance="cute"
@@ -660,6 +725,7 @@ export default function TeachingManagementClient() {
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
   const [activeStep, setActiveStep] = useState<TeachingFlowStep>("terms");
+  const [termListView, setTermListView] = useState<"current" | "history">("current");
   const [termFilter, setTermFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [facultyFilter, setFacultyFilter] = useState("all");
@@ -719,6 +785,32 @@ export default function TeachingManagementClient() {
   const selectedTerm = workspace?.academic_terms.find(
     (term) => term.academic_term_id === Number(termFilter),
   );
+  const currentTerms = useMemo(
+    () =>
+      [...(workspace?.academic_terms ?? [])]
+        .filter((term) => term.status === "active" || term.status === "draft")
+        .sort(
+          (first, second) =>
+            Number(second.status === "active") - Number(first.status === "active") ||
+            first.start_date.localeCompare(second.start_date) ||
+            first.academic_term_id - second.academic_term_id,
+        ),
+    [workspace],
+  );
+  const historyTerms = useMemo(
+    () =>
+      [...(workspace?.academic_terms ?? [])]
+        .filter(
+          (term) => term.status === "completed" || term.status === "archived",
+        )
+        .sort(
+          (first, second) =>
+            second.end_date.localeCompare(first.end_date) ||
+            second.academic_term_id - first.academic_term_id,
+        ),
+    [workspace],
+  );
+  const visibleTerms = termListView === "current" ? currentTerms : historyTerms;
   const facultyOptions = useMemo(
     () =>
       [...new Map(
@@ -791,6 +883,14 @@ export default function TeachingManagementClient() {
   const handleTermStatus = async (term: TeachingAcademicTerm) => {
     const next = nextTermStatus[term.status];
     if (
+      next.status === "active" &&
+      !window.confirm(
+        `เปิดใช้งานปี ${term.academic_year} ภาคเรียนที่ ${term.semester_no} หรือไม่? ระบบจะตรวจทุก Section และเปิด Section ฉบับร่างทั้งหมดพร้อมกัน`,
+      )
+    ) {
+      return;
+    }
+    if (
       (next.status === "completed" || next.status === "archived") &&
       !window.confirm(
         `${next.label} ปี ${term.academic_year} ภาคเรียนที่ ${term.semester_no} หรือไม่? ข้อมูลกลุ่มเรียนจะยังคงอยู่`,
@@ -846,30 +946,6 @@ export default function TeachingManagementClient() {
   const assignedInstructorCount = new Set(
     sections.flatMap((section) => section.instructors.map((instructor) => instructor.instructor_id)),
   ).size;
-  const selectedTermSections = sections.filter(
-    (section) => section.academic_term_id === selectedTerm?.academic_term_id,
-  );
-  const sectionReadiness = selectedTermSections.map((section) => {
-    const hasCurriculum = section.curriculum_subject_ids.length > 0;
-    const hasOwner = section.instructors.some(
-      (instructor) => instructor.instructor_role === "owner",
-    );
-    const hasMeeting = section.meetings.length > 0;
-    const meetingsHaveRooms =
-      hasMeeting && section.meetings.every((meeting) => Boolean(meeting.classroom?.trim()));
-    return {
-      section,
-      hasCurriculum,
-      hasOwner,
-      hasMeeting,
-      meetingsHaveRooms,
-      ready: hasCurriculum && hasOwner && hasMeeting && meetingsHaveRooms,
-    };
-  });
-  const readySectionCount = sectionReadiness.filter((item) => item.ready).length;
-  const selectedTermReady =
-    selectedTermSections.length > 0 && readySectionCount === selectedTermSections.length;
-
   return (
     <>
       <section className="rounded-[28px] border border-[#dcebf0] bg-[linear-gradient(135deg,#ffffff_0%,#eef8fb_100%)] p-6 shadow-sm sm:p-8">
@@ -883,14 +959,14 @@ export default function TeachingManagementClient() {
             {activeStep === "terms" ? (
               <button type="button" onClick={() => { setEditingTerm(null); setTermModalOpen(true); }} className="inline-flex h-11 items-center gap-2 rounded-full border border-[#bddce7] bg-white px-4 text-sm font-medium text-[#477f93] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"><CalendarPlus size={17} /> เพิ่มภาคการศึกษา</button>
             ) : (
-              <button type="button" onClick={() => { setEditingSection(null); setSectionModalOpen(true); }} disabled={!selectedTerm || !workspace?.subjects.length || !workspace.instructors.length} className="inline-flex h-11 items-center gap-2 rounded-full bg-[#7468a8] px-5 text-sm font-medium text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#655a98] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-45"><Plus size={17} /> เพิ่มวิชาและ Section</button>
+              <button type="button" onClick={() => { setEditingSection(null); setSectionModalOpen(true); }} disabled={!selectedTerm || !workspace?.curriculum_subjects.length} className="inline-flex h-11 items-center gap-2 rounded-full bg-[#7468a8] px-5 text-sm font-medium text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#655a98] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-45"><Plus size={17} /> เพิ่ม Section</button>
             )}
           </div>
         </div>
       </section>
 
       <section className="mt-6 overflow-hidden rounded-[24px] border border-[#dfeaec] bg-white p-2 shadow-sm">
-        <div className="grid gap-2 md:grid-cols-4" role="tablist" aria-label="ขั้นตอนเตรียมการเปิดสอน">
+        <div className="grid gap-2 md:grid-cols-2" role="tablist" aria-label="ขั้นตอนเตรียมการเปิดสอน">
           {teachingFlowSteps.map((step) => {
             const Icon = step.icon;
             const active = activeStep === step.value;
@@ -941,6 +1017,29 @@ export default function TeachingManagementClient() {
           </span>
         </div>
 
+        {(workspace?.academic_terms.length ?? 0) > 0 && (
+          <div className="mt-5 inline-flex rounded-2xl border border-[#dfeaec] bg-[#f4f8f9] p-1.5" role="tablist" aria-label="เลือกกลุ่มภาคการศึกษา">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={termListView === "current"}
+              onClick={() => setTermListView("current")}
+              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${termListView === "current" ? "bg-white text-[#3f7e95] shadow-sm" : "text-[#71858e] hover:text-[#3f7e95]"}`}
+            >
+              ปัจจุบันและที่กำลังเตรียม · {currentTerms.length}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={termListView === "history"}
+              onClick={() => setTermListView("history")}
+              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${termListView === "history" ? "bg-white text-[#7468a8] shadow-sm" : "text-[#71858e] hover:text-[#7468a8]"}`}
+            >
+              ประวัติเทอม · {historyTerms.length}
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <div className="mt-5 flex min-h-36 items-center justify-center gap-2 text-sm text-[#71858e]">
             <LoaderCircle className="animate-spin" size={20} /> กำลังโหลดภาคการศึกษา...
@@ -949,9 +1048,15 @@ export default function TeachingManagementClient() {
           <div className="mt-5 rounded-2xl border border-dashed border-[#cddfe5] bg-[#fafcfd] px-5 py-10 text-center text-sm text-[#82939a]">
             ยังไม่มีภาคการศึกษา กด “เพิ่มภาคการศึกษา” เพื่อเริ่มต้น
           </div>
+        ) : visibleTerms.length === 0 ? (
+          <div className="mt-5 rounded-2xl border border-dashed border-[#cddfe5] bg-[#fafcfd] px-5 py-10 text-center text-sm text-[#82939a]">
+            {termListView === "current"
+              ? "ยังไม่มีเทอมปัจจุบันหรือเทอมที่กำลังเตรียม"
+              : "ยังไม่มีประวัติภาคการศึกษาที่สิ้นสุดแล้ว"}
+          </div>
         ) : (
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            {workspace.academic_terms.map((term) => {
+            {visibleTerms.map((term) => {
               const sectionCount = sections.filter(
                 (section) => section.academic_term_id === term.academic_term_id,
               ).length;
@@ -1005,6 +1110,19 @@ export default function TeachingManagementClient() {
                     </button>
                     <button
                       type="button"
+                      disabled={termStatusUpdatingId === term.academic_term_id}
+                      onClick={() => void handleTermStatus(term)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#e8f5f9] px-3.5 py-2 text-xs font-medium text-[#477f93] transition hover:bg-[#dceff5] disabled:opacity-50"
+                    >
+                      {termStatusUpdatingId === term.academic_term_id ? (
+                        <LoaderCircle className="animate-spin" size={14} />
+                      ) : (
+                        <CheckCircle2 size={14} />
+                      )}
+                      {nextTermStatus[term.status].label}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => { setEditingTerm(term); setTermModalOpen(true); }}
                       className="inline-flex items-center gap-1.5 rounded-xl bg-[#eef4f7] px-3.5 py-2 text-xs font-medium text-[#4f7f91] transition hover:bg-[#e1edf2]"
                     >
@@ -1019,7 +1137,7 @@ export default function TeachingManagementClient() {
       </section>
       )}
 
-      {(activeStep === "sections" || activeStep === "schedule") && (
+      {activeStep === "sections" && (
       <section className="mt-6 rounded-[26px] border border-[#dfeaec] bg-white p-5 shadow-sm sm:p-6">
         <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -1083,7 +1201,11 @@ export default function TeachingManagementClient() {
           <AdminSelect
             value={statusFilter}
             onChange={setStatusFilter}
-            options={[{ value: "all", label: "ทุกสถานะ" }, ...sectionStatusOptions]}
+            options={[
+              { value: "all", label: "ทุกสถานะ" },
+              { value: "open", label: "เปิดสอน" },
+              { value: "closed", label: "ปิดรับ" },
+            ]}
             ariaLabel="กรองสถานะกลุ่มเรียน"
             appearance="cute"
             icon={DoorOpen}
@@ -1105,12 +1227,12 @@ export default function TeachingManagementClient() {
         </div>
       )}
 
-      {(activeStep === "sections" || activeStep === "schedule") && (
+      {activeStep === "sections" && (
       <section className="mt-6">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-[#4f879c]">{activeStep === "sections" ? "Courses & Sections" : "Teaching Schedule"}</p>
-            <h2 className="mt-1 text-xl font-semibold text-[#304b56]">{activeStep === "sections" ? "วิชาและกลุ่มเรียนในเทอมที่เลือก" : "อาจารย์ผู้สอนและตารางเรียน"}</h2>
+            <p className="text-sm font-medium text-[#4f879c]">Courses, Sections & Schedule</p>
+            <h2 className="mt-1 text-xl font-semibold text-[#304b56]">Section ผู้สอน และตารางเรียนในเทอมที่เลือก</h2>
           </div>
           <span className="rounded-full bg-[#eaf6fa] px-3 py-1.5 text-xs font-medium text-[#4f879c]">{filteredSections.length} กลุ่ม</span>
         </div>
@@ -1152,7 +1274,6 @@ export default function TeachingManagementClient() {
                       <span className="rounded-full bg-[#fff0ec] px-3 py-1.5 text-[11px] text-[#a65d4a]">ยังไม่กำหนดสาขาและชั้นปี</span>
                     )}
                   </div>
-                  {activeStep === "schedule" && (
                   <div className="mt-4 rounded-2xl border border-[#e1ebee] bg-white p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
@@ -1206,10 +1327,9 @@ export default function TeachingManagementClient() {
                       </div>
                     )}
                   </div>
-                  )}
                   <div className="mt-4 flex justify-end gap-2">
                     {canToggle && selectedTerm?.status === "active" && <button type="button" disabled={statusUpdatingId === section.section_id} onClick={() => void handleQuickStatus(section)} className="inline-flex items-center gap-2 rounded-xl border border-[#d6e3e7] px-3.5 py-2 text-xs font-medium text-[#607983] transition hover:bg-[#f2f8fa] disabled:opacity-50">{statusUpdatingId === section.section_id ? <LoaderCircle className="animate-spin" size={15} /> : section.status === "open" ? <CircleOff size={15} /> : <DoorOpen size={15} />}{section.status === "open" ? "ปิดรับ" : "เปิดสอน"}</button>}
-                    <button type="button" onClick={() => { setEditingSection(section); setSectionModalOpen(true); }} className="inline-flex items-center gap-2 rounded-xl bg-[#eef4f7] px-3.5 py-2 text-xs font-medium text-[#4f7f91] transition hover:bg-[#e1edf2]"><Pencil size={15} /> {activeStep === "schedule" ? (owner ? "แก้ไขผู้สอน" : "กำหนดผู้สอน") : "แก้ไข Section"}</button>
+                    <button type="button" onClick={() => { setEditingSection(section); setSectionModalOpen(true); }} className="inline-flex items-center gap-2 rounded-xl bg-[#eef4f7] px-3.5 py-2 text-xs font-medium text-[#4f7f91] transition hover:bg-[#e1edf2]"><Pencil size={15} /> แก้ไข Section และผู้สอน</button>
                   </div>
                 </article>
               );
@@ -1217,115 +1337,6 @@ export default function TeachingManagementClient() {
           </div>
         )}
       </section>
-      )}
-
-      {activeStep === "readiness" && (
-        <section className="mt-6 space-y-5">
-          <div className="rounded-[26px] border border-[#dfeaec] bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-medium text-[#4f879c]">Readiness Check</p>
-                <h2 className="mt-1 text-xl font-semibold text-[#304b56]">ตรวจสอบก่อนเปิดภาคการศึกษา</h2>
-                <p className="mt-1 text-sm text-[#82939a]">ทุก Section ต้องมีสาขา/ชั้นปี อาจารย์เจ้าของวิชา และคาบเรียนที่ระบุห้องครบ</p>
-              </div>
-              <div className="w-full lg:w-72">
-                <AdminSelect
-                  value={termFilter}
-                  onChange={setTermFilter}
-                  options={workspace?.academic_terms.map((term) => ({
-                    value: String(term.academic_term_id),
-                    label: `ปี ${term.academic_year} · เทอม ${term.semester_no}`,
-                    description: termStatusLabel[term.status],
-                  })) ?? []}
-                  ariaLabel="เลือกภาคการศึกษาที่ต้องการตรวจสอบ"
-                  appearance="cute"
-                  icon={CalendarDays}
-                />
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl bg-[#f7fbfc] p-4">
-                <p className="text-xs text-[#82939a]">Section ทั้งหมด</p>
-                <p className="mt-1 text-2xl font-semibold text-[#304b56]">{selectedTermSections.length}</p>
-              </div>
-              <div className="rounded-2xl bg-[#f0fbf6] p-4">
-                <p className="text-xs text-[#5f8b76]">พร้อมเปิด</p>
-                <p className="mt-1 text-2xl font-semibold text-[#39785f]">{readySectionCount}</p>
-              </div>
-              <div className="rounded-2xl bg-[#fff7f2] p-4">
-                <p className="text-xs text-[#a27561]">ต้องแก้ไข</p>
-                <p className="mt-1 text-2xl font-semibold text-[#a65d4a]">{selectedTermSections.length - readySectionCount}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            {sectionReadiness.length === 0 ? (
-              <div className="flex min-h-64 flex-col items-center justify-center rounded-[24px] border border-dashed border-[#ccdfe6] bg-white px-5 text-center lg:col-span-2">
-                <CircleOff size={28} className="text-[#6a9daf]" />
-                <p className="mt-4 font-medium text-[#405862]">ยังไม่มี Section ในภาคการศึกษานี้</p>
-                <button type="button" onClick={() => setActiveStep("sections")} className="mt-4 rounded-xl bg-[#eaf6fa] px-4 py-2 text-sm font-medium text-[#4f879c]">ไปเพิ่มวิชาและ Section</button>
-              </div>
-            ) : sectionReadiness.map(({ section, hasCurriculum, hasOwner, hasMeeting, meetingsHaveRooms, ready }) => (
-              <article key={section.section_id} className={`rounded-[24px] border bg-white p-5 shadow-sm ${ready ? "border-[#cce9dc]" : "border-[#efd9d2]"}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-medium text-[#6f9bab]">{section.subject_id} · กลุ่ม {section.section_number}</p>
-                    <h3 className="mt-1 font-semibold text-[#304b56]">{section.subject_name}</h3>
-                  </div>
-                  <span className={`rounded-full px-3 py-1.5 text-xs font-medium ${ready ? "bg-[#e8f8ef] text-[#3c7b59]" : "bg-[#fff0ec] text-[#a65d4a]"}`}>{ready ? "พร้อม" : "ยังไม่พร้อม"}</span>
-                </div>
-                <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                  {[
-                    [hasCurriculum, "กำหนดสาขาและชั้นปี"],
-                    [hasOwner, "มีอาจารย์เจ้าของวิชา"],
-                    [hasMeeting, "มีวันและเวลาเรียน"],
-                    [meetingsHaveRooms, "ระบุห้องเรียนครบ"],
-                  ].map(([passed, label]) => (
-                    <div key={String(label)} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs ${passed ? "bg-[#f0fbf6] text-[#39785f]" : "bg-[#fff5f2] text-[#a65d4a]"}`}>
-                      {passed ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
-                      <span>{String(label)}</span>
-                    </div>
-                  ))}
-                </div>
-                {!ready && (
-                  <button type="button" onClick={() => { setEditingSection(section); setSectionModalOpen(true); }} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#eef4f7] px-3.5 py-2 text-xs font-medium text-[#4f7f91]"><Pencil size={14} /> แก้ไข Section</button>
-                )}
-              </article>
-            ))}
-          </div>
-
-          {selectedTerm && (
-            <div className="flex flex-col gap-3 rounded-[24px] border border-[#dfeaec] bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="font-medium text-[#405862]">ปี {selectedTerm.academic_year} · ภาคเรียนที่ {selectedTerm.semester_no}</p>
-                <p className="mt-1 text-sm text-[#82939a]">สถานะปัจจุบัน: {termStatusLabel[selectedTerm.status]}</p>
-              </div>
-              {selectedTerm.status === "draft" ? (
-                <button
-                  type="button"
-                  disabled={!selectedTermReady || termStatusUpdatingId === selectedTerm.academic_term_id}
-                  onClick={() => void handleTermStatus(selectedTerm)}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#5794aa] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#477f93] disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  {termStatusUpdatingId === selectedTerm.academic_term_id ? <LoaderCircle className="animate-spin" size={17} /> : <CheckCircle2 size={17} />}
-                  เปิดภาคการศึกษาและทุก Section
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={termStatusUpdatingId === selectedTerm.academic_term_id}
-                  onClick={() => void handleTermStatus(selectedTerm)}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#bddce7] bg-white px-5 text-sm font-medium text-[#477f93] shadow-sm transition hover:bg-[#f2f8fa] disabled:opacity-45"
-                >
-                  {termStatusUpdatingId === selectedTerm.academic_term_id ? <LoaderCircle className="animate-spin" size={17} /> : <CheckCircle2 size={17} />}
-                  {nextTermStatus[selectedTerm.status].label}
-                </button>
-              )}
-            </div>
-          )}
-        </section>
       )}
 
       {termModalOpen && (
@@ -1341,7 +1352,6 @@ export default function TeachingManagementClient() {
           key={editingSection?.section_id ?? "new-section"}
           section={editingSection}
           terms={workspace.academic_terms}
-          subjects={workspace.subjects}
           instructors={workspace.instructors}
           curriculumSubjects={workspace.curriculum_subjects}
           defaultTermId={selectedTerm?.academic_term_id ?? null}
