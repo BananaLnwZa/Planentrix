@@ -51,26 +51,36 @@ function ensureDirs(dirs: ImageOutputDirs) {
 // ฟังก์ชันแยกโจทย์, ตัวเลือก, เฉลย (*), และรูปภาพจาก HTML
 // ==========================================================================
 export function parseExamHtml(html: string): ParsedQuestion[] {
-  // แปลงการขึ้นบรรทัดใหม่แบบ Shift+Enter (<br>) ให้เป็นย่อหน้าใหม่
-  // และแยกรายการ <li> ให้เป็นย่อหน้า เพื่อไม่ให้โจทย์กับตัวเลือกติดกันเป็นบรรทัดเดียว
-  const normalized = html
-    .replace(/<br\s*\/?>/gi, "</p><p>")
-    .replace(/<\/li>\s*<li[^>]*>/gi, "</p><p>")
-    .replace(/<li[^>]*>/gi, "<p>")
-    .replace(/<\/li>/gi, "</p>");
-
-  const paragraphs = [...normalized.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map(
-    (m) => m[1]
-  );
+  // แตก HTML เป็นบล็อก: ย่อหน้า <p> (แยกตาม <br> / Shift+Enter) และรายการ <li> ใน <ol>/<ul>
+  // mammoth ไม่ส่งตัวอักษร/ตัวเลขของ Word Numbering มาให้ จึงต้องจำว่าบล็อกไหนมาจากรายการ
+  const paragraphs: { html: string; fromList: boolean }[] = [];
+  const blockRegex = /<(ol|ul)[^>]*>([\s\S]*?)<\/\1>|<p[^>]*>([\s\S]*?)<\/p>/gi;
+  for (const m of html.matchAll(blockRegex)) {
+    if (m[1]) {
+      for (const li of m[2].matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)) {
+        paragraphs.push({ html: li[1], fromList: true });
+      }
+    } else {
+      for (const part of m[3].split(/<br\s*\/?>/i)) {
+        paragraphs.push({ html: part, fromList: false });
+      }
+    }
+  }
 
   const questions: ParsedQuestion[] = [];
   let currentQuestion: ParsedQuestion | null = null;
 
   const questionPattern = /^\s*(\d+)[\.\)]\s*(.*)$/;
-  // รองรับ ก. ก) (ก) ก (ไม่มีจุด) และ a-e / A-E พร้อมเครื่องหมาย * หน้าตัวเลือก
-  const choicePattern = /^\s*(\*?)\s*\(?([ก-ง]|[a-eA-E])(?:[\.\)]\s*|\s+)(.+)$/;
+  // ตัวเลือกที่รองรับ (มีเครื่องหมาย * นำหน้าได้ = เฉลย):
+  //  - ไทย มีตัวคั่น:     ก.  ก)  (ก)
+  //  - ละติน มีตัวคั่น:    a.  a)  (a)  ต้องมีช่องว่างตามหลัง เพื่อไม่ชนกับ "e.g." เป็นต้น
+  //  - ไทย ไม่มีตัวคั่น:   "ก โปรแกรม"
+  // ละตินที่ไม่มีตัวคั่น (เช่น "a few", "A database is...") จะไม่ถือเป็นตัวเลือก
+  // groups: 1=* 2=ไทยมีตัวคั่น 3=ละตินมีตัวคั่น 4=ไทยไม่มีตัวคั่น 5=ข้อความ
+  const choicePattern =
+    /^\s*(\*?)\s*(?:\(?([ก-ง])[\.\)]\s*|\(?([a-eA-E])[\.\)]\s+|([ก-ง])\s+)(.+)$/;
 
-  for (const p of paragraphs) {
+  for (const { html: p, fromList } of paragraphs) {
     const imgSrc = getImgSrc(p);
     const text = stripTags(p);
 
@@ -104,9 +114,17 @@ export function parseExamHtml(html: string): ParsedQuestion[] {
     } else if (choiceMatch && currentQuestion) {
       const isCorrect = choiceMatch[1] === "*";
       currentQuestion.choices.push({
-        choice_text: choiceMatch[3].trim(),
+        choice_text: choiceMatch[5].trim(),
         choice_image_path: imgSrc,
         is_correct: isCorrect,
+      });
+    } else if (fromList && currentQuestion && (text || imgSrc)) {
+      // ตัวเลือกจาก Word Numbering: ไม่มีตัวอักษรนำหน้าในข้อความ
+      // เฉลยยังใช้เครื่องหมาย * นำหน้าข้อความตามเดิม
+      currentQuestion.choices.push({
+        choice_text: text.replace(/^\s*\*\s*/, ""),
+        choice_image_path: imgSrc,
+        is_correct: /^\s*\*/.test(text),
       });
     } else if (currentQuestion && imgSrc && !choiceMatch) {
       if (!currentQuestion.question_image_path) {

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import fs from "fs";
 import path from "path";
+import { randomUUID } from "crypto";
 import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
 import {
@@ -9,6 +10,31 @@ import {
   parsePdfExamFile,
   ParsedQuestion,
 } from "../../services/examParser.service";
+
+// ==========================================================================
+// In-Memory Session Store สำหรับเก็บผลลัพธ์ parse ชั่วคราว (TTL 10 นาที)
+// ==========================================================================
+const PREVIEW_TTL_MS = 10 * 60 * 1000;
+
+interface PreviewSession {
+  questions: ParsedQuestion[];
+  warnings: unknown[];
+  question_bank_id: number;
+  outputDirs: ImageOutputDirs;
+  createdAt: number;
+}
+
+const previewSessions = new Map<string, PreviewSession>();
+
+const evictExpiredSessions = () => {
+  const now = Date.now();
+  for (const [token, session] of previewSessions.entries()) {
+    if (now - session.createdAt > PREVIEW_TTL_MS) {
+      removeParsedImages(session.questions, session.outputDirs);
+      previewSessions.delete(token);
+    }
+  }
+};
 
 interface QuestionBankImportRow extends RowDataPacket {
   question_bank_id: number;
@@ -55,8 +81,34 @@ const removeParsedImages = (questions: ParsedQuestion[], outputDirs: ImageOutput
 };
 
 // ==========================================================================
-// ตรวจโครงสร้างโจทย์/ตัวเลือกก่อนบันทึก ถ้าข้อใดไม่ครบ จะไม่บันทึกทั้งไฟล์
+// ตรวจสิทธิ์และดึงข้อมูล question_bank (shared helper)
 // ==========================================================================
+const verifyBankAccess = async (
+  question_bank_id: number,
+  userId: number,
+  userRole: string,
+): Promise<{ bank: QuestionBankImportRow | null; errorStatus: number; errorMsg: string }> => {
+  const [bankRows] = await db.query<QuestionBankImportRow[]>(
+    `SELECT question_bank_id, owner_instructor_id, bank_name, exam_period, status
+     FROM question_banks WHERE question_bank_id = ?`,
+    [question_bank_id],
+  );
+  if (bankRows.length === 0) {
+    return { bank: null, errorStatus: 404, errorMsg: "question_bank_id not found in question_banks table" };
+  }
+  const bank = bankRows[0];
+  if (bank.status === "archived") {
+    return { bank: null, errorStatus: 409, errorMsg: "พาร์ทนี้ถูกจัดเก็บแล้ว ไม่สามารถเพิ่มคำถามได้" };
+  }
+  if (userRole === "instructor" && Number(bank.owner_instructor_id) !== userId) {
+    return { bank: null, errorStatus: 403, errorMsg: "Forbidden: This question bank belongs to another instructor" };
+  }
+  return { bank, errorStatus: 0, errorMsg: "" };
+};
+
+// ==========================================================================
+// ตรวจโครงสร้างโจทย์/ตัวเลือกก่อนบันทึก ถ้าข้อใดไม่ครบ จะไม่บันทึกทั้งไฟล์
+// ===========================================================================
 interface ValidationIssue {
   question_no: number;
   question_preview: string;
@@ -112,6 +164,265 @@ const validateParsedQuestions = (questions: ParsedQuestion[]): ValidationIssue[]
   return issues;
 };
 
+// ==========================================================================
+// [1] previewExamFile — parse ไฟล์แล้วส่ง preview กลับ (ไม่บันทึก DB)
+// POST /exam-import/preview
+// ==========================================================================
+export const previewExamFile = async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ message: "Unauthorized: Missing user ID" });
+    }
+    const allowedRoles = ["university_staff", "instructor"];
+    if (!req.user?.role || !allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden: Insufficient permissions" });
+    }
+    const question_bank_id = Number(req.body.question_bank_id);
+    if (!Number.isInteger(question_bank_id) || question_bank_id <= 0) {
+      return res.status(400).json({ message: "Valid question_bank_id is required" });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: "Exam file (.docx or .pdf) is required" });
+    }
+
+    const { bank, errorStatus, errorMsg } = await verifyBankAccess(
+      question_bank_id,
+      req.user.id,
+      req.user.role,
+    );
+    if (!bank) {
+      if (fs.existsSync(req.file.path)) fs.unlink(req.file.path, () => {});
+      return res.status(errorStatus).json({ message: errorMsg });
+    }
+
+    const outputDirs: ImageOutputDirs = {
+      questionDir: path.join(__dirname, "../../uploads/questions"),
+      choiceDir: path.join(__dirname, "../../uploads/choices"),
+    };
+    if (!fs.existsSync(outputDirs.questionDir)) fs.mkdirSync(outputDirs.questionDir, { recursive: true });
+    if (!fs.existsSync(outputDirs.choiceDir)) fs.mkdirSync(outputDirs.choiceDir, { recursive: true });
+
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    if (!hasExpectedFileSignature(req.file.path, ext)) {
+      fs.unlink(req.file.path, () => {});
+      return res.status(400).json({ message: "เนื้อหาไฟล์ไม่ตรงกับชนิด PDF หรือ DOCX ที่เลือก" });
+    }
+
+    let parsedQuestions: ParsedQuestion[] = [];
+    let warnings: unknown[] = [];
+    if (ext === ".docx") {
+      const parsed = await parseDocxExamFile(req.file.path, outputDirs);
+      parsedQuestions = parsed.questions;
+      warnings = parsed.warnings;
+    } else if (ext === ".pdf") {
+      const parsed = await parsePdfExamFile(req.file.path, outputDirs);
+      parsedQuestions = parsed.questions;
+      warnings = parsed.warnings;
+    } else {
+      if (fs.existsSync(req.file.path)) fs.unlink(req.file.path, () => {});
+      return res.status(400).json({ message: "Unsupported file format. Only .docx and .pdf are allowed." });
+    }
+
+    if (fs.existsSync(req.file.path)) fs.unlink(req.file.path, () => {});
+
+    if (parsedQuestions.length === 0) {
+      return res.status(400).json({
+        message: "No questions could be parsed from this file. Please check the document format.",
+        warnings,
+      });
+    }
+
+    const issues = validateParsedQuestions(parsedQuestions);
+
+    evictExpiredSessions();
+    const sessionToken = randomUUID();
+    previewSessions.set(sessionToken, {
+      questions: parsedQuestions,
+      warnings,
+      question_bank_id,
+      outputDirs,
+      createdAt: Date.now(),
+    });
+
+    return res.status(200).json({
+      message: issues.length > 0
+        ? `พบข้อสอบที่มีโครงสร้างไม่ครบ ${issues.length} ข้อ กรุณาตรวจสอบก่อนยืนยันการบันทึก`
+        : "Parse สำเร็จ กรุณาตรวจสอบข้อสอบแล้วยืนยันการบันทึก",
+      can_save: issues.length === 0,
+      session_token: sessionToken,
+      expires_in_seconds: PREVIEW_TTL_MS / 1000,
+      question_bank: {
+        id: bank.question_bank_id,
+        name: bank.bank_name,
+        period: bank.exam_period,
+      },
+      total_questions_parsed: parsedQuestions.length,
+      questions: parsedQuestions.map((q, i) => ({
+        question_no: i + 1,
+        question_text: q.question_text,
+        question_image_path: q.question_image_path,
+        score: q.score ?? 1,
+        choices: q.choices.map((c, ci) => ({
+          choice_no: ci + 1,
+          choice_text: c.choice_text,
+          choice_image_path: c.choice_image_path,
+          is_correct: c.is_correct,
+        })),
+      })),
+      invalid_questions: issues,
+      warnings,
+    });
+  } catch (err) {
+    console.error("previewExamFile error:", err);
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlink(req.file.path, () => {});
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==========================================================================
+// [2] confirmImportExam — บันทึกข้อสอบที่ผ่าน preview เข้า DB
+// POST /exam-import/confirm
+// Body: { session_token: string, question_bank_id: number }
+// ==========================================================================
+export const confirmImportExam = async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ message: "Unauthorized: Missing user ID" });
+    }
+    const allowedRoles = ["university_staff", "instructor"];
+    if (!req.user?.role || !allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden: Insufficient permissions" });
+    }
+
+    const { session_token, question_bank_id: rawBankId } = req.body;
+    if (!session_token || typeof session_token !== "string") {
+      return res.status(400).json({ message: "session_token is required" });
+    }
+    const question_bank_id = Number(rawBankId);
+    if (!Number.isInteger(question_bank_id) || question_bank_id <= 0) {
+      return res.status(400).json({ message: "Valid question_bank_id is required" });
+    }
+
+    evictExpiredSessions();
+    const session = previewSessions.get(session_token);
+    if (!session) {
+      return res.status(404).json({
+        message: "session_token ไม่พบหรือหมดอายุแล้ว กรุณา preview ใหม่อีกครั้ง",
+      });
+    }
+    if (session.question_bank_id !== question_bank_id) {
+      return res.status(400).json({ message: "question_bank_id ไม่ตรงกับที่ preview ไว้" });
+    }
+
+    // ตรวจโครงสร้างอีกครั้ง (ป้องกัน bypass)
+    const issues = validateParsedQuestions(session.questions);
+    if (issues.length > 0) {
+      return res.status(422).json({
+        message: `โครงสร้างข้อสอบไม่ครบถ้วน ${issues.length} ข้อ ไม่สามารถบันทึกได้`,
+        total_questions_parsed: session.questions.length,
+        invalid_questions: issues,
+        warnings: session.warnings,
+      });
+    }
+
+    const { bank, errorStatus, errorMsg } = await verifyBankAccess(
+      question_bank_id,
+      req.user.id,
+      req.user.role,
+    );
+    if (!bank) {
+      return res.status(errorStatus).json({ message: errorMsg });
+    }
+
+    const connection = await db.getConnection();
+    const insertedQuestions = [];
+    try {
+      await connection.beginTransaction();
+
+      const [lockedBankRows] = await connection.query<QuestionBankImportRow[]>(
+        `SELECT question_bank_id, owner_instructor_id, bank_name, exam_period, status
+         FROM question_banks WHERE question_bank_id = ? LIMIT 1 FOR UPDATE`,
+        [question_bank_id],
+      );
+      const lockedBank = lockedBankRows[0];
+      if (!lockedBank || lockedBank.status === "archived") {
+        await connection.rollback();
+        return res.status(409).json({ message: "พาร์ทนี้ถูกจัดเก็บแล้ว ไม่สามารถเพิ่มคำถามได้" });
+      }
+      if (req.user.role === "instructor" && Number(lockedBank.owner_instructor_id) !== req.user.id) {
+        await connection.rollback();
+        return res.status(403).json({ message: "Forbidden: This question bank belongs to another instructor" });
+      }
+
+      for (const q of session.questions) {
+        const [qResult] = await connection.query<ResultSetHeader>(
+          `INSERT INTO question (question_bank_id, question_text, question_image_path, question_score, is_active)
+           VALUES (?, ?, ?, ?, 1)`,
+          [question_bank_id, q.question_text, q.question_image_path ?? null, q.score || 1],
+        );
+        const questionId = qResult.insertId;
+        for (let i = 0; i < q.choices.length; i++) {
+          const choice = q.choices[i];
+          await connection.query(
+            `INSERT INTO choice (question_id, choice_order, choice_text, choice_image_path, is_correct, is_active)
+             VALUES (?, ?, ?, ?, ?, 1)`,
+            [questionId, i + 1, choice.choice_text, choice.choice_image_path ?? null, choice.is_correct ? 1 : 0],
+          );
+        }
+        insertedQuestions.push({
+          question_id: questionId,
+          question_text: q.question_text,
+          question_image_path: q.question_image_path,
+          score: q.score || 1,
+          choice_count: q.choices.length,
+        });
+      }
+      await connection.commit();
+    } catch (dbErr) {
+      await connection.rollback();
+      removeParsedImages(session.questions, session.outputDirs);
+      throw dbErr;
+    } finally {
+      connection.release();
+    }
+
+    previewSessions.delete(session_token);
+
+    return res.status(201).json({
+      message: "Exam file imported successfully",
+      question_bank: {
+        id: bank.question_bank_id,
+        name: bank.bank_name,
+        period: bank.exam_period,
+      },
+      total_questions_imported: insertedQuestions.length,
+      questions: insertedQuestions,
+      warnings: session.warnings,
+    });
+  } catch (err) {
+    console.error("confirmImportExam error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==========================================================================
+// [3] cancelPreview — ยกเลิก session และลบรูปภาพชั่วคราว
+// DELETE /exam-import/preview/:session_token
+// ==========================================================================
+export const cancelPreview = (req: Request, res: Response) => {
+  const session_token = req.params.session_token as string;
+  const session = previewSessions.get(session_token);
+  if (!session) {
+    return res.status(404).json({ message: "session_token ไม่พบหรือหมดอายุแล้ว" });
+  }
+  removeParsedImages(session.questions, session.outputDirs);
+  previewSessions.delete(session_token);
+  return res.status(200).json({ message: "ยกเลิก preview เรียบร้อยแล้ว" });
+};
+
+// ==========================================================================
+// [Legacy] importExamFile — parse + บันทึก DB ในขั้นตอนเดียว (backward compat)
+// ==========================================================================
 export const importExamFile = async (req: Request, res: Response) => {
   try {
     // 1. ตรวจสอบสิทธิ์การใช้งาน
