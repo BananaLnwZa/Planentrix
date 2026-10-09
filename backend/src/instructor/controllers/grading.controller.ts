@@ -18,6 +18,8 @@ interface GradingSubjectRow extends RowDataPacket {
   subject_name: string;
   section_count: number;
   can_manage: number | boolean;
+  has_draft_term: number | boolean;
+  has_active_term: number | boolean;
 }
 
 interface GradingSchemeRow extends RowDataPacket {
@@ -147,14 +149,19 @@ const getSubjectAccess = async (
     `SELECT subject.subject_id
      FROM subjects subject
      WHERE BINARY subject.subject_id = ?
+       AND subject.is_active = 1
        AND EXISTS (
          SELECT 1
          FROM course_sections section
          INNER JOIN section_instructors assignment
            ON assignment.section_id = section.section_id
+         INNER JOIN academic_terms term
+           ON term.academic_term_id = section.academic_term_id
          WHERE section.subject_id = subject.subject_id
            AND assignment.instructor_id = ?
            AND assignment.instructor_role = 'owner'
+           AND section.status IN ('draft', 'open', 'closed')
+           AND term.status IN ('draft', 'active')
        )
      LIMIT 1
      FOR UPDATE`,
@@ -183,9 +190,15 @@ const getSchemeAccess = async (
          FROM course_sections section
          INNER JOIN section_instructors assignment
            ON assignment.section_id = section.section_id
+         INNER JOIN academic_terms term
+           ON term.academic_term_id = section.academic_term_id
+         INNER JOIN subjects subject
+           ON subject.subject_id = section.subject_id AND subject.is_active = 1
          WHERE section.subject_id = scheme.subject_id
            AND assignment.instructor_id = ?
            AND assignment.instructor_role = 'owner'
+           AND section.status IN ('draft', 'open', 'closed')
+           AND term.status IN ('draft', 'active')
        )
      LIMIT 1
      FOR UPDATE`,
@@ -202,11 +215,19 @@ export const getInstructorGradingWorkspace = async (req: Request, res: Response)
     const [subjects] = await db.query<GradingSubjectRow[]>(
       `SELECT subject.subject_id, subject.subject_name,
               COUNT(DISTINCT section.section_id) AS section_count,
-              MAX(assignment.instructor_role = 'owner') AS can_manage
+              TRUE AS can_manage,
+              MAX(term.status = 'draft') AS has_draft_term,
+              MAX(term.status = 'active') AS has_active_term
        FROM section_instructors assignment
        INNER JOIN course_sections section ON section.section_id = assignment.section_id
-       INNER JOIN subjects subject ON subject.subject_id = section.subject_id
+       INNER JOIN academic_terms term
+         ON term.academic_term_id = section.academic_term_id
+       INNER JOIN subjects subject
+         ON subject.subject_id = section.subject_id AND subject.is_active = 1
        WHERE assignment.instructor_id = ?
+         AND assignment.instructor_role = 'owner'
+         AND section.status IN ('draft', 'open', 'closed')
+         AND term.status IN ('draft', 'active')
        GROUP BY subject.subject_id, subject.subject_name
        ORDER BY subject.subject_name, subject.subject_id`,
       [instructorId],
@@ -218,8 +239,23 @@ export const getInstructorGradingWorkspace = async (req: Request, res: Response)
               published_by_admin_id, published_at, created_at, updated_at
        FROM grading_schemes
        WHERE instructor_id = ? AND scheme_type = 'instructor_subject'
+         AND EXISTS (
+           SELECT 1
+           FROM course_sections section
+           INNER JOIN section_instructors assignment
+             ON assignment.section_id = section.section_id
+           INNER JOIN academic_terms term
+             ON term.academic_term_id = section.academic_term_id
+           INNER JOIN subjects subject
+             ON subject.subject_id = section.subject_id AND subject.is_active = 1
+           WHERE section.subject_id = grading_schemes.subject_id
+             AND assignment.instructor_id = ?
+             AND assignment.instructor_role = 'owner'
+             AND section.status IN ('draft', 'open', 'closed')
+             AND term.status IN ('draft', 'active')
+         )
        ORDER BY subject_id, version DESC, grading_scheme_id DESC`,
-      [instructorId],
+      [instructorId, instructorId],
     );
 
     const [boundaries] = await db.query<GradeBoundaryRow[]>(
@@ -231,8 +267,23 @@ export const getInstructorGradingWorkspace = async (req: Request, res: Response)
          ON scheme.grading_scheme_id = boundary.grading_scheme_id
        WHERE scheme.instructor_id = ?
          AND scheme.scheme_type = 'instructor_subject'
+         AND EXISTS (
+           SELECT 1
+           FROM course_sections section
+           INNER JOIN section_instructors assignment
+             ON assignment.section_id = section.section_id
+           INNER JOIN academic_terms term
+             ON term.academic_term_id = section.academic_term_id
+           INNER JOIN subjects subject
+             ON subject.subject_id = section.subject_id AND subject.is_active = 1
+           WHERE section.subject_id = scheme.subject_id
+             AND assignment.instructor_id = ?
+             AND assignment.instructor_role = 'owner'
+             AND section.status IN ('draft', 'open', 'closed')
+             AND term.status IN ('draft', 'active')
+         )
        ORDER BY boundary.grading_scheme_id, boundary.display_order`,
-      [instructorId],
+      [instructorId, instructorId],
     );
 
     const boundariesByScheme = new Map<number, GradeBoundaryRow[]>();
@@ -246,7 +297,9 @@ export const getInstructorGradingWorkspace = async (req: Request, res: Response)
       subjects: subjects.map((subject) => ({
         ...subject,
         section_count: Number(subject.section_count),
-        can_manage: Boolean(subject.can_manage),
+        can_manage: Number(subject.can_manage) === 1,
+        has_draft_term: Number(subject.has_draft_term) === 1,
+        has_active_term: Number(subject.has_active_term) === 1,
       })),
       grading_schemes: schemes.map((scheme) =>
         serializeScheme(scheme, boundariesByScheme.get(Number(scheme.grading_scheme_id)) ?? []),
@@ -273,7 +326,9 @@ export const createInstructorGradingDraft = async (req: Request, res: Response) 
     const access = await getSubjectAccess(connection, subjectId, instructorId);
     if (!access) {
       await connection.rollback();
-      return res.status(404).json({ message: "ไม่พบรายวิชาที่ได้รับมอบหมายในฐานะเจ้าของวิชา" });
+      return res.status(404).json({
+        message: "ไม่พบรายวิชาที่ได้รับมอบหมายในฐานะเจ้าของวิชาของภาคการศึกษาฉบับร่างหรือที่เปิดใช้งาน",
+      });
     }
 
     const [existing] = await connection.query<GradingSchemeRow[]>(

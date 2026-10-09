@@ -5,6 +5,8 @@ export interface InstructorGradingSubject {
   subject_name: string;
   section_count: number;
   can_manage: boolean;
+  has_draft_term: boolean;
+  has_active_term: boolean;
 }
 
 export interface GradeBoundary {

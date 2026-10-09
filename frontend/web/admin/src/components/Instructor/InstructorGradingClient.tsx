@@ -205,7 +205,7 @@ export default function InstructorGradingClient() {
             <div className="flex size-12 items-center justify-center rounded-2xl bg-[#eeeafa] text-[#7567a9]"><Award size={25} strokeWidth={1.8} /></div>
             <p className="mt-5 text-sm font-medium text-[#6f65a0]">Grading Schemes</p>
             <h2 className="mt-1 text-2xl text-[#304b56]">เกณฑ์ตัดเกรด</h2>
-            <p className="mt-2 text-sm leading-6 text-[#7a8b92]">กำหนดเกณฑ์ต่อรายวิชาที่สอน ใช้ร่วมกันทุกกลุ่มเรียนและทุกภาคการศึกษา</p>
+            <p className="mt-2 text-sm leading-6 text-[#7a8b92]">เตรียมเกณฑ์ล่วงหน้าได้ตั้งแต่ภาคการศึกษาเป็นฉบับร่าง และใช้ร่วมกันทุกกลุ่มเรียนของวิชานั้น</p>
           </div>
           <label className="relative w-full sm:max-w-xs">
             <span className="sr-only">ค้นหารายวิชา</span>
@@ -218,7 +218,7 @@ export default function InstructorGradingClient() {
       {subjects.length === 0 ? (
         <div className="flex min-h-64 flex-col items-center justify-center rounded-[28px] border border-dashed border-[#cfe0e6] bg-white/70 px-6 text-center">
           <BookOpen className="text-[#75a2b2]" size={32} /><p className="mt-3 font-medium text-[#405862]">ยังไม่มีรายวิชาที่ได้รับมอบหมาย</p>
-          <p className="mt-1 text-sm text-[#82939a]">รายวิชาจะแสดงเมื่อเจ้าหน้าที่มอบหมายให้คุณเป็นอาจารย์เจ้าของวิชา</p>
+          <p className="mt-1 text-sm text-[#82939a]">รายวิชาจะแสดงเมื่อเจ้าหน้าที่มอบหมายให้คุณเป็นอาจารย์เจ้าของวิชาในภาคการศึกษาฉบับร่างหรือที่กำลังเปิดอยู่</p>
         </div>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[330px_minmax(0,1fr)]">
@@ -234,7 +234,12 @@ export default function InstructorGradingClient() {
                   <button key={subject.subject_id} type="button" onClick={() => selectSubject(subject)} className={`w-full rounded-[20px] border p-4 text-left transition ${active ? "border-[#b7dbe7] bg-[#ebf8fb] shadow-sm" : "border-transparent bg-[#f8fbfc] hover:border-[#dbe9ee] hover:bg-white"}`}>
                     <div className="flex items-start justify-between gap-2"><span className="text-xs font-semibold text-[#54879a]">{subject.subject_id}</span>{draft && <span className="size-2 rounded-full bg-[#e3a94a]" title="มีฉบับร่าง" />}</div>
                     <p className="mt-1 line-clamp-2 text-sm font-medium text-[#3c535d]">{subject.subject_name}</p>
-                    <div className="mt-3 flex items-center justify-between text-[11px] text-[#82949c]"><span>{subject.section_count} กลุ่มเรียน</span><span>{published ? `ใช้ V${published.version}` : "ยังไม่ Publish"}</span></div>
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] text-[#82949c]">
+                      <span>{subject.section_count} กลุ่มเรียน</span>
+                      {subject.has_draft_term && <span className="rounded-full bg-[#fff2d7] px-2 py-0.5 font-medium text-[#9a6b22]">เตรียมเทอมร่าง</span>}
+                      {subject.has_active_term && <span className="rounded-full bg-[#e5f5ec] px-2 py-0.5 font-medium text-[#4c8066]">เทอมเปิดอยู่</span>}
+                      <span className="ml-auto">{published ? `ใช้ V${published.version}` : "ยังไม่ Publish"}</span>
+                    </div>
                   </button>
                 );
               })}
@@ -246,7 +251,11 @@ export default function InstructorGradingClient() {
             {selectedSubject && <>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="text-xs font-medium text-[#6f8f9b]">{selectedSubject.subject_id} · {selectedSubject.section_count} กลุ่มเรียน</p>
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-[#6f8f9b]">
+                    <span>{selectedSubject.subject_id} · {selectedSubject.section_count} กลุ่มเรียน</span>
+                    {selectedSubject.has_draft_term && <span className="rounded-full bg-[#fff2d7] px-2.5 py-1 text-[#9a6b22]">ภาคการศึกษาฉบับร่าง</span>}
+                    {selectedSubject.has_active_term && <span className="rounded-full bg-[#e5f5ec] px-2.5 py-1 text-[#4c8066]">กำลังเปิดใช้งาน</span>}
+                  </div>
                   <h3 className="mt-1 text-xl font-semibold text-[#304b56]">{selectedSubject.subject_name}</h3>
                   <p className="mt-2 text-sm text-[#82939a]">เกณฑ์ชุดนี้ใช้ร่วมกันทุก sec และทุกเทอมของวิชานี้</p>
                 </div>
