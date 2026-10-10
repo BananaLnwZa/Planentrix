@@ -33,6 +33,9 @@ import type {
 import instructorExamService from "@/services/instructor-exam.service";
 import InstructorQuestionEditModal from "@/components/Instructor/InstructorQuestionEditModal";
 import AuthenticatedQuestionImage from "@/components/Instructor/AuthenticatedQuestionImage";
+import InstructorExamTemplateGuide, {
+  EXAM_TEMPLATE_PATH,
+} from "@/components/Instructor/InstructorExamTemplateGuide";
 import { formatDisplayDate } from "@/utils/dateTime";
 
 type ExamPeriod = "midterm" | "final";
@@ -791,6 +794,8 @@ export default function ExamUploadClient() {
           </div>
         )}
       </section>
+
+      <InstructorExamTemplateGuide />
 
       <section className="rounded-[26px] border border-[#dcebf0] bg-white/85 p-5 shadow-sm sm:p-7">
         <div className="flex items-center justify-between gap-4">
@@ -1587,7 +1592,14 @@ export default function ExamUploadClient() {
 
               <div className="flex items-center gap-2 rounded-xl bg-[#f5f8f9] px-3.5 py-3 text-xs leading-5 text-[#7d8d93]">
                 <CalendarDays aria-hidden="true" className="shrink-0" size={16} />
-                ระบบจะเพิ่มคำถามลงในพาร์ทที่เลือกต่อจากคำถามเดิม สามารถเพิ่มได้หลายครั้ง
+                <span className="flex-1">ระบบจะเพิ่มคำถามลงในพาร์ทที่เลือกต่อจากคำถามเดิม สามารถเพิ่มได้หลายครั้ง</span>
+                <a
+                  href={EXAM_TEMPLATE_PATH}
+                  download="ตัวอย่างรูปแบบไฟล์ข้อสอบ.docx"
+                  className="shrink-0 font-medium text-[#4b879c] underline decoration-[#9fc8d6] underline-offset-4 hover:text-[#39758c]"
+                >
+                  ดาวน์โหลดตัวอย่าง
+                </a>
               </div>
 
               <div className="flex justify-end gap-2 pt-1">
