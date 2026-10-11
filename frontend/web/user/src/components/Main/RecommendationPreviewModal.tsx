@@ -24,6 +24,8 @@ type RecommendationPreviewModalProps = {
   onAccepted: (value: WeeklyRecommendation) => void;
 };
 
+const manualBlockAddVisible = process.env.NEXT_PUBLIC_ENABLE_MANUAL_SCHEDULE_ADD === "true";
+
 const isoDay = (value: string) => {
   const day = new Date(`${value}T00:00:00`).getDay();
   return day === 0 ? 7 : day;
@@ -287,7 +289,7 @@ export default function RecommendationPreviewModal({
                     ? "ปรับตาราง"
                     : "ปรับตารางก่อนใช้"}
               </button>
-              {isAdjusting && (
+              {manualBlockAddVisible && isAdjusting && (
                 <button
                   type="button"
                   onClick={() => setIsAdding(true)}
@@ -362,7 +364,7 @@ export default function RecommendationPreviewModal({
             }
           }}
           onSave={handleSave}
-          onDelete={selectedBlock ? handleDelete : undefined}
+          onDelete={selectedBlock && recommendation.status === "pending" ? handleDelete : undefined}
         />
       )}
     </div>,

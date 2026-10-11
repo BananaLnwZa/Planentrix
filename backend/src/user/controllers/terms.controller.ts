@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
+import { getExamWorkflowPhase } from "../services/term-workflow";
 
 interface CurrentTermRow extends RowDataPacket {
   term_id: number;
@@ -17,6 +18,19 @@ interface CurrentTermRow extends RowDataPacket {
 
 interface AcademicTermRow extends RowDataPacket {
   academic_term_id: number;
+}
+
+interface TermWorkflowRow extends RowDataPacket {
+  term_id: number;
+  midterm_start_date: string | Date | null;
+  midterm_end_date: string | Date | null;
+  final_start_date: string | Date | null;
+  final_end_date: string | Date | null;
+  start_midterm: string | null;
+  end_midterm: string | null;
+  start_final: string | null;
+  end_final: string | null;
+  midterm_followup_notified_at: Date | string | null;
 }
 
 interface UserDepartmentRow extends RowDataPacket {
@@ -526,6 +540,85 @@ export const getCurrentTerm = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("getCurrentTerm error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getTermWorkflow = async (req: Request, res: Response) => {
+  try {
+    const userId = authenticatedUserId(req, res);
+    if (userId === null) return;
+    const [rows] = await db.query<TermWorkflowRow[]>(
+      `SELECT student_term.student_term_id AS term_id,
+              DATE_FORMAT(academic_term.midterm_start_date, '%Y-%m-%d') AS start_midterm,
+              DATE_FORMAT(academic_term.midterm_end_date, '%Y-%m-%d') AS end_midterm,
+              DATE_FORMAT(academic_term.final_start_date, '%Y-%m-%d') AS start_final,
+              DATE_FORMAT(academic_term.final_end_date, '%Y-%m-%d') AS end_final,
+              student_term.midterm_followup_notified_at,
+              DATE_FORMAT(academic_term.midterm_start_date, '%Y-%m-%d') AS midterm_start_date,
+              DATE_FORMAT(academic_term.midterm_end_date, '%Y-%m-%d') AS midterm_end_date,
+              DATE_FORMAT(academic_term.final_start_date, '%Y-%m-%d') AS final_start_date,
+              DATE_FORMAT(academic_term.final_end_date, '%Y-%m-%d') AS final_end_date
+       FROM student_terms student_term
+       INNER JOIN academic_terms academic_term
+         ON academic_term.academic_term_id = student_term.academic_term_id
+       WHERE student_term.user_id = ? AND student_term.status = 'active'
+       ORDER BY student_term.student_term_id DESC LIMIT 1`,
+      [userId],
+    );
+    const term = rows[0];
+    if (!term) return res.json({ data: null });
+
+    const midtermPhase = getExamWorkflowPhase(term, "midterm");
+    const finalPhase = getExamWorkflowPhase(term, "final");
+    const phase = finalPhase !== "checkpoint"
+      ? finalPhase
+      : midtermPhase !== "checkpoint"
+        ? midtermPhase
+        : "normal";
+    const [reminderRows] = await db.query<RowDataPacket[]>(
+      `SELECT (student_term.midterm_followup_notified_at IS NULL
+          AND academic_term.midterm_end_date < CURDATE()) AS pending
+       FROM student_terms student_term
+       INNER JOIN academic_terms academic_term
+         ON academic_term.academic_term_id = student_term.academic_term_id
+       WHERE student_term.student_term_id = ? AND student_term.user_id = ?`,
+      [term.term_id, userId],
+    );
+    return res.json({
+      data: {
+        term_id: Number(term.term_id),
+        phase,
+        midterm_phase: midtermPhase,
+        final_phase: finalPhase,
+        workload_locked: finalPhase === "final_1w" || finalPhase === "final_exam" || finalPhase === "final_post",
+        post_final: finalPhase === "final_post",
+        midterm_followup_pending: Number(reminderRows[0]?.pending ?? 0) === 1,
+      },
+    });
+  } catch (error) {
+    console.error("getTermWorkflow error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const acknowledgeMidtermFollowup = async (req: Request, res: Response) => {
+  try {
+    const userId = authenticatedUserId(req, res);
+    if (userId === null) return;
+    const [result] = await db.query<ResultSetHeader>(
+      `UPDATE student_terms student_term
+       INNER JOIN academic_terms academic_term
+         ON academic_term.academic_term_id = student_term.academic_term_id
+       SET student_term.midterm_followup_notified_at = NOW()
+       WHERE student_term.user_id = ? AND student_term.status = 'active'
+         AND student_term.midterm_followup_notified_at IS NULL
+         AND academic_term.midterm_end_date < CURDATE()`,
+      [userId],
+    );
+    return res.json({ acknowledged: result.affectedRows > 0 });
+  } catch (error) {
+    console.error("acknowledgeMidtermFollowup error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

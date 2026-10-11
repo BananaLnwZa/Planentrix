@@ -99,7 +99,10 @@ void _setPhoneSize(WidgetTester tester) {
   });
 }
 
-Widget _mainPage(List<HomeworkTaskData> tasks) => MaterialApp(
+Widget _mainPage(
+  List<HomeworkTaskData> tasks, {
+  Future<TermWorkflow?> Function()? workflowLoader,
+}) => MaterialApp(
   home: MainPage(
     username: 'Nicha',
     userId: 42,
@@ -107,11 +110,28 @@ Widget _mainPage(List<HomeworkTaskData> tasks) => MaterialApp(
     termRepository: _EmptyTermRepository(),
     tableRepository: _EmptyTableRepository(),
     homeworkRepository: _HomeworkRepository(tasks),
+    workflowLoader: workflowLoader,
   ),
   routes: {'/homework': (_) => const Scaffold(body: Text('Homework page'))},
 );
 
 void main() {
+  testWidgets('main page shows the final three-week exam notice', (
+    tester,
+  ) async {
+    _setPhoneSize(tester);
+    await tester.pumpWidget(
+      _mainPage(
+        const [],
+        workflowLoader: () async => const TermWorkflow(phase: 'final_3w'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('exam-flow-notice')), findsOneWidget);
+    expect(find.text('เตรียมสอบปลายภาค · 3 สัปดาห์'), findsOneWidget);
+  });
+
   testWidgets('term and active alerts share one compact row', (tester) async {
     _setPhoneSize(tester);
     final now = DateTime.now();

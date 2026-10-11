@@ -46,6 +46,15 @@ class CurrentTerm {
   }
 }
 
+class TermWorkflow {
+  final String phase;
+
+  const TermWorkflow({required this.phase});
+
+  factory TermWorkflow.fromJson(Map<String, dynamic> json) =>
+      TermWorkflow(phase: '${json['phase'] ?? 'normal'}');
+}
+
 class CreateTermRequest {
   final String yearLevel;
   final String term;

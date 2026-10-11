@@ -90,7 +90,7 @@ export default function StudyStatistics({
           </p>
         </div>
       ) : (
-        <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+        <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {progressItems.map((item) => {
             const targetMinutes = item.minutes ?? 0;
             const actualMinutes =

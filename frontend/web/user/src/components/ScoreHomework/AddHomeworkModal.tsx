@@ -61,7 +61,7 @@ export default function AddHomeworkModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-homework-title"
-        className="max-h-full w-full max-w-[430px] overflow-y-auto rounded-[22px] border border-[#D8CDD1] bg-white p-5 shadow-[0_18px_45px_rgba(86,58,70,0.22)]"
+        className="max-h-full w-full max-w-[430px] overflow-y-auto rounded-[22px] border border-[#D8CDD1] bg-white p-5 shadow-[0_18px_45px_rgba(86,58,70,0.22)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <div className="flex items-center justify-between">
           <h2 id="add-homework-title" className="text-lg font-semibold text-[#3D505A]">

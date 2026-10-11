@@ -32,6 +32,7 @@ interface SubjectGoalRow extends RowDataPacket {
 interface PublishedGradeBoundaryRow extends RowDataPacket {
   schedule_time_id: number;
   grading_scheme_id: number;
+  scheme_type: "subject_default" | "instructor_subject";
   version: number;
   grade_code: GradeCode;
   minimum_percentage: number | string;
@@ -40,6 +41,7 @@ interface PublishedGradeBoundaryRow extends RowDataPacket {
 
 interface PublishedGradingScheme {
   grading_scheme_id: number;
+  scheme_type: "subject_default" | "instructor_subject";
   version: number;
   status: "published";
   boundaries: PublishedGradeBoundary[];
@@ -146,7 +148,7 @@ const loadPublishedGradingSchemes = async (
 ) => {
   const [rows] = await connection.query<PublishedGradeBoundaryRow[]>(
     `SELECT enrollment.enrollment_id AS schedule_time_id,
-            scheme.grading_scheme_id, scheme.version,
+            scheme.grading_scheme_id, scheme.scheme_type, scheme.version,
             boundary.grade_code, boundary.minimum_percentage,
             boundary.display_order
      FROM enrollments enrollment
@@ -186,6 +188,7 @@ const loadPublishedGradingSchemes = async (
     const enrollmentId = Number(row.schedule_time_id);
     const scheme = schemes.get(enrollmentId) ?? {
       grading_scheme_id: Number(row.grading_scheme_id),
+      scheme_type: row.scheme_type,
       version: Number(row.version),
       status: "published" as const,
       boundaries: [],

@@ -213,7 +213,8 @@ class AuthService {
     // Try a lightweight authenticated call to verify the token is still valid
     try {
       await _apiService.get('/user/profile');
-      return session;
+      // The API interceptor may have refreshed the access token silently.
+      return await _storageService.getSession();
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
         // Token expired — attempt refresh
@@ -236,8 +237,9 @@ class AuthService {
         await _storageService.clearSession();
         return null;
       }
-      // Other network errors — return session as-is (offline scenario)
-      return session;
+      // Refresh failure clears storage in the API interceptor. Do not restore
+      // the stale in-memory session in that case.
+      return await _storageService.getSession();
     }
   }
 

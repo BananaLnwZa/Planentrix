@@ -4,6 +4,7 @@ import '../../../common/CurrentTermRequiredState.dart';
 import '../../../interfaces/score.interface.dart';
 import '../../../services/score.service.dart';
 import 'GradeGoalSetupPopup.dart';
+import 'FinalScoreTargetCard.dart';
 import 'ScoreEntryPopup.dart';
 import 'SubjectScoreCard.dart';
 import 'SubjectTabs.dart';
@@ -112,6 +113,10 @@ class _SubjectScoreSectionState extends State<SubjectScoreSection> {
           return subject.copyWith(
             targetScore: gpaFromGrade(grade),
             replaceTargetScore: true,
+            targetGradeCode: grade,
+            replaceTargetGradeCode: true,
+            targetMinimumPercentage: subject.minimumForGrade(grade),
+            replaceTargetMinimumPercentage: true,
           );
         }).toList();
       });
@@ -243,6 +248,8 @@ class _SubjectScoreSectionState extends State<SubjectScoreSection> {
     return Column(
       key: const Key('subject-score-section'),
       children: [
+        FinalScoreTargetCard(subjects: _subjects),
+        const SizedBox(height: 18),
         SubjectTabs(
           subjects: _subjects,
           selectedIndex: _selectedIndex,

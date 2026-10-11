@@ -537,7 +537,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('homework-details-type')),
-        matching: find.text('assignment'),
+        matching: find.text('Assignment'),
       ),
       findsOneWidget,
     );
@@ -660,17 +660,17 @@ void main() {
 
     const normalColors = {
       4: Color(0xFFC5DBAA),
-      2: Color(0xE6FFE7AB),
-      1: Color(0xE6B3F7EF),
-      5: Color(0xE6FA86A3),
-      3: Color(0xE6EECDF9),
+      2: Color(0xFFE6E6E6),
+      1: Color(0xFFB3F7EF),
+      5: Color(0xFFFA86A3),
+      3: Color(0xFFEECDF9),
     };
     const hoverColors = {
       4: Color(0xFFA5BE85),
-      2: Color(0xE6F6D481),
+      2: Color(0xFFBDBDBD),
       1: Color(0xFF74DBD0),
       5: Color(0xFFD45A78),
-      3: Color(0xE6D19EE2),
+      3: Color(0xFFD19EE2),
     };
     for (final entry in normalColors.entries) {
       final surface = tester.widget<AnimatedContainer>(

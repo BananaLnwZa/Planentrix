@@ -49,14 +49,14 @@ const boundaryForPercent = (
     .find((boundary) => percent >= boundary.minimum_percentage) ?? null;
 
 const getGoalProgressPercent = (
-  actualPercent: number,
+  earnedPoints: number,
   targetMinimumPercentage: number | null
 ) => {
   if (targetMinimumPercentage === null) return 0;
   if (targetMinimumPercentage === 0) return 100;
   return Math.min(
     100,
-    Math.max(0, (actualPercent / targetMinimumPercentage) * 100)
+    Math.max(0, (earnedPoints / targetMinimumPercentage) * 100)
   );
 };
 
@@ -72,11 +72,13 @@ export default function ScoreDashboard({
   overall,
   onSubjectsChange,
   onScoreSaved,
+  canEditScores = true,
 }: {
   subjects: SubjectGradeGoal[];
   overall: OverallGradeSummary | null;
   onSubjectsChange: (subjects: SubjectGradeGoal[]) => void;
   onScoreSaved: () => void;
+  canEditScores?: boolean;
 }) {
   const [selectedId, setSelectedId] = useState(subjects[0]?.schedule_time_id);
   const [editingWorkload, setEditingWorkload] = useState<GradeWorkload | null>(null);
@@ -129,7 +131,7 @@ export default function ScoreDashboard({
     ? boundaryForPercent(summary.percent, selected.grading_scheme.boundaries)
     : null;
   const progressPercent = getGoalProgressPercent(
-    summary.percent,
+    summary.actual,
     selected.target_minimum_percentage
   );
   const currentGrade =
@@ -174,11 +176,38 @@ export default function ScoreDashboard({
   };
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="relative min-h-0 md:h-full">
+    <div className="space-y-4 pb-4 md:h-full md:overflow-y-auto md:overscroll-contain md:pr-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <GpaGauge
         currentGpa={overall?.overall_actual_gpa ?? currentGpa}
         targetGpa={overall?.overall_target_gpa ?? targetGpa}
       />
+
+      <section className="rounded-xl border border-[#CFE4ED] bg-[#F3FAFD] px-3 py-2.5">
+        <h2 className="text-xs font-semibold text-[#456A7C]">คะแนนปลายภาคที่ต้องได้ตามเป้าหมาย</h2>
+        <div className="mt-2 space-y-1.5">
+          {subjects.map((subject) => {
+            const scored = getScoreSummary(subject.workloads.filter((item) => isCompleted(item.workload_status)));
+            const target = subject.target_minimum_percentage;
+            const remaining = Math.max(0, 100 - scored.maximum);
+            const needed = target === null ? null : Math.max(0, target - scored.actual);
+            const reached = needed !== null && needed <= 0;
+            const estimate = needed === null ? "รอเกณฑ์ตัดเกรด" : reached ? "ถึงเป้าหมายแล้ว" : `ต้องได้เพิ่มอย่างน้อย ${formatScore(needed)} คะแนน`;
+            return <div key={subject.schedule_time_id} className="rounded-lg bg-white px-2.5 py-2 text-[10px]">
+              <div className="flex items-start justify-between gap-2">
+                <span className="min-w-0 font-medium text-[#607B89]">{subject.subject_name}</span>
+                <span className={`shrink-0 text-right font-semibold ${needed !== null && needed > remaining ? "text-[#C87878]" : reached ? "text-[#62A47E]" : "text-[#528EB0]"}`}>{estimate}</span>
+              </div>
+              <p className="mt-0.5 text-[#8299A4]">
+                เป้า {subject.target_grade ?? "—"}{target === null ? " · ยังไม่มีคะแนนเกณฑ์" : ` ขั้นต่ำ ${formatScore(target)} คะแนน`}
+                {` · สะสมแล้ว ${formatScore(scored.actual)} คะแนน`}
+              </p>
+              {needed !== null && needed > remaining && <p className="mt-0.5 text-[#C87878]">คะแนนส่วนที่เหลือไม่เพียงพอให้ถึงเป้าหมายนี้</p>}
+            </div>;
+          })}
+        </div>
+        <p className="mt-1.5 text-[9px] leading-4 text-[#8299A4]">คำนวณจากคะแนนขั้นต่ำของเกรดเป้าหมายตามเกณฑ์ที่เผยแพร่ หักคะแนนที่บันทึกแล้ว หากยังมีงานที่ไม่ได้กรอกคะแนน จำนวนที่ต้องได้จะรวมงานนั้นด้วย</p>
+      </section>
 
       {overall && overall.pending_grading_scheme_count > 0 && (
         <p className="rounded-xl border border-[#F3D9A8] bg-[#FFF8E8] px-3 py-2 text-xs text-[#8A6A2C]">
@@ -296,7 +325,8 @@ export default function ScoreDashboard({
                     <button
                       type="button"
                       onClick={() => openScoreEntry(workload)}
-                      className="justify-self-end rounded-full px-2 py-1 text-right font-medium text-[#A85370] transition hover:bg-[#F9DFE8]"
+                      disabled={!canEditScores}
+                      className="justify-self-end rounded-full px-2 py-1 text-right font-medium text-[#A85370] transition hover:bg-[#F9DFE8] disabled:cursor-not-allowed disabled:text-[#AFAFAF]"
                       aria-label={`กรอกคะแนน ${workload.workload_name}`}
                     >
                       {workload.actual_score !== null && workload.max_score !== null
@@ -318,7 +348,9 @@ export default function ScoreDashboard({
         </div>
       </section>
 
-      {editingWorkload && (
+    </div>
+
+      {editingWorkload && canEditScores && (
         <ScoreEntryModal
           workload={editingWorkload}
           maximumAllowed={Math.max(

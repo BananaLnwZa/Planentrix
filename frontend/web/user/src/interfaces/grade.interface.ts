@@ -34,6 +34,7 @@ export interface GradeBoundary {
 
 export interface PublishedGradingScheme {
   grading_scheme_id: number;
+  scheme_type: "subject_default" | "instructor_subject";
   version: number;
   status: "published";
   boundaries: GradeBoundary[];

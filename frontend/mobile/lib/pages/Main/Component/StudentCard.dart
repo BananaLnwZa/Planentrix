@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 class StudentCard extends StatelessWidget {
   final String name;
+  final String? firstName;
+  final String? lastName;
+  final String? faculty;
   final String studentNumber;
   final String gender;
   final String major;
@@ -13,6 +16,9 @@ class StudentCard extends StatelessWidget {
   const StudentCard({
     super.key,
     required this.name,
+    this.firstName,
+    this.lastName,
+    this.faculty,
     required this.studentNumber,
     this.gender = '—',
     this.major = 'COMSCI',
@@ -24,6 +30,15 @@ class StudentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final nameParts = name.trim().split(RegExp(r'\s+'));
+    final givenName = firstName?.trim().isNotEmpty == true
+        ? firstName!.trim()
+        : nameParts.first;
+    final familyName = lastName?.trim().isNotEmpty == true
+        ? lastName!.trim()
+        : nameParts.length > 1
+        ? nameParts.skip(1).join(' ')
+        : '—';
     return Semantics(
       button: true,
       label: 'Student identity card for $name',
@@ -66,7 +81,7 @@ class StudentCard extends StatelessWidget {
                       children: [
                         SizedBox(
                           width: 82,
-                          height: 102,
+                          height: 145,
                           child: _StudentPhoto(photo: photo),
                         ),
                         const SizedBox(width: 10),
@@ -79,45 +94,46 @@ class StudentCard extends StatelessWidget {
                                 children: [
                                   Expanded(
                                     child: _CardDetail(
-                                      label: 'NAME',
-                                      value: name,
+                                      label: 'FIRST NAME',
+                                      value: givenName,
                                     ),
                                   ),
                                   const SizedBox(width: 7),
                                   Expanded(
                                     child: _CardDetail(
-                                      label: 'GENDER',
-                                      value: gender,
+                                      label: 'LAST NAME',
+                                      value: familyName,
                                     ),
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 5),
+                              _CardDetail(
+                                label: 'FACULTY',
+                                value: faculty?.trim().isNotEmpty == true
+                                    ? faculty!.trim()
+                                    : '—',
+                              ),
+                              const SizedBox(height: 5),
+                              _CardDetail(label: 'DEPARTMENT', value: major),
                               const SizedBox(height: 5),
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
                                     child: _CardDetail(
-                                      label: 'MAJOR',
-                                      value: major,
+                                      label: 'YEAR',
+                                      value: year == '—' ? year : 'ปี $year',
                                     ),
                                   ),
                                   const SizedBox(width: 7),
                                   Expanded(
                                     child: _CardDetail(
-                                      label: 'YEAR',
-                                      value: year,
+                                      label: 'BIRTHDAY',
+                                      value: birthDate,
                                     ),
                                   ),
                                 ],
-                              ),
-                              const SizedBox(height: 5),
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: _CardDetail(
-                                  label: 'BIRTHDAY',
-                                  value: birthDate,
-                                ),
                               ),
                             ],
                           ),
@@ -261,12 +277,12 @@ class _CardDetail extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           value,
-          maxLines: 1,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: Color(0xFF111827),
             fontFamily: 'Sansation',
-            fontSize: 14,
+            fontSize: 12,
             fontWeight: FontWeight.w400,
             height: 1.1,
           ),

@@ -124,7 +124,10 @@ class _HomeworkDetailsPopupState extends State<_HomeworkDetailsPopup> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = workloadTypePalette(task.workloadTypeName);
+    final palette = workloadTypePaletteFor(
+      task.workloadTypeId,
+      task.workloadTypeName,
+    );
     return Dialog(
       key: const Key('homework-details-popup'),
       insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
@@ -164,7 +167,10 @@ class _HomeworkDetailsPopupState extends State<_HomeworkDetailsPopup> {
                       border: Border.all(color: const Color(0x4D000000)),
                     ),
                     child: Text(
-                      task.workloadTypeName,
+                      workloadTypeLabel(
+                        task.workloadTypeId,
+                        task.workloadTypeName,
+                      ),
                       style: const TextStyle(
                         color: Color(0x99000000),
                         fontSize: 11,

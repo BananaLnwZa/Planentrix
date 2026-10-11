@@ -315,6 +315,13 @@ class _GradeGoalSetupPopupState extends State<_GradeGoalSetupPopup> {
                 ],
               ),
             ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(18, 0, 18, 10),
+              child: Text(
+                'ช่วงคะแนนของแต่ละเกรดอ้างอิงเกณฑ์ที่เผยแพร่ของวิชานั้น หากแสดงเกณฑ์พื้นฐาน อาจารย์ยังไม่ได้เผยแพร่เกณฑ์ของตน',
+                style: TextStyle(fontSize: 11, color: Color(0xFF668396)),
+              ),
+            ),
             Container(
               height: 38,
               margin: const EdgeInsets.symmetric(horizontal: 14),
@@ -326,7 +333,7 @@ class _GradeGoalSetupPopupState extends State<_GradeGoalSetupPopup> {
                 children: [
                   SizedBox(width: 36, child: Center(child: Text('No'))),
                   Expanded(child: Center(child: Text('วิชา'))),
-                  SizedBox(width: 84, child: Center(child: Text('เกรด'))),
+                  SizedBox(width: 100, child: Center(child: Text('เกรด'))),
                 ],
               ),
             ),
@@ -342,7 +349,7 @@ class _GradeGoalSetupPopupState extends State<_GradeGoalSetupPopup> {
                   final isLocked = subject.targetScore != null;
                   return SizedBox(
                     key: Key('grade-goal-row-$index'),
-                    height: 62,
+                    height: 72,
                     child: Row(
                       children: [
                         SizedBox(
@@ -372,12 +379,22 @@ class _GradeGoalSetupPopupState extends State<_GradeGoalSetupPopup> {
                                     color: Color(0xFF85939A),
                                   ),
                                 ),
+                                if (subject.gradingSchemeType == 'subject_default')
+                                  const Text(
+                                    'เกณฑ์พื้นฐาน',
+                                    style: TextStyle(fontSize: 10, color: Color(0xFF7A95A3)),
+                                  )
+                                else if (subject.gradeBoundaries.isEmpty)
+                                  const Text(
+                                    'ยังไม่มีเกณฑ์ที่เผยแพร่',
+                                    style: TextStyle(fontSize: 10, color: Color(0xFFA47A35)),
+                                  ),
                               ],
                             ),
                           ),
                         ),
                         SizedBox(
-                          width: 84,
+                          width: 100,
                           child: AppDropdown<String>(
                             key: Key('goal-grade-${subject.scheduleTimeId}'),
                             value: _selectedGrades[subject.scheduleTimeId],
@@ -387,7 +404,9 @@ class _GradeGoalSetupPopupState extends State<_GradeGoalSetupPopup> {
                                 .map(
                                   (grade) => AppDropdownItem(
                                     value: grade,
-                                    label: grade,
+                                    label: subject.minimumForGrade(grade) == null
+                                        ? grade
+                                        : '$grade ${_scoreText(subject.minimumForGrade(grade)!)}+',
                                   ),
                                 )
                                 .toList(),
@@ -411,6 +430,7 @@ class _GradeGoalSetupPopupState extends State<_GradeGoalSetupPopup> {
                             itemHeight: 38,
                             borderRadius: 18,
                             padding: const EdgeInsets.symmetric(horizontal: 9),
+                            textStyle: const TextStyle(fontSize: 11),
                           ),
                         ),
                       ],
@@ -489,3 +509,7 @@ class _GradeGoalSetupPopupState extends State<_GradeGoalSetupPopup> {
 
 String _creditText(double value) =>
     value == value.roundToDouble() ? '${value.toInt()}' : '$value';
+
+String _scoreText(double value) => value == value.roundToDouble()
+    ? value.toInt().toString()
+    : value.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');

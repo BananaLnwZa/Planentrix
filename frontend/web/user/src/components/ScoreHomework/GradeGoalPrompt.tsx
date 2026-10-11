@@ -6,7 +6,7 @@ export default function GradeGoalPrompt({
   subjectCount: number;
 }) {
   return (
-    <section className="flex h-full min-h-[500px] items-center justify-center p-3 text-center">
+    <section className="flex h-full min-h-0 items-center justify-center overflow-y-auto p-3 text-center">
       <div className="w-full max-w-[360px] rounded-xl border border-[#AFCFDC] bg-[#F8FCFE] shadow-[0_5px_9px_rgba(75,93,102,0.18)]">
         <div className="flex flex-col items-center px-6 py-7">
           <h1 className="text-lg font-semibold text-[#4F6B78]">

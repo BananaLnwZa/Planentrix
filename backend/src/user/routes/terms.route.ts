@@ -4,6 +4,8 @@ import {
   addTerm,
   getAvailableTermSections,
   getCurrentTerm,
+  getTermWorkflow,
+  acknowledgeMidtermFollowup,
   getTermHistory,
   endCurrentTerm,
   getPendingSystemEvaluation,
@@ -20,6 +22,8 @@ router.get("/available-sections", verifyToken, getAvailableTermSections);
 
 // GET - Current term (require authentication)
 router.get("/current", verifyToken, getCurrentTerm);
+router.get("/workflow", verifyToken, getTermWorkflow);
+router.post("/workflow/midterm-followup/acknowledge", verifyToken, acknowledgeMidtermFollowup);
 router.get("/history", verifyToken, getTermHistory);
 
 // GET/POST - Optional end-of-term system evaluation

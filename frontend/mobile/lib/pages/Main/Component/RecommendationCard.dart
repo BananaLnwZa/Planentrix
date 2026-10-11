@@ -93,16 +93,31 @@ class _RecommendationCardState extends State<RecommendationCard> {
   @override
   Widget build(BuildContext context) {
     final recommendation = _recommendation;
-    final visible =
-        recommendation != null && recommendation.status != 'rejected';
-    final reviewItems = visible
-        ? recommendation.items
-              .where((item) => item.scheduleTypeId == 2)
+    final hasChanges =
+        recommendation?.items.any(
+          (item) =>
+              item.differenceMinutes != 0 ||
+              item.changes.isNotEmpty ||
+              item.primaryAction != 'keep',
+        ) ??
+        false;
+    final canAct = recommendation?.status == 'pending' && hasChanges;
+    final reviewItems = canAct
+        ? recommendation!.items
+              .where(
+                (item) =>
+                    item.scheduleTypeCode == 'review' ||
+                    (item.scheduleTypeCode.isEmpty && item.scheduleTypeId == 2),
+              )
               .toList()
         : const <WeeklyRecommendationItem>[];
-    final homeworkItems = visible
-        ? recommendation.items
-              .where((item) => item.scheduleTypeId == 3)
+    final homeworkItems = canAct
+        ? recommendation!.items
+              .where(
+                (item) =>
+                    item.scheduleTypeCode == 'homework' ||
+                    (item.scheduleTypeCode.isEmpty && item.scheduleTypeId == 3),
+              )
               .toList()
         : const <WeeklyRecommendationItem>[];
     return Container(
@@ -177,8 +192,18 @@ class _RecommendationCardState extends State<RecommendationCard> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   )
-                : !visible
-                ? _EmptyRecommendation(onRefresh: _load)
+                : _error != null && recommendation == null
+                ? _ErrorBox(text: _error!)
+                : !canAct
+                ? _EmptyRecommendation(
+                    message: recommendation?.status == 'accepted'
+                        ? 'คุณยอมรับคำแนะนำล่าสุดแล้ว ตารางเวลาปรับตามคำแนะนำเรียบร้อย'
+                        : recommendation?.status == 'rejected'
+                        ? 'คุณปฏิเสธคำแนะนำล่าสุดแล้ว'
+                        : recommendation == null
+                        ? 'ยังไม่มีคำแนะนำจัดเวลาในขณะนี้'
+                        : 'ไม่มีการเปลี่ยนแปลงตารางเวลาที่ต้องแนะนำในขณะนี้',
+                  )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -202,7 +227,7 @@ class _RecommendationCardState extends State<RecommendationCard> {
                         icon: const Icon(Icons.visibility_outlined, size: 17),
                         label: const Text('ดูตัวอย่างและปรับตาราง'),
                       ),
-                      if (recommendation.status == 'pending') ...[
+                      if (recommendation!.status == 'pending') ...[
                         const SizedBox(height: 8),
                         Row(
                           children: [
@@ -426,9 +451,9 @@ class _MinuteStat extends StatelessWidget {
 }
 
 class _EmptyRecommendation extends StatelessWidget {
-  final VoidCallback onRefresh;
+  final String message;
 
-  const _EmptyRecommendation({required this.onRefresh});
+  const _EmptyRecommendation({required this.message});
 
   @override
   Widget build(BuildContext context) => Container(
@@ -442,11 +467,11 @@ class _EmptyRecommendation extends StatelessWidget {
       children: [
         const Icon(Icons.calendar_month_outlined, color: Color(0xFF91AEB9)),
         const SizedBox(height: 7),
-        const Text(
-          'ยังไม่มีคำแนะนำที่รอใช้งาน',
-          style: TextStyle(fontSize: 11, color: Color(0xFF6E8189)),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 11, color: Color(0xFF6E8189)),
         ),
-        TextButton(onPressed: onRefresh, child: const Text('โหลดใหม่')),
       ],
     ),
   );

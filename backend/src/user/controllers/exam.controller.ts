@@ -19,6 +19,7 @@ import {
   scoreSnapshotQuestions,
 } from "../services/exam-attempt.rules";
 import { safelyGenerateRecommendation } from "../services/recommendation.engine";
+import type { ExamAttemptWorkflowPhase, ExamWorkflowPhase } from "../services/term-workflow";
 
 type UserRequest = Request & {
   user?: { id?: number | string; role?: string };
@@ -34,6 +35,7 @@ interface ExamRow extends RowDataPacket {
   total_question: number | null;
   time_limit: number | null;
   exam_period: "midterm" | "final";
+  workflow_phase: ExamWorkflowPhase;
   due_checkpoint_id: number | null;
   previous_result_count: number;
 }
@@ -64,6 +66,7 @@ interface AttemptRow extends RowDataPacket {
   time_limit_minutes: number | string | null;
   exam_period: "midterm" | "final";
   bank_name: string;
+  workflow_phase: ExamAttemptWorkflowPhase;
 }
 
 interface AttemptQuestionRow extends RowDataPacket {
@@ -89,6 +92,7 @@ interface FinalizedAttempt {
   nextCheckpointAt: Date | string | null;
   checkpointIntervalWeeks: number;
   weakTopicCount: number;
+  workflowPhase: ExamAttemptWorkflowPhase;
 }
 
 const userIdFrom = (req: Request, res: Response) => {
@@ -114,6 +118,23 @@ const examIdFrom = (req: Request, res: Response) => {
   return examId;
 };
 
+const workflowPhaseSql = (dateExpression = "CURDATE()", periodExpression = "qb.exam_period") => `CASE ${periodExpression}
+  WHEN 'midterm' THEN CASE
+    WHEN academic_term.midterm_start_date IS NULL OR academic_term.midterm_end_date IS NULL THEN 'checkpoint'
+    WHEN ${dateExpression} > academic_term.midterm_end_date THEN 'midterm_post'
+    WHEN ${dateExpression} >= academic_term.midterm_start_date THEN 'midterm_exam'
+    WHEN DATEDIFF(academic_term.midterm_start_date, ${dateExpression}) BETWEEN 1 AND 7 THEN 'midterm_1w'
+    WHEN DATEDIFF(academic_term.midterm_start_date, ${dateExpression}) BETWEEN 8 AND 14 THEN 'midterm_2w'
+    ELSE 'checkpoint' END
+  WHEN 'final' THEN CASE
+    WHEN academic_term.final_start_date IS NULL OR academic_term.final_end_date IS NULL THEN 'checkpoint'
+    WHEN ${dateExpression} > academic_term.final_end_date THEN 'final_post'
+    WHEN ${dateExpression} >= academic_term.final_start_date THEN 'final_exam'
+    WHEN DATEDIFF(academic_term.final_start_date, ${dateExpression}) BETWEEN 1 AND 7 THEN 'final_1w'
+    WHEN DATEDIFF(academic_term.final_start_date, ${dateExpression}) BETWEEN 8 AND 14 THEN 'final_2w'
+    ELSE 'checkpoint' END
+  ELSE 'checkpoint' END`;
+
 const ACCESSIBLE_EXAM_SQL = `SELECT
   qb.question_bank_id AS exam_repository_id,
   e.enrollment_id AS schedule_time_id,
@@ -124,6 +145,7 @@ const ACCESSIBLE_EXAM_SQL = `SELECT
   NULL AS total_question,
   ${questionBankTimeLimitSql("qb")} AS time_limit,
   qb.exam_period,
+  ${workflowPhaseSql()} AS workflow_phase,
   (
     SELECT checkpoint.exam_checkpoint_id
     FROM exam_checkpoints checkpoint
@@ -161,15 +183,33 @@ INNER JOIN student_terms student_term
   ON student_term.student_term_id = e.student_term_id
  AND student_term.academic_term_id = section.academic_term_id
  AND student_term.status = 'active'
+INNER JOIN academic_terms academic_term
+  ON academic_term.academic_term_id = student_term.academic_term_id
 LEFT JOIN question ON question.question_bank_id = qb.question_bank_id
 WHERE student_term.user_id = ?
   AND qb.status = 'published'`;
 
 const accessibleExamGroup = `GROUP BY
   qb.question_bank_id, e.enrollment_id, qb.subject_id, subject.subject_name,
-  qb.bank_name, time_limit, qb.exam_period
+  qb.bank_name, time_limit, qb.exam_period,
+  academic_term.midterm_start_date, academic_term.midterm_end_date,
+  academic_term.final_start_date, academic_term.final_end_date
 HAVING COUNT(CASE WHEN question.is_active = 1 THEN 1 END) > 0
-  AND (previous_result_count = 0 OR due_checkpoint_id IS NOT NULL)`;
+  AND workflow_phase NOT IN ('midterm_exam', 'midterm_post', 'final_exam', 'final_post')
+  AND ((workflow_phase = 'checkpoint'
+      AND (previous_result_count = 0 OR due_checkpoint_id IS NOT NULL))
+    OR (workflow_phase IN ('midterm_2w','midterm_1w','final_2w','final_1w')
+      AND NOT EXISTS (
+        SELECT 1
+        FROM exam_attempt_bank_results phase_result
+        INNER JOIN exam_attempts phase_attempt
+          ON phase_attempt.exam_attempt_id = phase_result.exam_attempt_id
+        WHERE phase_attempt.enrollment_id = e.enrollment_id
+          AND phase_attempt.exam_period = qb.exam_period
+          AND phase_attempt.status = 'submitted'
+          AND phase_attempt.workflow_phase = (${workflowPhaseSql()})
+          AND phase_result.question_bank_id = qb.question_bank_id
+      )))`;
 
 const getAccessibleExam = async (
   userId: number,
@@ -304,6 +344,7 @@ const loadAttemptForUpdate = async (
        attempt.source_checkpoint_id, attempt.started_at,
        TIMESTAMPDIFF(SECOND, attempt.started_at, NOW()) AS elapsed_seconds,
        attempt.status, ${questionBankTimeLimitSql("bank")} AS time_limit_minutes, attempt.exam_period,
+       attempt.workflow_phase,
        bank.bank_name
      FROM exam_attempts attempt
      INNER JOIN enrollments enrollment
@@ -332,10 +373,13 @@ const existingFinalizedAttempt = async (
 ): Promise<FinalizedAttempt | null> => {
   const [rows] = await connection.query<RowDataPacket[]>(
     `SELECT result.actual_score, result.max_score,
+       attempt.workflow_phase,
        SUM(CASE WHEN attempt_question.is_correct = 1 THEN 1 ELSE 0 END) AS correct_answers,
        COUNT(attempt_question.attempt_question_id) AS total_questions,
        checkpoint.next_checkpoint_at, checkpoint.interval_weeks
      FROM exam_attempt_bank_results result
+     INNER JOIN exam_attempts attempt
+       ON attempt.exam_attempt_id = result.exam_attempt_id
      INNER JOIN exam_attempt_questions attempt_question
        ON attempt_question.exam_attempt_id = result.exam_attempt_id
       AND attempt_question.source_bank_id = result.question_bank_id
@@ -343,7 +387,7 @@ const existingFinalizedAttempt = async (
        ON checkpoint.source_exam_attempt_id = result.exam_attempt_id
      WHERE result.exam_attempt_id = ? AND result.question_bank_id = ?
      GROUP BY result.bank_result_id, result.actual_score, result.max_score,
-       checkpoint.next_checkpoint_at, checkpoint.interval_weeks
+       checkpoint.next_checkpoint_at, checkpoint.interval_weeks, workflow_phase
      LIMIT 1`,
     [attemptId, examId],
   );
@@ -362,6 +406,7 @@ const existingFinalizedAttempt = async (
     nextCheckpointAt: row.next_checkpoint_at ?? null,
     checkpointIntervalWeeks: Number(row.interval_weeks ?? 0),
     weakTopicCount: percentage < 50 ? 1 : 0,
+    workflowPhase: String(row.workflow_phase) as ExamAttemptWorkflowPhase,
   };
 };
 
@@ -455,7 +500,7 @@ const finalizeAttempt = async (
 
   let nextCheckpointAt: Date | null = null;
   let checkpointIntervalWeeks = 0;
-  if (weak) {
+  if (weak && attempt.workflow_phase === "checkpoint") {
     checkpointIntervalWeeks = checkpointWeeksFor(percentage);
     nextCheckpointAt = new Date();
     nextCheckpointAt.setDate(
@@ -485,6 +530,7 @@ const finalizeAttempt = async (
     nextCheckpointAt,
     checkpointIntervalWeeks,
     weakTopicCount: weak ? 1 : 0,
+    workflowPhase: attempt.workflow_phase,
   };
 };
 
@@ -645,6 +691,8 @@ export const getExamInsights = async (req: Request, res: Response) => {
          ON enrollment.enrollment_id = checkpoint.enrollment_id
        INNER JOIN student_terms student_term
          ON student_term.student_term_id = enrollment.student_term_id
+       INNER JOIN academic_terms academic_term
+         ON academic_term.academic_term_id = student_term.academic_term_id
        INNER JOIN course_sections section
          ON section.section_id = enrollment.section_id
        INNER JOIN subjects subject ON subject.subject_id = section.subject_id
@@ -652,6 +700,16 @@ export const getExamInsights = async (req: Request, res: Response) => {
          ON result.exam_attempt_id = checkpoint.source_exam_attempt_id
        WHERE student_term.user_id = ? AND student_term.status = 'active'
          AND checkpoint.status = 'pending'
+         AND NOT (
+           (checkpoint.exam_period = 'midterm' AND (
+             DATEDIFF(academic_term.midterm_start_date, CURDATE()) BETWEEN 1 AND 14
+             OR CURDATE() BETWEEN academic_term.midterm_start_date AND academic_term.midterm_end_date
+           ))
+           OR (checkpoint.exam_period = 'final' AND (
+             DATEDIFF(academic_term.final_start_date, CURDATE()) BETWEEN 1 AND 14
+             OR CURDATE() BETWEEN academic_term.final_start_date AND academic_term.final_end_date
+           ))
+         )
        ORDER BY checkpoint.next_checkpoint_at`,
       [userId],
     );
@@ -808,13 +866,14 @@ export const startExam = async (req: Request, res: Response) => {
 
     const [attemptResult] = await connection.query<ResultSetHeader>(
       `INSERT INTO exam_attempts
-        (enrollment_id, source_checkpoint_id, exam_period, random_seed,
+        (enrollment_id, source_checkpoint_id, exam_period, workflow_phase, random_seed,
          started_at, status, weak_topic_count)
-       VALUES (?, ?, ?, ?, NOW(), 'in_progress', 0)`,
+       VALUES (?, ?, ?, ?, ?, NOW(), 'in_progress', 0)`,
       [
         exam.schedule_time_id,
-        exam.due_checkpoint_id,
+        exam.workflow_phase === "checkpoint" ? exam.due_checkpoint_id : null,
         exam.exam_period,
+        exam.workflow_phase,
         randomSeed,
       ],
     );
@@ -994,7 +1053,7 @@ export const submitExam = async (req: Request, res: Response) => {
       });
     }
     const [subjectRows] = await connection.query<RowDataPacket[]>(
-      `SELECT cs.subject_id FROM exam_attempts ea
+      `SELECT cs.subject_id, ea.exam_period FROM exam_attempts ea
        INNER JOIN enrollments e ON e.enrollment_id=ea.enrollment_id
        INNER JOIN course_sections cs ON cs.section_id=e.section_id
        WHERE ea.exam_attempt_id=? LIMIT 1`,
@@ -1002,11 +1061,34 @@ export const submitExam = async (req: Request, res: Response) => {
     );
     const subjectId = subjectRows[0]?.subject_id;
     await connection.commit();
-    const recommendationResult = await safelyGenerateRecommendation({
-      userId,
-      triggerType: "exam_submitted",
-      examAttemptId: result.historyId,
-    });
+    const phase = result.workflowPhase;
+    let recommendationResult: Awaited<ReturnType<typeof safelyGenerateRecommendation>> | {
+      recommendation: null;
+      warning: null;
+    } = {
+      recommendation: null,
+      warning: null,
+    };
+    if (phase === "checkpoint" || phase === "midterm_2w" || phase === "final_2w") {
+      const [pendingRows] = await db.query<RowDataPacket[]>(
+        `SELECT recommendation.recommendation_id
+         FROM weekly_recommendation recommendation
+         INNER JOIN student_terms student_term
+           ON student_term.student_term_id = recommendation.student_term_id
+         WHERE student_term.user_id = ? AND student_term.status = 'active'
+           AND recommendation.status = 'pending'
+         ORDER BY recommendation.recommendation_id DESC LIMIT 1`,
+        [userId],
+      );
+      if (!pendingRows[0]) {
+        recommendationResult = await safelyGenerateRecommendation({
+          userId,
+          triggerType: "exam_submitted",
+          examAttemptId: result.historyId,
+          examWorkflowPhase: phase,
+        });
+      }
+    }
     const recommendationItems = recommendationResult.recommendation?.items as
       | Array<Record<string, unknown>>
       | undefined;

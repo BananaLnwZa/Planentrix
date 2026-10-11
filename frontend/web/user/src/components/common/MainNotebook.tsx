@@ -3,13 +3,15 @@ import MainNotebookRing from "./MainNotebookRing";
 export default function MainNotebook({
   children,
   tabs,
+  boundedContent = false,
 }: {
   children?: React.ReactNode;
   tabs?: React.ReactNode;
+  boundedContent?: boolean;
 }) {
   return (
     <div
-      className="
+      className={`
         relative
         min-h-[620px]
         w-full
@@ -27,7 +29,8 @@ export default function MainNotebook({
         md:w-[calc(100%-112px)]
         md:rounded-[36px]
         md:p-6
-      "
+        ${boundedContent ? "h-[min(760px,calc(100dvh-64px))] md:h-auto" : ""}
+      `}
     >
       {/* Pink back cover */}
       <div
@@ -140,7 +143,7 @@ export default function MainNotebook({
       {tabs}
 
       {children && (
-        <div className="relative z-20 h-full w-full p-8 md:p-12">
+        <div className={`relative z-20 h-full min-h-0 w-full p-8 md:p-12 ${boundedContent ? "overflow-hidden" : ""}`}>
           {children}
         </div>
       )}

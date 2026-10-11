@@ -243,6 +243,10 @@ export default function RecommendationCard({
     recommendation?.week_start === currentBangkokWeekStart()
       ? "สัปดาห์นี้"
       : "สัปดาห์ถัดไป";
+  const hasChanges = recommendation?.items.some(
+    (item) => item.difference_minutes !== 0 || item.changes_json.length > 0 || item.primary_action !== "keep"
+  ) ?? false;
+  const canAct = recommendation?.status === "pending" && hasChanges;
 
   const handleReject = async () => {
     if (!recommendation) return;
@@ -320,11 +324,17 @@ export default function RecommendationCard({
           <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
             {error}
           </p>
-        ) : !recommendation || recommendation.status === "rejected" ? (
+        ) : !recommendation || recommendation.status !== "pending" || !hasChanges ? (
           <div className="flex min-h-28 flex-col items-center justify-center rounded-xl border border-dashed border-[#CBD9DE] bg-white/70 px-4 text-center">
             <CalendarRange size={22} className="text-[#91AEB9]" />
             <p className="mt-2 text-xs text-[#6E8189]">
-              ยังไม่มีคำแนะนำที่รอใช้งานสำหรับสัปดาห์ถัดไป
+              {recommendation?.status === "accepted"
+                ? "คุณยอมรับคำแนะนำล่าสุดแล้ว ตารางเวลาปรับตามคำแนะนำเรียบร้อย"
+                : recommendation?.status === "rejected"
+                  ? "คุณปฏิเสธคำแนะนำล่าสุดแล้ว"
+                  : recommendation
+                    ? "ไม่มีการเปลี่ยนแปลงตารางเวลาที่ต้องแนะนำในขณะนี้"
+                    : "ยังไม่มีคำแนะนำจัดเวลาในขณะนี้"}
             </p>
           </div>
         ) : (
@@ -340,9 +350,8 @@ export default function RecommendationCard({
         )}
       </div>
 
-      {recommendation && recommendation.status !== "rejected" && (
+      {canAct && (
         <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-[#EADDE1] bg-white/80 px-3 py-3">
-          {recommendation.status === "pending" && (
             <button
               type="button"
               onClick={() => void handleReject()}
@@ -352,7 +361,6 @@ export default function RecommendationCard({
               <XCircle size={14} />
               {isRejecting ? "กำลังบันทึก..." : "ยังไม่ใช้ตอนนี้"}
             </button>
-          )}
           <button
             type="button"
             onClick={() => setIsPreviewOpen(true)}
@@ -360,7 +368,6 @@ export default function RecommendationCard({
           >
             <Eye size={14} /> ดูตัวอย่างตาราง
           </button>
-          {recommendation.status === "pending" && (
             <button
               type="button"
               onClick={() => void handleAccept()}
@@ -369,7 +376,6 @@ export default function RecommendationCard({
             >
               {isAccepting ? "กำลังยอมรับ..." : "ยอมรับคำแนะนำ"}
             </button>
-          )}
         </footer>
       )}
 

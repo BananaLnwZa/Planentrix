@@ -27,6 +27,7 @@ import type {
   WorkloadDemand,
 } from "./recommendation.types";
 import { RULE_VERSION } from "./recommendation.types";
+import { getExamWorkflowPhase } from "./term-workflow";
 
 interface TermRow extends RowDataPacket {
   term_id: number;
@@ -262,11 +263,13 @@ const loadConstraints = async (connection: PoolConnection, userId: number) => {
 
 const loadClasses = async (connection: PoolConnection, termId: number) => {
   const [rows] = await connection.query<ClassBlockRow[]>(
-    `SELECT FIELD(cm.day_of_week,'monday','tuesday','wednesday','thursday','friday','saturday','sunday') AS schedule_day,
-       TIME_FORMAT(cm.start_time,'%H:%i:%s') AS start_time,
-       TIME_FORMAT(cm.end_time,'%H:%i:%s') AS end_time
+    `SELECT FIELD(COALESCE(o.override_day_of_week,cm.day_of_week),'monday','tuesday','wednesday','thursday','friday','saturday','sunday') AS schedule_day,
+       TIME_FORMAT(COALESCE(o.override_start_time,cm.start_time),'%H:%i:%s') AS start_time,
+       TIME_FORMAT(COALESCE(o.override_end_time,cm.end_time),'%H:%i:%s') AS end_time
      FROM class_meetings cm
      INNER JOIN enrollments e ON e.section_id=cm.section_id
+     LEFT JOIN student_class_meeting_overrides o
+       ON o.enrollment_id=e.enrollment_id AND o.class_meeting_id=cm.class_meeting_id
      WHERE e.student_term_id=? AND e.status='enrolled'`,
     [termId]
   );
@@ -818,6 +821,27 @@ export const generateRecommendation = async (input: GenerateRecommendationInput)
     if (!term) {
       throw new RecommendationServiceError(404, "NO_CURRENT_TERM", "No current term found");
     }
+    const midtermPhase = getExamWorkflowPhase(term, "midterm", input.now ?? new Date());
+    const finalPhase = getExamWorkflowPhase(term, "final", input.now ?? new Date());
+    const inExamPreparation = [midtermPhase, finalPhase].some((phase) =>
+      ["midterm_2w", "midterm_1w", "midterm_exam", "final_2w", "final_1w", "final_exam"].includes(phase),
+    );
+    if (input.triggerType !== "exam_submitted" && inExamPreparation) {
+      throw new RecommendationServiceError(
+        409,
+        "EXAM_PREPARATION_ACTIVE",
+        "Exam preparation flow is active; regular checkpoint recommendations are paused",
+      );
+    }
+    if (input.triggerType === "exam_submitted") {
+      if (!["checkpoint", "midterm_2w", "final_2w"].includes(String(input.examWorkflowPhase))) {
+        throw new RecommendationServiceError(
+          409,
+          "EXAM_PHASE_DOES_NOT_RECOMMEND",
+          "This exam phase does not create a schedule recommendation",
+        );
+      }
+    }
     await validateSourceReferences(connection, term.term_id, input);
     const types = await loadScheduleTypes(connection);
     const target = resolveTargetWeek(
@@ -1195,7 +1219,14 @@ export const deletePreviewBlock = async (
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    await editableHeader(connection, userId, recommendationId);
+    const header = await ownedHeader(connection, userId, recommendationId, true);
+    if (header.status !== "pending") {
+      throw new RecommendationServiceError(
+        409,
+        "RECOMMENDATION_BLOCK_DELETE_NOT_ALLOWED",
+        "Only blocks in a pending recommendation can be deleted"
+      );
+    }
     const [result] = await connection.query<ResultSetHeader>(
       `DELETE FROM weekly_schedule_block WHERE weekly_block_id=? AND recommendation_id=?`,
       [weeklyBlockId, recommendationId]
@@ -1226,15 +1257,18 @@ export const getAcceptedWeeklySchedule = async (userId: number, weekStart?: stri
       `SELECT cm.class_meeting_id AS schedule_time_id,0 AS schedule_type_id,
          'class' AS schedule_type_code,'Class' AS schedule_type_name,
          s.subject_id,s.subject_name,
-         FIELD(cm.day_of_week,'monday','tuesday','wednesday','thursday','friday','saturday','sunday') AS schedule_day,
-         TIME_FORMAT(cm.start_time,'%H:%i:%s') AS start_time,
-         TIME_FORMAT(cm.end_time,'%H:%i:%s') AS end_time,cm.classroom,NULL AS note
+         FIELD(COALESCE(o.override_day_of_week,cm.day_of_week),'monday','tuesday','wednesday','thursday','friday','saturday','sunday') AS schedule_day,
+         TIME_FORMAT(COALESCE(o.override_start_time,cm.start_time),'%H:%i:%s') AS start_time,
+         TIME_FORMAT(COALESCE(o.override_end_time,cm.end_time),'%H:%i:%s') AS end_time,
+         COALESCE(o.override_classroom,cm.classroom) AS classroom,o.note
        FROM class_meetings cm
        INNER JOIN course_sections cs ON cs.section_id=cm.section_id
        INNER JOIN subjects s ON s.subject_id=cs.subject_id
        INNER JOIN enrollments e ON e.section_id=cs.section_id
+       LEFT JOIN student_class_meeting_overrides o
+         ON o.enrollment_id=e.enrollment_id AND o.class_meeting_id=cm.class_meeting_id
        WHERE e.student_term_id=? AND e.status='enrolled'
-       ORDER BY schedule_day,cm.start_time`,
+       ORDER BY schedule_day,start_time`,
       [term.term_id]
     );
     const recommendation = accepted

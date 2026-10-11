@@ -33,6 +33,9 @@ class Schedule extends StatefulWidget {
 }
 
 class _ScheduleState extends State<Schedule> {
+  static const _manualBlockAddVisible = bool.fromEnvironment(
+    'ENABLE_MANUAL_SCHEDULE_ADD',
+  );
   late final TableRepository _repository;
   late final RecommendationRepository? _recommendationRepository;
   List<ScheduleItem> _items = const [];
@@ -72,11 +75,15 @@ class _ScheduleState extends State<Schedule> {
       if (!mounted) return;
       final accepted = weeklySchedule?.acceptedRecommendation;
       if (accepted != null && weeklySchedule != null) {
+        final recurringClasses = response?.items
+            .where((item) => item.scheduleTypeCode == 'class')
+            .toList() ??
+            weeklySchedule.recurringClasses.map(_recurringScheduleItem).toList();
         setState(() {
           _acceptedRecommendation = accepted;
           _weeklyBlocks = weeklySchedule!.weeklyBlocks;
           _items = [
-            ...weeklySchedule.recurringClasses.map(_recurringScheduleItem),
+            ...recurringClasses,
             ...weeklySchedule.weeklyBlocks.map(_weeklyScheduleItem),
           ];
           _hasCurrentTerm = true;
@@ -250,7 +257,7 @@ class _ScheduleState extends State<Schedule> {
                     top: 8,
                     child: _EmptySchedule(),
                   ),
-                if (hasScheduleItems && _acceptedRecommendation == null)
+                if (_manualBlockAddVisible && hasScheduleItems && _acceptedRecommendation == null)
                   Positioned(
                     right: 12,
                     bottom: 12,
@@ -348,18 +355,21 @@ ScheduleItem _recurringScheduleItem(RecurringClassBlock block) => ScheduleItem(
   scheduleTimeId: block.scheduleTimeId,
   scheduleTypeId: 1,
   scheduleTypeName: 'class',
+  scheduleTypeCode: 'class',
   subjectId: block.subjectId,
   subjectName: block.subjectName,
   scheduleDay: block.scheduleDay,
   startTime: block.startTime,
   endTime: block.endTime,
   classroom: block.classroom,
+  note: block.note,
 );
 
 ScheduleItem _weeklyScheduleItem(WeeklyScheduleBlock block) => ScheduleItem(
   scheduleTimeId: -block.weeklyBlockId,
   scheduleTypeId: block.scheduleTypeId,
   scheduleTypeName: block.scheduleTypeName,
+  scheduleTypeCode: block.scheduleTypeCode,
   subjectId: block.subjectId,
   subjectName: block.subjectName,
   scheduleDay: DateTime.tryParse(block.scheduledDate)?.weekday ?? 1,
@@ -462,7 +472,9 @@ class _ScheduleGridState extends State<_ScheduleGrid> {
         return ClipRRect(
           borderRadius: BorderRadius.circular(14),
           child: SingleChildScrollView(
+            key: const Key('schedule-horizontal-scroll'),
             scrollDirection: Axis.horizontal,
+            physics: const ClampingScrollPhysics(),
             child: SizedBox(
               width: contentWidth,
               height: constraints.maxHeight,
@@ -661,21 +673,29 @@ class _ScheduleBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = switch (item.scheduleTypeId) {
-      1 => (
+    final type = item.scheduleTypeCode.toLowerCase();
+    final colors = switch (type.isEmpty
+        ? item.scheduleTypeId.toString()
+        : type) {
+      'class' || '0' || '1' => (
         const Color(0xFFDDF1C9),
         const Color(0xFFA7D286),
         const Color(0xFF4E713A),
       ),
-      2 => (
+      'review' || '2' => (
         const Color(0xFFFFF0BA),
         const Color(0xFFE7C96E),
         const Color(0xFF806720),
       ),
-      _ => (
+      'homework' || '3' => (
         const Color(0xFFF8D1CD),
         const Color(0xFFE7AAA4),
         const Color(0xFF8A4B46),
+      ),
+      _ => (
+        const Color(0xFFDDF1C9),
+        const Color(0xFFA7D286),
+        const Color(0xFF4E713A),
       ),
     };
     return Material(
@@ -695,12 +715,14 @@ class _ScheduleBlock extends StatelessWidget {
               final showTime = constraints.maxHeight >= 34;
               final showClassroom = constraints.maxHeight >= 48;
               return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
                     item.subjectName,
                     maxLines: showTime ? 1 : 2,
                     overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 10,
                       height: 1.05,
@@ -713,13 +735,14 @@ class _ScheduleBlock extends StatelessWidget {
                       'ห้อง ${item.classroom}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 8, color: colors.$3),
                     ),
                   if (showTime) ...[
-                    const Spacer(),
                     Text(
                       '${item.startTime}–${item.endTime}',
                       maxLines: 1,
+                      textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 7.5, color: colors.$3),
                     ),
                   ],

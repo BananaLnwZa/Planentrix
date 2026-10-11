@@ -16,6 +16,7 @@ import {
   CurrentTermRequiredNotebookLayout,
 } from "@/components/common/CurrentTermRequiredState";
 import NotebookErrorState from "@/components/common/NotebookErrorState";
+import termService from "@/services/term.service";
 
 export default function ScoreHomeworkContent() {
   const [data, setData] = useState<SubjectGoalsResponse | null>(null);
@@ -25,6 +26,7 @@ export default function ScoreHomeworkContent() {
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [workloadLocked, setWorkloadLocked] = useState(false);
 
   const loadGoals = useCallback(async () => {
     setIsLoading(true);
@@ -46,11 +48,13 @@ export default function ScoreHomeworkContent() {
   useEffect(() => {
     let isActive = true;
 
-    Promise.all([gradeService.getSubjectGoals(), gradeService.getOverallGrade()])
-      .then(([goals, gradeOverall]) => {
+    Promise.allSettled([gradeService.getSubjectGoals(), gradeService.getOverallGrade(), termService.getWorkflow()])
+      .then(([goalsResult, overallResult, workflowResult]) => {
         if (isActive) {
-          setData(goals);
-          setOverall(gradeOverall);
+          if (goalsResult.status === "fulfilled") setData(goalsResult.value);
+          else setLoadError(goalsResult.reason instanceof Error ? goalsResult.reason.message : "โหลดข้อมูลคะแนนไม่สำเร็จ");
+          if (overallResult.status === "fulfilled") setOverall(overallResult.value);
+          if (workflowResult.status === "fulfilled") setWorkloadLocked(Boolean(workflowResult.value?.workload_locked));
         }
       })
       .catch((error: unknown) => {
@@ -96,8 +100,8 @@ export default function ScoreHomeworkContent() {
   }
 
   return (
-    <div className="grid h-full w-full grid-cols-1 gap-10 md:grid-cols-[calc(50%-26px)_calc(50%-26px)] md:justify-between md:gap-[52px]">
-    <div className="relative h-full min-h-[500px] w-full md:-left-4 md:pr-1 xl:-left-5">
+    <div className="grid h-full min-h-0 w-full grid-cols-1 gap-10 overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid-cols-[calc(50%-26px)_calc(50%-26px)] md:justify-between md:gap-[52px] md:overflow-hidden">
+    <div className="relative min-h-0 w-full md:h-full md:pr-1">
       {isLoading ? (
         <div className="flex min-h-[430px] items-center justify-center text-[#6BAED3]">
           <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
@@ -130,6 +134,7 @@ export default function ScoreHomeworkContent() {
           onScoreSaved={() => {
             void gradeService.getOverallGrade().then(setOverall).catch(() => undefined);
           }}
+          canEditScores={!workloadLocked}
         />
       ) : (
         <GradeGoalPrompt
@@ -152,7 +157,8 @@ export default function ScoreHomeworkContent() {
       )}
     </div>
       <HomeworkDashboard
-        canAddHomework={Boolean(data?.goals_locked)}
+        canAddHomework={Boolean(data?.goals_locked) && !workloadLocked}
+        canEditHomework={!workloadLocked}
         onHomeworkFinished={() => void loadGoals()}
       />
     </div>

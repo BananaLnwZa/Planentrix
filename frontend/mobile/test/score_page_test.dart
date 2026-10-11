@@ -20,6 +20,14 @@ class FakeScoreRepository implements ScoreRepository {
       credits: 3,
       teacherName: 'ชื่อ นามสกุล',
       targetScore: 4,
+      targetGradeCode: 'A',
+      targetMinimumPercentage: 85,
+      gradingSchemeType: 'instructor_subject',
+      gradeBoundaries: const [
+        GradeBoundary(gradeCode: 'A', minimumPercentage: 85),
+        GradeBoundary(gradeCode: 'B+', minimumPercentage: 78),
+        GradeBoundary(gradeCode: 'F', minimumPercentage: 0),
+      ],
       workloads: const [
         WorkloadScore(
           workloadId: 1,
@@ -55,6 +63,14 @@ class FakeScoreRepository implements ScoreRepository {
       credits: 3,
       teacherName: 'อาจารย์ทดสอบ',
       targetScore: 3.5,
+      targetGradeCode: 'B+',
+      targetMinimumPercentage: 78,
+      gradingSchemeType: 'instructor_subject',
+      gradeBoundaries: [
+        GradeBoundary(gradeCode: 'A', minimumPercentage: 85),
+        GradeBoundary(gradeCode: 'B+', minimumPercentage: 78),
+        GradeBoundary(gradeCode: 'F', minimumPercentage: 0),
+      ],
       workloads: [],
     ),
   ];
@@ -94,6 +110,11 @@ class MissingGoalScoreRepository extends FakeScoreRepository {
       credits: 3,
       teacherName: 'Teacher One',
       targetScore: null,
+      gradingSchemeType: 'instructor_subject',
+      gradeBoundaries: [
+        GradeBoundary(gradeCode: 'A', minimumPercentage: 85),
+        GradeBoundary(gradeCode: 'B+', minimumPercentage: 78),
+      ],
       workloads: [],
     ),
     SubjectScore(
@@ -103,6 +124,11 @@ class MissingGoalScoreRepository extends FakeScoreRepository {
       credits: 1,
       teacherName: 'Teacher Two',
       targetScore: null,
+      gradingSchemeType: 'subject_default',
+      gradeBoundaries: [
+        GradeBoundary(gradeCode: 'A', minimumPercentage: 80),
+        GradeBoundary(gradeCode: 'B+', minimumPercentage: 75),
+      ],
       workloads: [],
     ),
   ];
@@ -125,29 +151,27 @@ void setPhoneSize(WidgetTester tester, Size size) {
 }
 
 void main() {
-  test('grade boundaries follow the university score thresholds', () {
+  test('grade boundaries follow the published instructor thresholds', () {
+    const published = <GradeBoundary>[
+      GradeBoundary(gradeCode: 'A', minimumPercentage: 85),
+      GradeBoundary(gradeCode: 'B+', minimumPercentage: 78),
+      GradeBoundary(gradeCode: 'B', minimumPercentage: 70),
+      GradeBoundary(gradeCode: 'F', minimumPercentage: 0),
+    ];
     const boundaries = <(double, String)>[
       (100, 'A'),
-      (80, 'A'),
-      (79.99, 'B+'),
-      (75, 'B+'),
-      (74.99, 'B'),
+      (85, 'A'),
+      (84.99, 'B+'),
+      (78, 'B+'),
+      (77.99, 'B'),
       (70, 'B'),
-      (69.99, 'C+'),
-      (65, 'C+'),
-      (64.99, 'C'),
-      (60, 'C'),
-      (59.99, 'D+'),
-      (55, 'D+'),
-      (54.99, 'D'),
-      (50, 'D'),
-      (49.99, 'F'),
+      (69.99, 'F'),
       (0, 'F'),
     ];
 
     for (final entry in boundaries) {
       expect(
-        gradeFromPercent(entry.$1),
+        gradeFromPercent(entry.$1, published),
         entry.$2,
         reason: 'คะแนน ${entry.$1} ต้องได้เกรด ${entry.$2}',
       );
@@ -162,6 +186,16 @@ void main() {
       'credits': 3,
       'teacher_name': 'Teacher',
       'target_score': 4,
+      'target_grade': 'A',
+      'target_minimum_percentage': 85,
+      'grading_scheme': {
+        'scheme_type': 'instructor_subject',
+        'boundaries': [
+          {'grade_code': 'A', 'minimum_percentage': 85},
+          {'grade_code': 'B+', 'minimum_percentage': 78},
+          {'grade_code': 'F', 'minimum_percentage': 0},
+        ],
+      },
       'workloads': [
         {
           'workload_id': 1,
@@ -183,9 +217,10 @@ void main() {
     });
 
     expect(subject.workloads, hasLength(1));
-    expect(subject.progressPercent, 10);
-    expect(subject.actualGrade, 'F');
+    expect(subject.progressPercent, closeTo(8 / 85 * 100, 0.01));
+    expect(subject.actualGrade, 'B+');
     expect(subject.targetGrade, 'A');
+    expect(subject.pointsNeeded, 77);
   });
 
   test(
@@ -198,6 +233,14 @@ void main() {
         credits: 3,
         teacherName: 'Teacher',
         targetScore: 3,
+        targetGradeCode: 'B',
+        targetMinimumPercentage: 70,
+        gradeBoundaries: [
+          GradeBoundary(gradeCode: 'A', minimumPercentage: 85),
+          GradeBoundary(gradeCode: 'B+', minimumPercentage: 78),
+          GradeBoundary(gradeCode: 'B', minimumPercentage: 70),
+          GradeBoundary(gradeCode: 'F', minimumPercentage: 0),
+        ],
         workloads: [
           WorkloadScore(
             workloadId: 1,
@@ -211,9 +254,9 @@ void main() {
         ],
       );
 
-      expect(minimumScoreFromTargetGpa(subject.targetScore!), 70);
+      expect(subject.targetMinimumPercentage, 70);
       expect(subject.progressPercent, 100);
-      expect(subject.actualGrade, 'A');
+      expect(subject.actualGrade, 'B+');
     },
   );
 
@@ -235,6 +278,8 @@ void main() {
     expect(find.text('2.50'), findsOneWidget);
     expect(find.text('จากเป้าหมาย 3.75'), findsOneWidget);
     expect(find.byKey(const Key('gpa-gauge')), findsOneWidget);
+    expect(find.byKey(const Key('final-score-target-card')), findsOneWidget);
+    expect(find.text('ต้องได้เพิ่มอย่างน้อย 80 คะแนน'), findsOneWidget);
     expect(find.byType(CustomPaint), findsWidgets);
     final surface = tester.widget<Container>(find.byKey(const Key('gpa-card')));
     final surfaceDecoration = surface.decoration! as BoxDecoration;
@@ -287,8 +332,8 @@ void main() {
       expect(find.byKey(const Key('workload-score-table')), findsOneWidget);
       const expectedTypeColors = {
         1: Color(0xFFC5DBAA),
-        2: Color(0xE6FA86A3),
-        3: Color(0xE6EECDF9),
+        2: Color(0xFFFA86A3),
+        3: Color(0xFFEECDF9),
       };
       for (final entry in expectedTypeColors.entries) {
         final chip = find.byKey(Key('score-workload-type-${entry.key}'));
@@ -312,11 +357,13 @@ void main() {
         ),
       );
 
+      await tester.ensureVisible(find.byKey(const Key('subject-tab-1')));
       await tester.tap(find.byKey(const Key('subject-tab-1')));
       await tester.pumpAndSettle();
       expect(find.text('Programming'), findsWidgets);
       expect(find.text('ยังไม่มีงานในวิชานี้'), findsOneWidget);
 
+      await tester.ensureVisible(find.byKey(const Key('subject-tab-0')));
       await tester.tap(find.byKey(const Key('subject-tab-0')));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.byKey(const Key('score-entry-3')));
@@ -349,7 +396,8 @@ void main() {
       expect(repository.savedScore?.maximumScore, 10);
       expect(find.text('8/10'), findsOneWidget);
       expect(find.text('13/100'), findsOneWidget);
-      expect(find.text('16%'), findsOneWidget);
+      expect(find.text('15%'), findsOneWidget);
+      expect(find.text('ต้องได้เพิ่มอย่างน้อย 72 คะแนน'), findsOneWidget);
       expect(find.text('3.00'), findsOneWidget);
       expect(find.text('จากเป้าหมาย 3.75'), findsOneWidget);
       expect(find.byKey(const Key('target-grade-value')), findsOneWidget);
@@ -388,14 +436,16 @@ void main() {
     expect(find.text('กรุณาเลือกเกรดเป้าหมายให้ครบทุกวิชา'), findsOneWidget);
     expect(find.byKey(const Key('grade-goal-setup-popup')), findsOneWidget);
 
+    await tester.ensureVisible(find.byKey(const Key('goal-grade-21')));
     await tester.tap(find.byKey(const Key('goal-grade-21')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('A').last);
+    await tester.tap(find.text('A 85+').last);
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.byKey(const Key('goal-grade-22')));
     await tester.tap(find.byKey(const Key('goal-grade-22')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('B+').last);
+    await tester.tap(find.text('B+ 75+').last);
     await tester.pumpAndSettle();
 
     expect(find.text('3.88 / 4.00'), findsOneWidget);

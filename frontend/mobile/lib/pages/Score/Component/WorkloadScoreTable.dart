@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../common/WorkloadTypePalette.dart';
@@ -22,95 +24,112 @@ class WorkloadScoreTable extends StatelessWidget {
         .clamp(0, 100)
         .toDouble();
 
-    return Container(
-      key: const Key('workload-score-table'),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBFC),
-        border: Border.all(color: const Color(0xFFEFC9D7)),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          const _ScoreTableHeader(),
-          if (workloads.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 28),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.assignment_outlined,
-                    size: 25,
-                    color: Color(0xFFD89BAF),
-                  ),
-                  SizedBox(height: 7),
-                  Text(
-                    'ยังไม่มีงานในวิชานี้',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: Color(0xFFA67A89)),
-                  ),
-                ],
-              ),
-            )
-          else
-            ...List.generate(
-              workloads.length,
-              (index) => _WorkloadScoreRow(
-                key: Key('workload-score-row-$index'),
-                number: index + 1,
-                workload: workloads[index],
-                isSaving: savingWorkloadId == workloads[index].workloadId,
-                onEnterScore: () => onEnterScore(workloads[index]),
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: math.max(350.0, constraints.maxWidth),
+          child: Container(
+            key: const Key('workload-score-table'),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBFC),
+              border: Border.all(color: const Color(0xFFEFC9D7)),
+              borderRadius: BorderRadius.circular(12),
             ),
-          Container(
-            key: const Key('subject-score-total'),
-            constraints: const BoxConstraints(minHeight: 42),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: const BoxDecoration(
-              color: Color(0xFFFCE7EE),
-              border: Border(top: BorderSide(color: Color(0xFFEFC9D7))),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            clipBehavior: Clip.antiAlias,
+            child: Column(
               children: [
-                const Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      'คะแนนรวม',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF925B70)),
+                const _ScoreTableHeader(),
+                if (workloads.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 28),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.assignment_outlined,
+                          size: 25,
+                          color: Color(0xFFD89BAF),
+                        ),
+                        SizedBox(height: 7),
+                        Text(
+                          'ยังไม่มีงานในวิชานี้',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFA67A89),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ...List.generate(
+                    workloads.length,
+                    (index) => _WorkloadScoreRow(
+                      key: Key('workload-score-row-$index'),
+                      number: index + 1,
+                      workload: workloads[index],
+                      isSaving: savingWorkloadId == workloads[index].workloadId,
+                      onEnterScore: () => onEnterScore(workloads[index]),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
                 Container(
-                  constraints: const BoxConstraints(minWidth: 58),
+                  key: const Key('subject-score-total'),
+                  constraints: const BoxConstraints(minHeight: 42),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
+                    horizontal: 12,
+                    vertical: 7,
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: const [
-                      BoxShadow(color: Color(0x12000000), blurRadius: 3),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFCE7EE),
+                    border: Border(top: BorderSide(color: Color(0xFFEFC9D7))),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      const Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'คะแนนรวม',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF925B70),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        constraints: const BoxConstraints(minWidth: 58),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x12000000), blurRadius: 3),
+                          ],
+                        ),
+                        child: Text(
+                          '${_scoreText(actual)}/100',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFB05D79),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ],
-                  ),
-                  child: Text(
-                    '${_scoreText(actual)}/100',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFFB05D79),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
                   ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -135,7 +154,7 @@ class _ScoreTableHeader extends StatelessWidget {
           SizedBox(width: 30, child: Text('ลำดับ', style: style)),
           Expanded(child: Text('งาน', style: style)),
           SizedBox(
-            width: 72,
+            width: 132,
             child: Text('ประเภท', textAlign: TextAlign.center, style: style),
           ),
           SizedBox(
@@ -188,10 +207,11 @@ class _WorkloadScoreRow extends StatelessWidget {
             ),
           ),
           SizedBox(
-            width: 72,
+            width: 132,
             child: WorkloadTypeChip(
               key: Key('score-workload-type-${workload.workloadId}'),
               typeName: workload.workloadTypeName,
+              typeId: workload.workloadTypeId,
             ),
           ),
           SizedBox(
@@ -234,27 +254,28 @@ class _WorkloadScoreRow extends StatelessWidget {
 
 class WorkloadTypeChip extends StatelessWidget {
   final String typeName;
+  final int typeId;
 
-  const WorkloadTypeChip({super.key, required this.typeName});
+  const WorkloadTypeChip({super.key, required this.typeName, this.typeId = 0});
 
   @override
   Widget build(BuildContext context) {
-    final palette = workloadTypePalette(typeName);
+    final palette = workloadTypePaletteFor(typeId, typeName);
     return Center(
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 68),
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+        constraints: const BoxConstraints(minWidth: 76, maxWidth: 126),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: palette.normal,
-          border: Border.all(color: const Color(0x4D000000)),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.3)),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Text(
-          typeName,
+          workloadTypeLabel(typeId, typeName),
           textAlign: TextAlign.center,
-          maxLines: 1,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 10, color: Color(0x99000000)),
+          style: const TextStyle(fontSize: 12, color: Color(0x99000000)),
         ),
       ),
     );

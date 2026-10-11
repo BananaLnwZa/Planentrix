@@ -57,6 +57,11 @@ class FakeProfileRepository implements ProfileRepository {
   Future<UserProfile> getProfile() async => UserProfile(
     userId: 42,
     userName: 'NichaAPI',
+    firstName: 'Nicha',
+    lastName: 'Suwat',
+    facultyName: 'Faculty of Science',
+    departmentName: 'Computer Science',
+    yearLevel: 3,
     birthdate: DateTime(2004, 7, 16),
     gender: 'female',
   );
@@ -134,6 +139,9 @@ void main() {
               padding: const EdgeInsets.all(20),
               child: StudentCard(
                 name: 'Nicha',
+                firstName: 'Nicha',
+                lastName: 'Suwat',
+                faculty: 'Faculty of Science',
                 studentNumber: '42',
                 gender: 'Female',
                 major: 'COMSCI',
@@ -158,13 +166,14 @@ void main() {
     expect(cardShape.borderRadius, BorderRadius.circular(18));
     expect(find.text('Nicha'), findsOneWidget);
     expect(find.text('42'), findsOneWidget);
-    expect(find.text('Female'), findsOneWidget);
+    expect(find.text('Suwat'), findsOneWidget);
+    expect(find.text('Faculty of Science'), findsOneWidget);
     expect(find.text('COMSCI'), findsOneWidget);
     expect(find.text('16/07/04'), findsOneWidget);
     expect(tester.getSize(find.byKey(const Key('student-card'))).width, 320);
     expect(
       tester.getSize(find.byKey(const Key('student-card'))).height,
-      inInclusiveRange(175, 185),
+      inInclusiveRange(205, 260),
     );
     await tester.tap(find.byKey(const Key('student-card')));
     expect(wasTapped, isTrue);
@@ -298,8 +307,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('NichaAPI'), findsOneWidget);
-    expect(find.text('Female'), findsOneWidget);
+    expect(find.text('Nicha'), findsOneWidget);
+    expect(find.text('Suwat'), findsOneWidget);
+    expect(find.text('Faculty of Science'), findsOneWidget);
+    expect(find.text('Computer Science'), findsOneWidget);
     expect(find.text('16/07/04'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('student-card')));

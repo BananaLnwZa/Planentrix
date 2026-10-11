@@ -14,6 +14,7 @@ Future<void> showScheduleDetailsPopup(
   UserConstraint? constraint,
   required Future<ScheduleItem> Function(UpdateScheduleInput input) onSave,
   required Future<void> Function() onDelete,
+  bool allowDelete = false,
 }) => showDialog<void>(
   context: context,
   barrierColor: Colors.black38,
@@ -22,6 +23,7 @@ Future<void> showScheduleDetailsPopup(
     constraint: constraint,
     onSave: onSave,
     onDelete: onDelete,
+    allowDelete: allowDelete,
   ),
 );
 
@@ -30,12 +32,14 @@ class _ScheduleDetailsPopup extends StatefulWidget {
   final UserConstraint? constraint;
   final Future<ScheduleItem> Function(UpdateScheduleInput input) onSave;
   final Future<void> Function() onDelete;
+  final bool allowDelete;
 
   const _ScheduleDetailsPopup({
     required this.item,
     this.constraint,
     required this.onSave,
     required this.onDelete,
+    required this.allowDelete,
   });
 
   @override
@@ -53,7 +57,14 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
   bool _busy = false;
   String? _error;
 
-  bool get _isClass => _item.scheduleTypeId == 1;
+  bool get _isClass =>
+      _item.scheduleTypeCode == 'class' ||
+      (_item.scheduleTypeCode.isEmpty &&
+          (_item.scheduleTypeId == 0 || _item.scheduleTypeId == 1));
+
+  bool get _isReview =>
+      _item.scheduleTypeCode == 'review' ||
+      (_item.scheduleTypeCode.isEmpty && _item.scheduleTypeId == 2);
 
   @override
   void initState() {
@@ -104,8 +115,12 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
       setState(() => _error = 'เวลาเริ่มต้องอยู่ก่อนเวลาสิ้นสุด');
       return;
     }
-    if (_isClass && _classroom.text.trim().length > 10) {
-      setState(() => _error = 'ชื่อห้องเรียนต้องไม่เกิน 10 ตัวอักษร');
+    if (_isClass && _classroom.text.trim().length > 100) {
+      setState(() => _error = 'ชื่อห้องเรียนต้องไม่เกิน 100 ตัวอักษร');
+      return;
+    }
+    if (_isClass && _note.text.trim().length > 500) {
+      setState(() => _error = 'โน้ตต้องไม่เกิน 500 ตัวอักษร');
       return;
     }
     final conflict = findConstraintOverlap(
@@ -128,9 +143,7 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
           scheduleDay: _day,
           startTime: _start,
           endTime: _end,
-          classroom: _isClass && _classroom.text.trim().isNotEmpty
-              ? _classroom.text.trim()
-              : null,
+          classroom: _isClass ? _classroom.text.trim() : null,
           note: _isClass && _note.text.trim().isNotEmpty
               ? _note.text.trim()
               : null,
@@ -157,7 +170,7 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         title: const Text('ลบบล็อกเวลานี้?'),
         content: Text(
-          'ต้องการลบ${_item.scheduleTypeId == 2 ? 'เวลาอ่านหนังสือ' : 'เวลาทำการบ้าน'}'
+          'ต้องการลบ${_isReview ? 'เวลาอ่านหนังสือ' : 'เวลาทำการบ้าน'}'
           'ของวิชา ${_item.subjectName} ใช่ไหม',
         ),
         actions: [
@@ -230,12 +243,20 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
                           ),
                         ),
                         Text(
-                          _typeName(_item.scheduleTypeId),
+                          _typeName(_item),
                           style: const TextStyle(
                             fontSize: 10,
                             color: Color(0xFF8AA0AA),
                           ),
                         ),
+                        if (_isClass && _editing)
+                          const Text(
+                            'การแก้ไขนี้จะแสดงเฉพาะในตารางของคุณ',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF6A8795),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -303,10 +324,14 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
                       ? TextField(
                           key: const Key('schedule-classroom-field'),
                           controller: _classroom,
-                          maxLength: 10,
+                          maxLength: 100,
                           decoration: _inputDecoration('ไม่ระบุ'),
                         )
-                      : _ValuePill(_item.classroom ?? 'ไม่ระบุ'),
+                      : _ValuePill(
+                          _item.classroom?.isNotEmpty == true
+                              ? _item.classroom!
+                              : 'ไม่ระบุ',
+                        ),
                 ),
                 const SizedBox(height: 10),
                 _DetailRow(
@@ -315,6 +340,7 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
                       ? TextField(
                           key: const Key('schedule-note-field'),
                           controller: _note,
+                          maxLength: 500,
                           maxLines: 3,
                           decoration: _inputDecoration('เพิ่มโน้ตสำหรับคาบนี้'),
                         )
@@ -338,7 +364,7 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
                 spacing: 7,
                 runSpacing: 8,
                 children: [
-                  if (!_isClass)
+                  if (widget.allowDelete && !_isClass)
                     OutlinedButton.icon(
                       key: const Key('delete-schedule-button'),
                       onPressed: _busy ? null : _delete,
@@ -486,10 +512,15 @@ InputDecoration _inputDecoration(String hint) => InputDecoration(
   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
 );
 
-String _typeName(int type) => switch (type) {
-  1 => 'เรียน',
-  2 => 'อ่านหนังสือ',
-  _ => 'การบ้าน',
+String _typeName(ScheduleItem item) => switch (item.scheduleTypeCode) {
+  'class' => 'เรียน',
+  'review' => 'อ่านหนังสือ',
+  'homework' => 'การบ้าน',
+  _ => switch (item.scheduleTypeId) {
+    0 || 1 => 'เรียน',
+    2 => 'อ่านหนังสือ',
+    _ => 'การบ้าน',
+  },
 };
 
 const _dayNames = [

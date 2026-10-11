@@ -46,6 +46,7 @@ class WeeklyScheduleBlock {
   final String subjectName;
   final int scheduleTypeId;
   final String scheduleTypeName;
+  final String scheduleTypeCode;
   final String scheduledDate;
   final String startTime;
   final String endTime;
@@ -61,6 +62,7 @@ class WeeklyScheduleBlock {
     required this.subjectName,
     required this.scheduleTypeId,
     required this.scheduleTypeName,
+    this.scheduleTypeCode = '',
     required this.scheduledDate,
     required this.startTime,
     required this.endTime,
@@ -78,6 +80,7 @@ class WeeklyScheduleBlock {
         subjectName: _text(json['subject_name']),
         scheduleTypeId: _integer(json['schedule_type_id']),
         scheduleTypeName: _text(json['schedule_type_name']),
+        scheduleTypeCode: _text(json['schedule_type_code']),
         scheduledDate: _text(json['scheduled_date']),
         startTime: _time(json['start_time']),
         endTime: _time(json['end_time']),
@@ -92,6 +95,7 @@ class WeeklyRecommendationItem {
   final String subjectName;
   final int scheduleTypeId;
   final String scheduleTypeName;
+  final String scheduleTypeCode;
   final int currentMinutes;
   final int targetMinutes;
   final int allocatedMinutes;
@@ -109,6 +113,7 @@ class WeeklyRecommendationItem {
     required this.subjectName,
     required this.scheduleTypeId,
     required this.scheduleTypeName,
+    this.scheduleTypeCode = '',
     required this.currentMinutes,
     required this.targetMinutes,
     required this.allocatedMinutes,
@@ -129,6 +134,7 @@ class WeeklyRecommendationItem {
     subjectName: _text(json['subject_name']),
     scheduleTypeId: _integer(json['schedule_type_id']),
     scheduleTypeName: _text(json['schedule_type_name']),
+    scheduleTypeCode: _text(json['schedule_type_code']),
     currentMinutes: _integer(json['current_minutes']),
     targetMinutes: _integer(json['target_minutes']),
     allocatedMinutes: _integer(json['allocated_minutes']),
@@ -215,6 +221,7 @@ class RecurringClassBlock {
   final String startTime;
   final String endTime;
   final String? classroom;
+  final String? note;
 
   const RecurringClassBlock({
     required this.scheduleTimeId,
@@ -224,6 +231,7 @@ class RecurringClassBlock {
     required this.startTime,
     required this.endTime,
     this.classroom,
+    this.note,
   });
 
   factory RecurringClassBlock.fromJson(Map<String, dynamic> json) =>
@@ -235,6 +243,7 @@ class RecurringClassBlock {
         startTime: _time(json['start_time']),
         endTime: _time(json['end_time']),
         classroom: json['classroom']?.toString(),
+        note: json['note']?.toString(),
       );
 }
 

@@ -23,6 +23,7 @@ export default function HomeworkDetailsModal({
   onClose,
   onSave,
   onDelete,
+  canEdit = true,
 }: {
   task: HomeworkTask;
   isSaving: boolean;
@@ -31,6 +32,7 @@ export default function HomeworkDetailsModal({
   onClose: () => void;
   onSave: (input: UpdateHomeworkInput) => void;
   onDelete: () => void;
+  canEdit?: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(task.workload_name);
@@ -139,7 +141,7 @@ export default function HomeworkDetailsModal({
             {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             {isSaving ? "กำลังบันทึก" : "บันทึก"}
           </button>
-        ) : (
+        ) : canEdit ? (
           <div className="mt-5 flex justify-center gap-3">
             <button
               type="button"
@@ -159,7 +161,7 @@ export default function HomeworkDetailsModal({
               <Pencil className="h-4 w-4" /> แก้ไข
             </button>
           </div>
-        )}
+        ) : <p className="mt-5 text-center text-xs text-[#8A9CA4]">ช่วงนี้เปิดดูข้อมูลได้อย่างเดียว</p>}
       </div>
     </div>
   );

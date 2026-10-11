@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import db from "../../config/db";
 import { safelyGenerateRecommendation } from "../services/recommendation.engine";
+import { isWorkloadLockedForUser } from "../services/term-workflow";
 
 interface WorkloadTypeRow extends RowDataPacket {
   workload_type_id: number;
@@ -83,7 +84,6 @@ export const getSubjectsForWorkload = async (req: Request, res: Response) => {
   try {
     const userId = authenticatedUserId(req, res);
     if (userId === null) return;
-
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT enrollment.enrollment_id AS schedule_time_id,
               subject.subject_id,
@@ -135,6 +135,9 @@ export const createWorkload = async (req: Request, res: Response) => {
   try {
     const userId = authenticatedUserId(req, res);
     if (userId === null) return;
+    if (await isWorkloadLockedForUser(userId)) {
+      return res.status(409).json({ message: "ปิดการเพิ่มและแก้ไขภาระงาน/คะแนนหลังรอบเตรียมสอบปลายภาคครั้งสุดท้ายแล้ว" });
+    }
 
     const enrollmentId = Number(req.body.schedule_time_id);
     const workloadTypeId = Number(req.body.workload_type_id);
@@ -234,6 +237,9 @@ export const updateWorkload = async (req: Request, res: Response) => {
   try {
     const userId = authenticatedUserId(req, res);
     if (userId === null) return;
+    if (await isWorkloadLockedForUser(userId)) {
+      return res.status(409).json({ message: "ปิดการเพิ่มและแก้ไขภาระงาน/คะแนนหลังรอบเตรียมสอบปลายภาคครั้งสุดท้ายแล้ว" });
+    }
 
     const workloadId = Number(req.params.workload_id);
     const workloadName = String(req.body.workload_name ?? "").trim();
@@ -296,6 +302,9 @@ export const deleteWorkload = async (req: Request, res: Response) => {
   try {
     const userId = authenticatedUserId(req, res);
     if (userId === null) return;
+    if (await isWorkloadLockedForUser(userId)) {
+      return res.status(409).json({ message: "ปิดการเพิ่มและแก้ไขภาระงาน/คะแนนหลังรอบเตรียมสอบปลายภาคครั้งสุดท้ายแล้ว" });
+    }
     const workloadId = Number(req.params.workload_id);
     if (!Number.isInteger(workloadId) || workloadId <= 0) {
       return res.status(400).json({ message: "A valid workload_id is required" });
@@ -326,6 +335,9 @@ export const finishWorkload = async (req: Request, res: Response) => {
   try {
     const userId = authenticatedUserId(req, res);
     if (userId === null) return;
+    if (await isWorkloadLockedForUser(userId)) {
+      return res.status(409).json({ message: "ปิดการเพิ่มและแก้ไขภาระงาน/คะแนนหลังรอบเตรียมสอบปลายภาคครั้งสุดท้ายแล้ว" });
+    }
     const workloadId = Number(req.params.workload_id);
     if (!Number.isInteger(workloadId) || workloadId <= 0) {
       return res.status(400).json({ message: "A valid workload_id is required" });
@@ -439,6 +451,9 @@ export const saveWorkloadScore = async (req: Request, res: Response) => {
   try {
     const userId = authenticatedUserId(req, res);
     if (userId === null) return;
+    if (await isWorkloadLockedForUser(userId)) {
+      return res.status(409).json({ message: "ปิดการเพิ่มและแก้ไขภาระงาน/คะแนนหลังรอบเตรียมสอบปลายภาคครั้งสุดท้ายแล้ว" });
+    }
     const workloadId = Number(req.body.workload_id);
     const actualScore = Number(req.body.actual_score);
     const maxScore = Number(req.body.max_score);

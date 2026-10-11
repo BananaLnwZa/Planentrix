@@ -128,6 +128,7 @@ class _RecommendationPreviewSheetState
       context: context,
       builder: (_) => _WeeklyBlockEditorDialog(
         block: block,
+        canDelete: _recommendation.status == 'pending',
         subjects: _subjects,
         weekStart: _recommendation.weekStart,
         weekEnd: _recommendation.weekEnd,
@@ -265,7 +266,7 @@ class _RecommendationPreviewSheetState
                     key: const Key('recommendation-preview-list'),
                     padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
                     children: [
-                      if (_adjusting)
+                      if (const bool.fromEnvironment('ENABLE_MANUAL_SCHEDULE_ADD') && _adjusting)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: OutlinedButton.icon(
@@ -458,6 +459,7 @@ class _PreviewBlockTile extends StatelessWidget {
 
 class _WeeklyBlockEditorDialog extends StatefulWidget {
   final WeeklyScheduleBlock? block;
+  final bool canDelete;
   final List<({String id, String name})> subjects;
   final String weekStart;
   final String weekEnd;
@@ -465,6 +467,7 @@ class _WeeklyBlockEditorDialog extends StatefulWidget {
 
   const _WeeklyBlockEditorDialog({
     this.block,
+    required this.canDelete,
     required this.subjects,
     required this.weekStart,
     required this.weekEnd,
@@ -631,7 +634,7 @@ class _WeeklyBlockEditorDialogState extends State<_WeeklyBlockEditorDialog> {
       ),
     ),
     actions: [
-      if (widget.block != null)
+      if (widget.block != null && widget.canDelete)
         TextButton(
           onPressed: () =>
               Navigator.pop(context, const _EditorResult(delete: true)),

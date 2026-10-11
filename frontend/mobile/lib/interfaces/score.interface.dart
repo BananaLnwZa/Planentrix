@@ -24,6 +24,21 @@ class OverallGradeSummary {
   }
 }
 
+class GradeBoundary {
+  final String gradeCode;
+  final double minimumPercentage;
+
+  const GradeBoundary({
+    required this.gradeCode,
+    required this.minimumPercentage,
+  });
+
+  factory GradeBoundary.fromJson(Map<String, dynamic> json) => GradeBoundary(
+    gradeCode: '${json['grade_code'] ?? ''}',
+    minimumPercentage: _asDouble(json['minimum_percentage']),
+  );
+}
+
 class SubjectScore {
   final int scheduleTimeId;
   final String subjectId;
@@ -31,6 +46,10 @@ class SubjectScore {
   final double credits;
   final String teacherName;
   final double? targetScore;
+  final String? targetGradeCode;
+  final double? targetMinimumPercentage;
+  final String? gradingSchemeType;
+  final List<GradeBoundary> gradeBoundaries;
   final List<WorkloadScore> workloads;
 
   const SubjectScore({
@@ -40,6 +59,10 @@ class SubjectScore {
     required this.credits,
     required this.teacherName,
     required this.targetScore,
+    this.targetGradeCode,
+    this.targetMinimumPercentage,
+    this.gradingSchemeType,
+    this.gradeBoundaries = const [],
     required this.workloads,
   });
 
@@ -48,6 +71,17 @@ class SubjectScore {
     final rawWorkloads = hasCompletedWorkloads
         ? json['completed_workloads'] ?? const <dynamic>[]
         : json['workloads'] ?? const <dynamic>[];
+    final rawScheme = json['grading_scheme'];
+    final scheme = rawScheme is Map
+        ? Map<String, dynamic>.from(rawScheme)
+        : null;
+    final rawBoundaries = scheme?['boundaries'];
+    final boundaries = rawBoundaries is List
+        ? rawBoundaries
+              .whereType<Map>()
+              .map((item) => GradeBoundary.fromJson(Map<String, dynamic>.from(item)))
+              .toList()
+        : const <GradeBoundary>[];
     final workloads = rawWorkloads is List
         ? rawWorkloads
               .whereType<Map>()
@@ -67,6 +101,16 @@ class SubjectScore {
       credits: _asDouble(json['credits']),
       teacherName: '${json['teacher_name'] ?? '—'}',
       targetScore: _asNullableDouble(json['target_score']),
+      targetGradeCode: json['target_grade'] == null
+          ? null
+          : '${json['target_grade']}',
+      targetMinimumPercentage: _asNullableDouble(
+        json['target_minimum_percentage'],
+      ),
+      gradingSchemeType: scheme?['scheme_type'] == null
+          ? null
+          : '${scheme!['scheme_type']}',
+      gradeBoundaries: boundaries,
       workloads: workloads,
     );
   }
@@ -77,26 +121,46 @@ class SubjectScore {
   double get totalMaximumScore =>
       workloads.fold(0, (sum, workload) => sum + (workload.maxScore ?? 0));
 
-  double get actualPercent => totalActualScore.clamp(0, 100).toDouble();
+  double get actualPercent => totalMaximumScore <= 0
+      ? 0
+      : ((totalActualScore / totalMaximumScore) * 100).clamp(0, 100).toDouble();
+
+  double? minimumForGrade(String grade) {
+    for (final boundary in gradeBoundaries) {
+      if (boundary.gradeCode == grade) return boundary.minimumPercentage;
+    }
+    return null;
+  }
+
+  double? get pointsNeeded {
+    final minimum = targetMinimumPercentage;
+    if (minimum == null) return null;
+    return (minimum - totalActualScore).clamp(0, double.infinity).toDouble();
+  }
 
   double get progressPercent {
-    if (targetScore == null) return actualPercent;
-    final targetMinimumScore = minimumScoreFromTargetGpa(targetScore!);
+    final targetMinimumScore = targetMinimumPercentage;
+    if (targetMinimumScore == null) return 0;
     if (targetMinimumScore == 0) return 100;
-    return ((actualPercent / targetMinimumScore) * 100)
+    return ((totalActualScore / targetMinimumScore) * 100)
         .clamp(0, 100)
         .toDouble();
   }
 
-  String get actualGrade =>
-      totalMaximumScore <= 0 ? '—' : gradeFromPercent(actualPercent);
+  String get actualGrade => totalMaximumScore <= 0
+      ? '—'
+      : gradeFromPercent(actualPercent, gradeBoundaries) ?? 'รอเกณฑ์';
 
   String get targetGrade =>
-      targetScore == null ? '—' : gradeFromGpa(targetScore!);
+      targetGradeCode ?? (targetScore == null ? '—' : gradeFromGpa(targetScore!));
 
   SubjectScore copyWith({
     double? targetScore,
     bool replaceTargetScore = false,
+    String? targetGradeCode,
+    bool replaceTargetGradeCode = false,
+    double? targetMinimumPercentage,
+    bool replaceTargetMinimumPercentage = false,
     List<WorkloadScore>? workloads,
   }) {
     return SubjectScore(
@@ -106,6 +170,14 @@ class SubjectScore {
       credits: credits,
       teacherName: teacherName,
       targetScore: replaceTargetScore ? targetScore : this.targetScore,
+      targetGradeCode: replaceTargetGradeCode
+          ? targetGradeCode
+          : this.targetGradeCode,
+      targetMinimumPercentage: replaceTargetMinimumPercentage
+          ? targetMinimumPercentage
+          : this.targetMinimumPercentage,
+      gradingSchemeType: gradingSchemeType,
+      gradeBoundaries: gradeBoundaries,
       workloads: workloads ?? this.workloads,
     );
   }
@@ -199,26 +271,13 @@ String gradeFromGpa(double gpa) {
   return 'F';
 }
 
-String gradeFromPercent(double percent) {
-  if (percent >= 80) return 'A';
-  if (percent >= 75) return 'B+';
-  if (percent >= 70) return 'B';
-  if (percent >= 65) return 'C+';
-  if (percent >= 60) return 'C';
-  if (percent >= 55) return 'D+';
-  if (percent >= 50) return 'D';
-  return 'F';
-}
-
-double minimumScoreFromTargetGpa(double targetGpa) {
-  if (targetGpa >= 4) return 80;
-  if (targetGpa >= 3.5) return 75;
-  if (targetGpa >= 3) return 70;
-  if (targetGpa >= 2.5) return 65;
-  if (targetGpa >= 2) return 60;
-  if (targetGpa >= 1.5) return 55;
-  if (targetGpa >= 1) return 50;
-  return 0;
+String? gradeFromPercent(double percent, List<GradeBoundary> boundaries) {
+  final ordered = [...boundaries]
+    ..sort((left, right) => right.minimumPercentage.compareTo(left.minimumPercentage));
+  for (final boundary in ordered) {
+    if (percent >= boundary.minimumPercentage) return boundary.gradeCode;
+  }
+  return null;
 }
 
 int _asInt(dynamic value, {int fallback = 0}) {

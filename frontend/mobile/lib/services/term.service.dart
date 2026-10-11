@@ -35,6 +35,19 @@ class TermService implements TermRepository {
   TermService({ApiService? apiService})
     : _apiService = apiService ?? ApiService();
 
+  Future<TermWorkflow?> getWorkflow() async {
+    try {
+      final response = await _apiService.get('/user/terms/workflow');
+      final body = Map<String, dynamic>.from(response.data as Map);
+      final data = body['data'];
+      return data is Map
+          ? TermWorkflow.fromJson(Map<String, dynamic>.from(data))
+          : null;
+    } on DioException catch (error) {
+      throw _toTermException(error, 'ไม่สามารถโหลดสถานะช่วงสอบได้');
+    }
+  }
+
   @override
   Future<CurrentTerm?> getCurrentTerm() async {
     try {

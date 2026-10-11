@@ -107,6 +107,7 @@ const itemFromJson = (value: unknown): WeeklyRecommendationItem => {
     target_minutes: number(json.target_minutes),
     allocated_minutes: number(json.allocated_minutes),
     unallocated_minutes: number(json.unallocated_minutes),
+    previous_adherence_rate: nullableNumber(json.previous_adherence_rate),
     difference_minutes: number(json.difference_minutes),
     primary_action: text(json.primary_action) as WeeklyRecommendationItem["primary_action"],
     cap_applied: boolean(json.cap_applied),

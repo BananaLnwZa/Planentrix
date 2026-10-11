@@ -486,8 +486,8 @@ export default function TimerWorkspace() {
 
   return (
     <>
-      <div className="grid h-full min-h-0 w-full grid-cols-1 gap-5 overflow-y-auto pr-1 md:grid-cols-2 md:gap-[88px] md:overflow-hidden md:px-3 md:py-1 md:pr-3 lg:gap-24">
-        <div className="flex min-h-0 flex-col gap-3 md:h-full md:overflow-y-auto md:pr-2">
+      <div className="grid h-full min-h-0 w-full grid-cols-1 gap-5 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid-cols-2 md:gap-[88px] md:overflow-hidden md:px-3 md:py-1 md:pr-3 lg:gap-24">
+        <div className="flex min-h-0 flex-col gap-3 md:h-full md:overflow-y-auto md:pr-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {!online && (
             <div className="flex items-center justify-center gap-2 rounded-xl bg-[#fff0f1] px-3 py-2 text-xs font-semibold text-[#ae5d68]">
               <WifiOff size={14} /> ขณะนี้ออฟไลน์ ระบบยังแสดงเวลาโดยประมาณแต่ปิดการควบคุมไว้

@@ -31,6 +31,7 @@ type ScheduleDetailsPopupProps = {
   onClose: () => void;
   onSave: (data: UpdateScheduleRequest) => Promise<void>;
   onDelete: () => Promise<void>;
+  allowDelete?: boolean;
 };
 
 export default function ScheduleDetailsPopup({
@@ -41,6 +42,7 @@ export default function ScheduleDetailsPopup({
   onClose,
   onSave,
   onDelete,
+  allowDelete = false,
 }: ScheduleDetailsPopupProps) {
   const isClass = item.schedule_type_code === "class";
   const [isEditing, setIsEditing] = useState(false);
@@ -86,8 +88,13 @@ export default function ScheduleDetailsPopup({
       return;
     }
 
-    if (isClass && classroom.length > 10) {
-      setError("ชื่อห้องเรียนต้องไม่เกิน 10 ตัวอักษร");
+    if (isClass && classroom.trim().length > 100) {
+      setError("ชื่อห้องเรียนต้องไม่เกิน 100 ตัวอักษร");
+      return;
+    }
+
+    if (isClass && note.trim().length > 500) {
+      setError("โน้ตต้องไม่เกิน 500 ตัวอักษร");
       return;
     }
 
@@ -97,7 +104,7 @@ export default function ScheduleDetailsPopup({
       end_time: endTime,
       ...(isClass
         ? {
-            classroom: classroom.trim() || null,
+            classroom: classroom.trim(),
             note: note.trim() || null,
           }
         : {}),
@@ -166,6 +173,11 @@ export default function ScheduleDetailsPopup({
             >
               {item.subject_name}
             </h2>
+            {isClass && isEditing && (
+              <p className="mt-1 text-[11px] text-[#6A8795]">
+                การแก้ไขนี้จะแสดงเฉพาะในตารางของคุณ
+              </p>
+            )}
           </div>
         </div>
 
@@ -248,7 +260,7 @@ export default function ScheduleDetailsPopup({
                 {isEditing ? (
                   <input
                     value={classroom}
-                    maxLength={10}
+                    maxLength={100}
                     onChange={(event) => setClassroom(event.target.value)}
                     placeholder="ไม่ระบุ"
                     className="h-9 w-full rounded-lg border border-[#A9C8D6] px-3 outline-none placeholder:text-[#A8B5BB] focus:border-[#5F9DBA]"
@@ -261,6 +273,7 @@ export default function ScheduleDetailsPopup({
                 {isEditing ? (
                   <textarea
                     value={note}
+                    maxLength={500}
                     onChange={(event) => setNote(event.target.value)}
                     rows={3}
                     placeholder="เพิ่มโน้ตสำหรับคาบนี้"
@@ -286,7 +299,7 @@ export default function ScheduleDetailsPopup({
         )}
 
         <div className="mt-5 flex items-center justify-between gap-3">
-          {!isClass ? (
+          {allowDelete && !isClass ? (
             <button
               type="button"
               onClick={() => {
@@ -337,7 +350,7 @@ export default function ScheduleDetailsPopup({
         </div>
       </section>
 
-      {isDeleteConfirmOpen && !isClass && (
+      {isDeleteConfirmOpen && allowDelete && !isClass && (
         <div
           className="fixed inset-0 z-[10001] flex items-center justify-center bg-[#38596A]/25 p-4 backdrop-blur-[3px]"
           onMouseDown={(event) => {

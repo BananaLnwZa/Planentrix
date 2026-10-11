@@ -30,6 +30,7 @@ type TermProps = {
   onConfirm?: (values: TermFormValues) => void;
   onEndTerm?: () => void;
   compact?: boolean;
+  endTermMode?: boolean;
 };
 
 function formatThaiExamDate(date?: string | null) {
@@ -115,6 +116,7 @@ export default function Term({
   onConfirm,
   onEndTerm,
   compact = false,
+  endTermMode = false,
 }: TermProps) {
   const termCardRef = useRef<HTMLElement>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -397,6 +399,13 @@ export default function Term({
             </span>
 
             {compact ? (
+              endTermMode ? (
+                <div className="flex h-full flex-col items-center justify-center text-center">
+                  <strong className="text-[13px] font-semibold leading-tight text-[#4F6B78]">เทอม {currentTerm.term}</strong>
+                  <span className="mt-1 text-[9px] text-[#688492]">สอบปลายภาคเสร็จแล้ว</span>
+                  <span className="mt-2 rounded-full bg-[#8BC9E5] px-3 py-1 text-[10px] font-semibold text-white shadow-sm">กดเพื่อจบเทอม</span>
+                </div>
+              ) : (
               <div className="flex h-full flex-col items-center justify-center text-center">
                 <strong className="text-[19px] font-semibold leading-none text-[#4F6B78]">
                   เทอม {currentTerm.term}
@@ -411,6 +420,7 @@ export default function Term({
                   กดเพื่อดูรายละเอียด
                 </span>
               </div>
+              )
             ) : (
               <>
             <div className="grid grid-cols-[auto_auto_auto] items-center justify-between gap-2">

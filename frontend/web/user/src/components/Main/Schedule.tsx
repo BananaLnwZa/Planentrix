@@ -29,6 +29,8 @@ type ScheduleProps = {
   onChanged?: () => void;
 };
 
+const manualBlockAddVisible = process.env.NEXT_PUBLIC_ENABLE_MANUAL_SCHEDULE_ADD === "true";
+
 const isoDay = (value: string) => {
   const day = new Date(`${value}T00:00:00`).getDay();
   return day === 0 ? 7 : day;
@@ -124,10 +126,11 @@ export default function Schedule({
       const weekly = weeklyResult.value;
       setAcceptedRecommendation(weekly.accepted_recommendation);
       setWeeklyBlocks(weekly.weekly_blocks);
+      const recurringClasses = legacy
+        ? legacy.data.filter((item) => item.schedule_type_code === "class")
+        : weekly.recurring_classes;
       setItems([
-        ...weekly.recurring_classes.map((item) =>
-          recurringDisplayItem({ ...item, teacher_name: "", credits: 0 })
-        ),
+        ...recurringClasses.map(recurringDisplayItem),
         ...weekly.weekly_blocks.map(weeklyDisplayItem),
       ]);
       setHasCurrentTerm(true);
@@ -230,22 +233,6 @@ export default function Schedule({
     }
   };
 
-  const handleWeeklyDelete = async () => {
-    if (!selectedWeeklyBlock || !acceptedRecommendation) return;
-    setIsDeleting(true);
-    try {
-      await recommendationService.deleteBlock(
-        acceptedRecommendation.recommendation_id,
-        selectedWeeklyBlock.weekly_block_id
-      );
-      setSelectedWeeklyBlock(null);
-      await loadSchedule();
-      onChanged?.();
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   const handleOpenAdd = async () => {
     if (!hasCurrentTerm || acceptedRecommendation) return;
     setIsAddOpen(true);
@@ -318,7 +305,7 @@ export default function Schedule({
             ยังไม่มีข้อมูลตารางเวลาสำหรับเทอมปัจจุบัน
           </div>
         )}
-        {hasScheduleItems && !acceptedRecommendation && (
+        {manualBlockAddVisible && hasScheduleItems && !acceptedRecommendation && (
           <button
             type="button"
             onClick={() => void handleOpenAdd()}
@@ -360,7 +347,6 @@ export default function Schedule({
           constraint={constraint}
           onClose={() => setSelectedWeeklyBlock(null)}
           onSave={handleWeeklySave}
-          onDelete={handleWeeklyDelete}
         />
       )}
       {isAddOpen && (

@@ -10,6 +10,7 @@ import type {
   PendingSystemEvaluation,
   SystemEvaluationAnswers,
   TermHistoryItem,
+  TermWorkflow,
 } from "@/interfaces/term.interface";
 import { authenticatedApiClient } from "./api.client";
 
@@ -27,6 +28,25 @@ class TermService {
         return null;
       }
       throw this.toError(error, "Unable to load current term");
+    }
+  }
+
+  async getWorkflow(): Promise<TermWorkflow | null> {
+    try {
+      const response = await this.apiClient.get<{ data: TermWorkflow | null }>(
+        "/user/terms/workflow",
+      );
+      return response.data.data;
+    } catch (error) {
+      throw this.toError(error, "ไม่สามารถตรวจสอบโฟลวของเทอมได้");
+    }
+  }
+
+  async acknowledgeMidtermFollowup(): Promise<void> {
+    try {
+      await this.apiClient.post("/user/terms/workflow/midterm-followup/acknowledge");
+    } catch (error) {
+      throw this.toError(error, "ไม่สามารถบันทึกการแจ้งเตือนได้");
     }
   }
 

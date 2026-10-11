@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'services/app_notification.service.dart';
 import 'pages/Homework/Homework.dart';
 import 'pages/Login/LogInPage.dart';
+import 'pages/Login/SessionGate.dart';
 import 'pages/Main/MainPage.dart';
 import 'pages/Score/Score.dart';
 import 'pages/SignIn/SignInPage.dart';
@@ -122,7 +123,7 @@ class MyApp extends StatelessWidget {
         data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
         child: child!,
       ),
-      home: const LoginPage(),
+      home: const SessionGate(),
       onGenerateRoute: generateAppRoute,
     );
   }

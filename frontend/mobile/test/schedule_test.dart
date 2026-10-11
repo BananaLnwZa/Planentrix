@@ -11,8 +11,9 @@ class FakeTableRepository implements TableRepository {
   var items = <ScheduleItem>[
     const ScheduleItem(
       scheduleTimeId: 1,
-      scheduleTypeId: 1,
+      scheduleTypeId: 0,
       scheduleTypeName: 'Class',
+      scheduleTypeCode: 'class',
       subjectId: 'BI101',
       subjectName: 'Business Intelligence',
       scheduleDay: 1,
@@ -124,6 +125,30 @@ void main() {
     expect(find.text('09:00'), findsOneWidget);
     expect(find.text('17:00'), findsOneWidget);
     expect(find.byKey(const Key('schedule-block-1')), findsOneWidget);
+    final classBlock = find.descendant(
+      of: find.byKey(const Key('schedule-block-1')),
+      matching: find.byType(Material),
+    );
+    expect(
+      tester.widget<Material>(classBlock.first).color,
+      const Color(0xFFDDF1C9),
+    );
+    final horizontalScroll = tester.widget<SingleChildScrollView>(
+      find.byKey(const Key('schedule-horizontal-scroll')),
+    );
+    expect(horizontalScroll.scrollDirection, Axis.horizontal);
+    final fridayBefore = tester.getTopLeft(find.text('ศ.')).dx;
+    await tester.drag(
+      find.byKey(const Key('schedule-horizontal-scroll')),
+      const Offset(-180, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('ศ.')).dx, lessThan(fridayBefore));
+    await tester.drag(
+      find.byKey(const Key('schedule-horizontal-scroll')),
+      const Offset(180, 0),
+    );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('schedule-block-1')));
     await tester.pumpAndSettle();

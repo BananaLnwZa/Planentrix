@@ -486,6 +486,7 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return NotebookSectionPage(
       activeTab: NotebookTabId.timer,
+      hideScrollbar: true,
       contentKey: const Key('timer-page'),
       contentPadding: const EdgeInsets.fromLTRB(12, 22, 12, 30),
       centerContent: false,

@@ -18,6 +18,16 @@ export interface CurrentTermResponse {
   data: CurrentTerm;
 }
 
+export interface TermWorkflow {
+  term_id: number;
+  phase: "normal" | "midterm_3w" | "midterm_2w" | "midterm_1w" | "midterm_exam" | "midterm_post" | "final_3w" | "final_2w" | "final_1w" | "final_exam" | "final_post";
+  midterm_phase: string;
+  final_phase: string;
+  workload_locked: boolean;
+  post_final: boolean;
+  midterm_followup_pending: boolean;
+}
+
 export interface CreateTermRequest {
   academic_year: number;
   semester: string;

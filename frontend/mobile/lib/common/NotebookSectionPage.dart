@@ -14,6 +14,7 @@ class NotebookSectionPage extends StatelessWidget {
   final Key? paperKey;
   final EdgeInsetsGeometry contentPadding;
   final bool centerContent;
+  final bool hideScrollbar;
 
   const NotebookSectionPage({
     super.key,
@@ -26,6 +27,7 @@ class NotebookSectionPage extends StatelessWidget {
     this.paperKey,
     this.contentPadding = EdgeInsets.zero,
     this.centerContent = true,
+    this.hideScrollbar = false,
   }) : assert(title != null || child != null);
 
   void _changeTab(BuildContext context, NotebookTabId tab) {
@@ -134,7 +136,7 @@ class NotebookSectionPage extends StatelessWidget {
                                         padding.vertical,
                                   );
 
-                                  return SingleChildScrollView(
+                                  final contentScroll = SingleChildScrollView(
                                     key: Key(
                                       'notebook-content-scroll-${activeTab.name}',
                                     ),
@@ -147,6 +149,12 @@ class NotebookSectionPage extends StatelessWidget {
                                           ? Center(child: pageContent)
                                           : pageContent,
                                     ),
+                                  );
+                                  if (!hideScrollbar) return contentScroll;
+                                  return ScrollConfiguration(
+                                    behavior: ScrollConfiguration.of(context)
+                                        .copyWith(scrollbars: false),
+                                    child: contentScroll,
                                   );
                                 },
                               ),

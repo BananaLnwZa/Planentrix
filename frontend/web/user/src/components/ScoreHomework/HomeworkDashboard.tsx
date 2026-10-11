@@ -29,9 +29,11 @@ import {
 export default function HomeworkDashboard({
   onHomeworkFinished,
   canAddHomework,
+  canEditHomework = true,
 }: {
   onHomeworkFinished: () => void;
   canAddHomework: boolean;
+  canEditHomework?: boolean;
 }) {
   const [tasks, setTasks] = useState<HomeworkTask[]>([]);
   const [hasCurrentTerm, setHasCurrentTerm] = useState<boolean | null>(null);
@@ -118,7 +120,7 @@ export default function HomeworkDashboard({
   };
 
   const updateTask = async (input: UpdateHomeworkInput) => {
-    if (!selectedTask) return;
+    if (!selectedTask || !canEditHomework) return;
     setIsSaving(true);
     setModalError(null);
     try {
@@ -135,7 +137,7 @@ export default function HomeworkDashboard({
   };
 
   const deleteTask = async () => {
-    if (!selectedTask) return;
+    if (!selectedTask || !canEditHomework) return;
     setIsDeleting(true);
     setModalError(null);
     try {
@@ -150,7 +152,7 @@ export default function HomeworkDashboard({
   };
 
   const finishTask = async (task: HomeworkTask) => {
-    if (submittingId !== null) return;
+    if (submittingId !== null || !canEditHomework) return;
     setSubmittingId(task.workload_id);
     setLoadError(null);
     try {
@@ -165,8 +167,8 @@ export default function HomeworkDashboard({
   };
 
   return (
-    <section className="relative h-full min-h-[500px] w-full md:pl-1">
-      <div className="px-2 pb-5 pt-1">
+    <section className="relative min-h-0 w-full md:h-full md:pl-1">
+      <div className="px-2 pb-5 pt-1 md:h-full md:overflow-y-auto md:overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {!isLoading && !loadError && hasCurrentTerm && canAddHomework && (
           <button
             type="button"
@@ -175,6 +177,9 @@ export default function HomeworkDashboard({
           >
             <Plus className="h-4 w-4" /> เพิ่มงาน
           </button>
+        )}
+        {!canEditHomework && hasCurrentTerm && (
+          <p className="mb-3 rounded-xl border border-[#D5E7EE] bg-[#F3FAFD] px-3 py-2 text-[11px] text-[#698796]">เข้าสู่ช่วงทบทวนก่อนสอบปลายภาครอบสุดท้ายแล้ว ขณะนี้ดูข้อมูลได้ แต่เพิ่ม/แก้ไขภาระงานและคะแนนไม่ได้</p>
         )}
 
         {isLoading ? (
@@ -219,6 +224,7 @@ export default function HomeworkDashboard({
                         key={task.workload_id}
                         task={task}
                         isSubmitting={submittingId === task.workload_id}
+                        canEdit={canEditHomework}
                         onOpen={() => {
                           setModalError(null);
                           setSelectedTask(task);
@@ -253,6 +259,7 @@ export default function HomeworkDashboard({
           onClose={() => !isSaving && !isDeleting && setSelectedTask(null)}
           onSave={(input) => void updateTask(input)}
           onDelete={() => void deleteTask()}
+          canEdit={canEditHomework}
         />
       )}
     </section>
@@ -264,11 +271,13 @@ function HomeworkTaskCard({
   isSubmitting,
   onOpen,
   onSubmit,
+  canEdit = true,
 }: {
   task: HomeworkTask;
   isSubmitting: boolean;
   onOpen: () => void;
   onSubmit: () => void;
+  canEdit?: boolean;
 }) {
   return (
     <div
@@ -278,11 +287,13 @@ function HomeworkTaskCard({
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") onOpen();
       }}
-      className="grid min-h-[86px] w-[calc(100%+32px)] cursor-pointer grid-cols-[minmax(0,1.25fr)_minmax(0,.8fr)_92px_64px] items-center gap-3 rounded-2xl border border-black/20 bg-white px-4 py-3.5 text-[13px] text-[#374957] shadow-[1px_3px_7px_rgba(0,0,0,0.14)] transition hover:-translate-y-0.5 hover:shadow-md"
+      className="grid min-h-[86px] w-full cursor-pointer grid-cols-[minmax(0,1fr)_72px_54px] items-center gap-2 rounded-2xl border border-black/20 bg-white px-3 py-3 text-[11px] text-[#374957] shadow-[1px_3px_7px_rgba(0,0,0,0.14)] transition hover:-translate-y-0.5 hover:shadow-md"
       aria-label={`ดูรายละเอียด ${task.workload_name}`}
     >
-      <span className="line-clamp-2 whitespace-normal leading-5" title={task.subject_name}>{task.subject_name}</span>
-      <span className="line-clamp-2 whitespace-normal leading-5" title={task.workload_name}>{task.workload_name}</span>
+      <span className="min-w-0 leading-4">
+        <span className="block truncate font-medium" title={task.subject_name}>{task.subject_name}</span>
+        <span className="mt-1 block truncate text-[#70838D]" title={task.workload_name}>{task.workload_name}</span>
+      </span>
       <span className="text-center text-[11px] leading-[15px]">
         <span className="block font-medium text-[#526975]">กำหนดส่ง</span>
         <span>{formatDisplayDate(task.deadline)}</span>
@@ -294,8 +305,8 @@ function HomeworkTaskCard({
           event.stopPropagation();
           onSubmit();
         }}
-        disabled={isSubmitting}
-        className="flex h-9 items-center justify-center gap-1 rounded-xl border border-[#99B3C0] bg-[#CFEFFF] text-xs text-[#374957] disabled:opacity-60"
+        disabled={isSubmitting || !canEdit}
+        className="flex h-9 items-center justify-center gap-1 rounded-xl border border-[#99B3C0] bg-[#CFEFFF] text-[11px] text-[#374957] disabled:opacity-60"
       >
         {isSubmitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <><span>ส่ง</span><Check className="h-4 w-4" /></>}
       </button>

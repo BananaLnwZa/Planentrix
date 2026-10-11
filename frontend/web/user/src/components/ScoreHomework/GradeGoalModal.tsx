@@ -84,7 +84,7 @@ export default function GradeGoalModal({
                 เลือกเกรดที่ต้องการ
               </h2>
               <p className="mt-0.5 text-[11px] font-medium text-[#567486]">
-                ช่วงคะแนนอ้างอิงเกณฑ์ที่อาจารย์เผยแพร่ของแต่ละกลุ่มเรียน
+                คะแนนขั้นต่ำอ้างอิงเกณฑ์ที่เผยแพร่ของแต่ละวิชา
               </p>
             </div>
           </div>
@@ -127,6 +127,11 @@ export default function GradeGoalModal({
                     {!subject.grading_scheme && (
                       <span className="mt-1 block text-[10px] text-[#A47A35]">
                         รออาจารย์เผยแพร่เกณฑ์ตัดเกรด
+                      </span>
+                    )}
+                    {subject.grading_scheme?.scheme_type === "subject_default" && (
+                      <span className="mt-1 block text-[10px] text-[#7A95A3]">
+                        ใช้เกณฑ์พื้นฐานจนกว่าอาจารย์จะเผยแพร่เกณฑ์ของวิชานี้
                       </span>
                     )}
                   </span>

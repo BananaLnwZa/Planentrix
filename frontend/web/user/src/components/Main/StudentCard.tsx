@@ -224,6 +224,9 @@ export default function StudentCard({
     "Student";
   const displayGender = gender || formatGender(profile?.user_gender);
   const displayBirthDate = birthDate || formatDate(profile?.user_birthdate);
+  const displayFaculty = profile?.faculty_name || profile?.faculty_code || "—";
+  const displayDepartment = profile?.department_name || profile?.department_code || "—";
+  const displayYear = profile?.year_level ? `ปี ${profile.year_level}` : "—";
   const displayStudentNumber =
     studentNumber || String(profile?.user_id || userId || 1).padStart(2, "0");
   const visibleLoadError =
@@ -499,17 +502,25 @@ export default function StudentCard({
                 <dt className="text-[10px] leading-tight uppercase text-gray-400">Last name</dt>
                 <dd className="truncate text-base leading-tight text-gray-900">{displayLastName}</dd>
               </div>
-              <div>
+              <div className="col-span-2 min-w-0">
                 <dt className="text-[10px] leading-tight uppercase text-gray-400">Faculty</dt>
-                <dd className="truncate text-base leading-tight text-gray-900">
-                  {profile?.faculty_code || "—"}
+                <dd className="break-words text-sm leading-tight text-gray-900">
+                  {displayFaculty}
+                </dd>
+              </div>
+              <div className="col-span-2 min-w-0">
+                <dt className="text-[10px] leading-tight uppercase text-gray-400">Department</dt>
+                <dd className="break-words text-sm leading-tight text-gray-900">
+                  {displayDepartment}
                 </dd>
               </div>
               <div>
-                <dt className="text-[10px] leading-tight uppercase text-gray-400">Department</dt>
-                <dd className="truncate text-base leading-tight text-gray-900">
-                  {profile?.department_code || "—"}
-                </dd>
+                <dt className="text-[10px] leading-tight uppercase text-gray-400">Year</dt>
+                <dd className="text-sm leading-tight text-gray-900">{displayYear}</dd>
+              </div>
+              <div>
+                <dt className="text-[10px] leading-tight uppercase text-gray-400">Birthday</dt>
+                <dd className="text-sm leading-tight text-gray-900">{displayBirthDate}</dd>
               </div>
             </dl>
           </div>

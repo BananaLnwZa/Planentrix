@@ -39,6 +39,7 @@ export interface GenerateRecommendationInput {
   now?: Date;
   targetWeekStart?: string;
   examAttemptId?: number | null;
+  examWorkflowPhase?: "checkpoint" | "midterm_2w" | "final_2w";
   workloadId?: number | null;
 }
 
@@ -196,4 +197,3 @@ export interface RecommendationSummary {
   status: RecommendationStatus;
   generated_at: Date;
 }
-

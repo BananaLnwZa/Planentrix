@@ -330,7 +330,7 @@ class _HomeworkTypeChoiceState extends State<_HomeworkTypeChoice> {
                 : null,
           ),
           child: Text(
-            widget.option.name,
+            workloadTypeLabel(widget.option.id, widget.option.name),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 13, color: Color(0x99000000)),
           ),

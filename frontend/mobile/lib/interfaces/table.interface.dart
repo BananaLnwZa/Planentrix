@@ -23,6 +23,7 @@ class ScheduleItem {
   final int scheduleTimeId;
   final int scheduleTypeId;
   final String scheduleTypeName;
+  final String scheduleTypeCode;
   final String subjectId;
   final String subjectName;
   final String teacherName;
@@ -37,6 +38,7 @@ class ScheduleItem {
     required this.scheduleTimeId,
     required this.scheduleTypeId,
     required this.scheduleTypeName,
+    this.scheduleTypeCode = '',
     required this.subjectId,
     required this.subjectName,
     this.teacherName = '',
@@ -52,6 +54,7 @@ class ScheduleItem {
     scheduleTimeId: _asInt(json['schedule_time_id']),
     scheduleTypeId: _asInt(json['schedule_type_id']),
     scheduleTypeName: '${json['schedule_type_name'] ?? ''}',
+    scheduleTypeCode: '${json['schedule_type_code'] ?? ''}',
     subjectId: '${json['subject_id'] ?? ''}',
     subjectName: '${json['subject_name'] ?? ''}',
     teacherName: '${json['teacher_name'] ?? ''}',
@@ -73,6 +76,7 @@ class ScheduleItem {
     scheduleTimeId: scheduleTimeId,
     scheduleTypeId: scheduleTypeId,
     scheduleTypeName: scheduleTypeName,
+    scheduleTypeCode: scheduleTypeCode,
     subjectId: subjectId,
     subjectName: subjectName,
     teacherName: teacherName,

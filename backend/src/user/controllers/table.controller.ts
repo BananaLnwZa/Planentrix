@@ -4,6 +4,7 @@ import db from "../../config/db";
 
 const WEEKLY_ID_OFFSET = 1_000_000_000;
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
+const meetingDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 
 type UserRequest = Request & { user?: { id: number; role?: string } };
 interface TermRow extends RowDataPacket {
@@ -55,18 +56,22 @@ const CLASS_SQL = `SELECT cm.class_meeting_id AS schedule_time_id, 0 AS schedule
   'class' AS schedule_type_code,'Class' AS schedule_type_name, s.subject_id, s.subject_name,
   COALESCE(GROUP_CONCAT(DISTINCT CONCAT(i.first_name, ' ', i.last_name) SEPARATOR ', '), '') AS teacher_name,
   CAST(s.credits AS DOUBLE) AS credits,
-  FIELD(cm.day_of_week,'monday','tuesday','wednesday','thursday','friday','saturday','sunday') AS schedule_day,
-  TIME_FORMAT(cm.start_time,'%H:%i') AS start_time, TIME_FORMAT(cm.end_time,'%H:%i') AS end_time,
-  cm.classroom, NULL AS note
+  FIELD(COALESCE(o.override_day_of_week,cm.day_of_week),'monday','tuesday','wednesday','thursday','friday','saturday','sunday') AS schedule_day,
+  TIME_FORMAT(COALESCE(o.override_start_time,cm.start_time),'%H:%i') AS start_time,
+  TIME_FORMAT(COALESCE(o.override_end_time,cm.end_time),'%H:%i') AS end_time,
+  COALESCE(o.override_classroom,cm.classroom) AS classroom,o.note
  FROM student_terms st
  INNER JOIN enrollments e ON e.student_term_id=st.student_term_id AND e.status='enrolled'
  INNER JOIN course_sections cs ON cs.section_id=e.section_id
  INNER JOIN subjects s ON s.subject_id=cs.subject_id
  INNER JOIN class_meetings cm ON cm.section_id=cs.section_id
+ LEFT JOIN student_class_meeting_overrides o ON o.enrollment_id=e.enrollment_id AND o.class_meeting_id=cm.class_meeting_id
  LEFT JOIN section_instructors si ON si.section_id=cs.section_id
  LEFT JOIN admin i ON i.admin_id=si.instructor_id
  WHERE st.user_id=? AND st.student_term_id=?
- GROUP BY cm.class_meeting_id,s.subject_id,s.subject_name,s.credits,cm.day_of_week,cm.start_time,cm.end_time,cm.classroom`;
+ GROUP BY e.enrollment_id,cm.class_meeting_id,s.subject_id,s.subject_name,s.credits,
+   cm.day_of_week,cm.start_time,cm.end_time,cm.classroom,
+   o.override_day_of_week,o.override_start_time,o.override_end_time,o.override_classroom,o.note`;
 
 const WEEKLY_SQL = `SELECT (? + wb.weekly_block_id) AS schedule_time_id, wb.schedule_type_id,
   LOWER(t.type_code) AS schedule_type_code,t.type_name AS schedule_type_name,
@@ -176,7 +181,8 @@ export const addTime = async (req: Request, res: Response) => {
 export const updateScheduleTime = async (req: Request,res: Response) => {
   try{
     const userId=getUserId(req,res);if(!userId)return;const id=Number(req.params.schedule_time_id);
-    if(id<WEEKLY_ID_OFFSET)return res.status(409).json({message:"Class times are managed by staff"});
+    if(!Number.isInteger(id) || id<=0)return res.status(400).json({message:"Invalid schedule_time_id"});
+    if(id<WEEKLY_ID_OFFSET)return updateClassScheduleTime(req,res,userId,id);
     const term=await getCurrentTerm(userId);if(!term)return res.status(404).json({message:"No current term found"});
     const [rows]=await db.query<RowDataPacket[]>(`SELECT wb.*,DAYOFWEEK(wb.scheduled_date + INTERVAL 1 DAY) AS schedule_day FROM weekly_schedule_block wb
       INNER JOIN weekly_recommendation wr ON wr.recommendation_id=wb.recommendation_id WHERE wb.weekly_block_id=? AND wr.student_term_id=? LIMIT 1`,[id-WEEKLY_ID_OFFSET,term.term_id]);
@@ -187,15 +193,115 @@ export const updateScheduleTime = async (req: Request,res: Response) => {
   }catch(error){console.error("updateScheduleTime error:",error);return res.status(500).json({message:"Internal server error"});}
 };
 
+const updateClassScheduleTime = async (req: Request, res: Response, userId: number, id: number) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const term = await getCurrentTerm(userId, connection);
+    if (!term) { await connection.rollback(); return res.status(404).json({ message: "No current term found" }); }
+    const [rows] = await connection.query<RowDataPacket[]>(
+      `SELECT e.enrollment_id,
+         FIELD(cm.day_of_week,'monday','tuesday','wednesday','thursday','friday','saturday','sunday') AS official_day,
+         TIME_FORMAT(cm.start_time,'%H:%i:%s') AS official_start_time,
+         TIME_FORMAT(cm.end_time,'%H:%i:%s') AS official_end_time,
+         cm.classroom AS official_classroom,
+         FIELD(COALESCE(o.override_day_of_week,cm.day_of_week),'monday','tuesday','wednesday','thursday','friday','saturday','sunday') AS schedule_day,
+         TIME_FORMAT(COALESCE(o.override_start_time,cm.start_time),'%H:%i:%s') AS start_time,
+         TIME_FORMAT(COALESCE(o.override_end_time,cm.end_time),'%H:%i:%s') AS end_time,
+         COALESCE(o.override_classroom,cm.classroom) AS classroom,o.note
+       FROM student_terms st
+       INNER JOIN enrollments e ON e.student_term_id=st.student_term_id AND e.status='enrolled'
+       INNER JOIN class_meetings cm ON cm.section_id=e.section_id
+       LEFT JOIN student_class_meeting_overrides o
+         ON o.enrollment_id=e.enrollment_id AND o.class_meeting_id=cm.class_meeting_id
+       WHERE st.user_id=? AND st.student_term_id=? AND cm.class_meeting_id=?
+       LIMIT 1 FOR UPDATE`,
+      [userId, term.term_id, id],
+    );
+    const row = rows[0];
+    if (!row) { await connection.rollback(); return res.status(404).json({ message: "Schedule time not found" }); }
+
+    const valid = validate(
+      req.body.schedule_day ?? row.schedule_day,
+      req.body.start_time ?? row.start_time,
+      req.body.end_time ?? row.end_time,
+    );
+    if (valid.error) { await connection.rollback(); return res.status(400).json({ message: valid.error }); }
+    if (req.body.classroom !== undefined && req.body.classroom !== null && typeof req.body.classroom !== "string") {
+      await connection.rollback(); return res.status(400).json({ message: "classroom must be text" });
+    }
+    if (req.body.note !== undefined && req.body.note !== null && typeof req.body.note !== "string") {
+      await connection.rollback(); return res.status(400).json({ message: "note must be text" });
+    }
+    const classroom = req.body.classroom === undefined
+      ? String(row.classroom ?? "")
+      : String(req.body.classroom ?? "").trim();
+    const note = req.body.note === undefined
+      ? String(row.note ?? "").trim()
+      : String(req.body.note ?? "").trim();
+    if (classroom.length > 100) { await connection.rollback(); return res.status(400).json({ message: "classroom must not exceed 100 characters" }); }
+    if (note.length > 500) { await connection.rollback(); return res.status(400).json({ message: "note must not exceed 500 characters" }); }
+
+    const day = valid.scheduleDay!;
+    const start = normalizeTime(valid.startTime!);
+    const end = normalizeTime(valid.endTime!);
+    const overrideDay = day === Number(row.official_day) ? null : meetingDays[day - 1];
+    const overrideStart = start === row.official_start_time ? null : start;
+    const overrideEnd = end === row.official_end_time ? null : end;
+    const officialClassroom = String(row.official_classroom ?? "");
+    const overrideClassroom = classroom === officialClassroom ? null : classroom;
+    const personalNote = note || null;
+    if (overrideDay === null && overrideStart === null && overrideEnd === null && overrideClassroom === null && personalNote === null) {
+      await connection.query(
+        `DELETE FROM student_class_meeting_overrides WHERE enrollment_id=? AND class_meeting_id=?`,
+        [row.enrollment_id, id],
+      );
+    } else {
+      await connection.query(
+        `INSERT INTO student_class_meeting_overrides
+           (enrollment_id,class_meeting_id,override_day_of_week,override_start_time,override_end_time,override_classroom,note)
+         VALUES(?,?,?,?,?,?,?)
+         ON DUPLICATE KEY UPDATE
+           override_day_of_week=VALUES(override_day_of_week),
+           override_start_time=VALUES(override_start_time),
+           override_end_time=VALUES(override_end_time),
+           override_classroom=VALUES(override_classroom),note=VALUES(note)`,
+        [row.enrollment_id, id, overrideDay, overrideStart, overrideEnd, overrideClassroom, personalNote],
+      );
+    }
+    await connection.commit();
+    return res.json({
+      message: "Personal class schedule updated successfully",
+      schedule_time_id: id,
+      user_id: userId,
+      updated_data: { schedule_day: day, start_time: valid.startTime, end_time: valid.endTime, classroom: classroom || null, note: personalNote },
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error("updateClassScheduleTime error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  } finally {
+    connection.release();
+  }
+};
+
 export const deleteScheduleTime = async (req: Request,res: Response) => {
   try{
     const userId=getUserId(req,res);if(!userId)return;const id=Number(req.params.schedule_time_id);
     if(id<WEEKLY_ID_OFFSET)return res.status(409).json({message:"Class times are managed by staff"});
     const term=await getCurrentTerm(userId);if(!term)return res.status(404).json({message:"No current term found"});
-    const [rows]=await db.query<RowDataPacket[]>(`SELECT wb.*,cs.subject_id,DAYOFWEEK(wb.scheduled_date + INTERVAL 1 DAY) AS schedule_day FROM weekly_schedule_block wb
+    const [rows]=await db.query<RowDataPacket[]>(`SELECT wb.*,cs.subject_id,wr.status AS recommendation_status,DAYOFWEEK(wb.scheduled_date + INTERVAL 1 DAY) AS schedule_day FROM weekly_schedule_block wb
       INNER JOIN weekly_recommendation wr ON wr.recommendation_id=wb.recommendation_id INNER JOIN enrollments e ON e.enrollment_id=wb.enrollment_id INNER JOIN course_sections cs ON cs.section_id=e.section_id
       WHERE wb.weekly_block_id=? AND wr.student_term_id=? LIMIT 1`,[id-WEEKLY_ID_OFFSET,term.term_id]);
-    if(!rows[0])return res.status(404).json({message:"Schedule time not found"});await db.query(`DELETE FROM weekly_schedule_block WHERE weekly_block_id=?`,[id-WEEKLY_ID_OFFSET]);
+    if(!rows[0])return res.status(404).json({message:"Schedule time not found"});
+    if(rows[0].recommendation_status==='accepted')return res.status(409).json({message:"Accepted schedule blocks cannot be deleted"});
+    const [deleted]=await db.query<ResultSetHeader>(`DELETE FROM weekly_schedule_block
+      WHERE weekly_block_id=? AND recommendation_id IN (
+        SELECT recommendation_id FROM weekly_recommendation
+        WHERE student_term_id=? AND status<>'accepted'
+      )`,
+      [id-WEEKLY_ID_OFFSET,term.term_id]);
+    if(!deleted.affectedRows)return res.status(409).json({message:"Accepted schedule blocks cannot be deleted"});
     return res.json({message:"Schedule time deleted successfully",schedule_time_id:id,user_id:userId,deleted_data:{schedule_time_id:id,term_id:term.term_id,user_id:userId,schedule_type_id:Number(rows[0].schedule_type_id),subject_id:rows[0].subject_id,schedule_day:Number(rows[0].schedule_day),start_time:rows[0].start_time,end_time:rows[0].end_time,classroom:null,target_score:null,note:null}});
   }catch(error){console.error("deleteScheduleTime error:",error);return res.status(500).json({message:"Internal server error"});}
 };

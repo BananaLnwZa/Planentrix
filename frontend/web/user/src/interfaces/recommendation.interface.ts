@@ -75,6 +75,7 @@ export interface WeeklyRecommendationItem {
   target_minutes: number;
   allocated_minutes: number;
   unallocated_minutes: number;
+  previous_adherence_rate: number | null;
   difference_minutes: number;
   primary_action: RecommendationAction;
   cap_applied: boolean;

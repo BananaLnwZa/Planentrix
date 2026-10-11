@@ -34,6 +34,7 @@ import 'Component/SystemEvaluationPopup.dart';
 import 'Component/MainNotificationCard.dart';
 import 'Component/MainNotificationPopup.dart';
 import 'Component/RecommendationCard.dart';
+import 'Component/ExamFlowNotice.dart';
 
 typedef LogoutAction = Future<void> Function();
 
@@ -48,6 +49,7 @@ class MainPage extends StatefulWidget {
   final RecommendationRepository? recommendationRepository;
   final ExamRepository? examRepository;
   final GradeGoalStatusRepository? gradeGoalStatusRepository;
+  final Future<TermWorkflow?> Function()? workflowLoader;
 
   const MainPage({
     super.key,
@@ -61,6 +63,7 @@ class MainPage extends StatefulWidget {
     this.recommendationRepository,
     this.examRepository,
     this.gradeGoalStatusRepository,
+    this.workflowLoader,
   });
 
   @override
@@ -83,6 +86,7 @@ class _MainPageState extends State<MainPage> {
   bool _isLoadingSession = true;
   bool _isLoggingOut = false;
   CurrentTerm? _currentTerm;
+  TermWorkflow? _workflow;
   UserProfile? _profile;
   UserConstraint? _constraint;
   String? _profileError;
@@ -163,6 +167,20 @@ class _MainPageState extends State<MainPage> {
       unawaited(_loadGradeGoalStatus());
     }
     unawaited(_loadPendingEvaluation());
+    unawaited(_loadWorkflow());
+  }
+
+  Future<void> _loadWorkflow() async {
+    try {
+      final workflow = widget.workflowLoader != null
+          ? await widget.workflowLoader!()
+          : _termRepository is TermService
+          ? await (_termRepository as TermService).getWorkflow()
+          : null;
+      if (mounted) setState(() => _workflow = workflow);
+    } catch (_) {
+      if (mounted) setState(() => _workflow = null);
+    }
   }
 
   Future<void> _loadPendingEvaluation() async {
@@ -473,8 +491,14 @@ class _MainPageState extends State<MainPage> {
       children: [
         StudentCard(
           name: _displayName,
+          firstName: _profile?.firstName,
+          lastName: _profile?.lastName,
+          faculty: _profile?.facultyName,
           studentNumber: _displayStudentNumber,
-          major: _profile?.departmentCode ?? _displayMajor,
+          major:
+              _profile?.departmentName ??
+              _profile?.departmentCode ??
+              _displayMajor,
           year:
               _profile?.yearLevel?.toString() ?? _currentTerm?.yearLevel ?? '—',
           gender: _displayGender,
@@ -509,6 +533,7 @@ class _MainPageState extends State<MainPage> {
                       _hasSavedGradeGoals = false;
                     });
                     if (_shouldLoadAlerts) unawaited(_loadAppAlerts());
+                    unawaited(_loadWorkflow());
                     if (_shouldLoadGradeGoalStatus) {
                       unawaited(_loadGradeGoalStatus());
                     }
@@ -530,6 +555,10 @@ class _MainPageState extends State<MainPage> {
             ],
           ),
         ),
+        if (_workflow != null && _workflow!.phase != 'normal') ...[
+          const SizedBox(height: 12),
+          ExamFlowNotice(workflow: _workflow!),
+        ],
         const SizedBox(height: 24),
         Schedule(
           key: ValueKey('schedule-$_scheduleVersion'),
