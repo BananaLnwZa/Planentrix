@@ -5,6 +5,7 @@ const TARGET_EXAM_SCORE_CENTS = TARGET_EXAM_SCORE * 100;
 export interface ScoredExamQuestion {
   question_id: number | string;
   question_score: number | string;
+  question_bank_id?: number | string;
 }
 
 export interface BalancedExamSelection<T extends ScoredExamQuestion> {
@@ -74,27 +75,33 @@ const balancedPartitions = (total: number): Array<[number, number, number]> => {
 const subsetsByScore = <T extends ScoredExamQuestion>(
   questions: T[],
   targetCount: number,
+  groupIndex: Map<number, number>,
 ) => {
-  const subsets: Array<Map<number, T[]>> = Array.from(
+  type Subset = { score: number; groupMask: bigint; questions: T[] };
+  const subsets: Array<Map<string, Subset>> = Array.from(
     { length: targetCount + 1 },
-    () => new Map<number, T[]>(),
+    () => new Map<string, Subset>(),
   );
-  subsets[0].set(0, []);
+  subsets[0].set("0:0", { score: 0, groupMask: BigInt(0), questions: [] });
 
   for (const question of questions) {
     const score = scoreToCents(question.question_score);
     if (score === null || score > TARGET_EXAM_SCORE_CENTS) continue;
     for (let count = targetCount - 1; count >= 0; count -= 1) {
-      for (const [currentScore, currentQuestions] of subsets[count]) {
-        const nextScore = currentScore + score;
+      for (const subset of subsets[count].values()) {
+        const nextScore = subset.score + score;
+        const index = groupIndex.get(Number(question.question_bank_id));
+        const nextMask = subset.groupMask | (index === undefined ? BigInt(0) : BigInt(1) << BigInt(index));
+        const key = `${nextScore}:${nextMask}`;
         if (
           nextScore <= TARGET_EXAM_SCORE_CENTS &&
-          !subsets[count + 1].has(nextScore)
+          !subsets[count + 1].has(key)
         ) {
-          subsets[count + 1].set(nextScore, [
-            ...currentQuestions,
-            question,
-          ]);
+          subsets[count + 1].set(key, {
+            score: nextScore,
+            groupMask: nextMask,
+            questions: [...subset.questions, question],
+          });
         }
       }
     }
@@ -145,6 +152,7 @@ export const selectBalancedExamQuestions = <T extends ScoredExamQuestion>(
   questions: T[],
   drawCount: number,
   seed: string,
+  requiredGroupIds: number[] = [],
 ): BalancedExamSelection<T> | null => {
   if (
     !Number.isInteger(drawCount) ||
@@ -162,6 +170,11 @@ export const selectBalancedExamQuestions = <T extends ScoredExamQuestion>(
 
   const identities = new Set(questions.map(questionIdentity));
   if (identities.size !== questions.length) return null;
+  const groupIndex = new Map(requiredGroupIds.map((id, index) => [id, index]));
+  const requiredMask = (BigInt(1) << BigInt(requiredGroupIds.length)) - BigInt(1);
+  if (requiredGroupIds.some((id) =>
+    !questions.some((question) => Number(question.question_bank_id) === id)
+  )) return null;
 
   const random = seededRandom(seed);
   const buckets = difficultyBuckets(questions);
@@ -178,19 +191,31 @@ export const selectBalancedExamQuestions = <T extends ScoredExamQuestion>(
       continue;
     }
 
-    const easySubsets = subsetsByScore(easy, easyCount);
-    const mediumSubsets = subsetsByScore(medium, mediumCount);
-    const hardSubsets = subsetsByScore(hard, hardCount);
+    const easySubsets = subsetsByScore(easy, easyCount, groupIndex);
+    const mediumSubsets = subsetsByScore(medium, mediumCount, groupIndex);
+    const hardSubsets = subsetsByScore(hard, hardCount, groupIndex);
+    const hardByScore = new Map<
+      number,
+      Array<{ score: number; groupMask: bigint; questions: T[] }>
+    >();
+    for (const subset of hardSubsets.values()) {
+      const candidates = hardByScore.get(subset.score) ?? [];
+      candidates.push(subset);
+      hardByScore.set(subset.score, candidates);
+    }
 
-    for (const [easyScore, easyQuestions] of easySubsets) {
-      for (const [mediumScore, mediumQuestions] of mediumSubsets) {
+    for (const easySubset of easySubsets.values()) {
+      for (const mediumSubset of mediumSubsets.values()) {
         const requiredHardScore =
-          TARGET_EXAM_SCORE_CENTS - easyScore - mediumScore;
-        const hardQuestions = hardSubsets.get(requiredHardScore);
-        if (!hardQuestions) continue;
+          TARGET_EXAM_SCORE_CENTS - easySubset.score - mediumSubset.score;
+        const hardSubset = hardByScore.get(requiredHardScore)?.find(
+          (candidate) =>
+            (easySubset.groupMask | mediumSubset.groupMask | candidate.groupMask) === requiredMask,
+        );
+        if (!hardSubset) continue;
 
         const selected = shuffled(
-          [...easyQuestions, ...mediumQuestions, ...hardQuestions],
+          [...easySubset.questions, ...mediumSubset.questions, ...hardSubset.questions],
           random,
         );
         return {
@@ -214,6 +239,7 @@ export const selectAutomaticBalancedExamQuestions = <
 >(
   questions: T[],
   seed: string,
+  requiredGroupIds: number[] = [],
 ): BalancedExamSelection<T> | null => {
   const validScores = questions
     .map((question) => scoreToCents(question.question_score))
@@ -230,8 +256,13 @@ export const selectAutomaticBalancedExamQuestions = <
 
   // Start at three so every generated exam contains easy, medium, and hard
   // questions. Trying counts in ascending order also keeps the exam concise.
-  for (let drawCount = 3; drawCount <= maximumPossibleCount; drawCount += 1) {
-    const selection = selectBalancedExamQuestions(questions, drawCount, seed);
+  for (let drawCount = Math.max(3, requiredGroupIds.length); drawCount <= maximumPossibleCount; drawCount += 1) {
+    const selection = selectBalancedExamQuestions(
+      questions,
+      drawCount,
+      seed,
+      requiredGroupIds,
+    );
     if (selection) return selection;
   }
 

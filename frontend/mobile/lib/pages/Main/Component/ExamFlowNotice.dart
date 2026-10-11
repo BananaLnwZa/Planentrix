@@ -7,6 +7,8 @@ class ExamFlowNotice extends StatelessWidget {
 
   const ExamFlowNotice({super.key, required this.workflow});
 
+  static bool supportsPhase(String phase) => _notices.containsKey(phase);
+
   @override
   Widget build(BuildContext context) {
     final notice = _notices[workflow.phase];
@@ -102,13 +104,6 @@ const Map<String, _Notice> _notices = {
     action: 'ไปทำแบบทดสอบ',
     route: '/test',
   ),
-  'midterm_exam': (
-    title: 'สัปดาห์สอบกลางภาค',
-    detail:
-        'สัปดาห์นี้ไม่มีแบบทดสอบทบทวนหรือคำแนะนำจัดตาราง ขอให้ทำข้อสอบจริงอย่างเต็มที่',
-    action: null,
-    route: null,
-  ),
   'final_3w': (
     title: 'เตรียมสอบปลายภาค · 3 สัปดาห์',
     detail:
@@ -127,11 +122,5 @@ const Map<String, _Notice> _notices = {
     detail: 'ทำแบบทดสอบเพื่อวัดผลเท่านั้น ปิดการเพิ่ม/แก้ไขภาระงานและคะแนนแล้ว',
     action: 'ไปทำแบบทดสอบ',
     route: '/test',
-  ),
-  'final_exam': (
-    title: 'สัปดาห์สอบปลายภาค',
-    detail: 'สัปดาห์นี้ไม่มีแบบทดสอบทบทวนหรือคำแนะนำจัดตาราง',
-    action: null,
-    route: null,
   ),
 };

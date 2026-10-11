@@ -9,12 +9,14 @@ class WorkloadScoreTable extends StatelessWidget {
   final List<WorkloadScore> workloads;
   final ValueChanged<WorkloadScore> onEnterScore;
   final int? savingWorkloadId;
+  final bool canEditScores;
 
   const WorkloadScoreTable({
     super.key,
     required this.workloads,
     required this.onEnterScore,
     this.savingWorkloadId,
+    this.canEditScores = true,
   });
 
   @override
@@ -71,6 +73,7 @@ class WorkloadScoreTable extends StatelessWidget {
                       workload: workloads[index],
                       isSaving: savingWorkloadId == workloads[index].workloadId,
                       onEnterScore: () => onEnterScore(workloads[index]),
+                      canEditScores: canEditScores,
                     ),
                   ),
                 Container(
@@ -172,6 +175,7 @@ class _WorkloadScoreRow extends StatelessWidget {
   final WorkloadScore workload;
   final bool isSaving;
   final VoidCallback onEnterScore;
+  final bool canEditScores;
 
   const _WorkloadScoreRow({
     super.key,
@@ -179,6 +183,7 @@ class _WorkloadScoreRow extends StatelessWidget {
     required this.workload,
     required this.isSaving,
     required this.onEnterScore,
+    required this.canEditScores,
   });
 
   @override
@@ -233,6 +238,12 @@ class _WorkloadScoreRow extends StatelessWidget {
                       color: Color(0xFF765E67),
                       fontWeight: FontWeight.w500,
                     ),
+                  )
+                : !canEditScores
+                ? const Text(
+                    '—/—',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(fontSize: 11, color: Color(0xFF765E67)),
                   )
                 : TextButton(
                     key: Key('score-entry-${workload.workloadId}'),

@@ -10,12 +10,17 @@ Future<HomeworkTaskData?> showHomeworkDetailsPopup(
   required HomeworkTaskData task,
   required Future<HomeworkTaskData> Function(UpdateHomeworkInput input) onSave,
   required Future<void> Function() onDelete,
+  bool canEdit = true,
 }) {
   return showDialog<HomeworkTaskData>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.2),
-    builder: (_) =>
-        _HomeworkDetailsPopup(task: task, onSave: onSave, onDelete: onDelete),
+    builder: (_) => _HomeworkDetailsPopup(
+      task: task,
+      onSave: onSave,
+      onDelete: onDelete,
+      canEdit: canEdit,
+    ),
   );
 }
 
@@ -23,11 +28,13 @@ class _HomeworkDetailsPopup extends StatefulWidget {
   final HomeworkTaskData task;
   final Future<HomeworkTaskData> Function(UpdateHomeworkInput input) onSave;
   final Future<void> Function() onDelete;
+  final bool canEdit;
 
   const _HomeworkDetailsPopup({
     required this.task,
     required this.onSave,
     required this.onDelete,
+    required this.canEdit,
   });
 
   @override
@@ -247,7 +254,12 @@ class _HomeworkDetailsPopupState extends State<_HomeworkDetailsPopup> {
                 ),
               ],
               const SizedBox(height: 25),
-              if (_isEditing)
+              if (!widget.canEdit)
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('ปิด'),
+                )
+              else if (_isEditing)
                 _SaveHomeworkButton(isSaving: _isSaving, onPressed: _save)
               else
                 Row(

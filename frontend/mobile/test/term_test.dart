@@ -61,14 +61,14 @@ void setPhoneSize(WidgetTester tester) {
   });
 }
 
-Widget buildTerm(TermRepository repository) {
+Widget buildTerm(TermRepository repository, {bool endTermMode = false}) {
   return MaterialApp(
     theme: ThemeData(fontFamily: 'Sansation'),
     home: Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
-          child: Term(repository: repository),
+          child: Term(repository: repository, endTermMode: endTermMode),
         ),
       ),
     ),
@@ -138,7 +138,7 @@ void main() {
         endFinal: DateTime(2026, 7, 22),
       ),
     );
-    await tester.pumpWidget(buildTerm(repository));
+    await tester.pumpWidget(buildTerm(repository, endTermMode: true));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('current-term-card')), findsOneWidget);
@@ -158,5 +158,27 @@ void main() {
     expect(repository.ended, isTrue);
     expect(find.byKey(const Key('term-details-popup')), findsNothing);
     expect(find.byKey(const Key('term-empty')), findsOneWidget);
+  });
+
+  testWidgets('term cannot be ended before the final exam period has passed', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+    final repository = FakeTermRepository(
+      CurrentTerm(
+        termId: 4,
+        yearLevel: '3',
+        term: '2',
+        academicYear: '2570',
+        endFinal: DateTime(2100, 12, 31),
+      ),
+    );
+    await tester.pumpWidget(buildTerm(repository));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('current-term-card')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('end-term-button')), findsNothing);
+    expect(repository.ended, isFalse);
   });
 }

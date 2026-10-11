@@ -39,22 +39,21 @@ class _ExamDetailsPopup extends StatelessWidget {
             style: const TextStyle(color: Color(0xFF6E8792)),
           ),
           const SizedBox(height: 15),
-          _Detail(
-            icon: Icons.help_outline,
-            text: '${summary.totalQuestion} ข้อ',
+          const Text(
+            'พาร์ทในชุดทดสอบ',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF516874),
+            ),
           ),
+          const SizedBox(height: 6),
+          for (final partName in summary.partNames)
+            _Detail(icon: Icons.menu_book_outlined, text: partName),
           if (summary.timeLimitMinutes != null)
             _Detail(
               icon: Icons.timer_outlined,
               text: '${summary.timeLimitMinutes} นาที',
             ),
-          if (summary.totalQuestion < 1) ...[
-            const SizedBox(height: 12),
-            const Text(
-              'ชุดข้อสอบนี้ยังไม่มีคำถาม',
-              style: TextStyle(color: Color(0xFFC06A7D), fontSize: 12),
-            ),
-          ],
         ],
       ),
       actionsAlignment: MainAxisAlignment.center,
@@ -65,9 +64,7 @@ class _ExamDetailsPopup extends StatelessWidget {
         ),
         FilledButton.icon(
           key: const Key('start-exam-button'),
-          onPressed: summary.totalQuestion < 1
-              ? null
-              : () => Navigator.of(context).pop(true),
+          onPressed: () => Navigator.of(context).pop(true),
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFFA8D780),
             foregroundColor: Colors.white,

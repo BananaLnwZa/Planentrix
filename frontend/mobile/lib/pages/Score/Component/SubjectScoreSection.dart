@@ -13,12 +13,16 @@ class SubjectScoreSection extends StatefulWidget {
   final ScoreRepository repository;
   final ValueChanged<OverallGradeSummary> onOverallChanged;
   final ValueChanged<bool> onGoalStateChanged;
+  final bool canEditScores;
+  final bool showFinalScoreTarget;
 
   const SubjectScoreSection({
     super.key,
     required this.repository,
     required this.onOverallChanged,
     required this.onGoalStateChanged,
+    this.canEditScores = true,
+    this.showFinalScoreTarget = false,
   });
 
   @override
@@ -134,6 +138,7 @@ class _SubjectScoreSectionState extends State<SubjectScoreSection> {
   }
 
   Future<void> _enterScore(WorkloadScore workload) async {
+    if (!widget.canEditScores) return;
     final selectedSubject = _subjects[_selectedIndex];
     final scheduleTimeId = selectedSubject.scheduleTimeId;
     final otherMaximumScore = selectedSubject.workloads
@@ -248,8 +253,10 @@ class _SubjectScoreSectionState extends State<SubjectScoreSection> {
     return Column(
       key: const Key('subject-score-section'),
       children: [
-        FinalScoreTargetCard(subjects: _subjects),
-        const SizedBox(height: 18),
+        if (widget.showFinalScoreTarget) ...[
+          FinalScoreTargetCard(subjects: _subjects),
+          const SizedBox(height: 18),
+        ],
         SubjectTabs(
           subjects: _subjects,
           selectedIndex: _selectedIndex,
@@ -261,6 +268,7 @@ class _SubjectScoreSectionState extends State<SubjectScoreSection> {
             subject: subject,
             savingWorkloadId: _savingWorkloadId,
             onEnterScore: _enterScore,
+            canEditScores: widget.canEditScores,
           ),
         ),
       ],

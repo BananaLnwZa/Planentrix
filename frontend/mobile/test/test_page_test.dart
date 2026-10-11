@@ -22,9 +22,10 @@ class FakeExamRepository implements ExamRepository {
       scheduleTimeId: 11,
       subjectId: 'CS101',
       subjectName: 'Numerical Method',
-      examName: 'แบบทดสอบบทที่ 1',
+      examName: 'ชุดทดสอบกลางภาควิชา Numerical Method',
+      partNames: ['แบบทดสอบบทที่ 1'],
       totalScore: 100,
-      totalQuestion: 2,
+      totalQuestion: 0,
       timeLimitMinutes: 30,
     ),
     ExamSummary(
@@ -238,6 +239,24 @@ void setPhoneSize(WidgetTester tester, [Size size = const Size(360, 640)]) {
 }
 
 void main() {
+  test('exam summary names the subject and keeps the actual part name', () {
+    final summary = ExamSummary.fromJson({
+      'exam_repository_id': 1,
+      'schedule_time_id': 11,
+      'subject_id': 'CS101',
+      'subject_name': 'Numerical Method',
+      'exam_name': 'ชุดทดสอบปลายภาควิชา Numerical Method',
+      'exam_period': 'final',
+      'part_names': ['บทที่ 1', 'บทที่ 2'],
+      'total_question': null,
+      'time_limit': null,
+    });
+
+    expect(summary.examName, 'ชุดทดสอบปลายภาควิชา Numerical Method');
+    expect(summary.partNames, ['บทที่ 1', 'บทที่ 2']);
+    expect(summary.totalQuestion, 0);
+  });
+
   testWidgets('untimed attempts hide the countdown and never auto-submit', (
     tester,
   ) async {
@@ -249,6 +268,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('exam-card-1')));
     await tester.pumpAndSettle();
+    expect(find.text('พาร์ทในชุดทดสอบ'), findsOneWidget);
+    expect(find.text('• แบบทดสอบบทที่ 1'), findsOneWidget);
+    expect(find.text('0 ข้อ'), findsNothing);
     await tester.tap(find.byKey(const Key('start-exam-button')));
     await tester.pumpAndSettle();
 

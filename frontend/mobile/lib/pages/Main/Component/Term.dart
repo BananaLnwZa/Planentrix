@@ -12,12 +12,14 @@ class Term extends StatefulWidget {
   final TermRepository? repository;
   final ValueChanged<CurrentTerm?>? onTermChanged;
   final bool compact;
+  final bool endTermMode;
 
   const Term({
     super.key,
     this.repository,
     this.onTermChanged,
     this.compact = false,
+    this.endTermMode = false,
   });
 
   @override
@@ -84,10 +86,18 @@ class _TermState extends State<Term> {
   Future<void> _openDetails() async {
     final term = _currentTerm;
     if (term == null) return;
+    final finalEnd = term.endFinal;
+    final canEndTerm =
+        widget.endTermMode ||
+        (finalEnd != null &&
+            DateUtils.dateOnly(
+              finalEnd,
+            ).isBefore(DateUtils.dateOnly(DateTime.now())));
     final ended = await showTermDetailsPopup(
       context,
       term: term,
       onEndTerm: _repository.endCurrentTerm,
+      canEndTerm: canEndTerm,
     );
     if (ended == true && mounted) {
       setState(() {
@@ -123,7 +133,12 @@ class _TermState extends State<Term> {
             child: Column(
               children: [
                 const _CompactTermHeader(),
-                Expanded(child: _CompactTermContent(term: currentTerm)),
+                Expanded(
+                  child: _CompactTermContent(
+                    term: currentTerm,
+                    endTermMode: widget.endTermMode,
+                  ),
+                ),
               ],
             ),
           ),
@@ -181,6 +196,7 @@ class _TermState extends State<Term> {
         term: term,
         onTap: _openDetails,
         compact: widget.compact,
+        endTermMode: widget.endTermMode,
       );
     }
 
@@ -248,11 +264,13 @@ class _CurrentTermCard extends StatelessWidget {
   final CurrentTerm term;
   final VoidCallback onTap;
   final bool compact;
+  final bool endTermMode;
 
   const _CurrentTermCard({
     required this.term,
     required this.onTap,
     required this.compact,
+    required this.endTermMode,
   });
 
   @override
@@ -265,7 +283,7 @@ class _CurrentTermCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: compact
-            ? _CompactTermContent(term: term)
+            ? _CompactTermContent(term: term, endTermMode: endTermMode)
             : Padding(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                 child: Column(
@@ -365,8 +383,9 @@ class _CompactTermHeader extends StatelessWidget {
 
 class _CompactTermContent extends StatelessWidget {
   final CurrentTerm term;
+  final bool endTermMode;
 
-  const _CompactTermContent({required this.term});
+  const _CompactTermContent({required this.term, this.endTermMode = false});
 
   @override
   Widget build(BuildContext context) {
@@ -387,34 +406,39 @@ class _CompactTermContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFC8C8C8)),
+          if (!endTermMode)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFC8C8C8)),
+              ),
+              child: Text(
+                'ชั้นปี ${term.yearLevel}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 8.5, color: Color(0xFF526B77)),
+              ),
             ),
-            child: Text(
-              'ชั้นปี ${term.yearLevel}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 8.5, color: Color(0xFF526B77)),
+          if (!endTermMode) const SizedBox(height: 4),
+          if (!endTermMode)
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                'ปี ${term.academicYear}',
+                style: const TextStyle(fontSize: 8.5, color: Color(0xFF688492)),
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              'ปี ${term.academicYear}',
-              style: const TextStyle(fontSize: 8.5, color: Color(0xFF688492)),
-            ),
-          ),
           const SizedBox(height: 5),
-          const Text(
-            'กดเพื่อดูรายละเอียด',
+          Text(
+            endTermMode ? 'กดเพื่อจบเทอม' : 'กดเพื่อดูรายละเอียด',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 7, color: Color(0xFF93A4AB)),
+            style: TextStyle(
+              fontSize: endTermMode ? 10 : 7,
+              color: endTermMode ? Color(0xFF6CAFD0) : Color(0xFF93A4AB),
+            ),
           ),
         ],
       ),

@@ -73,12 +73,14 @@ export default function ScoreDashboard({
   onSubjectsChange,
   onScoreSaved,
   canEditScores = true,
+  showFinalScoreTarget = false,
 }: {
   subjects: SubjectGradeGoal[];
   overall: OverallGradeSummary | null;
   onSubjectsChange: (subjects: SubjectGradeGoal[]) => void;
   onScoreSaved: () => void;
   canEditScores?: boolean;
+  showFinalScoreTarget?: boolean;
 }) {
   const [selectedId, setSelectedId] = useState(subjects[0]?.schedule_time_id);
   const [editingWorkload, setEditingWorkload] = useState<GradeWorkload | null>(null);
@@ -183,7 +185,7 @@ export default function ScoreDashboard({
         targetGpa={overall?.overall_target_gpa ?? targetGpa}
       />
 
-      <section className="rounded-xl border border-[#CFE4ED] bg-[#F3FAFD] px-3 py-2.5">
+      {showFinalScoreTarget && <section className="rounded-xl border border-[#CFE4ED] bg-[#F3FAFD] px-3 py-2.5">
         <h2 className="text-xs font-semibold text-[#456A7C]">คะแนนปลายภาคที่ต้องได้ตามเป้าหมาย</h2>
         <div className="mt-2 space-y-1.5">
           {subjects.map((subject) => {
@@ -207,7 +209,7 @@ export default function ScoreDashboard({
           })}
         </div>
         <p className="mt-1.5 text-[9px] leading-4 text-[#8299A4]">คำนวณจากคะแนนขั้นต่ำของเกรดเป้าหมายตามเกณฑ์ที่เผยแพร่ หักคะแนนที่บันทึกแล้ว หากยังมีงานที่ไม่ได้กรอกคะแนน จำนวนที่ต้องได้จะรวมงานนั้นด้วย</p>
-      </section>
+      </section>}
 
       {overall && overall.pending_grading_scheme_count > 0 && (
         <p className="rounded-xl border border-[#F3D9A8] bg-[#FFF8E8] px-3 py-2 text-xs text-[#8A6A2C]">

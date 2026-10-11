@@ -164,6 +164,35 @@ test("scheduler respects class conflicts and produces non-overlapping blocks", (
   );
 });
 
+test("scheduler leaves one hour after class before a study block", () => {
+  const result = buildSchedulePlan({
+    items: [makeReviewItem(60)],
+    baseBlocks: [],
+    classBlocks: [
+      { schedule_day: 1, start_time: "08:00:00", end_time: "09:00:00" },
+    ] as unknown as ClassBlockRow[],
+    busyBlocks: [],
+    constraint: {
+      constraint_id: 1,
+      day_off: null,
+      continuous_working_duration: 120,
+      break_minutes: 30,
+      start_time: "08:00:00",
+      end_time: "12:00:00",
+    } as unknown as ConstraintRow,
+    weekStart: "2026-08-24",
+    weekEnd: "2026-08-30",
+    userId: 1,
+    termId: 1,
+    now: new Date("2026-08-23T00:00:00.000Z"),
+    previousAcceptedRecommendationId: null,
+  });
+
+  assert.equal(result.blocks[0].scheduledDate, "2026-08-24");
+  assert.equal(result.blocks[0].startTime, "10:00:00");
+  assert.equal(result.blocks[0].endTime, "11:00:00");
+});
+
 test("scheduler keeps equal-priority 30-minute units together by subject", () => {
   const first = makeReviewItem(60);
   const second = {
@@ -203,6 +232,83 @@ test("scheduler keeps equal-priority 30-minute units together by subject", () =>
       ["CS101", 60],
       ["CS102", 60],
     ],
+  );
+  assert.equal(validateNoOverlaps(result.blocks), true);
+});
+
+test("scheduler keeps a subject together when another demand is placed between priorities", () => {
+  const review = makeReviewItem(120);
+  review.weakTopicMinutes = 60;
+  review.baseMinutes = 60;
+  const other = {
+    ...makeReviewItem(60),
+    key: "CS102:1",
+    subjectId: "CS102",
+    subjectName: "Data Structures",
+    baseMinutes: 0,
+    quizFloorMinutes: 60,
+    placementDeadline: "2026-08-24T12:00:00",
+  };
+  const result = buildSchedulePlan({
+    items: [review, other],
+    baseBlocks: [],
+    classBlocks: [],
+    busyBlocks: [],
+    constraint: {
+      constraint_id: 1,
+      day_off: null,
+      continuous_working_duration: 240,
+      break_minutes: 30,
+      start_time: "08:00:00",
+      end_time: "12:00:00",
+    } as unknown as ConstraintRow,
+    weekStart: "2026-08-24",
+    weekEnd: "2026-08-30",
+    userId: 1,
+    termId: 1,
+    now: new Date("2026-08-23T00:00:00.000Z"),
+    previousAcceptedRecommendationId: null,
+  });
+
+  assert.deepEqual(
+    result.blocks.map((block) => [block.subjectId, block.startTime, block.endTime]),
+    [
+      ["CS101", "08:00:00", "10:00:00"],
+      ["CS102", "10:00:00", "11:00:00"],
+    ]
+  );
+  assert.equal(validateNoOverlaps(result.blocks), true);
+});
+
+test("scheduler splits one subject into substantial sessions when a break is required", () => {
+  const item = makeReviewItem(180);
+  item.weakTopicMinutes = 60;
+  item.scoreGapMinutes = 30;
+  item.baseMinutes = 90;
+  const result = buildSchedulePlan({
+    items: [item],
+    baseBlocks: [],
+    classBlocks: [],
+    busyBlocks: [],
+    constraint: {
+      constraint_id: 1,
+      day_off: null,
+      continuous_working_duration: 120,
+      break_minutes: 30,
+      start_time: "08:00:00",
+      end_time: "12:00:00",
+    } as unknown as ConstraintRow,
+    weekStart: "2026-08-24",
+    weekEnd: "2026-08-30",
+    userId: 1,
+    termId: 1,
+    now: new Date("2026-08-23T00:00:00.000Z"),
+    previousAcceptedRecommendationId: null,
+  });
+
+  assert.deepEqual(
+    result.blocks.map((block) => durationMinutes(block.startTime, block.endTime)),
+    [120, 60]
   );
   assert.equal(validateNoOverlaps(result.blocks), true);
 });

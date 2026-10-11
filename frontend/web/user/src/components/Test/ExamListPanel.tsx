@@ -1,6 +1,5 @@
 import {
   ChevronRight,
-  CircleHelp,
   Clock3,
   LoaderCircle,
   NotebookTabs,
@@ -41,12 +40,11 @@ export default function ExamListPanel({
             <p className="line-clamp-2 text-sm font-semibold leading-5 text-[#405B69]">
               {exam.examName || exam.subjectName}
             </p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#71858E]">
-              <ExamMeta icon={<CircleHelp />} text="ระบบกำหนดจำนวนข้อ" />
-              {exam.timeLimitMinutes !== null && (
+            {exam.timeLimitMinutes !== null && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#71858E]">
                 <ExamMeta icon={<Clock3 />} text={`${exam.timeLimitMinutes} นาที`} />
-              )}
-            </div>
+              </div>
+            )}
           </div>
           {openingExamId === exam.examRepositoryId ? (
             <LoaderCircle className="h-5 w-5 shrink-0 animate-spin text-[#7CA9BA]" />

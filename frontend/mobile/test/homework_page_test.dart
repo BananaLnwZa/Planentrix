@@ -7,6 +7,7 @@ import 'package:mobile/common/CurrentTermRequiredState.dart';
 import 'package:mobile/common/HomeworkTimeFormat.dart';
 import 'package:mobile/interfaces/homework.interface.dart';
 import 'package:mobile/interfaces/score.interface.dart';
+import 'package:mobile/interfaces/term.interface.dart';
 import 'package:mobile/pages/Homework/Component/HomeworkSectionHeader.dart';
 import 'package:mobile/pages/Homework/Component/SubmitHomeworkButton.dart';
 import 'package:mobile/pages/Homework/Homework.dart';
@@ -472,6 +473,33 @@ void main() {
       const Offset(44, 588),
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('locked workflow makes mobile homework read-only', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+    final repository = FakeHomeworkRepository(sampleTasks());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeworkPage(
+          repository: repository,
+          now: () => DateTime(2026, 5, 3, 12),
+          workflowLoader: () async =>
+              const TermWorkflow(phase: 'final_1w', workloadLocked: true),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('homework-add-button')), findsNothing);
+    expect(find.byType(SubmitHomeworkButton), findsNothing);
+    final taskRect = tester.getRect(find.byKey(const Key('homework-task-0-0')));
+    await tester.tapAt(Offset(taskRect.left + 8, taskRect.center.dy));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('homework-details-popup')), findsOneWidget);
+    expect(find.byKey(const Key('delete-homework-button')), findsNothing);
+    expect(find.byKey(const Key('homework-edit-name-field')), findsNothing);
   });
 
   testWidgets('homework components remain inside a compact phone', (

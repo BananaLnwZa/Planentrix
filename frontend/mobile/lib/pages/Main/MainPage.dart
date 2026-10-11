@@ -35,6 +35,8 @@ import 'Component/MainNotificationCard.dart';
 import 'Component/MainNotificationPopup.dart';
 import 'Component/RecommendationCard.dart';
 import 'Component/ExamFlowNotice.dart';
+import 'Component/MidtermFollowupPopup.dart';
+import 'Component/BehaviorSummary.dart';
 
 typedef LogoutAction = Future<void> Function();
 
@@ -50,6 +52,7 @@ class MainPage extends StatefulWidget {
   final ExamRepository? examRepository;
   final GradeGoalStatusRepository? gradeGoalStatusRepository;
   final Future<TermWorkflow?> Function()? workflowLoader;
+  final Future<BehaviorSummaryData> Function()? behaviorSummaryLoader;
 
   const MainPage({
     super.key,
@@ -64,13 +67,14 @@ class MainPage extends StatefulWidget {
     this.examRepository,
     this.gradeGoalStatusRepository,
     this.workflowLoader,
+    this.behaviorSummaryLoader,
   });
 
   @override
   State<MainPage> createState() => _MainPageState();
 }
 
-class _MainPageState extends State<MainPage> {
+class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   final AuthService _authService = AuthService();
   final StorageService _storageService = StorageService();
   late final ProfileRepository _profileRepository;
@@ -97,10 +101,14 @@ class _MainPageState extends State<MainPage> {
   Timer? _alertClock;
   bool _hasSavedGradeGoals = false;
   bool _isShowingEvaluation = false;
+  bool _isShowingMidtermFollowup = false;
+  int _workflowLoadVersion = 0;
+  DateTime _workflowCheckedDate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _termRepository = widget.termRepository ?? TermService();
     _profileRepository = widget.profileRepository ?? ProfileService();
     _homeworkRepository = widget.homeworkRepository ?? HomeworkService();
@@ -171,16 +179,63 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future<void> _loadWorkflow() async {
+    final requestVersion = ++_workflowLoadVersion;
     try {
       final workflow = widget.workflowLoader != null
           ? await widget.workflowLoader!()
           : _termRepository is TermService
-          ? await (_termRepository as TermService).getWorkflow()
+          ? await _termRepository.getWorkflow()
           : null;
-      if (mounted) setState(() => _workflow = workflow);
+      if (!mounted || requestVersion != _workflowLoadVersion) return;
+      setState(() {
+        _workflow = workflow;
+        _workflowCheckedDate = DateTime.now();
+      });
+      if (workflow?.midtermFollowupPending == true) {
+        unawaited(_showMidtermFollowup());
+      }
     } catch (_) {
-      if (mounted) setState(() => _workflow = null);
+      if (mounted && requestVersion == _workflowLoadVersion) {
+        setState(() => _workflow = null);
+      }
     }
+  }
+
+  Future<void> _showMidtermFollowup() async {
+    if (_isShowingMidtermFollowup) return;
+    _isShowingMidtermFollowup = true;
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) {
+      _isShowingMidtermFollowup = false;
+      return;
+    }
+    try {
+      final openHomework = await showMidtermFollowupPopup(
+        context,
+        onAcknowledge: _termRepository.acknowledgeMidtermFollowup,
+      );
+      if (!mounted) return;
+      if (openHomework != null) {
+        setState(
+          () => _workflow = _workflow == null
+              ? null
+              : TermWorkflow(
+                  phase: _workflow!.phase,
+                  postFinal: _workflow!.postFinal,
+                  workloadLocked: _workflow!.workloadLocked,
+                  finalTargetReady: _workflow!.finalTargetReady,
+                ),
+        );
+        if (openHomework) Navigator.of(context).pushNamed('/homework');
+      }
+    } finally {
+      _isShowingMidtermFollowup = false;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_loadWorkflow());
   }
 
   Future<void> _loadPendingEvaluation() async {
@@ -291,6 +346,12 @@ class _MainPageState extends State<MainPage> {
   void _refreshActiveAlerts() {
     if (!mounted) return;
     final now = DateTime.now();
+    if (now.year != _workflowCheckedDate.year ||
+        now.month != _workflowCheckedDate.month ||
+        now.day != _workflowCheckedDate.day) {
+      _workflowCheckedDate = now;
+      unawaited(_loadWorkflow());
+    }
     setState(() {
       _alertNow = now;
       _activeAlerts = activeAppAlerts(_alertEvents, now: now);
@@ -313,6 +374,7 @@ class _MainPageState extends State<MainPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _alertClock?.cancel();
     super.dispose();
   }
@@ -524,6 +586,7 @@ class _MainPageState extends State<MainPage> {
                 flex: 42,
                 child: Term(
                   compact: true,
+                  endTermMode: _workflow?.postFinal ?? false,
                   repository: _termRepository,
                   onTermChanged: (term) {
                     if (!mounted) return;
@@ -555,23 +618,30 @@ class _MainPageState extends State<MainPage> {
             ],
           ),
         ),
-        if (_workflow != null && _workflow!.phase != 'normal') ...[
+        if (_workflow != null &&
+            ExamFlowNotice.supportsPhase(_workflow!.phase) &&
+            !_workflow!.postFinal) ...[
           const SizedBox(height: 12),
           ExamFlowNotice(workflow: _workflow!),
         ],
         const SizedBox(height: 24),
-        Schedule(
-          key: ValueKey('schedule-$_scheduleVersion'),
-          repository: widget.tableRepository,
-          constraint: _constraint,
-          recommendationRepository: _shouldLoadRecommendations
-              ? _recommendationRepository
-              : null,
-          onChanged: _shouldLoadAlerts
-              ? () => unawaited(_loadAppAlerts())
-              : null,
-        ),
-        if (_shouldLoadRecommendations && _hasSavedGradeGoals) ...[
+        if (_workflow?.postFinal == true)
+          BehaviorSummary(loadData: widget.behaviorSummaryLoader)
+        else
+          Schedule(
+            key: ValueKey('schedule-$_scheduleVersion'),
+            repository: widget.tableRepository,
+            constraint: _constraint,
+            recommendationRepository: _shouldLoadRecommendations
+                ? _recommendationRepository
+                : null,
+            onChanged: _shouldLoadAlerts
+                ? () => unawaited(_loadAppAlerts())
+                : null,
+          ),
+        if (_workflow?.postFinal != true &&
+            _shouldLoadRecommendations &&
+            _hasSavedGradeGoals) ...[
           const SizedBox(height: 24),
           RecommendationCard(
             repository: _recommendationRepository,
@@ -614,6 +684,7 @@ class _MainPageState extends State<MainPage> {
   Widget build(BuildContext context) {
     return NotebookSectionPage(
       activeTab: NotebookTabId.main,
+      postFinal: _workflow?.postFinal ?? false,
       backgroundKey: const Key('main-background'),
       coverKey: const Key('main-notebook-cover'),
       paperKey: const Key('main-notebook-paper'),

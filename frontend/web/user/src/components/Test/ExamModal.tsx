@@ -179,12 +179,20 @@ export default function ExamModal({
           <div className="py-4">
             <h2 className="pr-8 text-lg font-semibold text-[#405B69]">{exam.summary.examName}</h2>
             <p className="mt-1 text-sm text-[#738892]">{exam.summary.subjectName}</p>
-            <div className="mt-6 grid grid-cols-2 gap-3 text-center text-xs text-[#59707B]">
-              <div className="rounded-2xl bg-[#EAF6FB] p-3">อัตโนมัติ<br />จำนวนข้อ</div>
-              {exam.summary.timeLimitMinutes !== null && (
-                <div className="rounded-2xl bg-[#FFF0BF] p-3">{exam.summary.timeLimitMinutes}<br />นาที</div>
-              )}
+            <div className="mt-6 rounded-2xl bg-[#EAF6FB] p-4 text-sm text-[#59707B]">
+              <p className="font-semibold">พาร์ทในชุดทดสอบ</p>
+              <ul className="mt-2 space-y-1.5">
+                {exam.summary.partNames.map((partName, index) => (
+                  <li key={`${index}-${partName}`} className="flex gap-2">
+                    <span aria-hidden="true">•</span>
+                    <span>{partName}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
+            {exam.summary.timeLimitMinutes !== null && (
+              <p className="mt-3 text-xs text-[#8A6B27]">เวลาทำแบบทดสอบ {exam.summary.timeLimitMinutes} นาที</p>
+            )}
             <p className="mt-5 text-xs leading-5 text-[#778990]">
               {hasTimeLimit && "เมื่อเริ่มแล้วเวลาจะนับถอยหลัง และ"}ต้องเลือกคำตอบก่อนจึงจะไปข้อถัดไปได้
             </p>

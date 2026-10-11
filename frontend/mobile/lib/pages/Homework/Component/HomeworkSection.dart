@@ -11,6 +11,7 @@ class HomeworkSection extends StatelessWidget {
   final ValueChanged<HomeworkTaskData> onSubmit;
   final ValueChanged<HomeworkTaskData> onOpenDetails;
   final int? submittingWorkloadId;
+  final bool canSubmit;
 
   const HomeworkSection({
     super.key,
@@ -20,6 +21,7 @@ class HomeworkSection extends StatelessWidget {
     required this.onSubmit,
     required this.onOpenDetails,
     this.submittingWorkloadId,
+    this.canSubmit = true,
   });
 
   @override
@@ -46,6 +48,7 @@ class HomeworkSection extends StatelessWidget {
               scale: scale,
               onSubmit: () => onSubmit(data.tasks[taskIndex]),
               onOpenDetails: () => onOpenDetails(data.tasks[taskIndex]),
+              canSubmit: canSubmit,
               isSubmitting:
                   submittingWorkloadId == data.tasks[taskIndex].workloadId,
             ),

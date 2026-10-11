@@ -101,6 +101,7 @@ class WeeklyRecommendationItem {
   final int allocatedMinutes;
   final int unallocatedMinutes;
   final int differenceMinutes;
+  final double? previousAdherenceRate;
   final String primaryAction;
   final bool capApplied;
   final bool capacityLimited;
@@ -119,6 +120,7 @@ class WeeklyRecommendationItem {
     required this.allocatedMinutes,
     required this.unallocatedMinutes,
     required this.differenceMinutes,
+    this.previousAdherenceRate,
     required this.primaryAction,
     required this.capApplied,
     required this.capacityLimited,
@@ -140,6 +142,9 @@ class WeeklyRecommendationItem {
     allocatedMinutes: _integer(json['allocated_minutes']),
     unallocatedMinutes: _integer(json['unallocated_minutes']),
     differenceMinutes: _integer(json['difference_minutes']),
+    previousAdherenceRate: json['previous_adherence_rate'] is num
+        ? (json['previous_adherence_rate'] as num).toDouble()
+        : double.tryParse('${json['previous_adherence_rate'] ?? ''}'),
     primaryAction: _text(json['primary_action']),
     capApplied: _boolean(json['cap_applied']),
     capacityLimited: _boolean(json['capacity_limited']),

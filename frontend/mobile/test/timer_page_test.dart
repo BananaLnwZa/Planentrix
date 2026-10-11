@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mobile/interfaces/exam.interface.dart' show ExamInsights, WeakTopicInsight;
+import 'package:mobile/interfaces/exam.interface.dart'
+    show ExamInsights, WeakTopicInsight;
 import 'package:mobile/interfaces/time.interface.dart';
 import 'package:mobile/pages/Timer/Timer.dart';
 import 'package:mobile/services/time.service.dart';
@@ -83,9 +84,7 @@ class FakeTimeRepository implements TimeRepository {
   );
 
   @override
-  Future<StudySession> startSession({
-    required int scheduleTimeId,
-  }) async {
+  Future<StudySession> startSession({required int scheduleTimeId}) async {
     lastAction = 'start';
     activeSession = session('running', 1);
     return activeSession!;
@@ -209,7 +208,7 @@ void main() {
     expect(find.byKey(const Key('timer-panel')), findsOneWidget);
     expect(find.byKey(const Key('study-statistics')), findsOneWidget);
     expect(find.byKey(const Key('study-history')), findsOneWidget);
-    expect(find.text('Business Intelligence'), findsOneWidget);
+    expect(find.text('Business Intelligence'), findsWidgets);
     expect(find.text('08/26'), findsOneWidget);
     expect(find.text('Progress แยกตามวิชาที่แนะนำ'), findsOneWidget);
     expect(find.byKey(const Key('weekly-review-BI101')), findsOneWidget);

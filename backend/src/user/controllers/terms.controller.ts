@@ -585,6 +585,74 @@ export const getTermWorkflow = async (req: Request, res: Response) => {
        WHERE student_term.student_term_id = ? AND student_term.user_id = ?`,
       [term.term_id, userId],
     );
+    let finalTargetReady = false;
+    if (["final_2w", "final_1w", "final_exam", "final_post"].includes(finalPhase)) {
+      const [targetRows] = await db.query<RowDataPacket[]>(
+        `SELECT
+           (SELECT COUNT(DISTINCT bank.question_bank_id)
+              FROM enrollments enrollment
+              INNER JOIN course_sections section
+                ON section.section_id = enrollment.section_id
+              INNER JOIN section_instructors instructor
+                ON instructor.section_id = section.section_id
+              INNER JOIN question_banks bank
+                ON bank.subject_id = section.subject_id
+               AND bank.owner_instructor_id = instructor.instructor_id
+               AND bank.exam_period = 'final' AND bank.status = 'published'
+              WHERE enrollment.student_term_id = ? AND enrollment.status = 'enrolled'
+                AND section.status IN ('open', 'closed')
+                AND EXISTS (SELECT 1 FROM question question_item
+                            WHERE question_item.question_bank_id = bank.question_bank_id
+                              AND question_item.is_active = 1)) AS available_banks,
+           (SELECT COUNT(DISTINCT result.question_bank_id)
+              FROM exam_attempts attempt
+              INNER JOIN enrollments enrollment
+                ON enrollment.enrollment_id = attempt.enrollment_id
+              INNER JOIN exam_attempt_bank_results result
+                ON result.exam_attempt_id = attempt.exam_attempt_id
+              INNER JOIN course_sections section
+                ON section.section_id = enrollment.section_id
+               AND section.status IN ('open', 'closed')
+              INNER JOIN question_banks bank
+                ON bank.question_bank_id = result.question_bank_id
+               AND bank.subject_id = section.subject_id
+               AND bank.exam_period = 'final' AND bank.status = 'published'
+              INNER JOIN section_instructors instructor
+                ON instructor.section_id = section.section_id
+               AND instructor.instructor_id = bank.owner_instructor_id
+              WHERE enrollment.student_term_id = ? AND enrollment.status = 'enrolled'
+                AND attempt.status = 'submitted'
+                AND attempt.workflow_phase = 'final_2w'
+                AND attempt.exam_period = 'final'
+                AND EXISTS (SELECT 1 FROM question question_item
+                            WHERE question_item.question_bank_id = bank.question_bank_id
+                              AND question_item.is_active = 1)) AS completed_banks,
+           EXISTS (
+              SELECT 1 FROM weekly_recommendation recommendation
+              INNER JOIN exam_attempts attempt
+                ON attempt.exam_attempt_id = recommendation.source_exam_attempt_id
+              WHERE recommendation.student_term_id = ?
+                AND attempt.status = 'submitted'
+                AND attempt.workflow_phase = 'final_2w'
+                AND attempt.exam_period = 'final'
+                AND recommendation.generated_at >= (
+                  SELECT MAX(completed_attempt.submitted_at)
+                  FROM exam_attempts completed_attempt
+                  INNER JOIN enrollments completed_enrollment
+                    ON completed_enrollment.enrollment_id = completed_attempt.enrollment_id
+                  WHERE completed_enrollment.student_term_id = ?
+                    AND completed_attempt.status = 'submitted'
+                    AND completed_attempt.workflow_phase = 'final_2w'
+                    AND completed_attempt.exam_period = 'final'
+                )
+           ) AS has_recommendation`,
+        [term.term_id, term.term_id, term.term_id, term.term_id],
+      );
+      const target = targetRows[0];
+      finalTargetReady = Number(target?.available_banks ?? 0) > 0
+        && Number(target?.completed_banks ?? 0) >= Number(target?.available_banks ?? 0)
+        && Number(target?.has_recommendation ?? 0) === 1;
+    }
     return res.json({
       data: {
         term_id: Number(term.term_id),
@@ -592,6 +660,7 @@ export const getTermWorkflow = async (req: Request, res: Response) => {
         midterm_phase: midtermPhase,
         final_phase: finalPhase,
         workload_locked: finalPhase === "final_1w" || finalPhase === "final_exam" || finalPhase === "final_post",
+        final_target_ready: finalTargetReady,
         post_final: finalPhase === "final_post",
         midterm_followup_pending: Number(reminderRows[0]?.pending ?? 0) === 1,
       },

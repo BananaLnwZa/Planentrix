@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BookX, CircleAlert, LoaderCircle, RefreshCw } from "lucide-react";
+import { BookX, LoaderCircle, RefreshCw } from "lucide-react";
 import type {
   OverallGradeSummary,
   SaveGradeGoalItem,
@@ -27,6 +27,7 @@ export default function ScoreHomeworkContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [workloadLocked, setWorkloadLocked] = useState(false);
+  const [finalTargetReady, setFinalTargetReady] = useState(false);
 
   const loadGoals = useCallback(async () => {
     setIsLoading(true);
@@ -54,7 +55,10 @@ export default function ScoreHomeworkContent() {
           if (goalsResult.status === "fulfilled") setData(goalsResult.value);
           else setLoadError(goalsResult.reason instanceof Error ? goalsResult.reason.message : "โหลดข้อมูลคะแนนไม่สำเร็จ");
           if (overallResult.status === "fulfilled") setOverall(overallResult.value);
-          if (workflowResult.status === "fulfilled") setWorkloadLocked(Boolean(workflowResult.value?.workload_locked));
+          if (workflowResult.status === "fulfilled") {
+            setWorkloadLocked(Boolean(workflowResult.value?.workload_locked));
+            setFinalTargetReady(Boolean(workflowResult.value?.final_target_ready));
+          }
         }
       })
       .catch((error: unknown) => {
@@ -135,6 +139,7 @@ export default function ScoreHomeworkContent() {
             void gradeService.getOverallGrade().then(setOverall).catch(() => undefined);
           }}
           canEditScores={!workloadLocked}
+          showFinalScoreTarget={finalTargetReady}
         />
       ) : (
         <GradeGoalPrompt

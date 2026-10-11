@@ -113,3 +113,37 @@ test("automatic selection uses the same count distribution for every seed", () =
   assert.equal(first.questions.length, second.questions.length);
   assert.deepEqual(first.distribution, second.distribution);
 });
+
+test("one exam draws from every published part while keeping the 100 point total", () => {
+  const questions = Array.from({ length: 12 }, (_, index) => ({
+    question_id: index + 1,
+    question_bank_id: Math.floor(index / 4) + 1,
+    question_score: 10,
+  }));
+  const result = selectAutomaticBalancedExamQuestions(
+    questions,
+    "all-parts",
+    [1, 2, 3],
+  );
+
+  assert.ok(result);
+  assert.equal(result.totalScore, 100);
+  assert.equal(result.questions.length, 10);
+  assert.deepEqual(
+    [...new Set(result.questions.map((question) => question.question_bank_id))].sort(),
+    [1, 2, 3],
+  );
+});
+
+test("a combined exam is unavailable if an included part cannot be represented", () => {
+  const result = selectAutomaticBalancedExamQuestions(
+    [
+      { question_id: 1, question_bank_id: 1, question_score: 50 },
+      { question_id: 2, question_bank_id: 1, question_score: 50 },
+      { question_id: 3, question_bank_id: 2, question_score: 50 },
+    ],
+    "not-enough-score",
+    [1, 2],
+  );
+  assert.equal(result, null);
+});

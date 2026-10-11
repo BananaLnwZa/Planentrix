@@ -4,6 +4,7 @@ class ExamSummary {
   final String subjectId;
   final String subjectName;
   final String examName;
+  final List<String> partNames;
   final double totalScore;
   final int totalQuestion;
   final int? timeLimitMinutes;
@@ -14,18 +15,39 @@ class ExamSummary {
     required this.subjectId,
     required this.subjectName,
     required this.examName,
+    this.partNames = const [],
     required this.totalScore,
     required this.totalQuestion,
     required this.timeLimitMinutes,
   });
 
   factory ExamSummary.fromJson(Map<String, dynamic> json) {
+    final subjectName = '${json['subject_name'] ?? ''}';
+    final bankName = '${json['exam_name'] ?? ''}';
+    final period = '${json['exam_period'] ?? ''}';
+    final rawParts = json['part_names'] is List
+        ? json['part_names']
+        : json['parts'];
+    final partNames = rawParts is List
+        ? rawParts
+              .map(
+                (part) => part is Map
+                    ? '${part['exam_part_name'] ?? ''}'.trim()
+                    : '$part'.trim(),
+              )
+              .where((name) => name.isNotEmpty)
+              .toList()
+        : <String>[];
+    if (partNames.isEmpty && bankName.isNotEmpty) partNames.add(bankName);
     return ExamSummary(
       examRepositoryId: _asInt(json['exam_repository_id']),
       scheduleTimeId: _asInt(json['schedule_time_id']),
       subjectId: '${json['subject_id'] ?? ''}',
-      subjectName: '${json['subject_name'] ?? ''}',
-      examName: '${json['exam_name'] ?? ''}',
+      subjectName: subjectName,
+      examName: period == 'midterm' || period == 'final'
+          ? 'ชุดทดสอบ${period == 'midterm' ? 'กลางภาค' : 'ปลายภาค'}วิชา $subjectName'
+          : bankName,
+      partNames: partNames,
       totalScore: _asDouble(json['total_score']),
       totalQuestion: _asInt(json['total_question']),
       timeLimitMinutes: json['time_limit'] == null

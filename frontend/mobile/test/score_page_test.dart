@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mobile/interfaces/score.interface.dart';
+import 'package:mobile/interfaces/term.interface.dart';
 import 'package:mobile/pages/Score/Score.dart';
 import 'package:mobile/services/score.service.dart';
 
@@ -266,7 +267,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(fontFamily: 'Sansation'),
-        home: ScorePage(repository: FakeScoreRepository()),
+        home: ScorePage(
+          repository: FakeScoreRepository(),
+          workflowLoader: () async =>
+              const TermWorkflow(phase: 'final_2w', finalTargetReady: true),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -312,6 +317,45 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('final score target stays hidden until the workflow is ready', (
+    tester,
+  ) async {
+    setPhoneSize(tester, const Size(360, 640));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ScorePage(
+          repository: FakeScoreRepository(),
+          workflowLoader: () async => const TermWorkflow(phase: 'final_2w'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('final-score-target-card')), findsNothing);
+    expect(find.byKey(const Key('subject-score-section')), findsOneWidget);
+  });
+
+  testWidgets('locked workflow hides mobile score entry', (tester) async {
+    setPhoneSize(tester, const Size(360, 640));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ScorePage(
+          repository: FakeScoreRepository(),
+          workflowLoader: () async => const TermWorkflow(
+            phase: 'final_1w',
+            workloadLocked: true,
+            finalTargetReady: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('final-score-target-card')), findsOneWidget);
+    expect(find.byKey(const Key('score-entry-3')), findsNothing);
+    expect(find.text('—/—'), findsWidgets);
+  });
+
   testWidgets(
     'subject score components switch tabs and save a workload score',
     (tester) async {
@@ -321,7 +365,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: ThemeData(fontFamily: 'Sansation'),
-          home: ScorePage(repository: repository),
+          home: ScorePage(
+            repository: repository,
+            workflowLoader: () async =>
+                const TermWorkflow(phase: 'final_2w', finalTargetReady: true),
+          ),
         ),
       );
       await tester.pumpAndSettle();

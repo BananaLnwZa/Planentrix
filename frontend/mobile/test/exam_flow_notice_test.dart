@@ -34,4 +34,39 @@ void main() {
     expect(find.text('เตรียมสอบกลางภาค · 3 สัปดาห์'), findsOneWidget);
     expect(find.byType(TextButton), findsNothing);
   });
+
+  for (final period in ['midterm', 'final']) {
+    for (final week in ['2w', '1w']) {
+      testWidgets('$period $week offers the measuring test', (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ExamFlowNotice(
+                workflow: TermWorkflow(phase: '${period}_$week'),
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('ไปทำแบบทดสอบ'), findsOneWidget);
+        expect(find.byType(TextButton), findsOneWidget);
+      });
+    }
+
+    testWidgets('$period exam week has no test action', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ExamFlowNotice(
+              workflow: TermWorkflow(phase: '${period}_exam'),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('exam-flow-notice')), findsNothing);
+      expect(find.textContaining('สัปดาห์สอบ'), findsNothing);
+      expect(find.byType(TextButton), findsNothing);
+    });
+  }
 }

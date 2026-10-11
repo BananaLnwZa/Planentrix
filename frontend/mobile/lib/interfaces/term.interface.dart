@@ -48,11 +48,30 @@ class CurrentTerm {
 
 class TermWorkflow {
   final String phase;
+  final bool postFinal;
+  final bool workloadLocked;
+  final bool finalTargetReady;
+  final bool midtermFollowupPending;
 
-  const TermWorkflow({required this.phase});
+  const TermWorkflow({
+    required this.phase,
+    this.postFinal = false,
+    this.workloadLocked = false,
+    this.finalTargetReady = false,
+    this.midtermFollowupPending = false,
+  });
 
-  factory TermWorkflow.fromJson(Map<String, dynamic> json) =>
-      TermWorkflow(phase: '${json['phase'] ?? 'normal'}');
+  factory TermWorkflow.fromJson(Map<String, dynamic> json) => TermWorkflow(
+    phase: '${json['phase'] ?? 'normal'}',
+    postFinal: json['post_final'] == true || json['post_final'] == 1,
+    workloadLocked:
+        json['workload_locked'] == true || json['workload_locked'] == 1,
+    finalTargetReady:
+        json['final_target_ready'] == true || json['final_target_ready'] == 1,
+    midtermFollowupPending:
+        json['midterm_followup_pending'] == true ||
+        json['midterm_followup_pending'] == 1,
+  );
 }
 
 class CreateTermRequest {

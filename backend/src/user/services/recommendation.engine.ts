@@ -27,7 +27,8 @@ import type {
   WorkloadDemand,
 } from "./recommendation.types";
 import { RULE_VERSION } from "./recommendation.types";
-import { getExamWorkflowPhase } from "./term-workflow";
+import { regularRecommendationPaused } from "./recommendation-trigger.rules";
+import type { ExamTermDates } from "./term-workflow";
 
 interface TermRow extends RowDataPacket {
   term_id: number;
@@ -821,10 +822,13 @@ export const generateRecommendation = async (input: GenerateRecommendationInput)
     if (!term) {
       throw new RecommendationServiceError(404, "NO_CURRENT_TERM", "No current term found");
     }
-    const midtermPhase = getExamWorkflowPhase(term, "midterm", input.now ?? new Date());
-    const finalPhase = getExamWorkflowPhase(term, "final", input.now ?? new Date());
-    const inExamPreparation = [midtermPhase, finalPhase].some((phase) =>
-      ["midterm_2w", "midterm_1w", "midterm_exam", "final_2w", "final_1w", "final_exam"].includes(phase),
+    const target = resolveTargetWeek(
+      input.triggerType,
+      input.now ?? new Date(),
+      input.targetWeekStart
+    );
+    const inExamPreparation = regularRecommendationPaused(
+      term, input.now ?? new Date(), target.weekStart,
     );
     if (input.triggerType !== "exam_submitted" && inExamPreparation) {
       throw new RecommendationServiceError(
@@ -844,11 +848,37 @@ export const generateRecommendation = async (input: GenerateRecommendationInput)
     }
     await validateSourceReferences(connection, term.term_id, input);
     const types = await loadScheduleTypes(connection);
-    const target = resolveTargetWeek(
-      input.triggerType,
-      input.now ?? new Date(),
-      input.targetWeekStart
-    );
+    if (input.triggerType === "exam_submitted" && input.examAttemptId) {
+      const [existingAssessmentRecommendations] = await connection.query<RowDataPacket[]>(
+        `SELECT recommendation.recommendation_id
+         FROM weekly_recommendation recommendation
+         INNER JOIN exam_attempts source_attempt
+           ON source_attempt.exam_attempt_id = recommendation.source_exam_attempt_id
+         INNER JOIN exam_attempts current_attempt
+           ON current_attempt.exam_attempt_id = ?
+         WHERE recommendation.student_term_id = ?
+           AND recommendation.week_start_date = ?
+           AND recommendation.trigger_type = 'exam_submitted'
+           AND source_attempt.workflow_phase = ?
+           AND source_attempt.exam_period = current_attempt.exam_period
+           AND recommendation.generated_at >= (
+             SELECT MAX(completed_attempt.submitted_at)
+             FROM exam_attempts completed_attempt
+             INNER JOIN enrollments completed_enrollment
+               ON completed_enrollment.enrollment_id = completed_attempt.enrollment_id
+             WHERE completed_enrollment.student_term_id = recommendation.student_term_id
+               AND completed_attempt.status = 'submitted'
+               AND completed_attempt.workflow_phase = source_attempt.workflow_phase
+               AND completed_attempt.exam_period = source_attempt.exam_period
+           )
+         ORDER BY recommendation.version DESC LIMIT 1`,
+        [input.examAttemptId, term.term_id, target.weekStart, input.examWorkflowPhase],
+      );
+      if (existingAssessmentRecommendations[0]) {
+        await connection.commit();
+        return getLatestRecommendation(input.userId, target.weekStart);
+      }
+    }
     const enrollments = await loadEnrollments(connection, term.term_id);
     if (!enrollments.length) {
       throw new RecommendationServiceError(
@@ -1311,13 +1341,28 @@ export const generateWeekendRecommendations = async (now = new Date()) => {
   const bangkokDate = `${values.year}-${values.month}-${values.day}`;
   if (isoDay(bangkokDate) !== 7 || Number(values.hour) < 18) return [];
   const { weekStart } = resolveTargetWeek("weekend", now);
-  const [users] = await db.query<RowDataPacket[]>(
-    `SELECT DISTINCT user_id FROM student_terms WHERE status='active'`
+  const [users] = await db.query<(RowDataPacket & ExamTermDates)[]>(
+    `SELECT student_term.user_id,
+       DATE_FORMAT(academic_term.midterm_start_date, '%Y-%m-%d') AS midterm_start_date,
+       DATE_FORMAT(academic_term.midterm_end_date, '%Y-%m-%d') AS midterm_end_date,
+       DATE_FORMAT(academic_term.final_start_date, '%Y-%m-%d') AS final_start_date,
+       DATE_FORMAT(academic_term.final_end_date, '%Y-%m-%d') AS final_end_date
+     FROM student_terms student_term
+     INNER JOIN academic_terms academic_term
+       ON academic_term.academic_term_id = student_term.academic_term_id
+     WHERE student_term.status = 'active'
+       AND student_term.student_term_id = (
+         SELECT MAX(current_term.student_term_id)
+         FROM student_terms current_term
+         WHERE current_term.user_id = student_term.user_id
+           AND current_term.status = 'active'
+       )`
   );
   const results = [];
   for (const row of users) {
+    if (regularRecommendationPaused(row, now, weekStart)) continue;
     const existing = await getLatestRecommendation(Number(row.user_id), weekStart);
-    if (existing?.trigger_type === "weekend") continue;
+    if (existing?.trigger_type === "weekend" || existing?.trigger_type === "exam_submitted") continue;
     results.push(
       await safelyGenerateRecommendation({
         userId: Number(row.user_id),

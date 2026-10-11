@@ -5,13 +5,19 @@ import 'package:mobile/interfaces/homework.interface.dart';
 import 'package:mobile/interfaces/table.interface.dart';
 import 'package:mobile/interfaces/term.interface.dart';
 import 'package:mobile/pages/Main/MainPage.dart';
+import 'package:mobile/pages/Main/Component/BehaviorSummary.dart';
 import 'package:mobile/services/homework.service.dart';
 import 'package:mobile/services/table.service.dart';
 import 'package:mobile/services/term.service.dart';
 
 class _EmptyTermRepository extends TermRepository {
+  final CurrentTerm? currentTerm;
+  int acknowledgements = 0;
+
+  _EmptyTermRepository({this.currentTerm});
+
   @override
-  Future<CurrentTerm?> getCurrentTerm() async => null;
+  Future<CurrentTerm?> getCurrentTerm() async => currentTerm;
 
   @override
   Future<CurrentTerm> createTerm(CreateTermRequest request) async =>
@@ -19,6 +25,12 @@ class _EmptyTermRepository extends TermRepository {
 
   @override
   Future<void> endCurrentTerm() async {}
+
+  @override
+  Future<bool> acknowledgeMidtermFollowup() async {
+    acknowledgements++;
+    return true;
+  }
 }
 
 class _EmptyTableRepository implements TableRepository {
@@ -102,15 +114,18 @@ void _setPhoneSize(WidgetTester tester) {
 Widget _mainPage(
   List<HomeworkTaskData> tasks, {
   Future<TermWorkflow?> Function()? workflowLoader,
+  _EmptyTermRepository? termRepository,
+  Future<BehaviorSummaryData> Function()? behaviorSummaryLoader,
 }) => MaterialApp(
   home: MainPage(
     username: 'Nicha',
     userId: 42,
     logoutAction: () async {},
-    termRepository: _EmptyTermRepository(),
+    termRepository: termRepository ?? _EmptyTermRepository(),
     tableRepository: _EmptyTableRepository(),
     homeworkRepository: _HomeworkRepository(tasks),
     workflowLoader: workflowLoader,
+    behaviorSummaryLoader: behaviorSummaryLoader,
   ),
   routes: {'/homework': (_) => const Scaffold(body: Text('Homework page'))},
 );
@@ -130,6 +145,62 @@ void main() {
 
     expect(find.byKey(const Key('exam-flow-notice')), findsOneWidget);
     expect(find.text('เตรียมสอบปลายภาค · 3 สัปดาห์'), findsOneWidget);
+  });
+
+  testWidgets('post-midterm reminder is acknowledged once on mobile', (
+    tester,
+  ) async {
+    _setPhoneSize(tester);
+    final terms = _EmptyTermRepository();
+    await tester.pumpWidget(
+      _mainPage(
+        const [],
+        termRepository: terms,
+        workflowLoader: () async => const TermWorkflow(
+          phase: 'midterm_post',
+          midtermFollowupPending: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('midterm-followup-popup')), findsOneWidget);
+    await tester.tap(find.text('ไว้ก่อน'));
+    await tester.pumpAndSettle();
+    expect(terms.acknowledgements, 1);
+    expect(find.byKey(const Key('midterm-followup-popup')), findsNothing);
+  });
+
+  testWidgets('post-final replaces schedule with summary and hides tabs', (
+    tester,
+  ) async {
+    _setPhoneSize(tester);
+    final terms = _EmptyTermRepository(
+      currentTerm: CurrentTerm(
+        termId: 5,
+        yearLevel: '2',
+        term: '1',
+        academicYear: '2569',
+        endFinal: DateTime(2026, 10, 1),
+      ),
+    );
+    await tester.pumpWidget(
+      _mainPage(
+        const [],
+        termRepository: terms,
+        workflowLoader: () async =>
+            const TermWorkflow(phase: 'final_post', postFinal: true),
+        behaviorSummaryLoader: () async => const BehaviorSummaryData(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('behavior-summary')), findsOneWidget);
+    expect(find.byKey(const Key('notebook-tabs')), findsNothing);
+    expect(find.byKey(const Key('schedule-0')), findsNothing);
+    await tester.tap(find.byKey(const Key('current-term-card')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('end-term-button')), findsOneWidget);
   });
 
   testWidgets('term and active alerts share one compact row', (tester) async {

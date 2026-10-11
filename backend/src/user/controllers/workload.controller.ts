@@ -2,6 +2,10 @@ import type { Request, Response } from "express";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import db from "../../config/db";
 import { safelyGenerateRecommendation } from "../services/recommendation.engine";
+import {
+  currentBangkokWeek,
+  shouldRecommendForWorkload,
+} from "../services/recommendation-trigger.rules";
 import { isWorkloadLockedForUser } from "../services/term-workflow";
 
 interface WorkloadTypeRow extends RowDataPacket {
@@ -14,6 +18,7 @@ interface WorkloadOwnerRow extends RowDataPacket {
   workload_id: number;
   enrollment_id: number;
   status: "pending" | "completed" | "cancelled";
+  deadline_date: string;
 }
 
 interface ScoreTotalRow extends RowDataPacket {
@@ -40,7 +45,8 @@ const validTime = (value: unknown): value is string =>
 
 const findOwnedWorkload = async (userId: number, workloadId: number) => {
   const [rows] = await db.query<WorkloadOwnerRow[]>(
-    `SELECT workload.workload_id, workload.enrollment_id, workload.status
+    `SELECT workload.workload_id, workload.enrollment_id, workload.status,
+            DATE_FORMAT(workload.deadline_date, '%Y-%m-%d') AS deadline_date
      FROM workloads workload
      INNER JOIN enrollments enrollment
        ON enrollment.enrollment_id = workload.enrollment_id
@@ -56,11 +62,12 @@ const findOwnedWorkload = async (userId: number, workloadId: number) => {
   return rows[0] ?? null;
 };
 
-const recommendationForWorkload = (userId: number, workloadId: number | null) =>
+const recommendationForWorkload = (userId: number, workloadId: number, weekStart: string) =>
   safelyGenerateRecommendation({
     userId,
     triggerType: "workload_changed",
     workloadId,
+    targetWeekStart: weekStart,
   });
 
 export const getWorkloadTypes = async (req: Request, res: Response) => {
@@ -207,10 +214,10 @@ export const createWorkload = async (req: Request, res: Response) => {
         note,
       ],
     );
-    const recommendationResult = await recommendationForWorkload(
-      userId,
-      result.insertId,
-    );
+    const now = new Date();
+    const recommendationResult = shouldRecommendForWorkload("created", deadlineDate, undefined, now)
+      ? await recommendationForWorkload(userId, result.insertId, currentBangkokWeek(now).weekStart)
+      : { recommendation: null, warning: null };
 
     return res.status(201).json({
       message: "Workload created successfully",
@@ -277,10 +284,12 @@ export const updateWorkload = async (req: Request, res: Response) => {
        WHERE workload_id = ?`,
       [workloadName, deadlineDate, deadlineTime, note, workloadId],
     );
-    const recommendationResult = await recommendationForWorkload(
-      userId,
-      workloadId,
-    );
+    const now = new Date();
+    const recommendationResult = shouldRecommendForWorkload(
+      "updated", deadlineDate, existing.deadline_date, now,
+    )
+      ? await recommendationForWorkload(userId, workloadId, currentBangkokWeek(now).weekStart)
+      : { recommendation: null, warning: null };
 
     return res.json({
       message: "Workload updated successfully",
@@ -317,13 +326,11 @@ export const deleteWorkload = async (req: Request, res: Response) => {
       });
     }
     await db.query("DELETE FROM workloads WHERE workload_id = ?", [workloadId]);
-    const recommendationResult = await recommendationForWorkload(userId, null);
-
     return res.json({
       message: "Workload deleted successfully",
       workload_id: workloadId,
-      schedule_recommendation: recommendationResult.recommendation,
-      recommendation_warning: recommendationResult.warning,
+      schedule_recommendation: null,
+      recommendation_warning: null,
     });
   } catch (error) {
     console.error("deleteWorkload error:", error);
@@ -362,16 +369,12 @@ export const finishWorkload = async (req: Request, res: Response) => {
        WHERE workload_id = ?`,
       [workloadId],
     );
-    const recommendationResult = await recommendationForWorkload(
-      userId,
-      workloadId,
-    );
     return res.json({
       message: "Workload finished successfully",
       workload_id: workloadId,
       user_id: userId,
-      schedule_recommendation: recommendationResult.recommendation,
-      recommendation_warning: recommendationResult.warning,
+      schedule_recommendation: null,
+      recommendation_warning: null,
     });
   } catch (error) {
     console.error("finishWorkload error:", error);
@@ -516,17 +519,13 @@ export const saveWorkloadScore = async (req: Request, res: Response) => {
       );
     }
 
-    const recommendationResult = await recommendationForWorkload(
-      userId,
-      workloadId,
-    );
     return res.status(existingScores[0] ? 200 : 201).json({
       message: existingScores[0] ? "Score updated successfully" : "Score saved successfully",
       workload_id: workloadId,
       actual_score: actualScore,
       max_score: maxScore,
-      schedule_recommendation: recommendationResult.recommendation,
-      recommendation_warning: recommendationResult.warning,
+      schedule_recommendation: null,
+      recommendation_warning: null,
     });
   } catch (error) {
     console.error("saveWorkloadScore error:", error);

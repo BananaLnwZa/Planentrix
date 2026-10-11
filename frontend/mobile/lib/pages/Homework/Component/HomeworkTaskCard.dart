@@ -9,6 +9,7 @@ class HomeworkTaskCard extends StatelessWidget {
   final VoidCallback onSubmit;
   final VoidCallback onOpenDetails;
   final bool isSubmitting;
+  final bool canSubmit;
 
   const HomeworkTaskCard({
     super.key,
@@ -17,6 +18,7 @@ class HomeworkTaskCard extends StatelessWidget {
     required this.onSubmit,
     required this.onOpenDetails,
     this.isSubmitting = false,
+    this.canSubmit = true,
   });
 
   @override
@@ -78,7 +80,7 @@ class HomeworkTaskCard extends StatelessWidget {
                       width: width * 0.14,
                       child: _CardText(task.dueTime, fontSize: 6 * scale),
                     ),
-                    Positioned(
+                    if (canSubmit) Positioned(
                       left: width * 0.8504,
                       top: 10 * scale,
                       width: width * 0.1095,

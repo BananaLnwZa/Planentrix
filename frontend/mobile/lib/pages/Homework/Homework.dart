@@ -7,8 +7,10 @@ import '../../common/NotebookSectionPage.dart';
 import '../../common/NotebookTabs.dart';
 import '../../common/HomeworkTimeFormat.dart';
 import '../../interfaces/homework.interface.dart';
+import '../../interfaces/term.interface.dart';
 import '../../services/homework.service.dart';
 import '../../services/homework_reminder.service.dart';
+import '../../services/term.service.dart';
 import 'Component/AddHomeworkPopup.dart';
 import 'Component/AddHomeworkButton.dart';
 import 'Component/HomeworkSection.dart';
@@ -20,6 +22,7 @@ class HomeworkPage extends StatefulWidget {
   final VoidCallback? onAddHomework;
   final ValueChanged<HomeworkTaskData>? onSubmitHomework;
   final HomeworkReminderScheduler? reminderScheduler;
+  final Future<TermWorkflow?> Function()? workflowLoader;
 
   const HomeworkPage({
     super.key,
@@ -28,13 +31,15 @@ class HomeworkPage extends StatefulWidget {
     this.onAddHomework,
     this.onSubmitHomework,
     this.reminderScheduler,
+    this.workflowLoader,
   });
 
   @override
   State<HomeworkPage> createState() => _HomeworkPageState();
 }
 
-class _HomeworkPageState extends State<HomeworkPage> {
+class _HomeworkPageState extends State<HomeworkPage>
+    with WidgetsBindingObserver {
   late final HomeworkRepository _repository;
   late final HomeworkReminderScheduler _reminderScheduler;
   List<HomeworkTaskData> _tasks = const [];
@@ -43,11 +48,13 @@ class _HomeworkPageState extends State<HomeworkPage> {
   bool _isLoading = true;
   int? _submittingWorkloadId;
   bool _isAdding = false;
+  bool _workloadLocked = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _repository = widget.repository ?? HomeworkService();
     _reminderScheduler =
         widget.reminderScheduler ??
@@ -55,6 +62,35 @@ class _HomeworkPageState extends State<HomeworkPage> {
             ? HomeworkReminderService.instance
             : const NoopHomeworkReminderScheduler());
     _loadHomework();
+    if (widget.repository == null || widget.workflowLoader != null) {
+      unawaited(_loadWorkloadLock());
+    }
+  }
+
+  Future<void> _loadWorkloadLock() async {
+    try {
+      final workflow =
+          await (widget.workflowLoader?.call() ?? TermService().getWorkflow());
+      if (mounted) {
+        setState(() => _workloadLocked = workflow?.workloadLocked ?? false);
+      }
+    } catch (_) {
+      // Backend still rejects writes if the workflow request is unavailable.
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        (widget.repository == null || widget.workflowLoader != null)) {
+      unawaited(_loadWorkloadLock());
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> _loadHomework() async {
@@ -82,7 +118,7 @@ class _HomeworkPageState extends State<HomeworkPage> {
   }
 
   Future<void> _submitHomework(HomeworkTaskData task) async {
-    if (_submittingWorkloadId != null) return;
+    if (_workloadLocked || _submittingWorkloadId != null) return;
     setState(() => _submittingWorkloadId = task.workloadId);
     try {
       await _repository.finishHomework(task.workloadId);
@@ -111,6 +147,7 @@ class _HomeworkPageState extends State<HomeworkPage> {
   }
 
   Future<void> _addHomework() async {
+    if (_workloadLocked) return;
     if (widget.onAddHomework != null) {
       widget.onAddHomework!.call();
       return;
@@ -154,6 +191,7 @@ class _HomeworkPageState extends State<HomeworkPage> {
     final updated = await showHomeworkDetailsPopup(
       context,
       task: task,
+      canEdit: !_workloadLocked,
       onSave: (input) => _repository.updateHomework(task, input),
       onDelete: () async {
         await _repository.deleteHomework(task.workloadId);
@@ -214,6 +252,7 @@ class _HomeworkPageState extends State<HomeworkPage> {
         groups: groupHomeworkTasks(_tasks, now),
         hasCurrentTerm: _hasCurrentTerm,
         hasWorkloads: _hasWorkloads,
+        workloadLocked: _workloadLocked,
         isLoading: _isLoading,
         error: _error,
         submittingWorkloadId: _submittingWorkloadId,
@@ -230,6 +269,7 @@ class _HomeworkContent extends StatelessWidget {
   final List<HomeworkSectionData> groups;
   final bool? hasCurrentTerm;
   final bool hasWorkloads;
+  final bool workloadLocked;
   final bool isLoading;
   final String? error;
   final int? submittingWorkloadId;
@@ -242,6 +282,7 @@ class _HomeworkContent extends StatelessWidget {
     required this.groups,
     required this.hasCurrentTerm,
     required this.hasWorkloads,
+    required this.workloadLocked,
     required this.isLoading,
     required this.error,
     required this.submittingWorkloadId,
@@ -261,7 +302,23 @@ class _HomeworkContent extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (!isLoading && error == null && hasCurrentTerm == true) ...[
+              if (!isLoading &&
+                  error == null &&
+                  hasCurrentTerm == true &&
+                  workloadLocked) ...[
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16 * scale),
+                  child: const Text(
+                    'เข้าสู่ช่วงทบทวนก่อนสอบปลายภาครอบสุดท้ายแล้ว ขณะนี้ดูข้อมูลได้ แต่เพิ่ม/แก้ไขภาระงานและคะแนนไม่ได้',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF698796)),
+                  ),
+                ),
+                SizedBox(height: 12 * scale),
+              ],
+              if (!isLoading &&
+                  error == null &&
+                  hasCurrentTerm == true &&
+                  !workloadLocked) ...[
                 Padding(
                   padding: EdgeInsets.only(left: 23 * scale),
                   child: Align(
@@ -343,6 +400,7 @@ class _HomeworkContent extends StatelessWidget {
                     data: groups[index],
                     scale: scale,
                     submittingWorkloadId: submittingWorkloadId,
+                    canSubmit: !workloadLocked,
                     onSubmit: onSubmitHomework,
                     onOpenDetails: onOpenHomeworkDetails,
                   ),

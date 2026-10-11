@@ -30,12 +30,26 @@ const date = (value: unknown): Date | null => {
 
 const summaryFromJson = (value: unknown): ExamSummary => {
   const json = record(value);
+  const subjectName = text(json.subject_name);
+  const period = text(json.exam_period);
+  const bankName = text(json.exam_name);
+  const parts = list(json.part_names)
+    .map(text)
+    .filter(Boolean);
+  const detailParts = list(json.parts)
+    .map((part) => text(record(part).exam_part_name))
+    .filter(Boolean);
+  const partNames = parts.length ? parts : detailParts.length ? detailParts : [bankName].filter(Boolean);
   return {
     examRepositoryId: number(json.exam_repository_id),
     scheduleTimeId: number(json.schedule_time_id),
     subjectId: text(json.subject_id),
-    subjectName: text(json.subject_name),
-    examName: text(json.exam_name),
+    subjectName,
+    examName:
+      period === "midterm" || period === "final"
+        ? `ชุดทดสอบ${period === "midterm" ? "กลางภาค" : "ปลายภาค"}วิชา ${subjectName}`
+        : bankName,
+    partNames,
     totalScore: number(json.total_score),
     totalQuestion:
       json.total_question == null ? null : number(json.total_question),

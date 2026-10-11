@@ -16,6 +16,7 @@ abstract class TermRepository {
   Future<CurrentTerm?> getCurrentTerm();
   Future<CurrentTerm> createTerm(CreateTermRequest request);
   Future<void> endCurrentTerm();
+  Future<bool> acknowledgeMidtermFollowup() async => false;
   Future<AvailableTermSections> getAvailableSections({
     required int yearLevel,
     required int academicYear,
@@ -45,6 +46,19 @@ class TermService implements TermRepository {
           : null;
     } on DioException catch (error) {
       throw _toTermException(error, 'ไม่สามารถโหลดสถานะช่วงสอบได้');
+    }
+  }
+
+  @override
+  Future<bool> acknowledgeMidtermFollowup() async {
+    try {
+      final response = await _apiService.post(
+        '/user/terms/workflow/midterm-followup/acknowledge',
+      );
+      final body = Map<String, dynamic>.from(response.data as Map);
+      return body['acknowledged'] == true;
+    } on DioException catch (error) {
+      throw _toTermException(error, 'ไม่สามารถยืนยันการแจ้งเตือนได้');
     }
   }
 

@@ -1,30 +1,69 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../common/NotebookSectionPage.dart';
 import '../../common/NotebookTabs.dart';
 import '../../interfaces/score.interface.dart';
+import '../../interfaces/term.interface.dart';
 import '../../services/score.service.dart';
+import '../../services/term.service.dart';
 import 'Component/GpaCard.dart';
 import 'Component/SubjectScoreSection.dart';
 
 class ScorePage extends StatefulWidget {
   final ScoreRepository? repository;
+  final Future<TermWorkflow?> Function()? workflowLoader;
 
-  const ScorePage({super.key, this.repository});
+  const ScorePage({super.key, this.repository, this.workflowLoader});
 
   @override
   State<ScorePage> createState() => _ScorePageState();
 }
 
-class _ScorePageState extends State<ScorePage> {
+class _ScorePageState extends State<ScorePage> with WidgetsBindingObserver {
   late final ScoreRepository _repository;
   OverallGradeSummary? _overall;
   bool _goalsReady = false;
+  bool _workloadLocked = false;
+  bool _finalTargetReady = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _repository = widget.repository ?? ScoreService();
+    if (widget.repository == null || widget.workflowLoader != null) {
+      unawaited(_loadWorkflow());
+    }
+  }
+
+  Future<void> _loadWorkflow() async {
+    try {
+      final workflow =
+          await (widget.workflowLoader?.call() ?? TermService().getWorkflow());
+      if (!mounted) return;
+      setState(() {
+        _workloadLocked = workflow?.workloadLocked ?? false;
+        _finalTargetReady = workflow?.finalTargetReady ?? false;
+      });
+    } catch (_) {
+      // The server remains the authority for workload writes when offline.
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        (widget.repository == null || widget.workflowLoader != null)) {
+      unawaited(_loadWorkflow());
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override
@@ -46,6 +85,8 @@ class _ScorePageState extends State<ScorePage> {
           ],
           SubjectScoreSection(
             repository: _repository,
+            canEditScores: !_workloadLocked,
+            showFinalScoreTarget: _finalTargetReady,
             onOverallChanged: (value) {
               if (!mounted || identical(_overall, value)) return;
               setState(() => _overall = value);

@@ -62,21 +62,11 @@ class ExamCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 4,
-                      children: [
-                        _Meta(
-                          icon: Icons.help_outline,
-                          text: '${exam.totalQuestion} ข้อ',
-                        ),
-                        if (exam.timeLimitMinutes != null)
-                          _Meta(
-                            icon: Icons.timer_outlined,
-                            text: '${exam.timeLimitMinutes} นาที',
-                          ),
-                      ],
-                    ),
+                    if (exam.timeLimitMinutes != null)
+                      _Meta(
+                        icon: Icons.timer_outlined,
+                        text: '${exam.timeLimitMinutes} นาที',
+                      ),
                   ],
                 ),
               ),

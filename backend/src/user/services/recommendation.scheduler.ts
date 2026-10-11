@@ -89,6 +89,18 @@ const maximumSessionMinutes = (constraint: ConstraintRow | null) =>
     constraintValue(constraint?.continuous_working_duration, 120),
   );
 
+const itemSessionMinutes = (
+  item: RecommendationItemDraft,
+  sessionLimit: number
+) =>
+  Math.min(
+    sessionLimit,
+    item.behaviorPreferredSessionMinutes ??
+      (item.behaviorCompletionRate !== null && item.behaviorCompletionRate < 70
+        ? 60
+        : sessionLimit)
+  );
+
 const buildCandidateSlots = (
   input: SchedulePlanInput,
   immutableBlocks: BaseBlockRow[]
@@ -118,7 +130,8 @@ const buildCandidateSlots = (
     )) {
       hardBlocks.push({
         start: timeToMinutes(classBlock.start_time),
-        end: timeToMinutes(classBlock.end_time),
+        // Leave one hour after class before starting a generated work block.
+        end: timeToMinutes(classBlock.end_time) + 60,
       });
     }
     for (const busy of input.busyBlocks.filter(
@@ -245,20 +258,142 @@ const slotBeforeDeadline = (slot: CandidateSlot, deadline: string | null) => {
   return `${slot.date}T${minutesToTime(slot.endMinute)}` <= deadline;
 };
 
+const adjacentAssignedMinutes = (
+  slot: CandidateSlot,
+  itemKey: string,
+  assigned: AssignedSlot[]
+) => {
+  const sameDay = assigned.filter(
+    (entry) => entry.item.key === itemKey && entry.date === slot.date
+  );
+  let start = slot.startMinute;
+  let end = slot.endMinute;
+  while (true) {
+    const previous = sameDay.find((entry) => entry.endMinute === start);
+    if (!previous) break;
+    start = previous.startMinute;
+  }
+  while (true) {
+    const next = sameDay.find((entry) => entry.startMinute === end);
+    if (!next) break;
+    end = next.endMinute;
+  }
+  return { minutes: end - start, joinsExisting: start < slot.startMinute || end > slot.endMinute };
+};
+
 const chooseSlot = (
   segment: DemandSegment,
   available: CandidateSlot[],
   preferredKeys: Set<string>,
-  assigned: AssignedSlot[]
+  assigned: AssignedSlot[],
+  itemSessionLimit: number,
+  sessionLimit: number
 ) => {
-  const valid = available.filter((slot) => slotBeforeDeadline(slot, segment.deadline));
+  const valid = available.filter(
+    (slot) =>
+      slotBeforeDeadline(slot, segment.deadline) &&
+      adjacentAssignedMinutes(slot, segment.item.key, assigned).minutes <=
+        itemSessionLimit
+  );
   if (valid.length === 0) return null;
 
+  const availableKeys = new Set(available.map((slot) => slot.key));
+  const assignedGroups = new Map<string, AssignedSlot[]>();
+  for (const entry of assigned) {
+    const key = `${entry.item.key}:${entry.date}`;
+    const group = assignedGroups.get(key) ?? [];
+    group.push(entry);
+    assignedGroups.set(key, group);
+  }
+  // Avoid placing another subject in the space needed to finish an existing
+  // session; this is a placement preference, not a hard reservation.
+  const reservedContinuations: Array<Interval & { date: string }> = [];
+  for (const group of assignedGroups.values()) {
+    if (group[0].item.key === segment.item.key) continue;
+    group.sort((left, right) => left.startMinute - right.startMinute);
+    let start = group[0].startMinute;
+    let end = group[0].endMinute;
+    const reserve = () => {
+      const item = group[0].item;
+      const room = Math.min(
+        item.targetMinutes - item.allocatedMinutes,
+        itemSessionMinutes(item, sessionLimit) - (end - start)
+      );
+      if (room > 0) {
+        reservedContinuations.push({ date: group[0].date, start: end, end: end + room });
+      }
+    };
+    for (const entry of group.slice(1)) {
+      if (entry.startMinute === end) {
+        end = entry.endMinute;
+      } else {
+        reserve();
+        start = entry.startMinute;
+        end = entry.endMinute;
+      }
+    }
+    reserve();
+  }
+  const continuationConflictMinutes = (slot: CandidateSlot, length: number) => {
+    let conflict = 0;
+    for (const reserved of reservedContinuations) {
+      if (reserved.date !== slot.date) continue;
+      conflict += Math.max(
+        0,
+        Math.min(slot.startMinute + length, reserved.end) -
+          Math.max(slot.startMinute, reserved.start)
+      );
+    }
+    return conflict;
+  };
+  const runLength = (slot: CandidateSlot) => {
+    let length = 0;
+    let end = slot.endMinute;
+    const joined = adjacentAssignedMinutes(slot, segment.item.key, assigned);
+    const room = itemSessionLimit - (joined.minutes - MIN_BLOCK_MINUTES);
+    while (
+      length < room &&
+      availableKeys.has(`${slot.date}:${end - MIN_BLOCK_MINUTES}`) &&
+      slotBeforeDeadline({ ...slot, endMinute: end }, segment.deadline)
+    ) {
+      length += MIN_BLOCK_MINUTES;
+      end += MIN_BLOCK_MINUTES;
+    }
+    return Math.min(
+      length,
+      segment.item.targetMinutes - segment.item.allocatedMinutes
+    );
+  };
   const assignedPerDay = new Map<string, number>();
   for (const slot of assigned.filter((entry) => entry.item.key === segment.item.key)) {
     assignedPerDay.set(slot.date, (assignedPerDay.get(slot.date) ?? 0) + 1);
   }
+  const slotRank = new Map<
+    string,
+    { joinsExisting: boolean; run: number; conflict: number; bordersOther: boolean }
+  >();
+  for (const slot of valid) {
+    const run = runLength(slot);
+    slotRank.set(slot.key, {
+      joinsExisting: adjacentAssignedMinutes(slot, segment.item.key, assigned)
+        .joinsExisting,
+      run,
+      conflict: continuationConflictMinutes(slot, run),
+      bordersOther: assigned.some(
+        (entry) =>
+          entry.item.key !== segment.item.key &&
+          entry.date === slot.date &&
+          (entry.endMinute === slot.startMinute ||
+            entry.startMinute === slot.endMinute)
+      ),
+    });
+  }
   valid.sort((left, right) => {
+    const leftRank = slotRank.get(left.key)!;
+    const rightRank = slotRank.get(right.key)!;
+    if (leftRank.joinsExisting !== rightRank.joinsExisting) {
+      return leftRank.joinsExisting ? -1 : 1;
+    }
     const leftPrevious = preferredKeys.has(left.key) ? 0 : 1;
     const rightPrevious = preferredKeys.has(right.key) ? 0 : 1;
     const preservePrevious =
@@ -273,6 +408,13 @@ const chooseSlot = (
     if (preservePrevious && leftPrevious === 0 && rightPrevious === 0) {
       if (left.date !== right.date) return left.date.localeCompare(right.date);
       return left.startMinute - right.startMinute;
+    }
+    if (leftRank.conflict !== rightRank.conflict) {
+      return leftRank.conflict - rightRank.conflict;
+    }
+    if (leftRank.run !== rightRank.run) return rightRank.run - leftRank.run;
+    if (leftRank.bordersOther !== rightRank.bordersOther) {
+      return leftRank.bordersOther ? 1 : -1;
     }
     if (segment.kind === "quiz" || segment.kind === "exam") {
       if (left.date !== right.date) return right.date.localeCompare(left.date);
@@ -514,11 +656,14 @@ export const buildSchedulePlan = (input: SchedulePlanInput) => {
       let selected: { segment: DemandSegment; slot: CandidateSlot } | null = null;
       for (const segment of eligible) {
         if (segment.item.allocatedMinutes >= segment.item.targetMinutes) continue;
+        const itemSessionLimit = itemSessionMinutes(segment.item, sessionLimit);
         const slot = chooseSlot(
           segment,
           available,
           preferredByItem.get(segment.item.key) ?? new Set<string>(),
-          assigned
+          assigned,
+          itemSessionLimit,
+          sessionLimit
         );
         if (slot) {
           selected = { segment, slot };
@@ -529,21 +674,15 @@ export const buildSchedulePlan = (input: SchedulePlanInput) => {
 
       let sessionSlot: CandidateSlot | null = selected.slot;
       let sessionMinutes = 0;
-      const preferredSessionMinutes =
-        selected.segment.item.behaviorPreferredSessionMinutes;
-      const behaviorSessionLimit =
-        preferredSessionMinutes ??
-        (selected.segment.item.behaviorCompletionRate !== null &&
-        selected.segment.item.behaviorCompletionRate < 70
-          ? 60
-          : sessionLimit);
-      const itemSessionLimit = Math.min(
-        sessionLimit,
-        behaviorSessionLimit
+      const itemSessionLimit = itemSessionMinutes(
+        selected.segment.item,
+        sessionLimit
       );
       while (
         sessionSlot &&
         sessionMinutes < itemSessionLimit &&
+        adjacentAssignedMinutes(sessionSlot, selected.segment.item.key, assigned)
+          .minutes <= itemSessionLimit &&
         selected.segment.allocatedMinutes < selected.segment.targetMinutes &&
         selected.segment.item.allocatedMinutes < selected.segment.item.targetMinutes
       ) {

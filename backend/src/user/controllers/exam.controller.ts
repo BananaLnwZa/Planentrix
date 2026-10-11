@@ -40,8 +40,44 @@ interface ExamRow extends RowDataPacket {
   previous_result_count: number;
 }
 
+interface CompositeExam extends ExamRow {
+  part_ids: number[];
+  part_names: string[];
+}
+
+const examSetName = (period: "midterm" | "final", subjectName: string) =>
+  `ชุดทดสอบ${period === "midterm" ? "กลางภาค" : "ปลายภาค"}วิชา ${subjectName}`;
+
+const groupExamParts = (rows: ExamRow[]): CompositeExam[] => {
+  const groups = new Map<string, CompositeExam>();
+  for (const row of [...rows].sort(
+    (left, right) => left.exam_repository_id - right.exam_repository_id,
+  )) {
+    const key = `${row.schedule_time_id}:${row.subject_id}:${row.exam_period}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.part_ids.push(Number(row.exam_repository_id));
+      existing.part_names.push(row.exam_name);
+      if (!existing.due_checkpoint_id) existing.due_checkpoint_id = row.due_checkpoint_id;
+    } else {
+      groups.set(key, {
+        ...row,
+        exam_name: examSetName(row.exam_period, row.subject_name),
+        part_ids: [Number(row.exam_repository_id)],
+        part_names: [row.exam_name],
+      });
+    }
+  }
+  return [...groups.values()].sort(
+    (left, right) =>
+      left.subject_name.localeCompare(right.subject_name) ||
+      left.exam_repository_id - right.exam_repository_id,
+  );
+};
+
 interface QuestionRow extends RowDataPacket {
   question_id: number;
+  question_bank_id: number;
   question_text: string;
   question_image_path: string | null;
   question_score: number | string;
@@ -135,6 +171,21 @@ const workflowPhaseSql = (dateExpression = "CURDATE()", periodExpression = "qb.e
     ELSE 'checkpoint' END
   ELSE 'checkpoint' END`;
 
+// The active bank changes only after midterm ends. Neither bank is available
+// during either exam window or after the final exam window has ended.
+const activeExamPeriodSql = (periodExpression = "qb.exam_period") => `(
+  academic_term.midterm_start_date IS NOT NULL
+  AND academic_term.midterm_end_date IS NOT NULL
+  AND academic_term.final_start_date IS NOT NULL
+  AND academic_term.final_end_date IS NOT NULL
+  AND (
+    (${periodExpression} = 'midterm' AND CURDATE() < academic_term.midterm_start_date)
+    OR (${periodExpression} = 'final'
+      AND CURDATE() > academic_term.midterm_end_date
+      AND CURDATE() < academic_term.final_start_date)
+  )
+)`;
+
 const ACCESSIBLE_EXAM_SQL = `SELECT
   qb.question_bank_id AS exam_repository_id,
   e.enrollment_id AS schedule_time_id,
@@ -149,9 +200,6 @@ const ACCESSIBLE_EXAM_SQL = `SELECT
   (
     SELECT checkpoint.exam_checkpoint_id
     FROM exam_checkpoints checkpoint
-    INNER JOIN exam_attempt_bank_results source_result
-      ON source_result.exam_attempt_id = checkpoint.source_exam_attempt_id
-     AND source_result.question_bank_id = qb.question_bank_id
     WHERE checkpoint.enrollment_id = e.enrollment_id
       AND checkpoint.exam_period = qb.exam_period
       AND checkpoint.status = 'pending'
@@ -161,12 +209,10 @@ const ACCESSIBLE_EXAM_SQL = `SELECT
   ) AS due_checkpoint_id,
   (
     SELECT COUNT(*)
-    FROM exam_attempt_bank_results previous_result
-    INNER JOIN exam_attempts previous_attempt
-      ON previous_attempt.exam_attempt_id = previous_result.exam_attempt_id
+    FROM exam_attempts previous_attempt
     WHERE previous_attempt.enrollment_id = e.enrollment_id
+      AND previous_attempt.exam_period = qb.exam_period
       AND previous_attempt.status = 'submitted'
-      AND previous_result.question_bank_id = qb.question_bank_id
   ) AS previous_result_count
 FROM question_banks qb
 INNER JOIN subjects subject ON subject.subject_id = qb.subject_id
@@ -187,7 +233,8 @@ INNER JOIN academic_terms academic_term
   ON academic_term.academic_term_id = student_term.academic_term_id
 LEFT JOIN question ON question.question_bank_id = qb.question_bank_id
 WHERE student_term.user_id = ?
-  AND qb.status = 'published'`;
+  AND qb.status = 'published'
+  AND ${activeExamPeriodSql()}`;
 
 const accessibleExamGroup = `GROUP BY
   qb.question_bank_id, e.enrollment_id, qb.subject_id, subject.subject_name,
@@ -201,14 +248,11 @@ HAVING COUNT(CASE WHEN question.is_active = 1 THEN 1 END) > 0
     OR (workflow_phase IN ('midterm_2w','midterm_1w','final_2w','final_1w')
       AND NOT EXISTS (
         SELECT 1
-        FROM exam_attempt_bank_results phase_result
-        INNER JOIN exam_attempts phase_attempt
-          ON phase_attempt.exam_attempt_id = phase_result.exam_attempt_id
+        FROM exam_attempts phase_attempt
         WHERE phase_attempt.enrollment_id = e.enrollment_id
           AND phase_attempt.exam_period = qb.exam_period
           AND phase_attempt.status = 'submitted'
           AND phase_attempt.workflow_phase = (${workflowPhaseSql()})
-          AND phase_result.question_bank_id = qb.question_bank_id
       )))`;
 
 const getAccessibleExam = async (
@@ -217,27 +261,61 @@ const getAccessibleExam = async (
   connection: PoolConnection | typeof db = db,
 ) => {
   const [rows] = await connection.query<ExamRow[]>(
-    `${ACCESSIBLE_EXAM_SQL} AND qb.question_bank_id = ?
-     ${accessibleExamGroup}
-     LIMIT 1`,
-    [userId, examId],
+    `${ACCESSIBLE_EXAM_SQL} ${accessibleExamGroup}`,
+    [userId],
   );
-  return rows[0] ?? null;
+  return groupExamParts(rows).find((exam) => exam.exam_repository_id === examId) ?? null;
+};
+
+export const hasOutstandingAssessments = async (
+  userId: number,
+  phase: ExamAttemptWorkflowPhase,
+) => {
+  const [rows] = await db.query<ExamRow[]>(
+    `${ACCESSIBLE_EXAM_SQL}
+     ${accessibleExamGroup}`,
+    [userId],
+  );
+  return groupExamParts(rows).some((exam) => exam.workflow_phase === phase);
+};
+
+export const recommendationAfterAssessmentBatch = async (
+  userId: number,
+  phase: ExamAttemptWorkflowPhase,
+  attemptId: number,
+  generate = safelyGenerateRecommendation,
+) => {
+  if (phase !== "checkpoint" && phase !== "midterm_2w" && phase !== "final_2w") {
+    return { recommendation: null, warning: null };
+  }
+  if (await hasOutstandingAssessments(userId, phase)) {
+    return { recommendation: null, warning: null };
+  }
+  return generate({
+    userId,
+    triggerType: "exam_submitted",
+    examAttemptId: attemptId,
+    examWorkflowPhase: phase,
+  });
 };
 
 const getRandomQuestions = async (
-  examId: number,
+  partIds: number[],
   seed: string,
   connection: PoolConnection,
 ) => {
   const [allQuestions] = await connection.query<QuestionRow[]>(
-    `SELECT question_id, question_text, question_image_path, question_score
+    `SELECT question_id, question_bank_id, question_text, question_image_path, question_score
      FROM question
-     WHERE question_bank_id = ? AND is_active = 1`,
-    [examId],
+     WHERE question_bank_id IN (?) AND is_active = 1`,
+    [partIds],
   );
 
-  const selection = selectAutomaticBalancedExamQuestions(allQuestions, seed);
+  const selection = selectAutomaticBalancedExamQuestions(
+    allQuestions,
+    seed,
+    partIds,
+  );
   const questions = selection?.questions ?? [];
 
   const [choices] = questions.length
@@ -256,7 +334,6 @@ const getRandomQuestions = async (
 
 const getAttemptQuestions = async (
   attemptId: number,
-  examId: number,
   connection: PoolConnection | typeof db = db,
 ) => {
   const [rows] = await connection.query<AttemptQuestionRow[]>(
@@ -265,9 +342,9 @@ const getAttemptQuestions = async (
        question_score_snapshot, choices_snapshot, selected_choice_order,
        is_correct, awarded_score
      FROM exam_attempt_questions
-     WHERE exam_attempt_id = ? AND source_bank_id = ?
+     WHERE exam_attempt_id = ?
      ORDER BY display_order`,
-    [attemptId, examId],
+    [attemptId],
   );
   return rows;
 };
@@ -285,7 +362,7 @@ const protectedImageUrl = (
 
 const serializeAttemptExam = (
   req: Request,
-  exam: ExamRow,
+  exam: CompositeExam,
   attemptId: number,
   questions: AttemptQuestionRow[],
 ) => {
@@ -297,12 +374,13 @@ const serializeAttemptExam = (
     ...exam,
     total_score: totalScore,
     total_question: questions.length,
-    parts: [
-      {
-        exam_part_id: Number(exam.exam_repository_id),
-        part_order: 1,
-        exam_part_name: exam.exam_name,
-        questions: questions.map((question) => ({
+    parts: exam.part_ids.map((partId, partIndex) => ({
+        exam_part_id: partId,
+        part_order: partIndex + 1,
+        exam_part_name: exam.part_names[partIndex],
+        questions: questions
+          .filter((question) => Number(question.source_bank_id) === partId)
+          .map((question) => ({
           question_id: Number(question.source_question_id),
           question_order: Number(question.display_order),
           question_text: question.question_text_snapshot,
@@ -327,8 +405,7 @@ const serializeAttemptExam = (
             }),
           ),
         })),
-      },
-    ],
+      })),
   };
 };
 
@@ -353,10 +430,14 @@ const loadAttemptForUpdate = async (
        ON student_term.student_term_id = enrollment.student_term_id
      INNER JOIN question_banks bank ON bank.question_bank_id = ?
      WHERE attempt.exam_attempt_id = ? ${userClause}
+       AND attempt.exam_period = bank.exam_period
        AND EXISTS (
          SELECT 1 FROM exam_attempt_questions attempt_question
+         INNER JOIN question_banks source_bank
+           ON source_bank.question_bank_id = attempt_question.source_bank_id
          WHERE attempt_question.exam_attempt_id = attempt.exam_attempt_id
-           AND attempt_question.source_bank_id = bank.question_bank_id
+           AND source_bank.subject_id = bank.subject_id
+           AND source_bank.exam_period = bank.exam_period
        )
      LIMIT 1 FOR UPDATE`,
     expectedUserId
@@ -372,31 +453,31 @@ const existingFinalizedAttempt = async (
   examId: number,
 ): Promise<FinalizedAttempt | null> => {
   const [rows] = await connection.query<RowDataPacket[]>(
-    `SELECT result.actual_score, result.max_score,
-       attempt.workflow_phase,
-       SUM(CASE WHEN attempt_question.is_correct = 1 THEN 1 ELSE 0 END) AS correct_answers,
-       COUNT(attempt_question.attempt_question_id) AS total_questions,
+    `SELECT attempt.actual_score, attempt.max_score,
+       attempt.workflow_phase, attempt.weak_topic_count,
+       (SELECT COUNT(*) FROM exam_attempt_questions attempt_question
+        WHERE attempt_question.exam_attempt_id = attempt.exam_attempt_id
+          AND attempt_question.is_correct = 1) AS correct_answers,
+       (SELECT COUNT(*) FROM exam_attempt_questions attempt_question
+        WHERE attempt_question.exam_attempt_id = attempt.exam_attempt_id) AS total_questions,
        checkpoint.next_checkpoint_at, checkpoint.interval_weeks
-     FROM exam_attempt_bank_results result
-     INNER JOIN exam_attempts attempt
-       ON attempt.exam_attempt_id = result.exam_attempt_id
-     INNER JOIN exam_attempt_questions attempt_question
-       ON attempt_question.exam_attempt_id = result.exam_attempt_id
-      AND attempt_question.source_bank_id = result.question_bank_id
+     FROM exam_attempts attempt
+     INNER JOIN question_banks bank ON bank.question_bank_id = ?
      LEFT JOIN exam_checkpoints checkpoint
-       ON checkpoint.source_exam_attempt_id = result.exam_attempt_id
-     WHERE result.exam_attempt_id = ? AND result.question_bank_id = ?
-     GROUP BY result.bank_result_id, result.actual_score, result.max_score,
-       checkpoint.next_checkpoint_at, checkpoint.interval_weeks, workflow_phase
+       ON checkpoint.source_exam_attempt_id = attempt.exam_attempt_id
+     WHERE attempt.exam_attempt_id = ? AND attempt.status = 'submitted'
+       AND attempt.exam_period = bank.exam_period
+       AND EXISTS (SELECT 1 FROM exam_attempt_questions attempt_question
+                   INNER JOIN question_banks source_bank
+                     ON source_bank.question_bank_id = attempt_question.source_bank_id
+                   WHERE attempt_question.exam_attempt_id = attempt.exam_attempt_id
+                     AND source_bank.subject_id = bank.subject_id
+                     AND source_bank.exam_period = bank.exam_period)
      LIMIT 1`,
-    [attemptId, examId],
+    [examId, attemptId],
   );
   const row = rows[0];
   if (!row) return null;
-  const percentage =
-    Number(row.max_score) > 0
-      ? (Number(row.actual_score) / Number(row.max_score)) * 100
-      : 0;
   return {
     historyId: attemptId,
     actualScore: Number(row.actual_score),
@@ -405,7 +486,7 @@ const existingFinalizedAttempt = async (
     totalQuestions: Number(row.total_questions),
     nextCheckpointAt: row.next_checkpoint_at ?? null,
     checkpointIntervalWeeks: Number(row.interval_weeks ?? 0),
-    weakTopicCount: percentage < 50 ? 1 : 0,
+    weakTopicCount: Number(row.weak_topic_count ?? 0),
     workflowPhase: String(row.workflow_phase) as ExamAttemptWorkflowPhase,
   };
 };
@@ -428,7 +509,7 @@ const finalizeAttempt = async (
   if (existing) return existing;
   if (!["in_progress", "expired"].includes(attempt.status)) return null;
 
-  const questions = await getAttemptQuestions(attemptId, examId, connection);
+  const questions = await getAttemptQuestions(attemptId, connection);
   if (!questions.length) return null;
   const score = scoreSnapshotQuestions(questions);
   if (score.maximumScore <= 0) return null;
@@ -454,7 +535,17 @@ const finalizeAttempt = async (
       Number(attempt.elapsed_seconds),
     ) === 0;
   const percentage = (score.actualScore / score.maximumScore) * 100;
-  const weak = percentage < 50;
+  const bankScores = new Map<number, { actual: number; maximum: number }>();
+  for (const [index, question] of questions.entries()) {
+    const bankId = Number(question.source_bank_id);
+    const current = bankScores.get(bankId) ?? { actual: 0, maximum: 0 };
+    current.actual += score.results[index].awardedScore;
+    current.maximum += Number(question.question_score_snapshot);
+    bankScores.set(bankId, current);
+  }
+  const weakTopicCount = [...bankScores.values()].filter(
+    (part) => part.maximum > 0 && part.actual / part.maximum < 0.5,
+  ).length;
 
   await connection.query(
     `UPDATE exam_attempts
@@ -469,25 +560,32 @@ const finalizeAttempt = async (
       attempt.time_limit_minutes,
       score.actualScore,
       score.maximumScore,
-      weak ? 1 : 0,
+      weakTopicCount,
       attemptId,
     ],
   );
-  await connection.query(
-    `INSERT INTO exam_attempt_bank_results
-      (exam_attempt_id, question_bank_id, bank_name_snapshot,
-       actual_score, max_score, percentage, is_weak_topic)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [
-      attemptId,
-      examId,
-      attempt.bank_name,
-      score.actualScore,
-      score.maximumScore,
-      Number(percentage.toFixed(2)),
-      weak ? 1 : 0,
-    ],
-  );
+  for (const [bankId, part] of bankScores) {
+    const [bankRows] = await connection.query<RowDataPacket[]>(
+      "SELECT bank_name FROM question_banks WHERE question_bank_id = ?",
+      [bankId],
+    );
+    const partPercentage = (part.actual / part.maximum) * 100;
+    await connection.query(
+      `INSERT INTO exam_attempt_bank_results
+        (exam_attempt_id, question_bank_id, bank_name_snapshot,
+         actual_score, max_score, percentage, is_weak_topic)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        attemptId,
+        bankId,
+        String(bankRows[0]?.bank_name ?? attempt.bank_name),
+        part.actual,
+        part.maximum,
+        Number(partPercentage.toFixed(2)),
+        partPercentage < 50 ? 1 : 0,
+      ],
+    );
+  }
 
   if (attempt.source_checkpoint_id) {
     await connection.query(
@@ -500,7 +598,7 @@ const finalizeAttempt = async (
 
   let nextCheckpointAt: Date | null = null;
   let checkpointIntervalWeeks = 0;
-  if (weak && attempt.workflow_phase === "checkpoint") {
+  if (weakTopicCount > 0 && attempt.workflow_phase === "checkpoint") {
     checkpointIntervalWeeks = checkpointWeeksFor(percentage);
     nextCheckpointAt = new Date();
     nextCheckpointAt.setDate(
@@ -510,11 +608,12 @@ const finalizeAttempt = async (
       `INSERT INTO exam_checkpoints
         (enrollment_id, source_exam_attempt_id, exam_period,
          weak_topic_count, interval_weeks, next_checkpoint_at, status)
-       VALUES (?, ?, ?, 1, ?, ?, 'pending')`,
+       VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
       [
         attempt.enrollment_id,
         attemptId,
         attempt.exam_period,
+        weakTopicCount,
         checkpointIntervalWeeks,
         nextCheckpointAt,
       ],
@@ -529,7 +628,7 @@ const finalizeAttempt = async (
     totalQuestions: questions.length,
     nextCheckpointAt,
     checkpointIntervalWeeks,
-    weakTopicCount: weak ? 1 : 0,
+    weakTopicCount,
     workflowPhase: attempt.workflow_phase,
   };
 };
@@ -544,11 +643,12 @@ export const getExamsForCurrentTerm = async (req: Request, res: Response) => {
        ORDER BY subject.subject_name, qb.bank_name`,
       [userId],
     );
+    const exams = groupExamParts(rows);
     return res.json({
       message: "Exams retrieved successfully",
       user_id: userId,
-      total: rows.length,
-      data: rows,
+      total: exams.length,
+      data: exams,
     });
   } catch (error) {
     console.error("getExamsForCurrentTerm error:", error);
@@ -570,7 +670,15 @@ export const getExamDetail = async (req: Request, res: Response) => {
     }
     return res.json({
       message: "Exam metadata retrieved successfully",
-      data: { ...exam, parts: [] },
+      data: {
+        ...exam,
+        parts: exam.part_ids.map((partId, index) => ({
+          exam_part_id: partId,
+          part_order: index + 1,
+          exam_part_name: exam.part_names[index],
+          questions: [],
+        })),
+      },
     });
   } catch (error) {
     console.error("getExamDetail error:", error);
@@ -596,8 +704,8 @@ export const getExamScoreHistory = async (req: Request, res: Response) => {
       `SELECT attempt.exam_attempt_id AS exam_score_history_id,
          result.question_bank_id AS exam_repository_id,
          subject.subject_id, subject.subject_name,
-         result.bank_name_snapshot AS exam_name,
-         result.actual_score, result.max_score AS exam_max_score,
+         attempt.exam_period, result.bank_name_snapshot AS topic_name,
+         attempt.actual_score, attempt.max_score AS exam_max_score,
          attempt.submitted_at AS exam_date,
          result.is_weak_topic, result.percentage
        FROM exam_attempts attempt
@@ -616,12 +724,28 @@ export const getExamScoreHistory = async (req: Request, res: Response) => {
        ORDER BY attempt.submitted_at DESC`,
       parameters,
     );
-    const data = rows.map((row) => ({
-      ...row,
-      weak_topics: Number(row.is_weak_topic)
-        ? [{ topic_name: row.exam_name, percentage: Number(row.percentage) }]
-        : [],
-    }));
+    const history = new Map<number, Record<string, unknown>>();
+    for (const row of rows) {
+      const attemptId = Number(row.exam_score_history_id);
+      const weakTopics = Number(row.is_weak_topic)
+        ? [{ topic_name: row.topic_name, percentage: Number(row.percentage) }]
+        : [];
+      const previous = history.get(attemptId);
+      if (previous) {
+        (previous.weak_topics as typeof weakTopics).push(...weakTopics);
+        previous.exam_repository_id = Math.min(
+          Number(previous.exam_repository_id),
+          Number(row.exam_repository_id),
+        );
+      } else {
+        history.set(attemptId, {
+          ...row,
+          exam_name: examSetName(row.exam_period, row.subject_name),
+          weak_topics: weakTopics,
+        });
+      }
+    }
+    const data = [...history.values()];
     return res.json({
       message: "Exam score history retrieved successfully",
       user_id: userId,
@@ -640,10 +764,12 @@ export const getExamInsights = async (req: Request, res: Response) => {
     if (!userId) return;
     const [weakTopics] = await db.query<RowDataPacket[]>(
       `SELECT enrollment.enrollment_id AS schedule_time_id,
-         result.question_bank_id AS exam_repository_id,
+         (SELECT MIN(part_result.question_bank_id)
+          FROM exam_attempt_bank_results part_result
+          WHERE part_result.exam_attempt_id = attempt.exam_attempt_id) AS exam_repository_id,
          result.question_bank_id AS exam_part_id,
          result.bank_name_snapshot AS topic_name,
-         subject.subject_id, subject.subject_name,
+         subject.subject_id, subject.subject_name, attempt.exam_period,
          result.bank_name_snapshot AS exam_name,
          result.actual_score, result.max_score, result.percentage
        FROM exam_attempt_bank_results result
@@ -663,10 +789,11 @@ export const getExamInsights = async (req: Request, res: Response) => {
     );
     const [checkpoints] = await db.query<RowDataPacket[]>(
       `SELECT checkpoint.enrollment_id AS schedule_time_id,
-         COALESCE(result.question_bank_id, 0) AS exam_repository_id,
-         COALESCE(result.bank_name_snapshot,
-           CONCAT(UPPER(checkpoint.exam_period), ' review')) AS exam_name,
-         subject.subject_id, subject.subject_name,
+         COALESCE((SELECT MIN(result.question_bank_id)
+                   FROM exam_attempt_bank_results result
+                   WHERE result.exam_attempt_id = checkpoint.source_exam_attempt_id), 0)
+           AS exam_repository_id,
+         checkpoint.exam_period, subject.subject_id, subject.subject_name,
          checkpoint.next_checkpoint_at, checkpoint.interval_weeks,
          checkpoint.weak_topic_count,
          COALESCE((
@@ -696,10 +823,9 @@ export const getExamInsights = async (req: Request, res: Response) => {
        INNER JOIN course_sections section
          ON section.section_id = enrollment.section_id
        INNER JOIN subjects subject ON subject.subject_id = section.subject_id
-       LEFT JOIN exam_attempt_bank_results result
-         ON result.exam_attempt_id = checkpoint.source_exam_attempt_id
        WHERE student_term.user_id = ? AND student_term.status = 'active'
          AND checkpoint.status = 'pending'
+         AND ${activeExamPeriodSql("checkpoint.exam_period")}
          AND NOT (
            (checkpoint.exam_period = 'midterm' AND (
              DATEDIFF(academic_term.midterm_start_date, CURDATE()) BETWEEN 1 AND 14
@@ -715,8 +841,14 @@ export const getExamInsights = async (req: Request, res: Response) => {
     );
     return res.json({
       message: "Exam insights retrieved successfully",
-      weak_topics: weakTopics,
-      next_checkpoints: checkpoints,
+      weak_topics: weakTopics.map((topic) => ({
+        ...topic,
+        exam_name: examSetName(topic.exam_period, topic.subject_name),
+      })),
+      next_checkpoints: checkpoints.map((checkpoint) => ({
+        ...checkpoint,
+        exam_name: examSetName(checkpoint.exam_period, checkpoint.subject_name),
+      })),
     });
   } catch (error) {
     console.error("getExamInsights error:", error);
@@ -732,10 +864,6 @@ export const startExam = async (req: Request, res: Response) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    await connection.query(
-      "SELECT question_bank_id FROM question_banks WHERE question_bank_id = ? FOR UPDATE",
-      [examId],
-    );
     const exam = await getAccessibleExam(userId, examId, connection);
     if (!exam) {
       await connection.rollback();
@@ -743,6 +871,10 @@ export const startExam = async (req: Request, res: Response) => {
         message: "Exam was not found or is not available yet",
       });
     }
+    await connection.query(
+      "SELECT question_bank_id FROM question_banks WHERE question_bank_id IN (?) FOR UPDATE",
+      [exam.part_ids],
+    );
     await connection.query(
       "SELECT enrollment_id FROM enrollments WHERE enrollment_id = ? FOR UPDATE",
       [exam.schedule_time_id],
@@ -761,16 +893,15 @@ export const startExam = async (req: Request, res: Response) => {
          AND EXISTS (
            SELECT 1 FROM exam_attempt_questions attempt_question
            WHERE attempt_question.exam_attempt_id = attempt.exam_attempt_id
-             AND attempt_question.source_bank_id = bank.question_bank_id
+             AND attempt_question.source_bank_id IN (?)
          )
          AND NOT EXISTS (
            SELECT 1 FROM exam_attempt_bank_results result
            WHERE result.exam_attempt_id = attempt.exam_attempt_id
-             AND result.question_bank_id = ?
          )
        ORDER BY attempt.exam_attempt_id DESC
        LIMIT 1 FOR UPDATE`,
-      [examId, exam.schedule_time_id, exam.exam_period, examId],
+      [examId, exam.schedule_time_id, exam.exam_period, exam.part_ids],
     );
     const activeAttempt = activeRows[0];
     if (activeAttempt) {
@@ -792,7 +923,6 @@ export const startExam = async (req: Request, res: Response) => {
       }
       const questions = await getAttemptQuestions(
         activeAttempt.exam_attempt_id,
-        examId,
         connection,
       );
       const answers = questions.flatMap((question) => {
@@ -831,7 +961,7 @@ export const startExam = async (req: Request, res: Response) => {
 
     const randomSeed = randomUUID();
     const { questions, choices } = await getRandomQuestions(
-      examId,
+      exam.part_ids,
       randomSeed,
       connection,
     );
@@ -839,7 +969,7 @@ export const startExam = async (req: Request, res: Response) => {
       await connection.rollback();
       return res.status(409).json({
         message:
-          "ไม่สามารถสร้างข้อสอบที่แบ่งระดับใกล้เคียงกันและรวมได้ 100 คะแนนพอดี กรุณาแจ้งอาจารย์ผู้สอน",
+          "ไม่สามารถสุ่มคำถามให้ครบทุกพาร์ทและรวมได้ 100 คะแนนพอดี กรุณาแจ้งอาจารย์ผู้สอน",
       });
     }
     const choicesByQuestion = new Map<number, ChoiceRow[]>();
@@ -888,7 +1018,7 @@ export const startExam = async (req: Request, res: Response) => {
         [
           attemptResult.insertId,
           question.question_id,
-          examId,
+          question.question_bank_id,
           index + 1,
           question.question_text,
           question.question_image_path,
@@ -907,7 +1037,6 @@ export const startExam = async (req: Request, res: Response) => {
     }
     const attemptQuestions = await getAttemptQuestions(
       attemptResult.insertId,
-      examId,
       connection,
     );
     const [startedRows] = await connection.query<RowDataPacket[]>(
@@ -998,10 +1127,9 @@ export const saveExamAnswer = async (req: Request, res: Response) => {
          question_score_snapshot, choices_snapshot, selected_choice_order,
          is_correct, awarded_score
        FROM exam_attempt_questions
-       WHERE exam_attempt_id = ? AND source_bank_id = ?
-         AND source_question_id = ?
+       WHERE exam_attempt_id = ? AND source_question_id = ?
        LIMIT 1 FOR UPDATE`,
-      [attemptId, examId, questionId],
+      [attemptId, questionId],
     );
     const attemptQuestion = questionRows[0];
     const selectedChoice = attemptQuestion
@@ -1062,33 +1190,9 @@ export const submitExam = async (req: Request, res: Response) => {
     const subjectId = subjectRows[0]?.subject_id;
     await connection.commit();
     const phase = result.workflowPhase;
-    let recommendationResult: Awaited<ReturnType<typeof safelyGenerateRecommendation>> | {
-      recommendation: null;
-      warning: null;
-    } = {
-      recommendation: null,
-      warning: null,
-    };
-    if (phase === "checkpoint" || phase === "midterm_2w" || phase === "final_2w") {
-      const [pendingRows] = await db.query<RowDataPacket[]>(
-        `SELECT recommendation.recommendation_id
-         FROM weekly_recommendation recommendation
-         INNER JOIN student_terms student_term
-           ON student_term.student_term_id = recommendation.student_term_id
-         WHERE student_term.user_id = ? AND student_term.status = 'active'
-           AND recommendation.status = 'pending'
-         ORDER BY recommendation.recommendation_id DESC LIMIT 1`,
-        [userId],
-      );
-      if (!pendingRows[0]) {
-        recommendationResult = await safelyGenerateRecommendation({
-          userId,
-          triggerType: "exam_submitted",
-          examAttemptId: result.historyId,
-          examWorkflowPhase: phase,
-        });
-      }
-    }
+    const recommendationResult = await recommendationAfterAssessmentBatch(
+      userId, phase, result.historyId,
+    );
     const recommendationItems = recommendationResult.recommendation?.items as
       | Array<Record<string, unknown>>
       | undefined;
@@ -1155,10 +1259,16 @@ export const getExamAttemptImage = async (req: Request, res: Response) => {
          ON enrollment.enrollment_id = attempt.enrollment_id
        INNER JOIN student_terms student_term
          ON student_term.student_term_id = enrollment.student_term_id
+       INNER JOIN question_banks requested_bank
+         ON requested_bank.question_bank_id = ?
+       INNER JOIN question_banks source_bank
+         ON source_bank.question_bank_id = attempt_question.source_bank_id
+        AND source_bank.subject_id = requested_bank.subject_id
+        AND source_bank.exam_period = requested_bank.exam_period
        WHERE attempt.exam_attempt_id = ?
-         AND attempt_question.source_bank_id = ?
-         AND student_term.user_id = ?`,
-      [attemptId, examId, userId],
+         AND student_term.user_id = ?
+         AND attempt.exam_period = requested_bank.exam_period`,
+      [examId, attemptId, userId],
     );
     const allowed = rows.some((row) => {
       if (

@@ -12,19 +12,29 @@ Future<bool?> showTermDetailsPopup(
   BuildContext context, {
   required CurrentTerm term,
   required Future<void> Function() onEndTerm,
+  required bool canEndTerm,
 }) {
   return showDialog<bool>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.30),
-    builder: (_) => _TermDetailsPopup(term: term, onEndTerm: onEndTerm),
+    builder: (_) => _TermDetailsPopup(
+      term: term,
+      onEndTerm: onEndTerm,
+      canEndTerm: canEndTerm,
+    ),
   );
 }
 
 class _TermDetailsPopup extends StatefulWidget {
   final CurrentTerm term;
   final Future<void> Function() onEndTerm;
+  final bool canEndTerm;
 
-  const _TermDetailsPopup({required this.term, required this.onEndTerm});
+  const _TermDetailsPopup({
+    required this.term,
+    required this.onEndTerm,
+    required this.canEndTerm,
+  });
 
   @override
   State<_TermDetailsPopup> createState() => _TermDetailsPopupState();
@@ -128,8 +138,10 @@ class _TermDetailsPopupState extends State<_TermDetailsPopup> {
                 ),
               ),
               const SizedBox(height: 19),
-              const Text(
-                '*เมื่อจบเทอมแล้วกรุณากดปุ่มจบเทอมเพื่อเริ่มเทอมใหม่',
+              Text(
+                widget.canEndTerm
+                    ? 'สิ้นสุดช่วงสอบปลายภาคแล้ว สามารถกดจบเทอมเพื่อเริ่มเทอมใหม่ได้'
+                    : 'ปุ่มจบเทอมจะแสดงหลังสิ้นสุดช่วงสอบปลายภาค',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: Color(0xFF555555)),
               ),
@@ -144,21 +156,22 @@ class _TermDetailsPopupState extends State<_TermDetailsPopup> {
                   ),
                 ),
               ],
-              const SizedBox(height: 17),
-              OutlinedButton(
-                key: const Key('end-term-button'),
-                onPressed: _isEnding ? null : _endTerm,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF333333),
-                  side: const BorderSide(color: Color(0xFF8F8F8F)),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 8,
+              if (widget.canEndTerm) const SizedBox(height: 17),
+              if (widget.canEndTerm)
+                OutlinedButton(
+                  key: const Key('end-term-button'),
+                  onPressed: _isEnding ? null : _endTerm,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF333333),
+                    side: const BorderSide(color: Color(0xFF8F8F8F)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
+                    shape: const StadiumBorder(),
                   ),
-                  shape: const StadiumBorder(),
+                  child: Text(_isEnding ? 'กำลังจบเทอม...' : 'จบเทอม'),
                 ),
-                child: Text(_isEnding ? 'กำลังจบเทอม...' : 'จบเทอม'),
-              ),
             ],
           ),
         ),

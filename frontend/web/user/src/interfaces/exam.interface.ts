@@ -4,6 +4,7 @@ export interface ExamSummary {
   subjectId: string;
   subjectName: string;
   examName: string;
+  partNames: string[];
   totalScore: number;
   totalQuestion: number | null;
   timeLimitMinutes: number | null;

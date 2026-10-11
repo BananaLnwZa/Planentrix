@@ -711,26 +711,46 @@ class _ExamIntroduction extends StatelessWidget {
           style: const TextStyle(fontSize: 13, color: Color(0xFF738892)),
         ),
         const SizedBox(height: 24),
-        Row(
-          children: [
-            Expanded(
-              child: _ExamMetric(
-                color: const Color(0xFFEAF6FB),
-                value: '${summary.totalQuestion}',
-                label: 'ข้อ',
-              ),
-            ),
-            if (summary.timeLimitMinutes != null) const SizedBox(width: 10),
-            if (summary.timeLimitMinutes != null)
-              Expanded(
-                child: _ExamMetric(
-                  color: const Color(0xFFFFF0BF),
-                  value: '${summary.timeLimitMinutes}',
-                  label: 'นาที',
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF6FB),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'พาร์ทในชุดทดสอบ',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF59707B),
                 ),
               ),
-          ],
+              const SizedBox(height: 8),
+              for (final partName in summary.partNames)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '• $partName',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF59707B),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
+        if (summary.timeLimitMinutes != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            'เวลาทำแบบทดสอบ ${summary.timeLimitMinutes} นาที',
+            style: const TextStyle(fontSize: 11, color: Color(0xFF8A6B27)),
+          ),
+        ],
         const SizedBox(height: 20),
         Text(
           '${summary.timeLimitMinutes != null ? 'เมื่อเริ่มแล้วเวลาจะนับถอยหลัง และ' : ''}ต้องเลือกคำตอบก่อนจึงจะไปข้อถัดไปได้',
@@ -759,9 +779,7 @@ class _ExamIntroduction extends StatelessWidget {
             Expanded(
               child: FilledButton(
                 key: const Key('start-exam-button'),
-                onPressed: summary.totalQuestion < 1 || isStarting
-                    ? null
-                    : onStart,
+                onPressed: isStarting ? null : onStart,
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFFA8D780),
                   foregroundColor: Colors.white,
@@ -784,38 +802,6 @@ class _ExamIntroduction extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-class _ExamMetric extends StatelessWidget {
-  final Color color;
-  final String value;
-  final String label;
-
-  const _ExamMetric({
-    required this.color,
-    required this.value,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 12),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        '$value\n$label',
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontSize: 11,
-          height: 1.45,
-          color: Color(0xFF59707B),
-        ),
-      ),
     );
   }
 }

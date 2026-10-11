@@ -7,12 +7,14 @@ class SubjectScoreCard extends StatelessWidget {
   final SubjectScore subject;
   final ValueChanged<WorkloadScore> onEnterScore;
   final int? savingWorkloadId;
+  final bool canEditScores;
 
   const SubjectScoreCard({
     super.key,
     required this.subject,
     required this.onEnterScore,
     this.savingWorkloadId,
+    this.canEditScores = true,
   });
 
   @override
@@ -47,6 +49,7 @@ class SubjectScoreCard extends StatelessWidget {
             workloads: subject.workloads,
             savingWorkloadId: savingWorkloadId,
             onEnterScore: onEnterScore,
+            canEditScores: canEditScores,
           ),
         ],
       ),
