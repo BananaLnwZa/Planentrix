@@ -10,7 +10,6 @@ export interface UserProfile {
   email?: string | null;
   user_pic?: string | null;
   user_pic_url: string | null;
-  user_birthdate: string | null;
   user_gender: StoredProfileGender | null;
   academic_year?: string | number | null;
   department_id?: number | null;
@@ -30,7 +29,6 @@ export interface UserProfile {
 
 export interface UpdateUserProfileRequest {
   user_name: string;
-  user_birthdate?: string;
   user_gender?: ProfileGender;
 }
 

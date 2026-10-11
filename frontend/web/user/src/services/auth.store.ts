@@ -23,7 +23,6 @@ interface AuthStore extends AuthState {
     email: string,
     departmentId: number,
     password: string,
-    birthdate?: string,
     gender?: "male" | "female" | "other"
   ) => Promise<void>;
   logout: () => Promise<void>;
@@ -104,7 +103,6 @@ export const useAuthStore = create<AuthStore>()(
         email,
         departmentId,
         password,
-        birthdate,
         gender
       ) => {
         set({ isLoading: true, error: null });
@@ -116,7 +114,6 @@ export const useAuthStore = create<AuthStore>()(
             email,
             department_id: departmentId,
             user_password: password,
-            user_birthdate: birthdate,
             user_gender: gender,
           });
 

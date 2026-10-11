@@ -9,7 +9,6 @@ class StudentCard extends StatelessWidget {
   final String gender;
   final String major;
   final String year;
-  final String birthDate;
   final ImageProvider<Object>? photo;
   final VoidCallback? onTap;
 
@@ -23,7 +22,6 @@ class StudentCard extends StatelessWidget {
     this.gender = '—',
     this.major = 'COMSCI',
     this.year = '—',
-    this.birthDate = '—',
     this.photo,
     this.onTap,
   });
@@ -81,13 +79,14 @@ class StudentCard extends StatelessWidget {
                       children: [
                         SizedBox(
                           width: 82,
-                          height: 145,
+                          height: 102,
                           child: _StudentPhoto(photo: photo),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,23 +114,20 @@ class StudentCard extends StatelessWidget {
                                     : '—',
                               ),
                               const SizedBox(height: 5),
-                              _CardDetail(label: 'DEPARTMENT', value: major),
-                              const SizedBox(height: 5),
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
+                                  Flexible(
                                     child: _CardDetail(
-                                      label: 'YEAR',
-                                      value: year == '—' ? year : 'ปี $year',
+                                      label: 'DEPARTMENT',
+                                      value: major,
+                                      maxLines: 1,
                                     ),
                                   ),
-                                  const SizedBox(width: 7),
-                                  Expanded(
-                                    child: _CardDetail(
-                                      label: 'BIRTHDAY',
-                                      value: birthDate,
-                                    ),
+                                  const SizedBox(width: 14),
+                                  _CardDetail(
+                                    label: 'YEAR',
+                                    value: year == '—' ? year : 'ปี $year',
                                   ),
                                 ],
                               ),
@@ -255,8 +251,13 @@ class _StudentPhoto extends StatelessWidget {
 class _CardDetail extends StatelessWidget {
   final String label;
   final String value;
+  final int maxLines;
 
-  const _CardDetail({required this.label, required this.value});
+  const _CardDetail({
+    required this.label,
+    required this.value,
+    this.maxLines = 2,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -277,7 +278,7 @@ class _CardDetail extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           value,
-          maxLines: 2,
+          maxLines: maxLines,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: Color(0xFF111827),

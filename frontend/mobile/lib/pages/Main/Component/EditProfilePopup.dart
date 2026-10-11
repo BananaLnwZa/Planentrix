@@ -4,10 +4,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../common/AppDatePicker.dart';
 import '../../../common/AppTimePicker.dart';
 import '../../../common/AppDropdown.dart';
-import '../../../common/DateTimeFormat.dart';
 import '../../../common/ConstraintValidation.dart';
 
 import '../../../interfaces/profile.interface.dart';
@@ -73,7 +71,6 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
   late final TextEditingController _workingMinutes;
   late final TextEditingController _breakHours;
   late final TextEditingController _breakMinutes;
-  DateTime? _birthdate;
   String? _gender;
   int? _dayOff;
   String? _startTime;
@@ -111,7 +108,6 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
     ]) {
       controller.addListener(_refreshConstraintValidation);
     }
-    _birthdate = widget.profile.birthdate;
     _gender = widget.profile.gender;
     _dayOff = widget.constraint.dayOff;
     _startTime = widget.constraint.startTime;
@@ -131,16 +127,6 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
 
   void _refreshConstraintValidation() {
     if (mounted) setState(() => _error = null);
-  }
-
-  Future<void> _pickBirthdate() async {
-    final picked = await showAppDatePicker(
-      context: context,
-      initialDate: _birthdate ?? DateTime(2004, 1, 1),
-      firstDate: DateTime(1950),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null && mounted) setState(() => _birthdate = picked);
   }
 
   Future<void> _pickProfilePhoto() async {
@@ -313,7 +299,6 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
         widget.repository.updateProfile(
           UpdateProfileInput(
             userName: username,
-            birthdate: _birthdate,
             gender: _gender,
           ),
         ),
@@ -349,7 +334,6 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
                 fullName: updatedProfile.fullName,
                 email: updatedProfile.email,
                 userPicUrl: imageUrl,
-                birthdate: updatedProfile.birthdate,
                 gender: updatedProfile.gender,
                 academicYear: updatedProfile.academicYear,
                 departmentId: updatedProfile.departmentId,
@@ -472,50 +456,30 @@ class _EditProfilePopupState extends State<_EditProfilePopup> {
                         value: _profileDepartment(widget.profile),
                       ),
                       const SizedBox(height: 10),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: _ProfileValueButton(
-                              label: 'วันเกิด',
-                              value: _birthdate == null
-                                  ? 'ไม่ระบุ'
-                                  : _formatDate(_birthdate!),
-                              onTap: _pickBirthdate,
-                              icon: Icons.calendar_month_rounded,
-                              iconColor: const Color(0xFFF080A7),
-                            ),
+                      _ProfileSelectField<String>(
+                        label: 'เพศ',
+                        value: _gender,
+                        items: const [
+                          AppDropdownItem(
+                            value: 'male',
+                            label: 'ชาย',
+                            accentColor: Color(0xFF73B6DD),
+                            borderColor: Color(0xFFBBDEF4),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _ProfileSelectField<String>(
-                              label: 'เพศ',
-                              value: _gender,
-                              items: const [
-                                AppDropdownItem(
-                                  value: 'male',
-                                  label: 'ชาย',
-                                  accentColor: Color(0xFF73B6DD),
-                                  borderColor: Color(0xFFBBDEF4),
-                                ),
-                                AppDropdownItem(
-                                  value: 'female',
-                                  label: 'หญิง',
-                                  accentColor: Color(0xFFDE7898),
-                                  borderColor: Color(0xFFF5B8CA),
-                                ),
-                                AppDropdownItem(
-                                  value: 'other',
-                                  label: 'อื่น ๆ',
-                                  accentColor: Color(0xFFAE79C8),
-                                  borderColor: Color(0xFFD8B8E8),
-                                ),
-                              ],
-                              onChanged: (value) =>
-                                  setState(() => _gender = value),
-                            ),
+                          AppDropdownItem(
+                            value: 'female',
+                            label: 'หญิง',
+                            accentColor: Color(0xFFDE7898),
+                            borderColor: Color(0xFFF5B8CA),
+                          ),
+                          AppDropdownItem(
+                            value: 'other',
+                            label: 'อื่น ๆ',
+                            accentColor: Color(0xFFAE79C8),
+                            borderColor: Color(0xFFD8B8E8),
                           ),
                         ],
+                        onChanged: (value) => setState(() => _gender = value),
                       ),
                       const SizedBox(height: 18),
                     ] else ...[
@@ -1251,54 +1215,6 @@ class _ProfileTextField extends StatelessWidget {
   );
 }
 
-class _ProfileValueButton extends StatelessWidget {
-  final String label;
-  final String value;
-  final VoidCallback onTap;
-  final IconData icon;
-  final Color iconColor;
-
-  const _ProfileValueButton({
-    required this.label,
-    required this.value,
-    required this.onTap,
-    required this.icon,
-    required this.iconColor,
-  });
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _ProfileFieldLabel(label),
-      const SizedBox(height: 5),
-      InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          height: 46,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: _profileFieldDecoration(),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF374151),
-                  ),
-                ),
-              ),
-              Icon(icon, size: 17, color: iconColor),
-            ],
-          ),
-        ),
-      ),
-    ],
-  );
-}
-
 class _ProfileSelectField<T> extends StatelessWidget {
   final String label;
   final T? value;
@@ -1477,7 +1393,6 @@ class _ConstraintNotice extends StatelessWidget {
   }
 }
 
-String _formatDate(DateTime value) => formatDisplayDate(value);
 
 String _profileText(String? value) {
   final text = value?.trim() ?? '';

@@ -10,7 +10,6 @@ Future<void> showStudentCardPopup(
   String faculty = '—',
   String gender = '—',
   String major = 'COMSCI',
-  String birthDate = '—',
   String dayOff = '—',
   String workingDuration = '—',
   String breakDuration = '—',
@@ -32,7 +31,6 @@ Future<void> showStudentCardPopup(
         faculty: faculty,
         gender: gender,
         major: major,
-        birthDate: birthDate,
         dayOff: dayOff,
         workingDuration: workingDuration,
         breakDuration: breakDuration,
@@ -54,7 +52,6 @@ class StudentCardPopup extends StatefulWidget {
   final String faculty;
   final String gender;
   final String major;
-  final String birthDate;
   final String dayOff;
   final String workingDuration;
   final String breakDuration;
@@ -73,7 +70,6 @@ class StudentCardPopup extends StatefulWidget {
     this.faculty = '—',
     this.gender = '—',
     this.major = 'COMSCI',
-    this.birthDate = '—',
     this.dayOff = '—',
     this.workingDuration = '—',
     this.breakDuration = '—',
@@ -154,7 +150,6 @@ class _StudentCardPopupState extends State<StudentCardPopup> {
                           email: widget.email,
                           faculty: widget.faculty,
                           major: widget.major,
-                          birthDate: widget.birthDate,
                           gender: widget.gender,
                         )
                       : _ConstraintPanel(
@@ -447,7 +442,6 @@ class _ProfilePanel extends StatelessWidget {
   final String email;
   final String faculty;
   final String major;
-  final String birthDate;
   final String gender;
 
   const _ProfilePanel({
@@ -456,7 +450,6 @@ class _ProfilePanel extends StatelessWidget {
     required this.email,
     required this.faculty,
     required this.major,
-    required this.birthDate,
     required this.gender,
   });
 
@@ -476,18 +469,7 @@ class _ProfilePanel extends StatelessWidget {
         const SizedBox(height: 9),
         _ProfileInfoCard(label: 'สาขาวิชา', value: major),
         const SizedBox(height: 9),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _ProfileInfoCard(label: 'วันเกิด', value: birthDate),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: _ProfileInfoCard(label: 'เพศ', value: gender),
-            ),
-          ],
-        ),
+        _ProfileInfoCard(label: 'เพศ', value: gender),
       ],
     );
   }

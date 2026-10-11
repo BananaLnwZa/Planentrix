@@ -11,18 +11,6 @@ import {
 } from "../services/constraint-day";
 
 // ==============================
-// ฟังก์ชัน Helper สำหรับ format DATE เป็น YYYY-MM-DD
-// ==============================
-const formatDateToString = (date: any): string | null => {
-  if (!date) return null;
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-// ==============================
 // ตั้งค่า multer สำหรับอัปโหลดไฟล์
 // ==============================
 const uploadsDir = path.join(__dirname, "../../uploads");
@@ -69,7 +57,6 @@ const getProfilePageData = async (req: Request, userId: number) => {
        CONCAT_WS(' ', account.first_name, account.last_name) AS full_name,
        account.email,
        account.user_pic,
-       account.birthdate AS user_birthdate,
        account.gender AS user_gender,
        account.status AS account_status,
        DATE_FORMAT(account.created_at, '%Y-%m-%d %H:%i:%s') AS account_created_at,
@@ -103,7 +90,6 @@ const getProfilePageData = async (req: Request, userId: number) => {
 
   if (!users?.length) return null;
   const profile = users[0];
-  profile.user_birthdate = formatDateToString(profile.user_birthdate);
   profile.user_pic_url = profile.user_pic
     ? `${req.protocol}://${req.get("host")}/uploads/${profile.user_pic}`
     : null;
@@ -123,7 +109,7 @@ export const getUserProfile = async (req: Request, res: Response) => {
 
     const [users] = (await db.query(
       `SELECT user_id, user_name, user_pic,
-              birthdate AS user_birthdate, gender AS user_gender
+              gender AS user_gender
        FROM user WHERE user_id = ?`,
       [userId]
     )) as any;
@@ -133,11 +119,6 @@ export const getUserProfile = async (req: Request, res: Response) => {
     }
 
     const user = users[0];
-
-    // Format DATE เป็น YYYY-MM-DD
-    if (user.user_birthdate) {
-      user.user_birthdate = formatDateToString(user.user_birthdate);
-    }
 
     // สร้าง URL สำหรับรูปภาพถ้ามี
     if (user.user_pic) {
@@ -152,7 +133,7 @@ export const getUserProfile = async (req: Request, res: Response) => {
 };
 
 // ==============================
-// หน้าโปรไฟล์แบบเฉพาะ (สำหรับแสดงชื่อ เพศ วันเกิด ภาพ และปีการศึกษา)
+// หน้าโปรไฟล์แบบเฉพาะ (สำหรับแสดงชื่อ เพศ ภาพ และปีการศึกษา)
 // ==============================
 export const getUserProfilePage = async (req: Request, res: Response) => {
   try {
@@ -188,7 +169,7 @@ const deleteOldImage = (imageName: string) => {
 };
 
 // ==============================
-// อัปเดทข้อมูลผู้ใช้ (ชื่อ, วันเกิด, เพศ)
+// อัปเดทข้อมูลผู้ใช้ (ชื่อและเพศ)
 // ==============================
 export const updateUserProfile = async (req: Request, res: Response) => {
   try {
@@ -204,7 +185,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const { user_name, user_birthdate, user_gender } = req.body;
+    const { user_name, user_gender } = req.body;
 
     // ตรวจสอบชื่อผู้ใช้ถ้ามีการอัปเดท
     if (user_name) {
@@ -240,10 +221,6 @@ export const updateUserProfile = async (req: Request, res: Response) => {
     if (user_name) {
       updateFields.push("user_name = ?");
       updateValues.push(user_name);
-    }
-    if (user_birthdate) {
-      updateFields.push("birthdate = ?");
-      updateValues.push(user_birthdate);
     }
     if (user_gender) {
       updateFields.push("gender = ?");

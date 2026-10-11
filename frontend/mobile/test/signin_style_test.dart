@@ -166,7 +166,6 @@ void main() {
       'สาขา',
       'password',
       'Confirm Password',
-      'Birth Date',
       'gender',
     ]) {
       final labelText = tester.widget<Text>(find.text(label));
@@ -193,7 +192,6 @@ void main() {
     expect(durationToMinutes('', '45'), 45);
     expect(convertDisplayTimeTo24Hour('06:00 PM'), '18:00');
     expect(convertDisplayTimeTo24Hour('12:05 AM'), '00:05');
-    expect(formatBirthDateForApi('31/12/00'), '2000-12-31');
   });
 
   testWidgets('password eye buttons toggle password visibility', (
@@ -269,7 +267,6 @@ void main() {
       find.byType(CreateAccountForm),
     );
     fillValidAccount(accountState);
-    accountState.birthDateController.text = '31/12/00';
 
     final constraintState = tester.state<ConstraintState>(
       find.byType(Constraint),
@@ -314,7 +311,6 @@ void main() {
       'email': 'student@example.com',
       'department_id': 11,
       'user_password': 'Password@123',
-      'user_birthdate': '2000-12-31',
       'user_gender': 'female',
       'day_off': 7,
       'continuous_working_duration': 150,

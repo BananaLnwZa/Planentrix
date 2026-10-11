@@ -16,7 +16,6 @@ interface ManagedUserRow extends RowDataPacket {
   faculty_name: string;
   year_level: number | null;
   user_pic: string | null;
-  user_birthdate: Date | null;
   user_gender: "male" | "female" | "other" | "unspecified";
   status: "active" | "suspended" | "archived";
   status_changed_by_admin_id: number | null;
@@ -86,7 +85,6 @@ const managedStudentSelect = `SELECT
     LIMIT 1
   ) AS year_level,
   u.user_pic,
-  u.birthdate AS user_birthdate,
   u.gender AS user_gender,
   u.status,
   u.status_changed_by_admin_id,

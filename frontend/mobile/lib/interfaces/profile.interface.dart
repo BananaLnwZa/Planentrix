@@ -6,7 +6,6 @@ class UserProfile {
   final String? fullName;
   final String? email;
   final String? userPicUrl;
-  final DateTime? birthdate;
   final String? gender;
   final dynamic academicYear;
   final int? departmentId;
@@ -30,7 +29,6 @@ class UserProfile {
     this.fullName,
     this.email,
     this.userPicUrl,
-    this.birthdate,
     this.gender,
     this.academicYear,
     this.departmentId,
@@ -55,7 +53,6 @@ class UserProfile {
     fullName: json['full_name']?.toString(),
     email: json['email']?.toString(),
     userPicUrl: json['user_pic_url']?.toString(),
-    birthdate: _asDate(json['user_birthdate']),
     gender: json['user_gender']?.toString(),
     academicYear: json['academic_year'],
     departmentId: _nullableInt(json['department_id']),
@@ -136,18 +133,15 @@ class UserConstraint {
 
 class UpdateProfileInput {
   final String userName;
-  final DateTime? birthdate;
   final String? gender;
 
   const UpdateProfileInput({
     required this.userName,
-    this.birthdate,
     this.gender,
   });
 
   Map<String, dynamic> toJson() => {
     'user_name': userName,
-    if (birthdate != null) 'user_birthdate': _dateOnly(birthdate!),
     if (gender != null && gender!.isNotEmpty) 'user_gender': gender,
   };
 }
@@ -187,15 +181,8 @@ int _asInt(dynamic value) {
 
 int? _nullableInt(dynamic value) => value == null ? null : _asInt(value);
 
-DateTime? _asDate(dynamic value) =>
-    value == null ? null : DateTime.tryParse('$value');
-
 String _time(dynamic value) {
   final text = '$value';
   return text.length >= 5 ? text.substring(0, 5) : text;
 }
 
-String _dateOnly(DateTime value) =>
-    '${value.year.toString().padLeft(4, '0')}-'
-    '${value.month.toString().padLeft(2, '0')}-'
-    '${value.day.toString().padLeft(2, '0')}';

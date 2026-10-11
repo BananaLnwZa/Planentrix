@@ -49,7 +49,6 @@ interface UserProfileRow extends UserIdRow {
   last_name: string;
   email: string;
   department_id: number;
-  user_birthdate: string | null;
   user_gender: string;
   user_pic: string | null;
   status: string;
@@ -432,7 +431,6 @@ export const registerUser = async (input: unknown): Promise<void> => {
   const lastName = requiredString(body.last_name, "last_name").trim();
   const email = requiredString(body.email, "email").trim();
   const departmentId = optionalInteger(body.department_id, "department_id");
-  const birthdate = optionalString(body.user_birthdate ?? body.birthdate);
   const gender = optionalString(body.user_gender ?? body.gender) ?? "unspecified";
   const dayOff = optionalInteger(body.day_off, "day_off");
   const continuousDuration = optionalInteger(
@@ -551,8 +549,8 @@ export const registerUser = async (input: unknown): Promise<void> => {
     const [userResult] = await connection.query<ResultSetHeader>(
       `INSERT INTO user
         (user_name, user_password, first_name, last_name, email, department_id,
-         birthdate, gender, last_login)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+         gender, last_login)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`,
       [
         userName,
         passwordHash,
@@ -560,7 +558,6 @@ export const registerUser = async (input: unknown): Promise<void> => {
         lastName,
         email,
         departmentId,
-        birthdate,
         gender,
       ],
     );
@@ -862,7 +859,7 @@ export const getAccountProfile = async (id: number, role: AuthRole) => {
   if (role === "user") {
     const [rows] = await db.query<UserProfileRow[]>(
       `SELECT user_id, user_name, first_name, last_name, email, department_id,
-              birthdate AS user_birthdate, gender AS user_gender,
+              gender AS user_gender,
               user_pic, status, last_login
        FROM user
        WHERE user_id = ? AND status = 'active'

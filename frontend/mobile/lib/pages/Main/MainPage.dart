@@ -24,7 +24,6 @@ import '../../interfaces/exam.interface.dart';
 import '../../interfaces/app_alert.interface.dart';
 import '../../common/NotebookSectionPage.dart';
 import '../../common/NotebookTabs.dart';
-import '../../common/DateTimeFormat.dart';
 import 'Component/Schedule.dart';
 import 'Component/EditProfilePopup.dart';
 import 'Component/StudentCard.dart';
@@ -413,12 +412,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     return '${value[0].toUpperCase()}${value.substring(1)}';
   }
 
-  String get _displayBirthdate {
-    final date = _profile?.birthdate;
-    if (date == null) return '—';
-    return formatDisplayDate(date);
-  }
-
   ImageProvider<Object>? get _photo {
     final url = _profile?.userPicUrl;
     return url == null || url.isEmpty ? null : NetworkImage(url);
@@ -453,7 +446,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       faculty: _profileText(_profile?.facultyName),
       gender: _displayGender,
       major: _displayMajor,
-      birthDate: _displayBirthdate,
       dayOff: _dayName(constraint?.dayOff),
       workingDuration: _formatMinutes(constraint?.continuousWorkingDuration),
       breakDuration: _formatMinutes(constraint?.breakDuration),
@@ -570,7 +562,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           year:
               _profile?.yearLevel?.toString() ?? _currentTerm?.yearLevel ?? '—',
           gender: _displayGender,
-          birthDate: _displayBirthdate,
           photo: _photo,
           onTap: _openStudentCard,
         ),

@@ -35,7 +35,6 @@ export type ProfilePanel = "profile" | "constraint";
 
 export type EditProfileValues = {
   userName: string;
-  birthDate: string;
   gender: ProfileGender | "";
 };
 
@@ -53,7 +52,6 @@ type StudentCardPopupProps = {
   avatarImageUrl?: string | null;
   constraint: UserConstraint | null;
   displayName: string;
-  displayBirthDate: string;
   displayGender: string;
   activePanel: ProfilePanel;
   editValues: EditProfileValues;
@@ -167,7 +165,6 @@ export default function StudentCardPopup({
   avatarImageUrl,
   constraint,
   displayName,
-  displayBirthDate,
   displayGender,
   activePanel,
   editValues,
@@ -461,24 +458,7 @@ export default function StudentCardPopup({
                     className="mt-1 block w-full cursor-not-allowed rounded-full border border-gray-200 bg-[#EEF1F3] px-5 py-2 text-base text-[#8A969C] outline-none"
                   />
                 </div>
-                <div>
-                  <label htmlFor="profile-birthdate" className="text-sm text-gray-800">
-                    วันเกิด
-                  </label>
-                  <LocalizedDateTimeInput
-                    id="profile-birthdate"
-                    type="date"
-                    value={editValues.birthDate}
-                    onChange={(event) =>
-                      setEditValues((previous) => ({
-                        ...previous,
-                        birthDate: event.target.value,
-                      }))
-                    }
-                    className="mt-1 h-10 w-full rounded-full border border-gray-300 bg-white px-4 text-base text-gray-800 outline-none focus-within:border-[#9CC5F9]"
-                  />
-                </div>
-                <div>
+                <div className="col-span-2">
                   <label htmlFor="profile-gender" className="text-sm text-gray-800">
                     เพศ
                   </label>
@@ -538,13 +518,7 @@ export default function StudentCardPopup({
                       : "—"}
                   </dd>
                 </div>
-                <div className="rounded-2xl border border-gray-200 bg-white/80 p-3">
-                  <dt className="text-sm text-gray-500">วันเกิด</dt>
-                  <dd className="mt-1 break-words text-base text-[#314553]">
-                    {displayBirthDate}
-                  </dd>
-                </div>
-                <div className="rounded-2xl border border-gray-200 bg-white/80 p-3">
+                <div className="col-span-2 rounded-2xl border border-gray-200 bg-white/80 p-3">
                   <dt className="text-sm text-gray-500">เพศ</dt>
                   <dd className="mt-1 break-words text-base text-[#314553]">
                     {displayGender}

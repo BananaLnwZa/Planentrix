@@ -12,7 +12,6 @@ import CustomSelect, {
   type CustomSelectOption,
 } from "@/components/common/CustomSelect";
 import GenderSelect from "@/components/common/GenderSelect";
-import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
 import type { FacultyOption } from "@/interfaces/auth.interface";
 import authService from "@/services/auth.service";
 
@@ -27,16 +26,8 @@ type AccountField =
   | "faculty"
   | "department"
   | "password"
-  | "confirmPassword"
-  | "birthdate";
+  | "confirmPassword";
 type AccountErrors = Partial<Record<AccountField, string>>;
-
-const toLocalDateValue = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
 
 export interface CreateAccFormHandle {
   getFormData: () => Promise<{
@@ -46,7 +37,6 @@ export interface CreateAccFormHandle {
     email: string;
     department_id: number;
     user_password: string;
-    user_birthdate: string | null;
     user_gender: "male" | "female" | "other" | null;
   } | null>;
 }
@@ -67,7 +57,6 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmPasswordRef = useRef<HTMLInputElement>(null);
-  const birthdateRef = useRef<HTMLInputElement>(null);
   const [selectedGender, setSelectedGender] = useState<
     "male" | "female" | "other" | null
   >(null);
@@ -137,7 +126,6 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
       const departmentId = Number(selectedDepartmentId);
       const password = passwordRef.current?.value ?? "";
       const confirmPassword = confirmPasswordRef.current?.value ?? "";
-      const birthdate = birthdateRef.current?.value;
       const nextErrors: AccountErrors = {};
 
       if (!username) {
@@ -179,10 +167,6 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
         nextErrors.confirmPassword = "รหัสผ่านไม่ตรงกัน";
       }
 
-      if (birthdate && birthdate > toLocalDateValue(new Date())) {
-        nextErrors.birthdate = "วันเกิดต้องไม่เป็นวันในอนาคต";
-      }
-
       setErrors(nextErrors);
       if (Object.keys(nextErrors).length > 0) {
         return null;
@@ -195,7 +179,6 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
         email,
         department_id: departmentId,
         user_password: password,
-        user_birthdate: birthdate || null,
         user_gender: selectedGender,
       };
     },
@@ -688,58 +671,6 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
               {errors.confirmPassword}
             </p>
           )}
-        </div>
-
-        {/* Birth Date */}
-        <div>
-          <label
-            className="
-              mb-2
-              block
-              text-xs
-              text-gray-700
-              sm:text-sm
-            "
-          >
-            Birth Date
-          </label>
-
-          <div className="w-1/2 min-w-[180px]">
-            <LocalizedDateTimeInput
-              ref={birthdateRef}
-              type="date"
-              max={toLocalDateValue(new Date())}
-              aria-invalid={Boolean(errors.birthdate)}
-              aria-describedby={errors.birthdate ? "signup-birthdate-error" : undefined}
-              onChange={() => clearError("birthdate")}
-              className="
-                h-[44px]
-                w-full
-                rounded-full
-                border
-                border-gray-300
-                bg-white
-                px-4
-                text-[12px]
-                text-gray-400
-                outline-none
-
-
-                sm:h-[48px]
-                sm:px-5
-                sm:text-[14px]
-              "
-            />
-            {errors.birthdate && (
-              <p
-                id="signup-birthdate-error"
-                className="mt-1.5 text-xs text-red-600"
-                role="alert"
-              >
-                {errors.birthdate}
-              </p>
-            )}
-          </div>
         </div>
 
         {/* Select Gender */}

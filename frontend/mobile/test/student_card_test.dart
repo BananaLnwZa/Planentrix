@@ -62,7 +62,6 @@ class FakeProfileRepository implements ProfileRepository {
     facultyName: 'Faculty of Science',
     departmentName: 'Computer Science',
     yearLevel: 3,
-    birthdate: DateTime(2004, 7, 16),
     gender: 'female',
   );
 
@@ -83,7 +82,6 @@ class FakeProfileRepository implements ProfileRepository {
       UserProfile(
         userId: 42,
         userName: input.userName,
-        birthdate: input.birthdate,
         gender: input.gender,
       );
 
@@ -146,7 +144,6 @@ void main() {
                 gender: 'Female',
                 major: 'COMSCI',
                 year: '3',
-                birthDate: '16/07/04',
                 onTap: () => wasTapped = true,
               ),
             ),
@@ -169,11 +166,11 @@ void main() {
     expect(find.text('Suwat'), findsOneWidget);
     expect(find.text('Faculty of Science'), findsOneWidget);
     expect(find.text('COMSCI'), findsOneWidget);
-    expect(find.text('16/07/04'), findsOneWidget);
+    expect(find.text('ปี 3'), findsOneWidget);
     expect(tester.getSize(find.byKey(const Key('student-card'))).width, 320);
     expect(
       tester.getSize(find.byKey(const Key('student-card'))).height,
-      inInclusiveRange(205, 260),
+      inInclusiveRange(180, 260),
     );
     await tester.tap(find.byKey(const Key('student-card')));
     expect(wasTapped, isTrue);
@@ -311,7 +308,7 @@ void main() {
     expect(find.text('Suwat'), findsOneWidget);
     expect(find.text('Faculty of Science'), findsOneWidget);
     expect(find.text('Computer Science'), findsOneWidget);
-    expect(find.text('16/07/04'), findsOneWidget);
+    expect(find.text('ปี 3'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('student-card')));
     await tester.pumpAndSettle();

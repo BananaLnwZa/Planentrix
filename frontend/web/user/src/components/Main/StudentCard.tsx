@@ -15,10 +15,7 @@ import type {
 } from "@/interfaces/profile.interface";
 import { useAuthStore } from "@/services/auth.store";
 import profileService from "@/services/profile.service";
-import {
-  formatDisplayDate as formatDate,
-  formatDisplayTime as formatTime,
-} from "@/utils/dateTime";
+import { formatDisplayTime as formatTime } from "@/utils/dateTime";
 import { validateConstraintInput } from "@/utils/constraintValidation";
 import StudentCardPopup, {
   type EditConstraintValues,
@@ -29,7 +26,6 @@ import StudentCardPopup, {
 type StudentCardProps = {
   name?: string;
   gender?: string;
-  birthDate?: string;
   studentNumber?: string;
   onEditProfile?: () => void;
   onArchiveProfile?: () => void;
@@ -104,7 +100,6 @@ function StudentCardPhoto({ imageUrl }: { imageUrl?: string | null }) {
 export default function StudentCard({
   name,
   gender,
-  birthDate,
   studentNumber,
   onEditProfile,
   onArchiveProfile,
@@ -134,7 +129,6 @@ export default function StudentCard({
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<EditProfileValues>({
     userName: "",
-    birthDate: "",
     gender: "",
   });
   const [editConstraintValues, setEditConstraintValues] =
@@ -223,7 +217,6 @@ export default function StudentCard({
     authUser?.username ||
     "Student";
   const displayGender = gender || formatGender(profile?.user_gender);
-  const displayBirthDate = birthDate || formatDate(profile?.user_birthdate);
   const displayFaculty = profile?.faculty_name || profile?.faculty_code || "—";
   const displayDepartment = profile?.department_name || profile?.department_code || "—";
   const displayYear = profile?.year_level ? `ปี ${profile.year_level}` : "—";
@@ -254,7 +247,6 @@ export default function StudentCard({
     setAvatarPreviewUrl(null);
     setEditValues({
       userName: profile?.user_name || displayName,
-      birthDate: profile?.user_birthdate?.slice(0, 10) || "",
       gender:
         profile?.user_gender && profile.user_gender !== "unspecified"
           ? profile.user_gender
@@ -306,7 +298,6 @@ export default function StudentCard({
       const [profileResult, constraintResult, avatarResult] = await Promise.allSettled([
         profileService.updateProfile({
           user_name: editValues.userName,
-          user_birthdate: editValues.birthDate || undefined,
           user_gender: editValues.gender || undefined,
         }),
         profileService.updateConstraints({
@@ -452,14 +443,14 @@ export default function StudentCard({
 
   const constraintRows = constraint
     ? [
-        ["วันหยุด", dayNames[constraint.day_off || 0] || "—"],
-        ["ระยะเวลาทำงาน", formatMinutes(constraint.continuous_working_duration)],
-        ["ระยะเวลาพัก", formatMinutes(constraint.break)],
-        [
-          "เวลาทำงาน",
-          `${formatTime(constraint.start_time)} – ${formatTime(constraint.end_time)}`,
-        ],
-      ]
+      ["วันหยุด", dayNames[constraint.day_off || 0] || "—"],
+      ["ระยะเวลาทำงาน", formatMinutes(constraint.continuous_working_duration)],
+      ["ระยะเวลาพัก", formatMinutes(constraint.break)],
+      [
+        "เวลาทำงาน",
+        `${formatTime(constraint.start_time)} – ${formatTime(constraint.end_time)}`,
+      ],
+    ]
     : [];
 
   return (
@@ -508,19 +499,17 @@ export default function StudentCard({
                   {displayFaculty}
                 </dd>
               </div>
-              <div className="col-span-2 min-w-0">
-                <dt className="text-[10px] leading-tight uppercase text-gray-400">Department</dt>
-                <dd className="break-words text-sm leading-tight text-gray-900">
-                  {displayDepartment}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[10px] leading-tight uppercase text-gray-400">Year</dt>
-                <dd className="text-sm leading-tight text-gray-900">{displayYear}</dd>
-              </div>
-              <div>
-                <dt className="text-[10px] leading-tight uppercase text-gray-400">Birthday</dt>
-                <dd className="text-sm leading-tight text-gray-900">{displayBirthDate}</dd>
+              <div className="col-span-2 flex items-start justify-between gap-3 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <dt className="text-[10px] leading-tight uppercase text-gray-400">Department</dt>
+                  <dd className="truncate text-sm leading-tight text-gray-900" title={displayDepartment}>
+                    {displayDepartment}
+                  </dd>
+                </div>
+                <div className="shrink-0 pl-2">
+                  <dt className="text-[10px] leading-tight uppercase text-gray-400">Year</dt>
+                  <dd className="text-sm leading-tight text-gray-900">{displayYear}</dd>
+                </div>
               </div>
             </dl>
           </div>
@@ -548,7 +537,6 @@ export default function StudentCard({
           avatarImageUrl={avatarPreviewUrl ?? profile?.user_pic_url}
           constraint={constraint}
           displayName={displayName}
-          displayBirthDate={displayBirthDate}
           displayGender={displayGender}
           activePanel={activePanel}
           editValues={editValues}

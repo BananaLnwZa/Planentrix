@@ -12,7 +12,6 @@ export interface RegisterRequest {
   email: string;
   department_id: number;
   user_password: string;
-  user_birthdate?: string | null;
   user_gender?: "male" | "female" | "other" | null;
   day_off?: number | null;
   continuous_working_duration?: number | null;

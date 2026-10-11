@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../common/AppDatePicker.dart';
 import '../../../common/AppDropdown.dart';
-import '../../../common/DateTimeFormat.dart';
 import '../../../interfaces/auth.interface.dart';
 import '../../../services/auth.service.dart';
 import 'Selectgender.dart';
@@ -15,7 +13,6 @@ class CreateAccountData {
   final String email;
   final int departmentId;
   final String userPassword;
-  final String? userBirthdate;
   final String? userGender;
 
   const CreateAccountData({
@@ -25,31 +22,8 @@ class CreateAccountData {
     required this.email,
     required this.departmentId,
     required this.userPassword,
-    required this.userBirthdate,
     required this.userGender,
   });
-}
-
-String? formatBirthDateForApi(String value) {
-  final parts = value.trim().split('/');
-  if (parts.length != 3) return null;
-
-  final day = int.tryParse(parts[0]);
-  final month = int.tryParse(parts[1]);
-  final inputYear = int.tryParse(parts[2]);
-  if (day == null || month == null || inputYear == null) return null;
-
-  final currentTwoDigitYear = DateTime.now().year % 100;
-  final year = inputYear < 100
-      ? (inputYear <= currentTwoDigitYear ? 2000 + inputYear : 1900 + inputYear)
-      : inputYear;
-
-  final date = DateTime(year, month, day);
-  if (date.year != year || date.month != month || date.day != day) return null;
-
-  return '${year.toString().padLeft(4, '0')}-'
-      '${month.toString().padLeft(2, '0')}-'
-      '${day.toString().padLeft(2, '0')}';
 }
 
 class CreateAccountForm extends StatefulWidget {
@@ -71,8 +45,6 @@ class CreateAccountFormState extends State<CreateAccountForm> {
 
   final TextEditingController confirmPasswordController =
       TextEditingController();
-
-  final TextEditingController birthDateController = TextEditingController();
 
   String? selectedGender;
   int? selectedFacultyId;
@@ -185,7 +157,6 @@ class CreateAccountFormState extends State<CreateAccountForm> {
       _setFormError('รหัสผ่านไม่ตรงกัน');
       return null;
     }
-    final birthdate = birthDateController.text.trim();
     _setFormError(null);
     return CreateAccountData(
       userName: username,
@@ -194,9 +165,6 @@ class CreateAccountFormState extends State<CreateAccountForm> {
       email: email,
       departmentId: selectedDepartmentId!,
       userPassword: password,
-      userBirthdate: birthdate.isEmpty
-          ? null
-          : formatBirthDateForApi(birthdate),
       userGender: selectedGender?.toLowerCase(),
     );
   }
@@ -216,27 +184,7 @@ class CreateAccountFormState extends State<CreateAccountForm> {
     emailController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
-    birthDateController.dispose();
     super.dispose();
-  }
-
-  Future<void> selectBirthDate() async {
-    final DateTime now = DateTime.now();
-
-    final DateTime? selectedDate = await showAppDatePicker(
-      context: context,
-      initialDate: DateTime(now.year - 18, now.month, now.day),
-      firstDate: DateTime(1900),
-      lastDate: now,
-    );
-
-    if (selectedDate == null || !mounted) {
-      return;
-    }
-
-    setState(() {
-      birthDateController.text = formatDisplayDate(selectedDate);
-    });
   }
 
   /// ขอบของช่อง Input
@@ -605,51 +553,6 @@ class CreateAccountFormState extends State<CreateAccountForm> {
                         : Icons.visibility_outlined,
                     color: Colors.grey.shade500,
                     size: 21,
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 18),
-
-            /// Birth Date
-            _buildLabel('Birth Date'),
-
-            const SizedBox(height: 8),
-
-            Align(
-              alignment: Alignment.centerLeft,
-              child: SizedBox(
-                width: mobile ? screenWidth * 0.50 : 210,
-
-                child: TextFormField(
-                  key: const Key('signup-birthdate-field'),
-                  controller: birthDateController,
-
-                  readOnly: true,
-
-                  onTap: selectBirthDate,
-
-                  style: inputTextStyle.copyWith(color: Colors.grey.shade600),
-
-                  decoration: _inputDecoration(
-                    hintText: 'dd/mm/yy',
-
-                    contentPadding: const EdgeInsets.only(
-                      left: 18,
-                      right: 4,
-                      top: 14,
-                      bottom: 14,
-                    ),
-
-                    suffixIcon: IconButton(
-                      onPressed: selectBirthDate,
-                      icon: const Icon(
-                        Icons.calendar_month,
-                        size: 21,
-                        color: Color(0xFFF080A7),
-                      ),
-                    ),
                   ),
                 ),
               ),

@@ -62,7 +62,6 @@ class _SigninPageState extends State<SigninPage> {
       email: accountData.email,
       departmentId: accountData.departmentId,
       userPassword: accountData.userPassword,
-      userBirthdate: accountData.userBirthdate,
       userGender: accountData.userGender,
       dayOff: constraintData.dayOff,
       continuousWorkingDuration: constraintData.continuousWorkingDuration,

@@ -28,7 +28,6 @@ export interface ManagedUser extends ManagedAccountActivity {
   faculty_name: string;
   year_level: number | null;
   user_pic: string | null;
-  user_birthdate: string | null;
   user_gender: UserGender;
 }
 

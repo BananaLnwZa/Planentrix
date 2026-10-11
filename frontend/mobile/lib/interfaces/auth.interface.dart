@@ -27,7 +27,6 @@ class RegisterRequest {
   final String email;
   final int departmentId;
   final String userPassword;
-  final String? userBirthdate; // YYYY-MM-DD
   final String? userGender; // "male", "female", "other"
 
   // Constraints
@@ -45,7 +44,6 @@ class RegisterRequest {
     required this.email,
     required this.departmentId,
     required this.userPassword,
-    this.userBirthdate,
     this.userGender,
     this.dayOff,
     this.continuousWorkingDuration,
@@ -63,7 +61,6 @@ class RegisterRequest {
       'email': email,
       'department_id': departmentId,
       'user_password': userPassword,
-      'user_birthdate': userBirthdate,
       'user_gender': userGender,
       'day_off': dayOff,
       'continuous_working_duration': continuousWorkingDuration,

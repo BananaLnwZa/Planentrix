@@ -72,7 +72,6 @@ export default function LoginPage() {
         email: accData.email,
         department_id: accData.department_id,
         user_password: accData.user_password,
-        user_birthdate: accData.user_birthdate,
         user_gender: accData.user_gender,
         day_off: constraintData.constraints.day_off,
         continuous_working_duration:
