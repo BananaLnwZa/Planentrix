@@ -19,6 +19,12 @@ WorkloadTypePalette workloadTypePalette(String typeName) =>
     _workloadTypePalettes[typeName.trim().toLowerCase()] ??
     const WorkloadTypePalette(Color(0xFFE6E6E6), Color(0xFFBDBDBD));
 
+String workloadTypeCodeLabel(String typeCode) {
+  final code = typeCode.trim().toLowerCase();
+  if (code.isEmpty) return 'Workload';
+  return '${code[0].toUpperCase()}${code.substring(1)}';
+}
+
 String workloadTypeCode(int typeId, String typeName) => switch (typeId) {
   1 => 'midterm',
   2 => 'final',

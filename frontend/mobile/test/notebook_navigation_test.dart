@@ -93,6 +93,9 @@ class EmptyHomeworkRepository implements HomeworkRepository {
   Future<List<HomeworkSubject>> getSubjects() async => const [];
 
   @override
+  Future<List<HomeworkTypeOption>> getTypes() async => const [];
+
+  @override
   Future<HomeworkTaskData> createHomework(CreateHomeworkInput input) async =>
       throw UnimplementedError();
 

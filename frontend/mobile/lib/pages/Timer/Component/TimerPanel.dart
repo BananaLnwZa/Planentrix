@@ -19,6 +19,7 @@ class TimerPanel extends StatelessWidget {
   final VoidCallback onPause;
   final VoidCallback onResume;
   final VoidCallback onFinish;
+  final VoidCallback onReset;
 
   const TimerPanel({
     super.key,
@@ -32,6 +33,7 @@ class TimerPanel extends StatelessWidget {
     required this.onPause,
     required this.onResume,
     required this.onFinish,
+    required this.onReset,
   });
 
   @override
@@ -121,6 +123,7 @@ class TimerPanel extends StatelessWidget {
             onPause: onPause,
             onResume: onResume,
             onFinish: onFinish,
+            onReset: onReset,
           ),
           const SizedBox(height: 7),
           Text(
@@ -213,41 +216,40 @@ class _TimerDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 4),
-          child: Text(
-            '$label :',
-            style: const TextStyle(
-              fontSize: 10.5,
-              color: Color(0xFF746B6E),
-              fontWeight: FontWeight.w500,
-            ),
+        Text(
+          '$label :',
+          style: const TextStyle(
+            fontSize: 10.5,
+            color: Color(0xFF746B6E),
+            fontWeight: FontWeight.w500,
           ),
         ),
-        AppDropdown<int>(
-          value: value,
-          items: items,
-          hintText: hint,
-          enabled: enabled,
-          onChanged: enabled ? onChanged : null,
-          fieldHeight: 35,
-          itemHeight: 38,
-          borderRadius: 18,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          borderColor: const Color(0xFFDCE5E9),
-          fillColor: const Color(0xFFFFFDFD),
-          textStyle: const TextStyle(
-            fontFamily: 'Sansation',
-            fontSize: 10.5,
-            color: Color(0xFF4C4548),
-          ),
-          hintStyle: const TextStyle(
-            fontFamily: 'Sansation',
-            fontSize: 10,
-            color: Color(0xFFAAA0A4),
+        const SizedBox(width: 6),
+        Expanded(
+          child: AppDropdown<int>(
+            value: value,
+            items: items,
+            hintText: hint,
+            enabled: enabled,
+            onChanged: enabled ? onChanged : null,
+            fieldHeight: 32,
+            itemHeight: 38,
+            borderRadius: 16,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            borderColor: const Color(0xFFDCE5E9),
+            fillColor: const Color(0xFFFFFDFD),
+            textStyle: const TextStyle(
+              fontFamily: 'Sansation',
+              fontSize: 10.5,
+              color: Color(0xFF4C4548),
+            ),
+            hintStyle: const TextStyle(
+              fontFamily: 'Sansation',
+              fontSize: 10,
+              color: Color(0xFFAAA0A4),
+            ),
           ),
         ),
       ],
@@ -263,6 +265,7 @@ class _TimerControls extends StatelessWidget {
   final VoidCallback onPause;
   final VoidCallback onResume;
   final VoidCallback onFinish;
+  final VoidCallback onReset;
 
   const _TimerControls({
     required this.phase,
@@ -272,6 +275,7 @@ class _TimerControls extends StatelessWidget {
     required this.onPause,
     required this.onResume,
     required this.onFinish,
+    required this.onReset,
   });
 
   @override
@@ -299,8 +303,11 @@ class _TimerControls extends StatelessWidget {
         tooltip: 'เริ่มจับเวลา',
       );
     }
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 12,
+      runSpacing: 8,
       children: [
         if (phase == TimerPhase.running)
           _RoundControlButton(
@@ -322,7 +329,6 @@ class _TimerControls extends StatelessWidget {
             onPressed: onResume,
             tooltip: 'จับเวลาต่อ',
           ),
-        const SizedBox(width: 14),
         _RoundControlButton(
           key: const Key('timer-finish-button'),
           icon: Icons.stop_rounded,
@@ -332,7 +338,55 @@ class _TimerControls extends StatelessWidget {
           onPressed: onFinish,
           tooltip: 'เลิกจับเวลา',
         ),
+        _ResetControlButton(onPressed: onReset),
       ],
+    );
+  }
+}
+
+class _ResetControlButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _ResetControlButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'รีเซ็ตเวลาและยกเลิกรอบปัจจุบัน',
+      child: Material(
+        color: const Color(0xFFFFF7F7),
+        shape: const StadiumBorder(side: BorderSide(color: Color(0xFFD9C6CB))),
+        child: InkWell(
+          key: const Key('timer-reset-button'),
+          onTap: onPressed,
+          customBorder: const StadiumBorder(),
+          child: const SizedBox(
+            height: 36,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.restart_alt_rounded,
+                    size: 16,
+                    color: Color(0xFFA86474),
+                  ),
+                  SizedBox(width: 5),
+                  Text(
+                    'รีเซ็ตเวลา',
+                    style: TextStyle(
+                      color: Color(0xFFA86474),
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

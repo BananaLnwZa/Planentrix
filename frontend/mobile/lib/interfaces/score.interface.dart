@@ -187,6 +187,7 @@ class WorkloadScore {
   final int workloadId;
   final String workloadName;
   final int workloadTypeId;
+  final String workloadTypeCode;
   final String workloadTypeName;
   final dynamic workloadStatus;
   final double? actualScore;
@@ -196,6 +197,7 @@ class WorkloadScore {
     required this.workloadId,
     required this.workloadName,
     required this.workloadTypeId,
+    this.workloadTypeCode = '',
     required this.workloadTypeName,
     required this.workloadStatus,
     this.actualScore,
@@ -207,6 +209,9 @@ class WorkloadScore {
       workloadId: _asInt(json['workload_id']),
       workloadName: '${json['workload_name'] ?? ''}',
       workloadTypeId: _asInt(json['workload_type_id']),
+      workloadTypeCode: '${json['workload_type_code'] ?? ''}'
+          .trim()
+          .toLowerCase(),
       workloadTypeName: '${json['workload_type_name'] ?? 'งาน'}',
       workloadStatus: json['workload_status'],
       actualScore: _asNullableDouble(json['actual_score']),
@@ -227,6 +232,7 @@ class WorkloadScore {
       workloadId: workloadId,
       workloadName: workloadName,
       workloadTypeId: workloadTypeId,
+      workloadTypeCode: workloadTypeCode,
       workloadTypeName: workloadTypeName,
       workloadStatus: workloadStatus,
       actualScore: actualScore ?? this.actualScore,

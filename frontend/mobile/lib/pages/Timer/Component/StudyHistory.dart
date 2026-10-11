@@ -7,29 +7,61 @@ import 'package:flutter/material.dart';
 import '../../../interfaces/time.interface.dart';
 import '../timer_utils.dart';
 
-class StudyHistory extends StatelessWidget {
+class StudyHistory extends StatefulWidget {
   final StudyDashboard dashboard;
 
   const StudyHistory({super.key, required this.dashboard});
 
   @override
+  State<StudyHistory> createState() => _StudyHistoryState();
+}
+
+class _StudyHistoryState extends State<StudyHistory> {
+  late String _selectedMonthKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedMonthKey = widget.dashboard.history.firstOrNull?.monthKey ?? '';
+  }
+
+  @override
+  void didUpdateWidget(covariant StudyHistory oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final stillExists = widget.dashboard.history.any(
+      (month) => month.monthKey == _selectedMonthKey,
+    );
+    if (!stillExists) {
+      _selectedMonthKey = widget.dashboard.history.firstOrNull?.monthKey ?? '';
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final selectedMonth = widget.dashboard.history
+        .where((month) => month.monthKey == _selectedMonthKey)
+        .firstOrNull;
+    final month = selectedMonth ?? widget.dashboard.history.firstOrNull;
+    final weeks = month == null
+        ? const <MonthlyStudyWeek>[]
+        : _displayedWeeks(month, widget.dashboard.weeks);
+    final totalSessions = widget.dashboard.history.fold<int>(
+      0,
+      (sum, item) => sum + item.sessionCount,
+    );
+
     return Container(
       key: const Key('study-history'),
-      padding: const EdgeInsets.fromLTRB(14, 13, 14, 16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.white, Color(0xFFF8FCFF), Color(0xFFEEF7FB)],
-        ),
-        borderRadius: BorderRadius.circular(21),
-        border: Border.all(color: const Color(0xFFD8E8F0)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFD8E2E7)),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x1A574135),
-            blurRadius: 18,
-            offset: Offset(0, 8),
+            color: Color(0x294E443D),
+            blurRadius: 10,
+            offset: Offset(0, 4),
           ),
         ],
       ),
@@ -37,19 +69,141 @@ class StudyHistory extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const _HistoryHeader(),
-          const SizedBox(height: 13),
-          if (dashboard.history.isEmpty)
+          const SizedBox(height: 11),
+          if (month == null)
             const _EmptyHistory()
-          else
-            for (var index = 0; index < dashboard.history.length; index++) ...[
-              _HistoryMonth(month: dashboard.history[index]),
-              if (index != dashboard.history.length - 1)
-                const SizedBox(height: 16),
-            ],
+          else ...[
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (
+                    var index = 0;
+                    index < widget.dashboard.history.length;
+                    index++
+                  ) ...[
+                    _MonthChip(
+                      month: widget.dashboard.history[index],
+                      selected:
+                          widget.dashboard.history[index].monthKey ==
+                          month.monthKey,
+                      onTap: () => setState(() {
+                        _selectedMonthKey =
+                            widget.dashboard.history[index].monthKey;
+                      }),
+                    ),
+                    if (index < widget.dashboard.history.length - 1)
+                      const SizedBox(width: 7),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (month.totalMinutes > 0) ...[
+              _WeeklyHistoryChart(weeks: weeks),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _SummaryTile(
+                      label: 'เฉลี่ยสัปดาห์ละ',
+                      value: formatStudyDuration(
+                        month.totalMinutes / math.max(1, weeks.length),
+                        compact: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _SummaryTile(
+                      label: 'เดือนที่เลือก',
+                      value: formatStudyDuration(
+                        month.totalMinutes,
+                        compact: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _SummaryTile(
+                      label: 'รวมเทอมนี้',
+                      value: formatStudyDuration(
+                        widget.dashboard.summary.totalTermMinutes,
+                        compact: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 7),
+              Text(
+                'รวมทั้งหมด $totalSessions ครั้งในเทอมนี้',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFFA1AAAE), fontSize: 8.5),
+              ),
+            ] else
+              const SizedBox(
+                height: 210,
+                child: Center(
+                  child: Text(
+                    'ยังไม่มีประวัติการทบทวนในเดือนนี้',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Color(0xFF91A0A6), fontSize: 10.5),
+                  ),
+                ),
+              ),
+          ],
         ],
       ),
     );
   }
+}
+
+List<MonthlyStudyWeek> _displayedWeeks(
+  MonthlyStudyHistory month,
+  List<StudyWeek> dashboardWeeks,
+) {
+  final parts = month.monthKey.split('-');
+  final year = int.tryParse(parts.firstOrNull ?? '');
+  final monthNumber = int.tryParse(parts.length > 1 ? parts[1] : '');
+  if (year == null || monthNumber == null) return month.weeks;
+
+  final now = DateTime.now();
+  final isCurrentMonth = now.year == year && now.month == monthNumber;
+  final daysToDisplay = isCurrentMonth
+      ? now.day
+      : DateTime(year, monthNumber + 1, 0).day;
+  final available = <int, MonthlyStudyWeek>{
+    for (final week in month.weeks) week.weekNumber: week,
+  };
+
+  if (available.isEmpty) {
+    for (final week in dashboardWeeks) {
+      final start = week.weekStart;
+      if (start == null || start.year != year || start.month != monthNumber) {
+        continue;
+      }
+      final weekNumber = ((start.day - 1) ~/ 7) + 1;
+      available[weekNumber] = MonthlyStudyWeek(
+        weekNumber: weekNumber,
+        totalMinutes: week.totalMinutes,
+        sessionCount: 0,
+      );
+    }
+  }
+
+  final greatestWeek = available.keys.fold<int>(1, math.max);
+  final lastWeek = math.max((daysToDisplay / 7).ceil(), greatestWeek);
+  return List.generate(
+    lastWeek,
+    (index) =>
+        available[index + 1] ??
+        MonthlyStudyWeek(
+          weekNumber: index + 1,
+          totalMinutes: 0,
+          sessionCount: 0,
+        ),
+  );
 }
 
 class _HistoryHeader extends StatelessWidget {
@@ -79,7 +233,7 @@ class _HistoryHeader extends StatelessWidget {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'ประวัติการทบทวน',
+                  'ประวัติการทบทวน / เทอม',
                   style: TextStyle(
                     color: Color(0xFF4E4350),
                     fontSize: 18,
@@ -91,16 +245,293 @@ class _HistoryHeader extends StatelessWidget {
           ),
           DecoratedBox(
             decoration: BoxDecoration(
-              color: Color(0xFFF5EDF1),
+              color: Color(0xFFEAF6FC),
               shape: BoxShape.circle,
             ),
             child: Padding(
               padding: EdgeInsets.all(9),
               child: Icon(
-                Icons.menu_book_rounded,
-                color: Color(0xFFB2788C),
-                size: 21,
+                Icons.access_time_rounded,
+                color: Color(0xFF79B6D8),
+                size: 19,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthChip extends StatelessWidget {
+  final MonthlyStudyHistory month;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _MonthChip({
+    required this.month,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? const Color(0xFFDFF2FB) : const Color(0xFFFBFDFE),
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: selected ? const Color(0xFF9CCCE2) : const Color(0xFFE1E8EB),
+        ),
+      ),
+      child: InkWell(
+        key: Key('history-month-${month.monthKey}'),
+        onTap: onTap,
+        customBorder: const StadiumBorder(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+          child: Text(
+            formatThaiMonth(month.monthKey),
+            style: TextStyle(
+              color: selected
+                  ? const Color(0xFF4F8199)
+                  : const Color(0xFF84949C),
+              fontSize: 9.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WeeklyHistoryChart extends StatelessWidget {
+  final List<MonthlyStudyWeek> weeks;
+
+  const _WeeklyHistoryChart({required this.weeks});
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = _ChartScale.fromWeeks(weeks);
+    return Container(
+      key: const Key('study-history-chart'),
+      padding: const EdgeInsets.fromLTRB(8, 13, 8, 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFEFD),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E7EA)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14564A43),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'ชั่วโมงอ่านต่อสัปดาห์',
+            style: TextStyle(color: Color(0xFF655D60), fontSize: 12),
+          ),
+          const SizedBox(height: 11),
+          SizedBox(
+            height: 192,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 25,
+                  height: 172,
+                  child: Stack(
+                    children: [
+                      for (final tick in scale.ticks)
+                        Positioned(
+                          right: 4,
+                          bottom: (tick / scale.maximum) * 164,
+                          child: Text(
+                            _formatAxisHours(tick),
+                            style: const TextStyle(
+                              color: Color(0xFF92999D),
+                              fontSize: 8,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 172,
+                        child: Stack(
+                          children: [
+                            for (final tick in scale.ticks)
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: (tick / scale.maximum) * 164 + 4,
+                                child: const Divider(
+                                  height: 1,
+                                  thickness: 1,
+                                  color: Color(0xFFD9DFE2),
+                                ),
+                              ),
+                            Positioned.fill(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  for (final week in weeks)
+                                    Expanded(
+                                      child: _HistoryWeekBar(
+                                        week: week,
+                                        maximumHours: scale.maximum,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          for (final week in weeks)
+                            Expanded(
+                              child: Text(
+                                'Week ${week.weekNumber}',
+                                maxLines: 1,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Color(0xFF92999D),
+                                  fontSize: 7.5,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistoryWeekBar extends StatelessWidget {
+  final MonthlyStudyWeek week;
+  final double maximumHours;
+
+  const _HistoryWeekBar({required this.week, required this.maximumHours});
+
+  @override
+  Widget build(BuildContext context) {
+    final hours = week.totalMinutes / 60;
+    final ratio = maximumHours == 0
+        ? 0.0
+        : (hours / maximumHours).clamp(0.0, 1.0).toDouble();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: FractionallySizedBox(
+          heightFactor: week.totalMinutes > 0 ? math.max(0.03, ratio) : 0.012,
+          child: Container(
+            key: Key('history-week-${week.weekNumber}'),
+            constraints: const BoxConstraints(maxWidth: 48),
+            decoration: BoxDecoration(
+              color: week.totalMinutes > 0
+                  ? const Color(0xFFB8DFF1)
+                  : const Color(0xFFEDF2F4),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(14),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChartScale {
+  final double maximum;
+  final List<double> ticks;
+
+  const _ChartScale({required this.maximum, required this.ticks});
+
+  factory _ChartScale.fromWeeks(List<MonthlyStudyWeek> weeks) {
+    final maximumHours = weeks.fold<double>(
+      0,
+      (maximum, week) => math.max(maximum, week.totalMinutes / 60),
+    );
+    if (maximumHours == 0) {
+      return const _ChartScale(maximum: 1, ticks: [0, 0.25, 0.5, 0.75, 1]);
+    }
+    final roughStep = maximumHours / 4;
+    final magnitude = math.pow(10, (math.log(roughStep) / math.ln10).floor());
+    final normalized = roughStep / magnitude;
+    final niceStep = normalized <= 1
+        ? 1
+        : normalized <= 2
+        ? 2
+        : normalized <= 5
+        ? 5
+        : 10;
+    final step = niceStep * magnitude;
+    final maximum = step * (maximumHours / step).ceil();
+    final tickCount = (maximum / step).round();
+    return _ChartScale(
+      maximum: maximum.toDouble(),
+      ticks: List.generate(tickCount + 1, (index) => (index * step).toDouble()),
+    );
+  }
+}
+
+String _formatAxisHours(double hours) {
+  return hours == hours.roundToDouble()
+      ? hours.toInt().toString()
+      : hours.toStringAsFixed(1);
+}
+
+class _SummaryTile extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _SummaryTile({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FBFC),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Color(0xFF929DA2), fontSize: 8),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.fade,
+            softWrap: false,
+            style: const TextStyle(
+              color: Color(0xFF607E8C),
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -114,183 +545,35 @@ class _EmptyHistory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 30, horizontal: 18),
-      child: Column(
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: Color(0xFFEDF7FC),
-              shape: BoxShape.circle,
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(13),
-              child: Icon(
-                Icons.history_rounded,
-                color: Color(0xFF85BDDB),
-                size: 27,
-              ),
-            ),
-          ),
-          SizedBox(height: 11),
-          Text(
-            'ยังไม่มีประวัติการทบทวน',
-            style: TextStyle(
-              fontSize: 13,
-              color: Color(0xFF6D6065),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          SizedBox(height: 4),
-          Text(
-            'เมื่อจับเวลาเสร็จแล้ว สรุปรายวิชาในแต่ละเดือนจะแสดงที่นี่',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 10,
-              height: 1.45,
-              color: Color(0xFFA3979B),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HistoryMonth extends StatelessWidget {
-  final MonthlyStudyHistory month;
-
-  const _HistoryMonth({required this.month});
-
-  @override
-  Widget build(BuildContext context) {
-    final maximum = month.subjects.fold<double>(
-      1,
-      (value, item) => math.max(value, item.totalMinutes),
-    );
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFE4F4FC), Color(0xFFEDF8FB), Color(0xFFF5EDF2)],
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
+    return const SizedBox(
+      height: 250,
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: Text(
-                  formatThaiMonth(month.monthKey),
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: Color(0xFF4F7890),
-                    fontWeight: FontWeight.w600,
-                  ),
+              Text(
+                'ยังไม่มีประวัติการทบทวน',
+                style: TextStyle(
+                  color: Color(0xFF6D6065),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(width: 5),
-              Flexible(
-                child: Text(
-                  '${formatStudyDuration(month.totalMinutes, compact: true)}'
-                  ' · ${month.sessionCount} ครั้ง',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    color: Color(0xFF668DA4),
-                    fontWeight: FontWeight.w600,
-                  ),
+              SizedBox(height: 4),
+              Text(
+                'เมื่อจับเวลาเสร็จแล้ว ระบบจะแสดงชั่วโมงทบทวนแยกเป็นรายสัปดาห์',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFFA3979B),
+                  fontSize: 10.5,
+                  height: 1.45,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
-        for (var index = 0; index < month.subjects.length; index++) ...[
-          _SubjectHistoryCard(
-            subject: month.subjects[index],
-            maximumMinutes: maximum,
-          ),
-          if (index != month.subjects.length - 1) const SizedBox(height: 8),
-        ],
-      ],
-    );
-  }
-}
-
-class _SubjectHistoryCard extends StatelessWidget {
-  final SubjectStudyHistory subject;
-  final double maximumMinutes;
-
-  const _SubjectHistoryCard({
-    required this.subject,
-    required this.maximumMinutes,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = (subject.totalMinutes / maximumMinutes).clamp(0.04, 1.0);
-    return Container(
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFDFB),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFF0E7E2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      subject.subjectName,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF594F53),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${subject.sessionCount} ครั้ง',
-                      style: const TextStyle(
-                        fontSize: 9,
-                        color: Color(0xFFA09297),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                formatStudyDuration(subject.totalMinutes, compact: true),
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFF6A8FA4),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 6,
-              backgroundColor: const Color(0xFFEFEAE7),
-              valueColor: const AlwaysStoppedAnimation(Color(0xFF8FC8EA)),
-            ),
-          ),
-        ],
       ),
     );
   }

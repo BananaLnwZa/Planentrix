@@ -9,18 +9,20 @@ import '../../../interfaces/homework.interface.dart';
 Future<CreateHomeworkInput?> showAddHomeworkPopup(
   BuildContext context, {
   required List<HomeworkSubject> subjects,
+  required List<HomeworkTypeOption> types,
 }) {
   return showDialog<CreateHomeworkInput>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.28),
-    builder: (_) => _AddHomeworkPopup(subjects: subjects),
+    builder: (_) => _AddHomeworkPopup(subjects: subjects, types: types),
   );
 }
 
 class _AddHomeworkPopup extends StatefulWidget {
   final List<HomeworkSubject> subjects;
+  final List<HomeworkTypeOption> types;
 
-  const _AddHomeworkPopup({required this.subjects});
+  const _AddHomeworkPopup({required this.subjects, required this.types});
 
   @override
   State<_AddHomeworkPopup> createState() => _AddHomeworkPopupState();
@@ -133,24 +135,23 @@ class _AddHomeworkPopupState extends State<_AddHomeworkPopup> {
                   ),
                   Expanded(
                     child: Wrap(
-                      spacing: 5,
-                      runSpacing: 8,
+                      spacing: 4,
+                      runSpacing: 6,
                       children: [
                         for (
                           var index = 0;
-                          index < homeworkTypeOptions.length;
+                          index < widget.types.length;
                           index++
                         )
                           _HomeworkTypeChoice(
-                            option: homeworkTypeOptions[index],
+                            option: widget.types[index],
                             palette: workloadTypePalette(
-                              homeworkTypeOptions[index].name,
+                              widget.types[index].code,
                             ),
-                            selected:
-                                _type?.id == homeworkTypeOptions[index].id,
+                            selected: _type?.id == widget.types[index].id,
                             onSelected: () {
                               setState(() {
-                                _type = homeworkTypeOptions[index];
+                                _type = widget.types[index];
                                 _validationMessage = null;
                               });
                             },
@@ -292,7 +293,9 @@ class _HomeworkTypeChoiceState extends State<_HomeworkTypeChoice> {
 
   @override
   Widget build(BuildContext context) {
-    final emphasized = widget.selected || _hovered;
+    final backgroundColor = widget.selected
+        ? widget.palette.hover
+        : widget.palette.normal;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -300,24 +303,27 @@ class _HomeworkTypeChoiceState extends State<_HomeworkTypeChoice> {
       child: InkWell(
         key: Key('homework-type-${widget.option.id}'),
         onTap: widget.onSelected,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         hoverColor: Colors.transparent,
         splashColor: Colors.white.withValues(alpha: 0.18),
         child: AnimatedContainer(
           key: Key('homework-type-surface-${widget.option.id}'),
           duration: const Duration(milliseconds: 140),
-          constraints: const BoxConstraints(minWidth: 76),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          transform: Matrix4.translationValues(
+            0,
+            _hovered && !widget.selected ? -2 : 0,
+            0,
+          ),
+          transformAlignment: Alignment.center,
+          constraints: const BoxConstraints(minWidth: 70),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: emphasized ? widget.palette.hover : widget.palette.normal,
-            borderRadius: BorderRadius.circular(18),
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(999),
             border: Border.all(
               color: widget.selected
                   ? const Color(0xFF527383)
-                  : _hovered
-                  ? Colors.white.withValues(alpha: 0.5)
-                  : Colors.black.withValues(alpha: 0.3),
-              width: widget.selected ? 1.5 : 1,
+                  : Colors.black.withValues(alpha: 0.25),
             ),
             boxShadow: widget.selected
                 ? const [
@@ -330,9 +336,11 @@ class _HomeworkTypeChoiceState extends State<_HomeworkTypeChoice> {
                 : null,
           ),
           child: Text(
-            workloadTypeLabel(widget.option.id, widget.option.name),
+            workloadTypeCodeLabel(widget.option.code),
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13, color: Color(0x99000000)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, color: Color(0x99000000)),
           ),
         ),
       ),

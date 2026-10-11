@@ -1,7 +1,5 @@
 // ignore_for_file: file_names
 
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../../interfaces/time.interface.dart';
@@ -23,18 +21,64 @@ class StudyStatistics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final grouped = <String, WeeklyReviewTarget>{};
+    for (final item in recommendations) {
+      final existing = grouped[item.subjectId];
+      if (existing == null) {
+        grouped[item.subjectId] = item;
+        continue;
+      }
+      final useNewWeakness =
+          (item.scorePercentage ?? 100) < (existing.scorePercentage ?? 100);
+      grouped[item.subjectId] = WeeklyReviewTarget(
+        subjectId: item.subjectId,
+        subjectName: item.subjectName,
+        detail: useNewWeakness ? item.detail : existing.detail,
+        targetMinutes:
+            (existing.targetMinutes ?? 0) + (item.targetMinutes ?? 0),
+        scorePercentage: useNewWeakness
+            ? item.scorePercentage
+            : existing.scorePercentage,
+      );
+    }
+    final progressItems = grouped.values.toList();
+    final weeklyMinutes = <String, double>{
+      for (final item in dashboard.weeklySubjects)
+        item.subjectId: item.totalMinutes,
+    };
+    final weekStart = dashboard.weeks.isEmpty
+        ? null
+        : dashboard.weeks.last.weekStart;
+    final activeIsThisWeek =
+        activeSession != null &&
+        weekStart != null &&
+        activeSession!.startTime != null &&
+        !activeSession!.startTime!.isBefore(weekStart);
+    final recommendedMinutes = progressItems.fold<double>(0, (sum, item) {
+      final liveMinutes =
+          activeIsThisWeek && activeSession?.subjectId == item.subjectId
+          ? elapsedSeconds / 60
+          : 0;
+      return sum + (weeklyMinutes[item.subjectId] ?? 0) + liveMinutes;
+    });
+
     return Container(
       key: const Key('study-statistics'),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      constraints: const BoxConstraints(minHeight: 380),
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 15),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.white, Color(0xFFF8FCFF), Color(0xFFEEF7FB)],
+        ),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFD8E2E7)),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x294E443D),
-            blurRadius: 10,
-            offset: Offset(0, 4),
+            color: Color(0x1A574135),
+            blurRadius: 20,
+            offset: Offset(0, 9),
           ),
         ],
       ),
@@ -44,193 +88,56 @@ class StudyStatistics extends StatelessWidget {
           const _StatisticsHeader(),
           const SizedBox(height: 12),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text(
-                'สัปดาห์นี้ :',
-                style: TextStyle(fontSize: 12, color: Color(0xFF776E71)),
-              ),
-              const SizedBox(width: 7),
               Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: _DurationPill(
-                    value: formatStudyDuration(
-                      dashboard.summary.currentWeekMinutes,
-                      compact: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'เวลาทบทวนสัปดาห์นี้',
+                      style: TextStyle(color: Color(0xFF8C9BA1), fontSize: 9.5),
                     ),
-                  ),
+                    const SizedBox(height: 3),
+                    Text(
+                      formatStudyDuration(recommendedMinutes, compact: true),
+                      style: const TextStyle(
+                        color: Color(0xFF568BA9),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-          if (recommendations.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Progress แยกตามวิชาที่แนะนำ',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF6D6065),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(height: 7),
-            for (var index = 0; index < recommendations.length; index++) ...[
-              _RecommendedSubjectProgress(
-                target: recommendations[index],
-                dashboard: dashboard,
-                activeSession: activeSession,
-                elapsedSeconds: elapsedSeconds,
-              ),
-              if (index != recommendations.length - 1)
-                const SizedBox(height: 7),
-            ],
-          ] else ...[
-            const SizedBox(height: 9),
-            const Text(
-              'ยังไม่มีวิชาที่ระบบแนะนำ',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 9.5, color: Color(0xFFA3979B)),
-            ),
-          ],
-          const SizedBox(height: 11),
-          _WeeklyChart(weeks: dashboard.weeks),
-          const SizedBox(height: 10),
-          _SummaryRow(
-            icon: Icons.calendar_today_outlined,
-            label: 'เฉลี่ย/สัปดาห์',
-            value: formatStudyDuration(
-              dashboard.summary.averageWeeklyMinutes,
-              compact: true,
-            ),
-          ),
-          const SizedBox(height: 6),
-          _SummaryRow(
-            icon: Icons.calendar_month_outlined,
-            label: 'เฉลี่ย/เดือน',
-            value: formatStudyDuration(
-              dashboard.summary.averageMonthlyMinutes,
-              compact: true,
-            ),
-          ),
-          const SizedBox(height: 6),
-          _SummaryRow(
-            icon: Icons.auto_awesome_outlined,
-            label: 'รวมเทอมนี้',
-            value: formatStudyDuration(
-              dashboard.summary.totalTermMinutes,
-              compact: true,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecommendedSubjectProgress extends StatelessWidget {
-  final WeeklyReviewTarget target;
-  final StudyDashboard dashboard;
-  final StudySession? activeSession;
-  final int elapsedSeconds;
-
-  const _RecommendedSubjectProgress({
-    required this.target,
-    required this.dashboard,
-    required this.activeSession,
-    required this.elapsedSeconds,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final recordedMinutes = dashboard.weeklySubjects
-        .where((item) => item.subjectId == target.subjectId)
-        .fold<double>(0, (sum, item) => sum + item.totalMinutes);
-    final lastWeekStart = dashboard.weeks.isEmpty
-        ? null
-        : dashboard.weeks.last.weekStart;
-    final active = activeSession;
-    final countsLiveSession = active != null &&
-        active.subjectId == target.subjectId &&
-        active.startTime != null &&
-        lastWeekStart != null &&
-        !active.startTime!.isBefore(lastWeekStart);
-    final actualMinutes = recordedMinutes +
-        (countsLiveSession ? elapsedSeconds / 60 : 0);
-    final targetMinutes = target.targetMinutes;
-    final durationLabel = formatStudyDuration(actualMinutes, compact: true);
-    final targetLabel = targetMinutes == null
-        ? ''
-        : ' / ${formatStudyDuration(targetMinutes.toDouble(), compact: true)}';
-    final progress = targetMinutes != null && targetMinutes > 0
-        ? (actualMinutes / targetMinutes).clamp(0.0, 1.0).toDouble()
-        : 0.0;
-
-    return Container(
-      key: Key('weekly-review-${target.subjectId}'),
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFBFDFF),
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: const Color(0xFFE3EAEE)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  target.subjectName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              if (progressItems.isNotEmpty)
+                Text(
+                  '${progressItems.length} วิชาที่แนะนำ',
                   style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF4E6570),
-                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF8C9BA1),
+                    fontSize: 9.5,
                   ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '$durationLabel$targetLabel',
-                style: const TextStyle(
-                  fontSize: 8.5,
-                  color: Color(0xFF668DA4),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
             ],
           ),
-          const SizedBox(height: 3),
-          Text(
-            target.scorePercentage == null
-                ? target.detail
-                : '${target.detail} · คะแนน ${target.scorePercentage!.round()}%',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 8, color: Color(0xFF91A0A6)),
-          ),
-          const SizedBox(height: 7),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(5),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 5,
-              backgroundColor: const Color(0xFFE8E9E9),
-              valueColor: const AlwaysStoppedAnimation(Color(0xFFE4869F)),
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            targetMinutes == null
-                ? 'แนะนำจากผลสอบ · ยังไม่มีเป้าหมายเวลา'
-                : '${(progress * 100).round()}% ของเป้าหมายรายสัปดาห์',
-            textAlign: TextAlign.right,
-            style: const TextStyle(fontSize: 8, color: Color(0xFFA2AEB2)),
-          ),
+          const SizedBox(height: 12),
+          if (progressItems.isEmpty)
+            const SizedBox(height: 230, child: _EmptyProgress())
+          else
+            for (var index = 0; index < progressItems.length; index++) ...[
+              _RecommendedSubjectProgress(
+                target: progressItems[index],
+                recordedMinutes:
+                    weeklyMinutes[progressItems[index].subjectId] ?? 0,
+                liveMinutes:
+                    activeIsThisWeek &&
+                        activeSession?.subjectId ==
+                            progressItems[index].subjectId
+                    ? elapsedSeconds / 60
+                    : 0,
+              ),
+              if (index < progressItems.length - 1) const SizedBox(height: 8),
+            ],
         ],
       ),
     );
@@ -254,7 +161,7 @@ class _StatisticsHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'STUDY STATISTICS',
+                  'WEEKLY PROGRESS',
                   style: TextStyle(
                     color: Color(0xFFA77B8A),
                     fontSize: 9,
@@ -264,7 +171,7 @@ class _StatisticsHeader extends StatelessWidget {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'สถิติการทบทวน',
+                  'Progress / สัปดาห์',
                   style: TextStyle(
                     color: Color(0xFF4E4350),
                     fontSize: 18,
@@ -282,9 +189,9 @@ class _StatisticsHeader extends StatelessWidget {
             child: Padding(
               padding: EdgeInsets.all(9),
               child: Icon(
-                Icons.bar_chart_rounded,
+                Icons.speed_rounded,
                 color: Color(0xFF79B6D8),
-                size: 21,
+                size: 20,
               ),
             ),
           ),
@@ -294,66 +201,94 @@ class _StatisticsHeader extends StatelessWidget {
   }
 }
 
-class _WeeklyChart extends StatelessWidget {
-  final List<StudyWeek> weeks;
+class _RecommendedSubjectProgress extends StatelessWidget {
+  final WeeklyReviewTarget target;
+  final double recordedMinutes;
+  final double liveMinutes;
 
-  const _WeeklyChart({required this.weeks});
+  const _RecommendedSubjectProgress({
+    required this.target,
+    required this.recordedMinutes,
+    required this.liveMinutes,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final visibleWeeks = weeks.length > 12
-        ? weeks.sublist(weeks.length - 12)
-        : weeks;
-    final maxMinutes = math.max(
-      60.0,
-      visibleWeeks.fold<double>(
-        0,
-        (maximum, week) => math.max(maximum, week.totalMinutes),
-      ),
-    );
+    final actualMinutes = recordedMinutes + liveMinutes;
+    final targetMinutes = target.targetMinutes ?? 0;
+    final progress = targetMinutes > 0
+        ? (actualMinutes / targetMinutes).clamp(0.0, 1.0).toDouble()
+        : 0.0;
+    final percentage = (progress * 100).round();
+
     return Container(
-      height: 166,
-      padding: const EdgeInsets.fromLTRB(10, 12, 10, 8),
+      key: Key('weekly-review-${target.subjectId}'),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: const Color(0xFFE4E1DF)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14564A43),
-            blurRadius: 6,
-            offset: Offset(0, 2),
-          ),
-        ],
+        color: Colors.white.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFDCE8ED)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'ชั่วโมงทบทวนต่อสัปดาห์',
-            style: TextStyle(fontSize: 12, color: Color(0xFF82777B)),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: visibleWeeks.isEmpty
-                ? const Center(
-                    child: Text(
-                      'ยังไม่มีข้อมูล',
-                      style: TextStyle(fontSize: 10, color: Color(0xFFA3979B)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      target.subjectName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF4E6570),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  )
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      for (var index = 0; index < visibleWeeks.length; index++)
-                        Expanded(
-                          child: _WeekBar(
-                            week: visibleWeeks[index],
-                            maxMinutes: maxMinutes,
-                            isCurrent: index == visibleWeeks.length - 1,
-                          ),
-                        ),
-                    ],
-                  ),
+                    const SizedBox(height: 2),
+                    Text(
+                      target.scorePercentage == null
+                          ? target.detail
+                          : '${target.detail} · คะแนน ${target.scorePercentage!.round()}%',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF91A0A6),
+                        fontSize: 9.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                targetMinutes > 0
+                    ? '${formatStudyDuration(actualMinutes, compact: true)} / ${formatStudyDuration(targetMinutes.toDouble(), compact: true)}'
+                    : formatStudyDuration(actualMinutes, compact: true),
+                style: const TextStyle(
+                  color: Color(0xFF668DA4),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          _MilestoneProgress(
+            progress: progress,
+            reachedGoal: percentage >= 100,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            targetMinutes > 0
+                ? '$percentage% ของเป้าหมายรายสัปดาห์'
+                : 'ยังไม่มีเป้าหมายเวลารายสัปดาห์',
+            textAlign: TextAlign.right,
+            style: const TextStyle(color: Color(0xFFA2AEB2), fontSize: 8.5),
           ),
         ],
       ),
@@ -361,122 +296,121 @@ class _WeeklyChart extends StatelessWidget {
   }
 }
 
-class _WeekBar extends StatelessWidget {
-  final StudyWeek week;
-  final double maxMinutes;
-  final bool isCurrent;
+class _MilestoneProgress extends StatelessWidget {
+  final double progress;
+  final bool reachedGoal;
 
-  const _WeekBar({
-    required this.week,
-    required this.maxMinutes,
-    required this.isCurrent,
-  });
+  const _MilestoneProgress({required this.progress, required this.reachedGoal});
 
   @override
   Widget build(BuildContext context) {
-    final ratio = (week.totalMinutes / maxMinutes).clamp(0.04, 1.0);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Expanded(
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: FractionallySizedBox(
-                heightFactor: ratio,
+    return SizedBox(
+      height: 20,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const dotSize = 12.0;
+          final trackWidth = constraints.maxWidth - dotSize;
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: dotSize / 2,
+                right: dotSize / 2,
+                top: 8,
                 child: Container(
-                  width: 21,
+                  height: 6,
                   decoration: BoxDecoration(
-                    color: isCurrent
-                        ? const Color(0xFF8CCBE9)
-                        : const Color(0xFFB8DEF1),
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(6),
-                    ),
+                    color: const Color(0xFFE8E9E9),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'W${week.weekNumber}',
-            maxLines: 1,
-            style: TextStyle(
-              fontSize: 8,
-              color: isCurrent
-                  ? const Color(0xFF4C8BB0)
-                  : const Color(0xFFA3979B),
-              fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
-            ),
-          ),
-        ],
+              Positioned(
+                left: dotSize / 2,
+                top: 8,
+                width: trackWidth * progress,
+                child: Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE4869F),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              ),
+              for (final milestone in const [0.0, 0.25, 0.5, 0.75, 1.0])
+                Positioned(
+                  left: trackWidth * milestone,
+                  top: 5,
+                  child: Container(
+                    width: dotSize,
+                    height: dotSize,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: progress >= milestone
+                          ? const Color(0xFF315F9B)
+                          : Colors.white,
+                      border: Border.all(
+                        width: 2,
+                        color: progress >= milestone
+                            ? const Color(0xFF315F9B)
+                            : const Color(0xFFB8C5CB),
+                      ),
+                      boxShadow: const [
+                        BoxShadow(color: Color(0x1F000000), blurRadius: 2),
+                      ],
+                    ),
+                  ),
+                ),
+              if (reachedGoal)
+                const Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Icon(
+                    Icons.flag_rounded,
+                    color: Color(0xFFA34D68),
+                    size: 13,
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-class _SummaryRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _SummaryRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+class _EmptyProgress extends StatelessWidget {
+  const _EmptyProgress();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFBFDFF),
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: const Color(0xFFE3EAEE)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 15, color: const Color(0xFF8EBBD2)),
-          const SizedBox(width: 5),
-          Expanded(
-            child: Text(
-              '$label :',
-              style: const TextStyle(fontSize: 10.5, color: Color(0xFF756B6F)),
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 22, vertical: 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.speed_rounded, color: Color(0xFF85BDDB), size: 32),
+            SizedBox(height: 8),
+            Text(
+              'ยังไม่มีวิชาที่ระบบแนะนำ',
+              style: TextStyle(
+                color: Color(0xFF6D6065),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          _DurationPill(value: value),
-        ],
-      ),
-    );
-  }
-}
-
-class _DurationPill extends StatelessWidget {
-  final String value;
-
-  const _DurationPill({required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFD9E5EA)),
-      ),
-      child: Text(
-        value,
-        maxLines: 1,
-        overflow: TextOverflow.fade,
-        softWrap: false,
-        style: const TextStyle(
-          fontSize: 9.5,
-          color: Color(0xFF56839B),
-          fontWeight: FontWeight.w600,
+            SizedBox(height: 4),
+            Text(
+              'ยอมรับแผนทบทวนรายสัปดาห์ หรือทำข้อสอบเพื่อรับคำแนะนำรายวิชา',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFFA3979B),
+                fontSize: 10.5,
+                height: 1.45,
+              ),
+            ),
+          ],
         ),
       ),
     );

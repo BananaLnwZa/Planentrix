@@ -162,7 +162,16 @@ class _HomeworkPageState extends State<HomeworkPage>
           'ยังไม่มีรายวิชาในเทอมปัจจุบัน กรุณาสร้างตารางเรียนก่อน',
         );
       }
-      final input = await showAddHomeworkPopup(context, subjects: subjects);
+      final types = await _repository.getTypes();
+      if (!mounted) return;
+      if (types.isEmpty) {
+        throw const HomeworkException('ยังไม่มีประเภทงานที่เปิดใช้งาน');
+      }
+      final input = await showAddHomeworkPopup(
+        context,
+        subjects: subjects,
+        types: types,
+      );
       if (input == null || !mounted) return;
       final created = await _repository.createHomework(input);
       await _scheduleReminder(created);

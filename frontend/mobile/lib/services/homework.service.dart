@@ -16,6 +16,7 @@ class HomeworkException implements Exception {
 abstract class HomeworkRepository {
   Future<HomeworkOverview> getHomeworkOverview();
   Future<List<HomeworkSubject>> getSubjects();
+  Future<List<HomeworkTypeOption>> getTypes();
   Future<HomeworkTaskData> createHomework(CreateHomeworkInput input);
   Future<HomeworkTaskData> updateHomework(
     HomeworkTaskData task,
@@ -112,6 +113,28 @@ class HomeworkService implements HomeworkRepository {
   }
 
   @override
+  Future<List<HomeworkTypeOption>> getTypes() async {
+    try {
+      final response = await _apiService.get('/user/workload/types');
+      final body = Map<String, dynamic>.from(response.data as Map);
+      final data = body['data'];
+      if (data is! List) return const [];
+      return data
+          .whereType<Map>()
+          .map(
+            (item) =>
+                HomeworkTypeOption.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .where((item) => item.id > 0 && item.code.isNotEmpty)
+          .toList();
+    } on DioException catch (error) {
+      throw _toHomeworkException(error, 'ไม่สามารถโหลดประเภทงานได้');
+    } on TypeError {
+      throw const HomeworkException('ข้อมูลประเภทงานจากระบบไม่ถูกต้อง');
+    }
+  }
+
+  @override
   Future<void> deleteHomework(int workloadId) async {
     try {
       await _apiService.delete('/user/workload/delete/$workloadId');
@@ -139,6 +162,9 @@ class HomeworkService implements HomeworkRepository {
         workloadId: _asInt(body['workload_id']),
         scheduleTimeId: input.subject.scheduleTimeId,
         workloadTypeId: input.type.id,
+        workloadTypeCode: '${body['workload_type_code'] ?? input.type.code}'
+            .trim()
+            .toLowerCase(),
         workloadTypeName: '${body['workload_type_name'] ?? input.type.name}',
         subjectId: input.subject.subjectId,
         subject: input.subject.subjectName,

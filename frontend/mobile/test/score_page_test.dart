@@ -34,7 +34,8 @@ class FakeScoreRepository implements ScoreRepository {
           workloadId: 1,
           workloadName: 'เขียนโค้ดหน้า login',
           workloadTypeId: 4,
-          workloadTypeName: 'quiz',
+          workloadTypeCode: 'quiz',
+          workloadTypeName: 'แบบทดสอบ',
           workloadStatus: 1,
           actualScore: 0,
           maxScore: 10,
@@ -43,7 +44,8 @@ class FakeScoreRepository implements ScoreRepository {
           workloadId: 2,
           workloadName: 'เขียนรายงาน',
           workloadTypeId: 5,
-          workloadTypeName: 'project',
+          workloadTypeCode: 'project',
+          workloadTypeName: 'โครงงาน',
           workloadStatus: 1,
           actualScore: 5,
           maxScore: 10,
@@ -52,7 +54,8 @@ class FakeScoreRepository implements ScoreRepository {
           workloadId: 3,
           workloadName: 'แบบฝึกหัด 1',
           workloadTypeId: 3,
-          workloadTypeName: 'assignment',
+          workloadTypeCode: 'assignment',
+          workloadTypeName: 'งานที่ได้รับมอบหมาย',
           workloadStatus: 1,
         ),
       ],
@@ -378,6 +381,15 @@ void main() {
       expect(find.byKey(const Key('subject-tabs')), findsOneWidget);
       expect(find.byKey(const Key('subject-score-card')), findsOneWidget);
       expect(find.byKey(const Key('workload-score-table')), findsOneWidget);
+      final subjectCardRect = tester.getRect(
+        find.byKey(const Key('subject-score-card')),
+      );
+      final scoreTableRect = tester.getRect(
+        find.byKey(const Key('workload-score-table')),
+      );
+      expect(scoreTableRect.left, greaterThanOrEqualTo(subjectCardRect.left));
+      expect(scoreTableRect.right, lessThanOrEqualTo(subjectCardRect.right));
+      expect(find.text('Assignment'), findsOneWidget);
       const expectedTypeColors = {
         1: Color(0xFFC5DBAA),
         2: Color(0xFFFA86A3),

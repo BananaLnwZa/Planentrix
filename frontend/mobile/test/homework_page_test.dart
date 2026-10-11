@@ -15,11 +15,18 @@ import 'package:mobile/pages/Score/Score.dart';
 import 'package:mobile/services/homework.service.dart';
 import 'package:mobile/services/score.service.dart';
 
+const sampleHomeworkTypes = [
+  HomeworkTypeOption(1, 'งานที่ได้รับมอบหมาย', code: 'assignment'),
+  HomeworkTypeOption(2, 'โครงงาน', code: 'project'),
+  HomeworkTypeOption(3, 'สอบกลางภาค', code: 'midterm'),
+];
+
 List<HomeworkTaskData> sampleTasks() => [
   HomeworkTaskData(
     workloadId: 1,
     scheduleTimeId: 11,
     workloadTypeId: 3,
+    workloadTypeCode: 'assignment',
     workloadTypeName: 'assignment',
     subjectId: 'CS101',
     subject: 'Numerical Method',
@@ -111,11 +118,15 @@ class FakeHomeworkRepository implements HomeworkRepository {
   ];
 
   @override
+  Future<List<HomeworkTypeOption>> getTypes() async => sampleHomeworkTypes;
+
+  @override
   Future<HomeworkTaskData> createHomework(CreateHomeworkInput input) async {
     final task = HomeworkTaskData(
       workloadId: 99,
       scheduleTimeId: input.subject.scheduleTimeId,
       workloadTypeId: input.type.id,
+      workloadTypeCode: input.type.code,
       workloadTypeName: input.type.name,
       subjectId: input.subject.subjectId,
       subject: input.subject.subjectName,
@@ -185,6 +196,9 @@ class SharedHomeworkScoreRepository
 
   @override
   Future<List<HomeworkSubject>> getSubjects() async => const [];
+
+  @override
+  Future<List<HomeworkTypeOption>> getTypes() async => const [];
 
   @override
   Future<HomeworkTaskData> createHomework(CreateHomeworkInput input) async =>
@@ -283,17 +297,16 @@ void main() {
     expect(task.dueDate, '04/05/26');
   });
 
-  test('homework types use the IDs defined by the backend database', () {
-    expect(
-      {for (final type in homeworkTypeOptions) type.name: type.id},
-      const {
-        'midterm': 1,
-        'final': 2,
-        'assignment': 3,
-        'quiz': 4,
-        'project': 5,
-      },
-    );
+  test('homework type keeps the ID and code returned by the backend', () {
+    final type = HomeworkTypeOption.fromJson(const {
+      'workload_type_id': 712,
+      'workload_type_code': 'QUIZ',
+      'workload_type_name': 'แบบทดสอบ',
+    });
+
+    expect(type.id, 712);
+    expect(type.code, 'quiz');
+    expect(type.name, 'แบบทดสอบ');
   });
 
   testWidgets('homework hides add action when there is no current term', (
@@ -682,30 +695,39 @@ void main() {
     expect(find.byKey(const Key('homework-name-field')), findsOneWidget);
     expect(find.byKey(const Key('homework-deadline-field')), findsOneWidget);
     expect(find.byKey(const Key('homework-note-field')), findsOneWidget);
-    for (final type in homeworkTypeOptions) {
+    for (final type in sampleHomeworkTypes) {
       expect(find.byKey(Key('homework-type-${type.id}')), findsOneWidget);
     }
 
     const normalColors = {
-      4: Color(0xFFC5DBAA),
-      2: Color(0xFFE6E6E6),
-      1: Color(0xFFB3F7EF),
-      5: Color(0xFFFA86A3),
-      3: Color(0xFFEECDF9),
+      1: Color(0xFFEECDF9),
+      2: Color(0xFFFA86A3),
+      3: Color(0xFFB3F7EF),
     };
     const hoverColors = {
-      4: Color(0xFFA5BE85),
-      2: Color(0xFFBDBDBD),
-      1: Color(0xFF74DBD0),
-      5: Color(0xFFD45A78),
-      3: Color(0xFFD19EE2),
+      1: Color(0xFFD19EE2),
+      2: Color(0xFFD45A78),
+      3: Color(0xFF74DBD0),
     };
     for (final entry in normalColors.entries) {
       final surface = tester.widget<AnimatedContainer>(
         find.byKey(Key('homework-type-surface-${entry.key}')),
       );
       expect((surface.decoration! as BoxDecoration).color, entry.value);
+      expect(
+        surface.constraints,
+        const BoxConstraints(minWidth: 70),
+      );
+      expect(
+        surface.padding,
+        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      );
     }
+
+    expect(
+      tester.getSize(find.byKey(const Key('homework-type-surface-1'))).height,
+      lessThanOrEqualTo(32),
+    );
 
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
@@ -717,7 +739,19 @@ void main() {
       final surface = tester.widget<AnimatedContainer>(
         find.byKey(Key('homework-type-surface-${entry.key}')),
       );
-      expect((surface.decoration! as BoxDecoration).color, entry.value);
+      expect(
+        (surface.decoration! as BoxDecoration).color,
+        normalColors[entry.key],
+      );
+      await tester.tap(find.byKey(Key('homework-type-${entry.key}')));
+      await tester.pumpAndSettle();
+      final selectedSurface = tester.widget<AnimatedContainer>(
+        find.byKey(Key('homework-type-surface-${entry.key}')),
+      );
+      expect(
+        (selectedSurface.decoration! as BoxDecoration).color,
+        entry.value,
+      );
     }
     await mouse.removePointer();
 

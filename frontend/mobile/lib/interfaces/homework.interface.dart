@@ -27,18 +27,22 @@ class HomeworkSubject {
 
 class HomeworkTypeOption {
   final int id;
+  final String code;
   final String name;
 
-  const HomeworkTypeOption(this.id, this.name);
-}
+  const HomeworkTypeOption(this.id, this.name, {String? code})
+    : code = code ?? name;
 
-const homeworkTypeOptions = [
-  HomeworkTypeOption(4, 'quiz'),
-  HomeworkTypeOption(2, 'final'),
-  HomeworkTypeOption(1, 'midterm'),
-  HomeworkTypeOption(5, 'project'),
-  HomeworkTypeOption(3, 'assignment'),
-];
+  factory HomeworkTypeOption.fromJson(Map<String, dynamic> json) {
+    final code = '${json['workload_type_code'] ?? ''}'.trim().toLowerCase();
+    final name = '${json['workload_type_name'] ?? code}'.trim();
+    return HomeworkTypeOption(
+      _asInt(json['workload_type_id']),
+      name.isEmpty ? code : name,
+      code: code,
+    );
+  }
+}
 
 class CreateHomeworkInput {
   final HomeworkSubject subject;
@@ -72,6 +76,7 @@ class HomeworkTaskData {
   final int workloadId;
   final int scheduleTimeId;
   final int workloadTypeId;
+  final String workloadTypeCode;
   final String workloadTypeName;
   final String subjectId;
   final String subject;
@@ -85,6 +90,7 @@ class HomeworkTaskData {
     required this.workloadId,
     required this.scheduleTimeId,
     required this.workloadTypeId,
+    this.workloadTypeCode = '',
     required this.workloadTypeName,
     required this.subjectId,
     required this.subject,
@@ -104,6 +110,9 @@ class HomeworkTaskData {
       workloadId: _asInt(json['workload_id']),
       scheduleTimeId: _asInt(json['schedule_time_id']),
       workloadTypeId: _asInt(json['workload_type_id']),
+      workloadTypeCode: '${json['workload_type_code'] ?? ''}'
+          .trim()
+          .toLowerCase(),
       workloadTypeName: '${json['workload_type_name'] ?? 'งาน'}',
       subjectId: '${json['subject_id'] ?? ''}',
       subject: '${json['subject_name'] ?? ''}',
@@ -125,6 +134,7 @@ class HomeworkTaskData {
       workloadId: workloadId,
       scheduleTimeId: scheduleTimeId,
       workloadTypeId: workloadTypeId,
+      workloadTypeCode: workloadTypeCode,
       workloadTypeName: workloadTypeName,
       subjectId: subjectId,
       subject: subject,

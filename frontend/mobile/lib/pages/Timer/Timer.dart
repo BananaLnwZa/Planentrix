@@ -9,11 +9,14 @@ import '../../common/NotebookSectionPage.dart';
 import '../../common/NotebookTabs.dart';
 import '../../interfaces/time.interface.dart';
 import '../../interfaces/exam.interface.dart' show ExamInsights;
-import '../../interfaces/recommendation.interface.dart' show AcceptedWeeklySchedule;
+import '../../interfaces/recommendation.interface.dart'
+    show AcceptedWeeklySchedule;
 import '../../services/exam.service.dart';
 import '../../services/recommendation.service.dart';
 import '../../services/time.service.dart';
 import 'Component/FinishSessionPopup.dart';
+import 'Component/ResetTimerPopup.dart';
+import 'Component/ReviewRecommendationCard.dart';
 import 'Component/SessionRecoveryPopup.dart';
 import 'Component/StudyHistory.dart';
 import 'Component/StudyStatistics.dart';
@@ -152,8 +155,7 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
     ExamInsights? insights,
   ) {
     final planned = <String, WeeklyReviewTarget>{};
-    for (final item
-        in schedule?.acceptedRecommendation?.items ?? const []) {
+    for (final item in schedule?.acceptedRecommendation?.items ?? const []) {
       if (item.scheduleTypeId != 2 || item.targetMinutes <= 0) continue;
       final existing = planned[item.subjectId];
       planned[item.subjectId] = WeeklyReviewTarget(
@@ -181,8 +183,9 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
     }
     final targets = weakSubjects.values.toList()
       ..sort(
-        (left, right) =>
-            (left.scorePercentage ?? 100).compareTo(right.scorePercentage ?? 100),
+        (left, right) => (left.scorePercentage ?? 100).compareTo(
+          right.scorePercentage ?? 100,
+        ),
       );
     return targets;
   }
@@ -401,6 +404,36 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _requestReset() async {
+    final session = _activeSession;
+    if (_busy || session == null) return;
+    final confirmed = await showResetTimerPopup(
+      context,
+      elapsedSeconds: _elapsedSeconds,
+    );
+    if (!mounted || !confirmed) return;
+
+    setState(() {
+      _busy = true;
+      _actionError = null;
+    });
+    try {
+      await _repository.recoverSession(
+        session.studyTimeId,
+        session.version,
+        'cancel',
+      );
+      if (!mounted) return;
+      _applySession(null);
+      setState(() => _selectedScheduleId = null);
+      await _refreshDashboard();
+    } catch (error) {
+      if (mounted) _handleActionException(error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _refreshDashboard() async {
     try {
       final dashboard = await _repository.getDashboard();
@@ -574,6 +607,19 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
           onPause: _pauseSession,
           onResume: _resumeSession,
           onFinish: _requestFinish,
+          onReset: _requestReset,
+        ),
+        const SizedBox(height: 14),
+        ReviewRecommendationCard(
+          items: _reviewTargets,
+          onSelectSubject: (subjectId) {
+            final subject = _setup!.subjects
+                .where((item) => item.subjectId == subjectId)
+                .firstOrNull;
+            if (subject != null) {
+              setState(() => _selectedScheduleId = subject.scheduleTimeId);
+            }
+          },
         ),
         if (_actionError != null) ...[
           const SizedBox(height: 9),
@@ -592,14 +638,14 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
           ),
         ],
         const SizedBox(height: 14),
+        StudyHistory(dashboard: _dashboard!),
+        const SizedBox(height: 14),
         StudyStatistics(
           dashboard: _dashboard!,
           recommendations: _reviewTargets,
           activeSession: _activeSession,
           elapsedSeconds: _elapsedSeconds,
         ),
-        const SizedBox(height: 14),
-        StudyHistory(dashboard: _dashboard!),
         const SizedBox(height: 20),
       ],
     );

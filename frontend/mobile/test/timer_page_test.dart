@@ -55,9 +55,17 @@ class FakeTimeRepository implements TimeRepository {
       averageMonthlyMinutes: 300,
       totalTermMinutes: 420,
     ),
-    weeks: const [
-      StudyWeek(weekNumber: 1, totalMinutes: 60),
-      StudyWeek(weekNumber: 2, totalMinutes: 90),
+    weeks: [
+      StudyWeek(
+        weekNumber: 1,
+        weekStart: DateTime(2026, 8, 1),
+        totalMinutes: 60,
+      ),
+      StudyWeek(
+        weekNumber: 2,
+        weekStart: DateTime(2026, 8, 8),
+        totalMinutes: 90,
+      ),
     ],
     weeklySubjects: const [
       WeeklySubjectStudy(
@@ -71,6 +79,10 @@ class FakeTimeRepository implements TimeRepository {
         monthKey: '2026-08',
         totalMinutes: 90,
         sessionCount: 2,
+        weeks: [
+          MonthlyStudyWeek(weekNumber: 1, totalMinutes: 60, sessionCount: 1),
+          MonthlyStudyWeek(weekNumber: 2, totalMinutes: 30, sessionCount: 1),
+        ],
         subjects: [
           SubjectStudyHistory(
             subjectId: 'BI101',
@@ -206,13 +218,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('timer-panel')), findsOneWidget);
+    expect(find.byKey(const Key('review-recommendation-card')), findsOneWidget);
     expect(find.byKey(const Key('study-statistics')), findsOneWidget);
     expect(find.byKey(const Key('study-history')), findsOneWidget);
+    expect(find.byKey(const Key('study-history-chart')), findsOneWidget);
     expect(find.text('Business Intelligence'), findsWidgets);
     expect(find.text('08/26'), findsOneWidget);
-    expect(find.text('Progress แยกตามวิชาที่แนะนำ'), findsOneWidget);
+    expect(find.text('Progress / สัปดาห์'), findsOneWidget);
     expect(find.byKey(const Key('weekly-review-BI101')), findsOneWidget);
-    expect(find.text('00 ชม. 30 นาที'), findsOneWidget);
+    expect(find.text('00 ชม. 30 นาที'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
@@ -256,6 +270,40 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.lastAction, 'finish');
+    expect(find.byKey(const Key('timer-start-button')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('user can reset an active study session without saving it', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+    final repository = FakeTimeRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimerPage(
+          repository: repository,
+          weeklyScheduleLoader: () async => null,
+          examInsightsLoader: () async => null,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('timer-subject-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Business Intelligence').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('timer-start-button')));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.byKey(const Key('timer-reset-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('reset-timer-popup')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('reset-timer-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(repository.lastAction, 'cancel');
     expect(find.byKey(const Key('timer-start-button')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

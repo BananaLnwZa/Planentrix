@@ -216,21 +216,44 @@ class SubjectStudyHistory {
   }
 }
 
+class MonthlyStudyWeek {
+  final int weekNumber;
+  final double totalMinutes;
+  final int sessionCount;
+
+  const MonthlyStudyWeek({
+    required this.weekNumber,
+    required this.totalMinutes,
+    required this.sessionCount,
+  });
+
+  factory MonthlyStudyWeek.fromJson(Map<String, dynamic> json) {
+    return MonthlyStudyWeek(
+      weekNumber: _asInt(json['week_number']),
+      totalMinutes: _asDouble(json['total_minutes']),
+      sessionCount: _asInt(json['session_count']),
+    );
+  }
+}
+
 class MonthlyStudyHistory {
   final String monthKey;
   final double totalMinutes;
   final int sessionCount;
   final List<SubjectStudyHistory> subjects;
+  final List<MonthlyStudyWeek> weeks;
 
   const MonthlyStudyHistory({
     required this.monthKey,
     required this.totalMinutes,
     required this.sessionCount,
     this.subjects = const [],
+    this.weeks = const [],
   });
 
   factory MonthlyStudyHistory.fromJson(Map<String, dynamic> json) {
     final rawSubjects = json['subjects'];
+    final rawWeeks = json['weeks'];
     return MonthlyStudyHistory(
       monthKey: '${json['month_key'] ?? ''}',
       totalMinutes: _asDouble(json['total_minutes']),
@@ -240,6 +263,16 @@ class MonthlyStudyHistory {
                 .whereType<Map>()
                 .map(
                   (item) => SubjectStudyHistory.fromJson(
+                    Map<String, dynamic>.from(item),
+                  ),
+                )
+                .toList()
+          : const [],
+      weeks: rawWeeks is List
+          ? rawWeeks
+                .whereType<Map>()
+                .map(
+                  (item) => MonthlyStudyWeek.fromJson(
                     Map<String, dynamic>.from(item),
                   ),
                 )
