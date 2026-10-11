@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
-import { getExamWorkflowPhase } from "../services/term-workflow";
+import { getExamWorkflowPhase, voidPendingCheckpointsForExamFlow } from "../services/term-workflow";
 
 interface CurrentTermRow extends RowDataPacket {
   term_id: number;
@@ -571,6 +571,7 @@ export const getTermWorkflow = async (req: Request, res: Response) => {
 
     const midtermPhase = getExamWorkflowPhase(term, "midterm");
     const finalPhase = getExamWorkflowPhase(term, "final");
+    await voidPendingCheckpointsForExamFlow(userId);
     const phase = finalPhase !== "checkpoint"
       ? finalPhase
       : midtermPhase !== "checkpoint"
@@ -578,13 +579,41 @@ export const getTermWorkflow = async (req: Request, res: Response) => {
         : "normal";
     const [reminderRows] = await db.query<RowDataPacket[]>(
       `SELECT (student_term.midterm_followup_notified_at IS NULL
-          AND academic_term.midterm_end_date < CURDATE()) AS pending
+          AND academic_term.midterm_end_date < DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR)
+          AND (academic_term.final_start_date IS NULL OR
+            DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) <
+              DATE_SUB(academic_term.final_start_date, INTERVAL 7 DAY))) AS pending
        FROM student_terms student_term
        INNER JOIN academic_terms academic_term
          ON academic_term.academic_term_id = student_term.academic_term_id
        WHERE student_term.student_term_id = ? AND student_term.user_id = ?`,
       [term.term_id, userId],
     );
+    let initialFinalTestPending = false;
+    if (["midterm_post", "final_3w"].includes(phase)) {
+      const [initialRows] = await db.query<RowDataPacket[]>(
+        `SELECT EXISTS (
+           SELECT 1 FROM enrollments enrollment
+           INNER JOIN course_sections section ON section.section_id = enrollment.section_id
+           INNER JOIN section_instructors instructor ON instructor.section_id = section.section_id
+           INNER JOIN question_banks bank ON bank.subject_id = section.subject_id
+             AND bank.owner_instructor_id = instructor.instructor_id
+             AND bank.exam_period = 'final' AND bank.status = 'published'
+           WHERE enrollment.student_term_id = ? AND enrollment.status = 'enrolled'
+             AND section.status IN ('open', 'closed')
+             AND EXISTS (SELECT 1 FROM question question_item
+                         WHERE question_item.question_bank_id = bank.question_bank_id
+                           AND question_item.is_active = 1)
+             AND NOT EXISTS (
+               SELECT 1 FROM exam_attempts attempt
+               WHERE attempt.enrollment_id = enrollment.enrollment_id
+                 AND attempt.exam_period = 'final' AND attempt.status = 'submitted'
+             )
+         ) AS pending`,
+        [term.term_id],
+      );
+      initialFinalTestPending = Number(initialRows[0]?.pending ?? 0) === 1;
+    }
     let finalTargetReady = false;
     if (["final_2w", "final_1w", "final_exam", "final_post"].includes(finalPhase)) {
       const [targetRows] = await db.query<RowDataPacket[]>(
@@ -663,6 +692,7 @@ export const getTermWorkflow = async (req: Request, res: Response) => {
         final_target_ready: finalTargetReady,
         post_final: finalPhase === "final_post",
         midterm_followup_pending: Number(reminderRows[0]?.pending ?? 0) === 1,
+        initial_final_test_pending: initialFinalTestPending,
       },
     });
   } catch (error) {

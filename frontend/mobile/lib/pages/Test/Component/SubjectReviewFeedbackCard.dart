@@ -127,7 +127,9 @@ class _WeakTopicsSection extends StatelessWidget {
               children: [
                 for (var index = 0; index < topics.length; index++) ...[
                   Row(
-                    key: Key('weak-topic-${topics[index].examPartId}'),
+                    // One part can appear in multiple attempts, so its ID is
+                    // not unique among the displayed feedback rows.
+                    key: Key('weak-topic-${topics[index].examPartId}-$index'),
                     children: [
                       Container(
                         width: 21,

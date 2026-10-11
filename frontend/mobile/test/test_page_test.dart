@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:mobile/main.dart' as app;
 import 'package:mobile/interfaces/exam.interface.dart';
 import 'package:mobile/interfaces/term.interface.dart';
 import 'package:mobile/pages/Test/Test.dart';
+import 'package:mobile/pages/Test/Component/SubjectReviewFeedbackCard.dart';
 import 'package:mobile/services/exam.service.dart';
 import 'package:mobile/services/term.service.dart';
 
@@ -180,7 +182,8 @@ class FakeExamRepository implements ExamRepository {
     return ExamAttemptSession(
       attemptId: 501,
       remainingSeconds: remainingSeconds,
-      resumed: false,
+      resumed: submittedAnswers.isNotEmpty,
+      answers: List<ExamAnswer>.of(submittedAnswers),
       exam: exam,
     );
   }
@@ -239,6 +242,54 @@ void setPhoneSize(WidgetTester tester, [Size size = const Size(360, 640)]) {
 }
 
 void main() {
+  testWidgets('feedback renders repeated weak topics from the same part', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+    const repeatedPartTopics = [
+      WeakTopicInsight(
+        scheduleTimeId: 11,
+        examRepositoryId: 1,
+        examPartId: 7,
+        topicName: 'ครั้งล่าสุด',
+        subjectId: 'CS101',
+        subjectName: 'Numerical Method',
+        examName: 'Midterm',
+        actualScore: 20,
+        maximumScore: 100,
+        percentage: 20,
+      ),
+      WeakTopicInsight(
+        scheduleTimeId: 11,
+        examRepositoryId: 1,
+        examPartId: 7,
+        topicName: 'ครั้งก่อน',
+        subjectId: 'CS101',
+        subjectName: 'Numerical Method',
+        examName: 'Midterm',
+        actualScore: 40,
+        maximumScore: 100,
+        percentage: 40,
+      ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SubjectReviewFeedbackCard(
+            subjectId: 'CS101',
+            topics: repeatedPartTopics,
+            checkpoints: const [],
+            now: DateTime(2026, 10, 12),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('weak-topic-7-0')), findsOneWidget);
+    expect(find.byKey(const Key('weak-topic-7-1')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   test('exam summary names the subject and keeps the actual part name', () {
     final summary = ExamSummary.fromJson({
       'exam_repository_id': 1,
@@ -464,4 +515,96 @@ void main() {
     expect(find.byKey(const Key('exam-runner')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('leaving an unfinished exam and opening Main does not crash', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+    final repository = FakeExamRepository(remainingSeconds: null);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TestPage(repository: repository),
+        routes: {
+          '/main': (context) => Scaffold(
+            body: TextButton(
+              onPressed: () =>
+                  Navigator.of(context).pushReplacementNamed('/test'),
+              child: const Text('Open Test again'),
+            ),
+          ),
+          '/test': (_) => TestPage(repository: repository),
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('exam-card-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('start-exam-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('exam-runner')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('exam-choice-1002')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('pause-exam-button')), findsNothing);
+    await tester.tap(find.byKey(const Key('close-exam-modal-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('notebook-tab-main')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Open Test again'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    expect(repository.submitted, isFalse);
+
+    await tester.tap(find.text('Open Test again'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('exam-card-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('start-exam-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('exam-question-102')), findsOneWidget);
+    expect(repository.submittedAnswers.single.choiceId, 1002);
+    expect(repository.submitted, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'system back leaves an unfinished exam without a framework error',
+    (tester) async {
+      setPhoneSize(tester);
+      final repository = FakeExamRepository(remainingSeconds: null);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(context).pushNamed('/test'),
+                child: const Text('Open Test'),
+              ),
+            ),
+          ),
+          onGenerateRoute: (settings) => settings.name == '/test'
+              ? app.InstantMaterialPageRoute<void>(
+                  builder: (_) => TestPage(repository: repository),
+                  settings: settings,
+                )
+              : null,
+        ),
+      );
+      await tester.tap(find.text('Open Test'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('exam-card-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('start-exam-button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('exam-runner')), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Open Test'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      expect(repository.submitted, isFalse);
+    },
+  );
 }

@@ -14,11 +14,13 @@ import {
 import { selectAutomaticBalancedExamQuestions } from "../../services/exam-selection";
 import {
   checkpointWeeksFor,
+  nextCheckpointAppointment,
   parseSnapshotChoices,
   remainingSecondsFor,
   scoreSnapshotQuestions,
 } from "../services/exam-attempt.rules";
 import { safelyGenerateRecommendation } from "../services/recommendation.engine";
+import { voidPendingCheckpointsForExamFlow } from "../services/term-workflow";
 import type { ExamAttemptWorkflowPhase, ExamWorkflowPhase } from "../services/term-workflow";
 
 type UserRequest = Request & {
@@ -203,7 +205,7 @@ const ACCESSIBLE_EXAM_SQL = `SELECT
     WHERE checkpoint.enrollment_id = e.enrollment_id
       AND checkpoint.exam_period = qb.exam_period
       AND checkpoint.status = 'pending'
-      AND checkpoint.next_checkpoint_at <= NOW()
+      AND checkpoint.next_checkpoint_at <= DATE_ADD(UTC_TIMESTAMP(), INTERVAL 7 HOUR)
     ORDER BY checkpoint.next_checkpoint_at, checkpoint.exam_checkpoint_id
     LIMIT 1
   ) AS due_checkpoint_id,
@@ -460,7 +462,8 @@ const existingFinalizedAttempt = async (
           AND attempt_question.is_correct = 1) AS correct_answers,
        (SELECT COUNT(*) FROM exam_attempt_questions attempt_question
         WHERE attempt_question.exam_attempt_id = attempt.exam_attempt_id) AS total_questions,
-       checkpoint.next_checkpoint_at, checkpoint.interval_weeks
+       DATE_FORMAT(checkpoint.next_checkpoint_at, '%Y-%m-%dT%H:%i:%s+07:00') AS next_checkpoint_at,
+       checkpoint.interval_weeks
      FROM exam_attempts attempt
      INNER JOIN question_banks bank ON bank.question_bank_id = ?
      LEFT JOIN exam_checkpoints checkpoint
@@ -599,25 +602,31 @@ const finalizeAttempt = async (
   let nextCheckpointAt: Date | null = null;
   let checkpointIntervalWeeks = 0;
   if (weakTopicCount > 0 && attempt.workflow_phase === "checkpoint") {
-    checkpointIntervalWeeks = checkpointWeeksFor(percentage);
-    nextCheckpointAt = new Date();
-    nextCheckpointAt.setDate(
-      nextCheckpointAt.getDate() + checkpointIntervalWeeks * 7,
+    const [windowRows] = await connection.query<RowDataPacket[]>(
+      `SELECT CASE
+         WHEN ? = 'midterm' THEN
+           DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) < DATE_SUB(academic_term.midterm_start_date, INTERVAL 14 DAY)
+         ELSE DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) < DATE_SUB(academic_term.final_start_date, INTERVAL 14 DAY)
+       END AS allowed
+       FROM enrollments enrollment
+       INNER JOIN student_terms student_term ON student_term.student_term_id = enrollment.student_term_id
+       INNER JOIN academic_terms academic_term ON academic_term.academic_term_id = student_term.academic_term_id
+       WHERE enrollment.enrollment_id = ? LIMIT 1`,
+      [attempt.exam_period, attempt.enrollment_id],
     );
-    await connection.query(
-      `INSERT INTO exam_checkpoints
-        (enrollment_id, source_exam_attempt_id, exam_period,
-         weak_topic_count, interval_weeks, next_checkpoint_at, status)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
-      [
-        attempt.enrollment_id,
-        attemptId,
-        attempt.exam_period,
-        weakTopicCount,
-        checkpointIntervalWeeks,
-        nextCheckpointAt,
-      ],
-    );
+    if (Number(windowRows[0]?.allowed ?? 0) === 1) {
+      checkpointIntervalWeeks = checkpointWeeksFor(percentage);
+      const appointment = nextCheckpointAppointment(checkpointIntervalWeeks);
+      nextCheckpointAt = appointment.instant;
+      await connection.query(
+        `INSERT INTO exam_checkpoints
+          (enrollment_id, source_exam_attempt_id, exam_period,
+           weak_topic_count, interval_weeks, next_checkpoint_at, status)
+         VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+        [attempt.enrollment_id, attemptId, attempt.exam_period,
+          weakTopicCount, checkpointIntervalWeeks, appointment.databaseValue],
+      );
+    }
   }
 
   return {
@@ -637,6 +646,7 @@ export const getExamsForCurrentTerm = async (req: Request, res: Response) => {
   try {
     const userId = userIdFrom(req, res);
     if (!userId) return;
+    await voidPendingCheckpointsForExamFlow(userId);
     const [rows] = await db.query<ExamRow[]>(
       `${ACCESSIBLE_EXAM_SQL}
        ${accessibleExamGroup}
@@ -762,6 +772,7 @@ export const getExamInsights = async (req: Request, res: Response) => {
   try {
     const userId = userIdFrom(req, res);
     if (!userId) return;
+    await voidPendingCheckpointsForExamFlow(userId);
     const [weakTopics] = await db.query<RowDataPacket[]>(
       `SELECT enrollment.enrollment_id AS schedule_time_id,
          (SELECT MIN(part_result.question_bank_id)
@@ -794,7 +805,8 @@ export const getExamInsights = async (req: Request, res: Response) => {
                    WHERE result.exam_attempt_id = checkpoint.source_exam_attempt_id), 0)
            AS exam_repository_id,
          checkpoint.exam_period, subject.subject_id, subject.subject_name,
-         checkpoint.next_checkpoint_at, checkpoint.interval_weeks,
+         DATE_FORMAT(checkpoint.next_checkpoint_at, '%Y-%m-%dT%H:%i:%s+07:00') AS next_checkpoint_at,
+         checkpoint.interval_weeks,
          checkpoint.weak_topic_count,
          COALESCE((
            SELECT item.difference_minutes
@@ -805,8 +817,9 @@ export const getExamInsights = async (req: Request, res: Response) => {
            INNER JOIN schedule_types schedule_type
              ON schedule_type.schedule_type_id = item.schedule_type_id
             AND LOWER(schedule_type.type_code) = 'review'
-           WHERE recommendation.source_exam_attempt_id = checkpoint.source_exam_attempt_id
-           ORDER BY recommendation.version DESC
+           WHERE recommendation.student_term_id = student_term.student_term_id
+             AND recommendation.status <> 'superseded'
+           ORDER BY recommendation.week_start_date DESC, recommendation.version DESC
            LIMIT 1
          ), 0) AS review_minutes_delta,
          (SELECT schedule_type_id FROM schedule_types
@@ -1270,23 +1283,29 @@ export const getExamAttemptImage = async (req: Request, res: Response) => {
          AND attempt.exam_period = requested_bank.exam_period`,
       [examId, attemptId, userId],
     );
-    const allowed = rows.some((row) => {
+    let storedImagePath: string | null = null;
+    for (const row of rows) {
       if (
         row.image_path_snapshot &&
         path.basename(row.image_path_snapshot) === filename
       ) {
-        return true;
+        storedImagePath = row.image_path_snapshot;
+        break;
       }
-      return parseSnapshotChoices(row.choices_snapshot).some(
-        (choice) =>
-          choice.choice_image_path &&
+      const matchingChoice = parseSnapshotChoices(row.choices_snapshot).find(
+        (choice) => choice.choice_image_path &&
           path.basename(choice.choice_image_path) === filename,
       );
-    });
-    if (!allowed) return res.status(404).json({ message: "Image not found" });
+      if (matchingChoice?.choice_image_path) {
+        storedImagePath = matchingChoice.choice_image_path;
+        break;
+      }
+    }
+    if (!storedImagePath) return res.status(404).json({ message: "Image not found" });
+    const directory = storedImagePath.startsWith("choices/") ? "choices" : "questions";
     res.setHeader("Cache-Control", "private, no-store");
     return res.sendFile(
-      path.resolve(__dirname, "../../uploads/questions", filename),
+      path.resolve(__dirname, "../../uploads", directory, filename),
     );
   } catch (error) {
     console.error("getExamAttemptImage error:", error);

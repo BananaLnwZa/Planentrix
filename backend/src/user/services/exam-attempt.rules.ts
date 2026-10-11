@@ -1,3 +1,5 @@
+import { addDays, bangkokDateTimeParts } from "./recommendation.rules";
+
 export interface SnapshotChoice {
   choice_id: number;
   choice_order: number;
@@ -104,3 +106,10 @@ export const remainingSecondsFor = (
 
 export const checkpointWeeksFor = (percentage: number) =>
   percentage < 40 ? 1 : 2;
+export const nextCheckpointAppointment = (weeks: number, now = new Date()) => {
+  const date = addDays(bangkokDateTimeParts(now).date, weeks * 7);
+  return {
+    databaseValue: `${date} 08:00:00`,
+    instant: new Date(`${date}T08:00:00+07:00`),
+  };
+};

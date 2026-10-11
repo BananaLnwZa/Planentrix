@@ -3,7 +3,7 @@ import path from "path";
 import multer from "multer";
 import type { NextFunction, Request, Response } from "express";
 
-const tempDirectory = path.resolve(process.cwd(), "uploads", "temp");
+const tempDirectory = path.resolve(__dirname, "../uploads/temp");
 fs.mkdirSync(tempDirectory, { recursive: true });
 
 const examFileUpload = multer({

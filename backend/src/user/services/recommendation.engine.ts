@@ -233,7 +233,7 @@ const loadWorkloads = async (
      INNER JOIN course_sections cs ON cs.section_id=e.section_id
      WHERE e.student_term_id=? AND e.status='enrolled' AND w.status='pending'
        AND wt.is_active=1 AND LOWER(wt.type_code) IN ('assignment','project')
-       AND w.deadline_date<=?
+       AND (LOWER(wt.type_code)='project' OR w.deadline_date<=?)
      ORDER BY w.deadline_date,w.deadline_time,w.workload_id`,
     [termId, targetWeekEnd]
   );
@@ -628,7 +628,12 @@ const makeItems = (
       0
     );
     const rawHomework = workloadMinutes + deadlineMinutes;
-    const homeworkTarget = Math.min(360, rawHomework);
+    // Every unfinished project keeps its full two-hour weekly floor. A
+    // subject-level cap must not silently remove another project's floor.
+    const homeworkCap = demands.some((demand) => demand.workloadType === "project")
+      ? Math.max(360, rawHomework)
+      : 360;
+    const homeworkTarget = Math.min(homeworkCap, rawHomework);
     const currentHomework = currentMinutes(types.homework);
     if (homeworkTarget > 0 || currentHomework > 0) {
       const reasons: RuleReason[] = [];
@@ -636,7 +641,7 @@ const makeItems = (
         reasons.push({
           code: "pending_workload",
           minutes: workloadMinutes,
-          message: "Standard time for assignments and projects due in this week",
+          message: "Standard time for assignments due this week and ongoing projects",
           metadata: { workload_count: demands.length },
         });
       }
@@ -680,12 +685,12 @@ const makeItems = (
         behaviorPreferredStartMinute: null,
         behaviorPreferredSessionMinutes: null,
         rawTargetMinutes: rawHomework,
-        maxTargetMinutes: 360,
+        maxTargetMinutes: homeworkCap,
         targetMinutes: homeworkTarget,
         allocatedMinutes: 0,
         unallocatedMinutes: homeworkTarget,
         differenceMinutes: -currentHomework,
-        capApplied: rawHomework > 360,
+        capApplied: rawHomework > homeworkCap,
         capacityLimited: false,
         primaryAction: !homeworkTarget ? "remove" : currentHomework ? "keep" : "create",
         reasons,

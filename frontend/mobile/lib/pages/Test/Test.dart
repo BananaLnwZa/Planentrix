@@ -306,7 +306,7 @@ class _TestPageState extends State<TestPage> {
   }
 
   void _closeExam() {
-    if (_isSubmitting) return;
+    if (_isSubmitting || _savingQuestionId != null) return;
     _timer?.cancel();
     setState(() {
       _activeExam = null;
@@ -608,8 +608,10 @@ class _TestPageState extends State<TestPage> {
                     top: 10,
                     child: IconButton(
                       key: const Key('close-exam-modal-button'),
-                      onPressed: _isSubmitting ? null : _closeExam,
-                      tooltip: 'ปิด',
+                      onPressed: _isSubmitting || _savingQuestionId != null
+                          ? null
+                          : _closeExam,
+                      tooltip: 'พักข้อสอบ',
                       color: const Color(0xFF59707B),
                       icon: const Icon(Icons.close_rounded, size: 24),
                     ),

@@ -129,8 +129,8 @@ const buildCandidateSlots = (
       (block) => Number(block.schedule_day) === day
     )) {
       hardBlocks.push({
-        start: timeToMinutes(classBlock.start_time),
-        // Leave one hour after class before starting a generated work block.
+        // Keep generated review/homework blocks an hour away on both sides.
+        start: timeToMinutes(classBlock.start_time) - 60,
         end: timeToMinutes(classBlock.end_time) + 60,
       });
     }

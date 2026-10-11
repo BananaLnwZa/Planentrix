@@ -27,6 +27,7 @@ export interface TermWorkflow {
   final_target_ready: boolean;
   post_final: boolean;
   midterm_followup_pending: boolean;
+  initial_final_test_pending: boolean;
 }
 
 export interface CreateTermRequest {

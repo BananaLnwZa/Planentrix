@@ -193,6 +193,33 @@ test("scheduler leaves one hour after class before a study block", () => {
   assert.equal(result.blocks[0].endTime, "11:00:00");
 });
 
+test("scheduler leaves one hour before class for generated blocks", () => {
+  const result = buildSchedulePlan({
+    items: [makeReviewItem(60)],
+    baseBlocks: [],
+    classBlocks: [
+      { schedule_day: 1, start_time: "10:00:00", end_time: "12:00:00" },
+    ] as unknown as ClassBlockRow[],
+    busyBlocks: [],
+    constraint: {
+      constraint_id: 1,
+      day_off: null,
+      continuous_working_duration: 120,
+      break_minutes: 30,
+      start_time: "08:00:00",
+      end_time: "12:00:00",
+    } as unknown as ConstraintRow,
+    weekStart: "2026-08-24",
+    weekEnd: "2026-08-30",
+    userId: 1,
+    termId: 1,
+    now: new Date("2026-08-23T00:00:00.000Z"),
+    previousAcceptedRecommendationId: null,
+  });
+  assert.equal(result.blocks[0].startTime, "08:00:00");
+  assert.equal(result.blocks[0].endTime, "09:00:00");
+});
+
 test("scheduler keeps equal-priority 30-minute units together by subject", () => {
   const first = makeReviewItem(60);
   const second = {

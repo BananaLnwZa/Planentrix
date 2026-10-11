@@ -1,5 +1,11 @@
 /.codex_spreadsheet/
-/backend/src/uploads/
+/backend/src/uploads/*
+!/backend/src/uploads/.gitignore
+!/backend/src/uploads/README.md
+!/backend/src/uploads/questions/
+!/backend/src/uploads/choices/
+!/backend/src/uploads/temp/
+/backend/uploads/
 /artifacts/
 /docs/
 /tools/

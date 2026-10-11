@@ -141,9 +141,9 @@ export default function MainPage() {
       {showMidtermFollowup && workflow && (
         <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]">
           <section role="dialog" aria-modal="true" aria-labelledby="midterm-followup-title" className="w-full max-w-md rounded-2xl border border-[#CFE4ED] bg-[#FFFDFE] p-6 text-center shadow-2xl" style={{ fontFamily: "var(--font-sansation)" }}>
-            <h2 id="midterm-followup-title" className="text-base font-semibold text-[#405B69]">บันทึกผลสอบกลางภาค</h2>
-            <p className="mt-2 text-sm leading-6 text-[#71858E]">เพิ่มรายการสอบกลางภาคของแต่ละวิชาในหน้าการบ้าน แล้วกรอกคะแนนสอบเพื่อให้ระบบสรุปคะแนนได้ครบถ้วน</p>
-            <div className="mt-5 flex justify-center gap-2">
+            <h2 id="midterm-followup-title" className="text-base font-semibold text-[#405B69]">หลังสอบกลางภาค</h2>
+            <p className="mt-2 text-sm leading-6 text-[#71858E]">เพิ่มรายการสอบกลางภาคและกรอกคะแนนในหน้าการบ้าน{workflow.initial_final_test_pending ? " พร้อมทำแบบทดสอบปลายภาคครั้งแรกของทุกวิชาที่มีข้อสอบ เพื่อเริ่มแผนทบทวนช่วงปลายภาค" : ""}</p>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
               <button type="button" onClick={async () => {
                 await termService.acknowledgeMidtermFollowup();
                 setShowMidtermFollowup(false);
@@ -153,6 +153,11 @@ export default function MainPage() {
                 setShowMidtermFollowup(false);
                 router.push("/Score&Homework");
               }} className="rounded-full bg-[#8BC9E5] px-4 py-2 text-sm font-semibold text-white">ไปหน้าการบ้าน</button>
+              {workflow.initial_final_test_pending && <button type="button" onClick={async () => {
+                await termService.acknowledgeMidtermFollowup();
+                setShowMidtermFollowup(false);
+                router.push("/Test");
+              }} className="rounded-full bg-[#9DCB83] px-4 py-2 text-sm font-semibold text-white">ทำแบบทดสอบปลายภาค</button>}
             </div>
           </section>
         </div>

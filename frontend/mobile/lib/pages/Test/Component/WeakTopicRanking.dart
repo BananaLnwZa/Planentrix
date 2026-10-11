@@ -34,7 +34,7 @@ class WeakTopicRanking extends StatelessWidget {
           const SizedBox(height: 11),
           for (var index = 0; index < sorted.length; index++) ...[
             Row(
-              key: Key('weak-topic-${sorted[index].examPartId}'),
+              key: Key('weak-topic-${sorted[index].examPartId}-$index'),
               children: [
                 Container(
                   width: 23,

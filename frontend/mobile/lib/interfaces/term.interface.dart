@@ -52,6 +52,7 @@ class TermWorkflow {
   final bool workloadLocked;
   final bool finalTargetReady;
   final bool midtermFollowupPending;
+  final bool initialFinalTestPending;
 
   const TermWorkflow({
     required this.phase,
@@ -59,6 +60,7 @@ class TermWorkflow {
     this.workloadLocked = false,
     this.finalTargetReady = false,
     this.midtermFollowupPending = false,
+    this.initialFinalTestPending = false,
   });
 
   factory TermWorkflow.fromJson(Map<String, dynamic> json) => TermWorkflow(
@@ -71,6 +73,9 @@ class TermWorkflow {
     midtermFollowupPending:
         json['midterm_followup_pending'] == true ||
         json['midterm_followup_pending'] == 1,
+    initialFinalTestPending:
+        json['initial_final_test_pending'] == true ||
+        json['initial_final_test_pending'] == 1,
   );
 }
 

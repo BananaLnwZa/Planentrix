@@ -64,7 +64,14 @@ export default function FeedbackPanel({
   topics: WeakTopicInsight[];
   checkpoints: ExamCheckpointInsight[];
 }) {
-  const sortedTopics = [...topics]
+  // The insights API returns weak results newest first; one part may appear in multiple attempts.
+  const latestTopics = new Map<number, WeakTopicInsight>();
+  for (const topic of topics) {
+    if (!latestTopics.has(topic.examPartId)) {
+      latestTopics.set(topic.examPartId, topic);
+    }
+  }
+  const sortedTopics = [...latestTopics.values()]
     .sort((left, right) => left.percentage - right.percentage)
     .slice(0, 3);
   const sortedCheckpoints = [...checkpoints].sort(

@@ -171,6 +171,58 @@ void main() {
     expect(find.byKey(const Key('midterm-followup-popup')), findsNothing);
   });
 
+  testWidgets('unfinished first final test stays visible after midterm', (
+    tester,
+  ) async {
+    _setPhoneSize(tester);
+    await tester.pumpWidget(
+      _mainPage(
+        const [],
+        workflowLoader: () async => const TermWorkflow(
+          phase: 'midterm_post',
+          initialFinalTestPending: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('เริ่มเตรียมสอบปลายภาค'), findsOneWidget);
+    expect(find.text('ไปทำแบบทดสอบ'), findsOneWidget);
+  });
+
+  testWidgets('final exam week remains a viewable term', (tester) async {
+    _setPhoneSize(tester);
+    final terms = _EmptyTermRepository(
+      currentTerm: CurrentTerm(
+        termId: 5,
+        yearLevel: '2',
+        term: '1',
+        academicYear: '2569',
+        endFinal: DateTime(2026, 12, 18),
+      ),
+    );
+    await tester.pumpWidget(
+      _mainPage(
+        const [],
+        termRepository: terms,
+        workflowLoader: () async =>
+            const TermWorkflow(phase: 'final_exam', workloadLocked: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('behavior-summary')), findsNothing);
+    expect(find.byKey(const Key('notebook-tabs')), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith('schedule-'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('post-final replaces schedule with summary and hides tabs', (
     tester,
   ) async {

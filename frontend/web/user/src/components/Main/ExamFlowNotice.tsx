@@ -15,7 +15,11 @@ const copy: Record<string, { title: string; detail: string; action?: string; rou
 
 export default function ExamFlowNotice({ workflow }: { workflow: TermWorkflow }) {
   const router = useRouter();
-  const notice = copy[workflow.phase];
+  const notice = workflow.initial_final_test_pending && ["midterm_post", "final_3w"].includes(workflow.phase)
+    ? { title: "เริ่มเตรียมสอบปลายภาค", detail: workflow.phase === "final_3w"
+        ? "ทำแบบทดสอบปลายภาคครั้งแรกให้ครบทุกวิชา และกรอกภาระงาน/คะแนนเก็บให้ครบ; สัปดาห์หน้าจะมีรอบสุดท้ายก่อนสอบ"
+        : "มีแบบทดสอบปลายภาคครั้งแรกที่ยังทำไม่ครบทุกวิชา ทำให้ครบเพื่อเริ่มคำแนะนำจัดตารางช่วงปลายภาค", action: "ไปทำแบบทดสอบ", route: "/Test" }
+    : copy[workflow.phase];
   if (!notice) return null;
   return <section className="flex w-full shrink-0 items-center gap-3 rounded-xl border border-[#CFE4ED] bg-[#F2FAFD] px-3 py-2.5 text-[#587889]">
     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[#6CAFD0]"><BellRing className="h-4 w-4" /></span>

@@ -9,7 +9,7 @@
     "dev:admin": "npm run dev",
     "lint": "eslint",
     "typecheck": "tsc --noEmit --incremental false",
-    "test": "node --test -r ts-node/register src/user/services/*.test.ts"
+    "test": "node --test -r ts-node/register src/user/services/*.test.ts src/services/*.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^7.8.0",

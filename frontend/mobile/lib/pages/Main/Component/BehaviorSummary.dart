@@ -71,8 +71,8 @@ class _BehaviorSummaryState extends State<BehaviorSummary> {
     key: const Key('behavior-summary'),
     width: double.infinity,
     decoration: BoxDecoration(
-      color: const Color(0xFFFFF9FC),
-      border: Border.all(color: const Color(0xFFD7C2D0)),
+      color: const Color(0xFFFCFBFE),
+      border: Border.all(color: const Color(0xFFDEDDEA)),
       borderRadius: BorderRadius.circular(17),
       boxShadow: const [
         BoxShadow(
@@ -86,35 +86,45 @@ class _BehaviorSummaryState extends State<BehaviorSummary> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Icon(Icons.auto_awesome, size: 18, color: Color(0xFFA96E8B)),
-              SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'สรุปพฤติกรรมการเรียนในเทอมนี้',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF87556D),
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFEAF5FA), Color(0xFFFDEDF4)],
+            ),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Icon(Icons.auto_awesome, size: 18, color: Color(0xFF6CAFD0)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'สรุปพฤติกรรมการเรียนในเทอมนี้',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF587889),
+                        ),
                       ),
-                    ),
-                    Text(
-                      'จากเวลาทบทวน แบบทดสอบ และภาระงานที่บันทึกไว้',
-                      style: TextStyle(fontSize: 10, color: Color(0xFFA1788C)),
-                    ),
-                  ],
+                      Text(
+                        'จากเวลาทบทวน แบบทดสอบ และภาระงานที่บันทึกไว้',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF7895A2),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-        const Divider(height: 1, color: Color(0xFFEAD8E2)),
+        const Divider(height: 1, color: Color(0xFFE9DFEB)),
         FutureBuilder<BehaviorSummaryData>(
           future: _data,
           builder: (context, snapshot) {
@@ -180,9 +190,12 @@ class _SummaryContent extends StatelessWidget {
     final adherence = rates.isEmpty
         ? null
         : (rates.reduce((a, b) => a + b) / rates.length).round();
-    final weakest =
-        data.insights?.weakTopics.take(3).toList() ??
-        const <WeakTopicInsight>[];
+    final sortedTopics = [...?data.insights?.weakTopics]
+      ..sort((a, b) => a.percentage.compareTo(b.percentage));
+    final seenSubjects = <String>{};
+    final weakest = sortedTopics
+        .where((topic) => seenSubjects.add(topic.subjectId))
+        .toList();
 
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -198,6 +211,7 @@ class _SummaryContent extends StatelessWidget {
                   width: (constraints.maxWidth - 8) / 2,
                   icon: Icons.schedule,
                   label: 'เวลาทบทวนรวม',
+                  tone: 0,
                   value: '$studyHours ชม.',
                   detail:
                       'จับเวลา $sessionCount ครั้ง · เฉลี่ย ${(data.study?.summary.averageWeeklyMinutes ?? 0).round()} นาที/สัปดาห์',
@@ -206,6 +220,7 @@ class _SummaryContent extends StatelessWidget {
                   width: (constraints.maxWidth - 8) / 2,
                   icon: Icons.menu_book_outlined,
                   label: 'แบบทดสอบ',
+                  tone: 1,
                   value: '${data.exams.length} ครั้ง',
                   detail: averageExam == null
                       ? 'ยังไม่มีคะแนนแบบทดสอบ'
@@ -215,6 +230,7 @@ class _SummaryContent extends StatelessWidget {
                   width: (constraints.maxWidth - 8) / 2,
                   icon: Icons.checklist_rounded,
                   label: 'ภาระงาน',
+                  tone: 0,
                   value: '$completedTasks งานเสร็จ',
                   detail: 'บันทึกคะแนนแล้ว $recordedScores รายการ',
                 ),
@@ -222,6 +238,7 @@ class _SummaryContent extends StatelessWidget {
                   width: (constraints.maxWidth - 8) / 2,
                   icon: Icons.auto_awesome,
                   label: 'Checkpoint',
+                  tone: 1,
                   value: '${data.insights?.nextCheckpoints.length ?? 0} รอบ',
                   detail: 'รอบทบทวนที่ระบบนัดไว้',
                 ),
@@ -229,6 +246,7 @@ class _SummaryContent extends StatelessWidget {
                   width: (constraints.maxWidth - 8) / 2,
                   icon: Icons.auto_awesome,
                   label: 'ทำตามตารางที่แนะนำ',
+                  tone: 0,
                   value: adherence == null ? 'ยังไม่มีข้อมูล' : '$adherence%',
                   detail: 'เทียบเวลาจับกับแผนล่าสุด',
                 ),
@@ -240,7 +258,7 @@ class _SummaryContent extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: const Color(0xFFE7D7DF)),
+              border: Border.all(color: const Color(0xFFF2D9E5)),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -251,7 +269,7 @@ class _SummaryContent extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF725165),
+                    color: Color(0xFF9C637E),
                   ),
                 ),
                 const SizedBox(height: 7),
@@ -262,14 +280,52 @@ class _SummaryContent extends StatelessWidget {
                   )
                 else
                   for (final topic in weakest)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 5),
-                      child: Text(
-                        '${topic.subjectName} · ${topic.topicName}  ${topic.percentage.round()}%',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF725165),
-                        ),
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3F8),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            topic.subjectName,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF805E73),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  topic.topicName,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF805E73),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${topic.percentage.round()}%',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFFC16D98),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
               ],
@@ -296,6 +352,7 @@ class _Metric extends StatelessWidget {
   final String label;
   final String value;
   final String detail;
+  final int tone;
 
   const _Metric({
     required this.width,
@@ -303,46 +360,52 @@ class _Metric extends StatelessWidget {
     required this.label,
     required this.value,
     required this.detail,
+    required this.tone,
   });
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: width,
-    padding: const EdgeInsets.all(11),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      border: Border.all(color: const Color(0xFFE9D8E1)),
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 15, color: const Color(0xFFA96E8B)),
-            const SizedBox(width: 5),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(fontSize: 10, color: Color(0xFFA96E8B)),
+  Widget build(BuildContext context) {
+    final backgrounds = [const Color(0xFFF2FAFD), const Color(0xFFFFF1F7)];
+    final borders = [const Color(0xFFCFE4ED), const Color(0xFFF2D9E5)];
+    final foregrounds = [const Color(0xFF587889), const Color(0xFF9C637E)];
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: backgrounds[tone],
+        border: Border.all(color: borders[tone]),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 15, color: foregrounds[tone]),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 10, color: foregrounds[tone]),
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 5),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF5F4860),
+            ],
           ),
-        ),
-        Text(
-          detail,
-          style: const TextStyle(fontSize: 10, color: Color(0xFF9B8993)),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(height: 5),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: foregrounds[tone],
+            ),
+          ),
+          Text(
+            detail,
+            style: const TextStyle(fontSize: 10, color: Color(0xFF9B8993)),
+          ),
+        ],
+      ),
+    );
+  }
 }

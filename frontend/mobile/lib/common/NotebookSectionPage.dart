@@ -44,6 +44,7 @@ class _NotebookSectionPageState extends State<NotebookSectionPage>
     with WidgetsBindingObserver {
   bool _redirectingPostFinal = false;
   bool _checkingPostFinal = false;
+  bool _navigationPending = false;
 
   @override
   void initState() {
@@ -62,9 +63,7 @@ class _NotebookSectionPageState extends State<NotebookSectionPage>
           await (widget.workflowLoader?.call() ?? TermService().getWorkflow());
       if (!mounted || workflow?.postFinal != true) return;
       setState(() => _redirectingPostFinal = true);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).pushReplacementNamed('/main');
-      });
+      _navigateAfterFrame('/main');
     } catch (_) {
       // Keep the existing page usable if the workflow service is unavailable.
     } finally {
@@ -86,9 +85,18 @@ class _NotebookSectionPageState extends State<NotebookSectionPage>
     super.dispose();
   }
 
+  void _navigateAfterFrame(String route) {
+    if (_navigationPending) return;
+    _navigationPending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed(route);
+    });
+  }
+
   void _changeTab(BuildContext context, NotebookTabId tab) {
     if (tab == widget.activeTab) return;
-    Navigator.of(context).pushReplacementNamed(notebookTabRoute(tab));
+    _navigateAfterFrame(notebookTabRoute(tab));
   }
 
   @override

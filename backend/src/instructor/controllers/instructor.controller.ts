@@ -1154,22 +1154,27 @@ export const getInstructorQuestionImage = async (
   }
   try {
     const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT 1
+      `SELECT question.question_image_path, choice.choice_image_path
        FROM question_banks bank
        LEFT JOIN question
          ON question.question_bank_id = bank.question_bank_id
        LEFT JOIN choice ON choice.question_id = question.question_id
        WHERE bank.question_bank_id = ? AND bank.owner_instructor_id = ?
          AND (
-           question.question_image_path = ? OR choice.choice_image_path = ?
+           question.question_image_path IN (?, ?) OR choice.choice_image_path IN (?, ?)
          )
        LIMIT 1`,
-      [questionBankId, instructorId, filename, filename],
+      [questionBankId, instructorId, filename, `questions/${filename}`, filename, `choices/${filename}`],
     );
     if (!rows[0]) return res.status(404).json({ message: "ไม่พบรูปภาพ" });
+    const storedPath = rows[0].question_image_path &&
+      path.basename(rows[0].question_image_path) === filename
+      ? rows[0].question_image_path
+      : rows[0].choice_image_path;
+    const directory = storedPath?.startsWith("choices/") ? "choices" : "questions";
     res.setHeader("Cache-Control", "private, no-store");
     return res.sendFile(
-      path.resolve(__dirname, "../../uploads/questions", filename),
+      path.resolve(__dirname, "../../uploads", directory, filename),
     );
   } catch (error) {
     console.error("getInstructorQuestionImage error:", error);

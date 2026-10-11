@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   checkpointWeeksFor,
+  nextCheckpointAppointment,
   parseSnapshotChoices,
   remainingSecondsFor,
   scoreSnapshotQuestions,
@@ -59,4 +60,10 @@ test("untimed exams never expire, even after a long pause", () => {
 test("uses one or two week checkpoint intervals for weak scores", () => {
   assert.equal(checkpointWeeksFor(39.99), 1);
   assert.equal(checkpointWeeksFor(40), 2);
+});
+
+test("checkpoint opens at 08:00 Bangkok on the appointed date", () => {
+  const appointment = nextCheckpointAppointment(1, new Date("2026-10-11T18:00:00Z"));
+  assert.equal(appointment.databaseValue, "2026-10-19 08:00:00");
+  assert.equal(appointment.instant.toISOString(), "2026-10-19T01:00:00.000Z");
 });

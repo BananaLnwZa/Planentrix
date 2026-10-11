@@ -78,7 +78,7 @@ export function parseExamHtml(html: string): ParsedQuestion[] {
   // ละตินที่ไม่มีตัวคั่น (เช่น "a few", "A database is...") จะไม่ถือเป็นตัวเลือก
   // groups: 1=* 2=ไทยมีตัวคั่น 3=ละตินมีตัวคั่น 4=ไทยไม่มีตัวคั่น 5=ข้อความ
   const choicePattern =
-    /^\s*(\*?)\s*(?:\(?([ก-ง])[\.\)]\s*|\(?([a-eA-E])[\.\)]\s+|([ก-ง])\s+)(.+)$/;
+    /^\s*(\*?)\s*(?:\(?([ก-ง])[\.\)]\s*|\(?([a-eA-E])[\.\)]\s+|([ก-ง])\s+)(.*)$/;
 
   for (const { html: p, fromList } of paragraphs) {
     const imgSrc = getImgSrc(p);
@@ -106,7 +106,9 @@ export function parseExamHtml(html: string): ParsedQuestion[] {
       }
 
       currentQuestion = {
-        question_text: rawQuestionText,
+        question_text: scoreMatch
+          ? rawQuestionText.replace(scoreMatch[0], "").trim()
+          : rawQuestionText,
         question_image_path: imgSrc,
         choices: [],
         score,

@@ -210,12 +210,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       return;
     }
     try {
-      final openHomework = await showMidtermFollowupPopup(
+      final destination = await showMidtermFollowupPopup(
         context,
         onAcknowledge: _termRepository.acknowledgeMidtermFollowup,
+        hasFinalTest: _workflow?.initialFinalTestPending ?? false,
       );
       if (!mounted) return;
-      if (openHomework != null) {
+      if (destination != null) {
         setState(
           () => _workflow = _workflow == null
               ? null
@@ -224,9 +225,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                   postFinal: _workflow!.postFinal,
                   workloadLocked: _workflow!.workloadLocked,
                   finalTargetReady: _workflow!.finalTargetReady,
+                  initialFinalTestPending: _workflow!.initialFinalTestPending,
                 ),
         );
-        if (openHomework) Navigator.of(context).pushNamed('/homework');
+        if (destination == MidtermFollowupDestination.homework) {
+          Navigator.of(context).pushNamed('/homework');
+        } else if (destination == MidtermFollowupDestination.test) {
+          Navigator.of(context).pushNamed('/test');
+        }
       }
     } finally {
       _isShowingMidtermFollowup = false;
@@ -619,7 +625,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           ),
         ),
         if (_workflow != null &&
-            ExamFlowNotice.supportsPhase(_workflow!.phase) &&
+            (ExamFlowNotice.supportsPhase(_workflow!.phase) ||
+                _workflow!.initialFinalTestPending) &&
             !_workflow!.postFinal) ...[
           const SizedBox(height: 12),
           ExamFlowNotice(workflow: _workflow!),

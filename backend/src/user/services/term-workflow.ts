@@ -61,8 +61,8 @@ export const isWorkloadLockedForUser = async (userId: number) => {
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT CASE
        WHEN academic_term.final_start_date IS NULL THEN 0
-       WHEN CURDATE() > academic_term.final_end_date THEN 1
-       WHEN DATEDIFF(academic_term.final_start_date, CURDATE()) BETWEEN 0 AND 7 THEN 1
+       WHEN DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) >=
+         DATE_SUB(academic_term.final_start_date, INTERVAL 7 DAY) THEN 1
        ELSE 0
      END AS locked
      FROM student_terms student_term
@@ -73,4 +73,27 @@ export const isWorkloadLockedForUser = async (userId: number) => {
     [userId],
   );
   return Number(rows[0]?.locked ?? 0) === 1;
+};
+
+// The 3-week notice still permits ordinary checkpoints. Once the dedicated
+// 2-week assessment flow starts, an unfinished appointment must not resurface.
+export const voidPendingCheckpointsForExamFlow = async (userId: number) => {
+  await db.query(
+    `UPDATE exam_checkpoints checkpoint
+     INNER JOIN enrollments enrollment ON enrollment.enrollment_id = checkpoint.enrollment_id
+     INNER JOIN student_terms student_term ON student_term.student_term_id = enrollment.student_term_id
+     INNER JOIN academic_terms academic_term ON academic_term.academic_term_id = student_term.academic_term_id
+     SET checkpoint.status = 'cancelled', checkpoint.updated_at = NOW()
+     WHERE student_term.user_id = ? AND student_term.status = 'active'
+       AND checkpoint.status = 'pending'
+       AND (
+         (checkpoint.exam_period = 'midterm'
+           AND academic_term.midterm_start_date IS NOT NULL
+           AND DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) >= DATE_SUB(academic_term.midterm_start_date, INTERVAL 14 DAY))
+         OR (checkpoint.exam_period = 'final'
+           AND academic_term.final_start_date IS NOT NULL
+           AND DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) >= DATE_SUB(academic_term.final_start_date, INTERVAL 14 DAY))
+       )`,
+    [userId],
+  );
 };
