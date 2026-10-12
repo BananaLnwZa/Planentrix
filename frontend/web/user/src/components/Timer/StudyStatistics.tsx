@@ -1,4 +1,4 @@
-import { Flag, Gauge } from "lucide-react";
+import { Gauge } from "lucide-react";
 import type { StudyDashboard, StudySession } from "@/interfaces/time.interface";
 import type { ReviewRecommendationItem } from "./ReviewRecommendationCard";
 import { formatDuration } from "./timer.utils";
@@ -127,36 +127,13 @@ export default function StudyStatistics({
                       : formatDuration(actualMinutes, true)}
                   </span>
                 </div>
-                <div className="relative mt-2 h-5">
-                  <div className="absolute left-0 right-0 top-[8px] h-1.5 rounded-full bg-[#E8E9E9]" />
+                <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-[#E8E9E9]">
                   <div
-                    className="absolute left-0 top-[8px] h-1.5 rounded-full bg-[#E4869F] transition-[width] duration-700"
+                    className="h-full rounded-full bg-[#E4869F] transition-[width] duration-700"
                     style={{ width: `${progress}%` }}
                   />
-                  {[0, 25, 50, 75, 100].map((milestone) => {
-                    const reached = targetMinutes > 0 && progress >= milestone;
-                    return (
-                      <span
-                        key={milestone}
-                        className={`absolute top-[3px] h-3 w-3 -translate-x-1/2 rounded-full border-2 shadow-sm ${
-                          reached
-                            ? "border-[#315F9B] bg-[#315F9B]"
-                            : "border-[#B8C5CB] bg-white"
-                        }`}
-                        style={{ left: `${milestone}%` }}
-                        aria-hidden="true"
-                      />
-                    );
-                  })}
-                  {targetMinutes > 0 && progress >= 100 && (
-                    <Flag
-                      className="absolute -top-1 right-0 h-3 w-3 text-[#A34D68]"
-                      fill="currentColor"
-                      aria-label="ถึงเป้าหมาย"
-                    />
-                  )}
                 </div>
-                <p className="text-right text-[9px] text-[#A2AEB2]">
+                <p className="mt-1 text-right text-[9px] text-[#A2AEB2]">
                   {targetMinutes > 0
                     ? `${progress}% ของเป้าหมายรายสัปดาห์`
                     : "ยังไม่มีเป้าหมายเวลารายสัปดาห์"}

@@ -269,7 +269,7 @@ export default function TestWorkspace() {
             title="Feedback"
             detail="คำแนะนำและแผนทบทวนหลังทำแบบทดสอบ"
           />
-          <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto px-1 pb-4 pr-2">
+          <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto px-1 pb-4 pr-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {feedbackSubjects.length ? (
               feedbackSubjects.map((subject) => (
                 <FeedbackPanel
