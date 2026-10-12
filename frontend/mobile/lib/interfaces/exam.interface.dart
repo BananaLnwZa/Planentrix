@@ -400,10 +400,12 @@ class ExamCheckpointInsight {
 class ExamInsights {
   final List<WeakTopicInsight> weakTopics;
   final List<ExamCheckpointInsight> nextCheckpoints;
+  final int completedCheckpointCount;
 
   const ExamInsights({
     this.weakTopics = const [],
     this.nextCheckpoints = const [],
+    this.completedCheckpointCount = 0,
   });
 
   factory ExamInsights.fromJson(Map<String, dynamic> json) {
@@ -420,6 +422,7 @@ class ExamInsights {
                 )
                 .toList()
           : const [],
+      completedCheckpointCount: int.tryParse('${json['completed_checkpoint_count'] ?? 0}') ?? 0,
       nextCheckpoints: rawCheckpoints is List
           ? rawCheckpoints
                 .whereType<Map>()

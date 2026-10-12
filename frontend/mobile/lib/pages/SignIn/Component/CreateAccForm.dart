@@ -176,6 +176,8 @@ class CreateAccountFormState extends State<CreateAccountForm> {
     });
   }
 
+  void showServerError(String message) => _setFormError(message);
+
   @override
   void dispose() {
     usernameController.dispose();

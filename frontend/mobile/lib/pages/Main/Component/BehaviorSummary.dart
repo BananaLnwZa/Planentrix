@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../interfaces/exam.interface.dart';
-import '../../../interfaces/recommendation.interface.dart';
 import '../../../interfaces/score.interface.dart';
 import '../../../interfaces/time.interface.dart';
 import '../../../services/exam.service.dart';
-import '../../../services/recommendation.service.dart';
 import '../../../services/score.service.dart';
 import '../../../services/time.service.dart';
 
@@ -14,14 +12,12 @@ class BehaviorSummaryData {
   final List<ExamHistoryItem> exams;
   final ExamInsights? insights;
   final List<SubjectScore> subjects;
-  final WeeklyRecommendation? latestPlan;
 
   const BehaviorSummaryData({
     this.study,
     this.exams = const [],
     this.insights,
     this.subjects = const [],
-    this.latestPlan,
   });
 }
 
@@ -56,13 +52,11 @@ class _BehaviorSummaryState extends State<BehaviorSummary> {
     final exams = _safe(() => ExamService().getHistory());
     final insights = _safe(() => ExamService().getInsights());
     final subjects = _safe(() => ScoreService().getCompletedSubjectScores());
-    final plan = _safe(() => RecommendationService().getLatest());
     return BehaviorSummaryData(
       study: await study,
       exams: await exams ?? const [],
       insights: await insights,
       subjects: await subjects ?? const [],
-      latestPlan: await plan,
     );
   }
 
@@ -154,8 +148,10 @@ class _SummaryContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final studyHours = ((data.study?.summary.totalTermMinutes ?? 0) / 60)
-        .toStringAsFixed(1);
+    final totalStudyMinutes = (data.study?.summary.totalTermMinutes ?? 0)
+        .round();
+    final studyDuration =
+        '${totalStudyMinutes ~/ 60} ชม. ${totalStudyMinutes % 60} น.';
     final sessionCount =
         data.study?.history.fold<int>(
           0,
@@ -181,15 +177,7 @@ class _SummaryContent extends StatelessWidget {
     final recordedScores = workloads
         .where((workload) => workload.actualScore != null)
         .length;
-    final rates =
-        data.latestPlan?.items
-            .map((item) => item.previousAdherenceRate)
-            .whereType<double>()
-            .toList() ??
-        const <double>[];
-    final adherence = rates.isEmpty
-        ? null
-        : (rates.reduce((a, b) => a + b) / rates.length).round();
+    final adherence = data.study?.summary.termRecommendationAdherenceRate;
     final sortedTopics = [...?data.insights?.weakTopics]
       ..sort((a, b) => a.percentage.compareTo(b.percentage));
     final seenSubjects = <String>{};
@@ -210,9 +198,9 @@ class _SummaryContent extends StatelessWidget {
                 _Metric(
                   width: (constraints.maxWidth - 8) / 2,
                   icon: Icons.schedule,
-                  label: 'เวลาทบทวนรวม',
+                  label: 'เวลาทบทวนสะสมทั้งเทอม',
                   tone: 0,
-                  value: '$studyHours ชม.',
+                  value: studyDuration,
                   detail:
                       'จับเวลา $sessionCount ครั้ง · เฉลี่ย ${(data.study?.summary.averageWeeklyMinutes ?? 0).round()} นาที/สัปดาห์',
                 ),
@@ -229,26 +217,26 @@ class _SummaryContent extends StatelessWidget {
                 _Metric(
                   width: (constraints.maxWidth - 8) / 2,
                   icon: Icons.checklist_rounded,
-                  label: 'ภาระงาน',
+                  label: 'ภาระงานที่เสร็จในเทอมนี้',
                   tone: 0,
-                  value: '$completedTasks งานเสร็จ',
+                  value: '$completedTasks งาน',
                   detail: 'บันทึกคะแนนแล้ว $recordedScores รายการ',
                 ),
                 _Metric(
                   width: (constraints.maxWidth - 8) / 2,
                   icon: Icons.auto_awesome,
-                  label: 'Checkpoint',
+                  label: 'Checkpoint ที่ทำสำเร็จ',
                   tone: 1,
-                  value: '${data.insights?.nextCheckpoints.length ?? 0} รอบ',
-                  detail: 'รอบทบทวนที่ระบบนัดไว้',
+                  value: '${data.insights?.completedCheckpointCount ?? 0} รอบ',
+                  detail: 'จำนวนสะสมจากทั้งเทอม',
                 ),
                 _Metric(
                   width: (constraints.maxWidth - 8) / 2,
                   icon: Icons.auto_awesome,
-                  label: 'ทำตามตารางที่แนะนำ',
+                  label: 'ทำตามตารางที่แนะนำทั้งเทอม',
                   tone: 0,
-                  value: adherence == null ? 'ยังไม่มีข้อมูล' : '$adherence%',
-                  detail: 'เทียบเวลาจับกับแผนล่าสุด',
+                  value: adherence == null ? 'ยังไม่มีข้อมูล' : '${adherence.round()}%',
+                  detail: 'เวลาจับที่ตรงกับบล็อกทบทวนที่ยอมรับแล้ว',
                 ),
               ],
             ),

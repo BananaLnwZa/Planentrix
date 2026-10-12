@@ -173,6 +173,7 @@ class WeeklyRecommendation {
   final String weekStart;
   final String weekEnd;
   final String triggerType;
+  final String? examWorkflowPhase;
   final String status;
   final List<WeeklyRecommendationItem> items;
   final List<WeeklyScheduleBlock> blocks;
@@ -185,6 +186,7 @@ class WeeklyRecommendation {
     required this.weekStart,
     required this.weekEnd,
     required this.triggerType,
+    this.examWorkflowPhase,
     required this.status,
     this.items = const [],
     this.blocks = const [],
@@ -199,6 +201,7 @@ class WeeklyRecommendation {
         weekStart: _text(json['week_start']),
         weekEnd: _text(json['week_end']),
         triggerType: _text(json['trigger_type']),
+        examWorkflowPhase: json['exam_workflow_phase']?.toString(),
         status: _text(json['status']),
         items: _list(json['items'])
             .whereType<Map>()

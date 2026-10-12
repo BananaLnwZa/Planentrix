@@ -7,8 +7,6 @@ import type {
   CurrentTerm,
   CurrentTermResponse,
   EndTermResponse,
-  PendingSystemEvaluation,
-  SystemEvaluationAnswers,
   TermHistoryItem,
   TermWorkflow,
 } from "@/interfaces/term.interface";
@@ -95,28 +93,6 @@ class TermService {
       return response.data;
     } catch (error) {
       throw this.toError(error, "Unable to end current term");
-    }
-  }
-
-  async getPendingSystemEvaluation(): Promise<PendingSystemEvaluation | null> {
-    try {
-      const response = await this.apiClient.get<{ data: PendingSystemEvaluation | null }>(
-        "/user/terms/evaluation/pending"
-      );
-      return response.data.data;
-    } catch (error) {
-      throw this.toError(error, "ไม่สามารถโหลดแบบประเมินระบบได้");
-    }
-  }
-
-  async submitSystemEvaluation(studentTermId: number, responses: SystemEvaluationAnswers): Promise<void> {
-    try {
-      await this.apiClient.post("/user/terms/evaluation", {
-        student_term_id: studentTermId,
-        responses,
-      });
-    } catch (error) {
-      throw this.toError(error, "ส่งแบบประเมินไม่สำเร็จ");
     }
   }
 

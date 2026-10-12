@@ -20,7 +20,7 @@ import ExamHistoryPanel from "./ExamHistoryPanel";
 import FeedbackPanel from "./FeedbackPanel";
 import ExamModal from "./ExamModal";
 
-const emptyInsights: ExamInsights = { weakTopics: [], nextCheckpoints: [] };
+const emptyInsights: ExamInsights = { weakTopics: [], nextCheckpoints: [], completedCheckpointCount: 0 };
 
 export default function TestWorkspace() {
   const [exams, setExams] = useState<ExamSummary[]>([]);

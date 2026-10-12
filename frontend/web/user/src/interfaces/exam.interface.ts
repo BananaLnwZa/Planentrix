@@ -79,6 +79,7 @@ export interface ExamCheckpointInsight {
 export interface ExamInsights {
   weakTopics: WeakTopicInsight[];
   nextCheckpoints: ExamCheckpointInsight[];
+  completedCheckpointCount: number;
 }
 
 export interface ExamAnswer {

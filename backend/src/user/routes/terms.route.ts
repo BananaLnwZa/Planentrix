@@ -8,8 +8,6 @@ import {
   acknowledgeMidtermFollowup,
   getTermHistory,
   endCurrentTerm,
-  getPendingSystemEvaluation,
-  submitSystemEvaluation,
 } from "../controllers/terms.controller";
 
 const router = Router();
@@ -25,10 +23,6 @@ router.get("/current", verifyToken, getCurrentTerm);
 router.get("/workflow", verifyToken, getTermWorkflow);
 router.post("/workflow/midterm-followup/acknowledge", verifyToken, acknowledgeMidtermFollowup);
 router.get("/history", verifyToken, getTermHistory);
-
-// GET/POST - Optional end-of-term system evaluation
-router.get("/evaluation/pending", verifyToken, getPendingSystemEvaluation);
-router.post("/evaluation", verifyToken, submitSystemEvaluation);
 
 // PUT - End current term (require authentication)
 router.put("/end", verifyToken, endCurrentTerm);

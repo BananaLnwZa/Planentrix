@@ -94,7 +94,7 @@ const managedStudentSelect = `SELECT
   u.last_login,
   DATE_FORMAT(u.updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version,
   CASE
-    WHEN u.last_login IS NULL OR u.last_login < DATE_SUB(NOW(), INTERVAL 1 YEAR)
+    WHEN u.last_login IS NOT NULL AND u.last_login < DATE_SUB(NOW(), INTERVAL 1 YEAR)
     THEN 1 ELSE 0
   END AS is_inactive,
   CASE
@@ -128,7 +128,7 @@ const managedInstructorSelect = `SELECT
   a.last_login,
   DATE_FORMAT(a.updated_at, '%Y-%m-%d %H:%i:%s.%f') AS version,
   CASE
-    WHEN a.last_login IS NULL OR a.last_login < DATE_SUB(NOW(), INTERVAL 1 YEAR)
+    WHEN a.last_login IS NOT NULL AND a.last_login < DATE_SUB(NOW(), INTERVAL 1 YEAR)
     THEN 1 ELSE 0
   END AS is_inactive,
   CASE

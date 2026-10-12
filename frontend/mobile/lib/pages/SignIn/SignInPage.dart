@@ -89,6 +89,7 @@ class _SigninPageState extends State<SigninPage> {
     } on AuthException catch (error) {
       if (!mounted) return;
       final message = _friendlyRegistrationMessage(error.message);
+      _createAccountKey.currentState?.showServerError(message);
       setState(() {
         _isLoading = false;
         _errorMessage = message;
@@ -116,6 +117,15 @@ class _SigninPageState extends State<SigninPage> {
 
     if (normalized.contains('username already exists')) {
       return 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว กรุณาเลือกชื่อผู้ใช้อื่น';
+    }
+    if (normalized.contains('first name already exists')) {
+      return 'ชื่อนี้ถูกใช้งานแล้ว กรุณาใช้ชื่ออื่น';
+    }
+    if (normalized.contains('last name already exists')) {
+      return 'นามสกุลนี้ถูกใช้งานแล้ว กรุณาใช้นามสกุลอื่น';
+    }
+    if (normalized.contains('email already exists')) {
+      return 'อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลอื่น';
     }
     if (normalized.contains('username must contain')) {
       return 'ชื่อผู้ใช้ต้องมีอย่างน้อย 3 ตัว ใช้ตัวอักษรภาษาอังกฤษหรือตัวเลขเท่านั้น และต้องมีตัวอักษรอย่างน้อย 1 ตัว';

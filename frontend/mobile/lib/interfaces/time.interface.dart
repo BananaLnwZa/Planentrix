@@ -287,12 +287,14 @@ class StudySummary {
   final double totalTermMinutes;
   final double averageWeeklyMinutes;
   final double averageMonthlyMinutes;
+  final double? termRecommendationAdherenceRate;
 
   const StudySummary({
     this.currentWeekMinutes = 0,
     this.totalTermMinutes = 0,
     this.averageWeeklyMinutes = 0,
     this.averageMonthlyMinutes = 0,
+    this.termRecommendationAdherenceRate,
   });
 
   factory StudySummary.fromJson(Map<String, dynamic> json) => StudySummary(
@@ -300,6 +302,9 @@ class StudySummary {
     totalTermMinutes: _asDouble(json['total_term_minutes']),
     averageWeeklyMinutes: _asDouble(json['average_weekly_minutes']),
     averageMonthlyMinutes: _asDouble(json['average_monthly_minutes']),
+    termRecommendationAdherenceRate: json['term_recommendation_adherence_rate'] is num
+        ? (json['term_recommendation_adherence_rate'] as num).toDouble()
+        : double.tryParse('${json['term_recommendation_adherence_rate'] ?? ''}'),
   );
 }
 

@@ -75,8 +75,8 @@ const matchesActivityFilter = (
   filter: UserFilter,
 ) =>
   filter === "all" ||
-  (filter === "inactive" && account.is_inactive) ||
-  (filter === "active" && !account.is_inactive);
+  (filter === "inactive" && Boolean(account.last_login) && account.is_inactive) ||
+  (filter === "active" && Boolean(account.last_login) && !account.is_inactive);
 
 export default function ManageUsersClient() {
   const [users, setUsers] = useState<ManagedUser[]>([]);

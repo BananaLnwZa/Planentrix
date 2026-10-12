@@ -276,7 +276,12 @@ export default function RecommendationCard({
   const hasChanges = recommendation?.items.some(
     (item) => item.difference_minutes !== 0 || item.changes_json.length > 0 || item.primary_action !== "keep"
   ) ?? false;
-  const canAct = recommendation?.status === "pending" && hasChanges;
+  const isPreExamFinalRound = recommendation?.exam_workflow_phase === "midterm_2w"
+    || recommendation?.exam_workflow_phase === "final_2w";
+  const isCheckpointAssessment = recommendation?.trigger_type === "exam_submitted"
+    && recommendation.exam_workflow_phase === "checkpoint";
+  const canAct = recommendation?.status === "pending"
+    && (hasChanges || isPreExamFinalRound || isCheckpointAssessment);
 
   const handleAccept = async () => {
     if (!recommendation) return;
@@ -335,7 +340,7 @@ export default function RecommendationCard({
           <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
             {error}
           </p>
-        ) : !recommendation || recommendation.status !== "pending" || !hasChanges ? (
+        ) : !canAct ? (
           <div className="flex min-h-28 flex-col items-center justify-center rounded-xl border border-dashed border-[#CBD9DE] bg-white/70 px-4 text-center">
             <CalendarRange size={22} className="text-[#91AEB9]" />
             <p className="mt-2 text-xs text-[#6E8189]">
@@ -350,6 +355,12 @@ export default function RecommendationCard({
           </div>
         ) : (
           <div className="space-y-4">
+            {isPreExamFinalRound && (
+              <p className="rounded-xl border border-[#CFE4ED] bg-[#EFF8FC] px-3 py-2 text-xs leading-5 text-[#526F7D]">
+                คำแนะนำรอบสุดท้ายก่อนสอบ{recommendation?.exam_workflow_phase === "midterm_2w" ? "กลางภาค" : "ปลายภาค"}
+                {!hasChanges && " · ระบบแนะนำให้คงตารางเดิม คุณยังดูตัวอย่าง ปรับตาราง และยืนยันนำไปใช้ได้"}
+              </p>
+            )}
             <RecommendationGroup title="เวลาทบทวน" items={reviewItems} />
             <RecommendationGroup title="เวลาทำการบ้าน" items={homeworkItems} />
             {error && (

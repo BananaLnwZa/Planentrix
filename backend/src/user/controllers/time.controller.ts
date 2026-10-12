@@ -216,6 +216,53 @@ export const getStudyDashboard=async(req:Request,res:Response)=>{
       INNER JOIN enrollments e ON e.enrollment_id=ss.enrollment_id
       WHERE e.student_term_id=? AND ss.status='completed'
       GROUP BY month_key,week_number ORDER BY month_key DESC,week_number`,[term.term_id]);
+    const [acceptedReviewBlocks]=await db.query<RowDataPacket[]>(`SELECT wb.enrollment_id,
+        DATE_FORMAT(GREATEST(TIMESTAMP(wb.scheduled_date,wb.start_time),wr.accepted_at),'%Y-%m-%d %H:%i:%s') AS effective_start,
+        DATE_FORMAT(LEAST(TIMESTAMP(wb.scheduled_date,wb.end_time),COALESCE(wr.superseded_at,NOW()),NOW()),'%Y-%m-%d %H:%i:%s') AS effective_end,
+        GREATEST(0,TIMESTAMPDIFF(SECOND,
+          GREATEST(TIMESTAMP(wb.scheduled_date,wb.start_time),wr.accepted_at),
+          LEAST(TIMESTAMP(wb.scheduled_date,wb.end_time),COALESCE(wr.superseded_at,NOW()),NOW()))) AS planned_seconds
+      FROM weekly_schedule_block wb
+      INNER JOIN weekly_recommendation wr ON wr.recommendation_id=wb.recommendation_id
+        AND wr.status IN ('accepted','superseded') AND wr.accepted_at IS NOT NULL
+      INNER JOIN schedule_types schedule_type ON schedule_type.schedule_type_id=wb.schedule_type_id
+        AND LOWER(schedule_type.type_code)='review'
+      WHERE wr.student_term_id=? AND wb.scheduled_date>=? AND wb.scheduled_date<=?
+        AND TIMESTAMP(wb.scheduled_date,wb.start_time)<NOW()
+        AND GREATEST(TIMESTAMP(wb.scheduled_date,wb.start_time),wr.accepted_at)<
+          LEAST(TIMESTAMP(wb.scheduled_date,wb.end_time),COALESCE(wr.superseded_at,NOW()),NOW())`,
+      [term.term_id,termStartSql,formatDate(displayEnd)]);
+    const [termSessions]=await db.query<RowDataPacket[]>(`SELECT ss.enrollment_id,
+        DATE_FORMAT(ss.started_at,'%Y-%m-%d %H:%i:%s') AS started_at,
+        DATE_FORMAT(ss.ended_at,'%Y-%m-%d %H:%i:%s') AS ended_at,
+        ss.accumulated_seconds
+      FROM study_sessions ss INNER JOIN enrollments e ON e.enrollment_id=ss.enrollment_id
+      WHERE e.student_term_id=? AND ss.status='completed' AND ss.ended_at IS NOT NULL AND ss.ended_at<=NOW()
+        AND ss.accumulated_seconds>0 AND ss.started_at>=? AND ss.started_at<=NOW()`,
+      [term.term_id,`${termStartSql} 00:00:00`]);
+    const blockIntervals=new Map<number,Array<{start:number;end:number}>>();
+    let plannedAdherenceSeconds=0;
+    for(const block of acceptedReviewBlocks){
+      const start=new Date(String(block.effective_start).replace(' ','T')).getTime();
+      const end=new Date(String(block.effective_end).replace(' ','T')).getTime();
+      const seconds=Math.max(0,toNumber(block.planned_seconds));
+      plannedAdherenceSeconds+=seconds;
+      const enrollmentId=Number(block.enrollment_id);
+      const intervals=blockIntervals.get(enrollmentId)??[];
+      intervals.push({start,end});
+      blockIntervals.set(enrollmentId,intervals);
+    }
+    let adherentSeconds=0;
+    for(const session of termSessions){
+      const start=new Date(String(session.started_at).replace(' ','T')).getTime();
+      const end=new Date(String(session.ended_at).replace(' ','T')).getTime();
+      const overlap=(blockIntervals.get(Number(session.enrollment_id))??[]).reduce((sum,block)=>
+        sum+Math.max(0,Math.min(end,block.end)-Math.max(start,block.start))/1000,0);
+      adherentSeconds+=Math.min(Math.max(0,toNumber(session.accumulated_seconds)),overlap);
+    }
+    const termRecommendationAdherenceRate=plannedAdherenceSeconds>0
+      ? Number((Math.min(100,adherentSeconds/plannedAdherenceSeconds*100)).toFixed(2))
+      : null;
     const start=termStart,weeksCount=Math.max(1,Math.floor((today.getTime()-start.getTime())/(7*86400000))+1),monthsCount=Math.max(1,(today.getFullYear()-start.getFullYear())*12+today.getMonth()-start.getMonth()+1);
     const totals = new Map<number, number>();
     for (const row of weekly) {
@@ -299,6 +346,6 @@ export const getStudyDashboard=async(req:Request,res:Response)=>{
         .sort((first, second) => second.total_minutes - first.total_minutes),
     }));
     const total=weeks.reduce((sum,w)=>sum+w.total_minutes,0);
-    return res.json({message:"Study dashboard retrieved successfully",current_term:term,summary:{current_week_minutes:weeks.at(-1)?.total_minutes??0,total_term_minutes:Number(total.toFixed(2)),average_weekly_minutes:Number((total/weeksCount).toFixed(2)),average_monthly_minutes:Number((total/monthsCount).toFixed(2))},weeks,weekly_subjects:weeklySubjects,history});
+    return res.json({message:"Study dashboard retrieved successfully",current_term:term,summary:{current_week_minutes:weeks.at(-1)?.total_minutes??0,total_term_minutes:Number(total.toFixed(2)),average_weekly_minutes:Number((total/weeksCount).toFixed(2)),average_monthly_minutes:Number((total/monthsCount).toFixed(2)),term_recommendation_adherence_rate:termRecommendationAdherenceRate},weeks,weekly_subjects:weeklySubjects,history});
   }catch(error){console.error("getStudyDashboard error:",error);return res.status(500).json({code:"INTERNAL_SERVER_ERROR",message:"Internal server error"});}
 };

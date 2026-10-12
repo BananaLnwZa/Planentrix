@@ -84,6 +84,7 @@ export default function Schedule({
   const [weeklyBlocks, setWeeklyBlocks] = useState<WeeklyScheduleBlock[]>([]);
   const [acceptedRecommendation, setAcceptedRecommendation] =
     useState<WeeklyRecommendation | null>(null);
+  const [isCarriedForward, setIsCarriedForward] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null);
   const [selectedWeeklyBlock, setSelectedWeeklyBlock] =
     useState<WeeklyScheduleBlock | null>(null);
@@ -123,6 +124,7 @@ export default function Schedule({
     ) {
       const weekly = weeklyResult.value;
       setAcceptedRecommendation(weekly.accepted_recommendation);
+      setIsCarriedForward(weekly.accepted_recommendation?.week_start !== weekly.week_start);
       setWeeklyBlocks(weekly.weekly_blocks);
       const recurringClasses = legacy
         ? legacy.data.filter((item) => item.schedule_type_code === "class")
@@ -134,6 +136,7 @@ export default function Schedule({
       setHasCurrentTerm(true);
     } else {
       setAcceptedRecommendation(null);
+      setIsCarriedForward(false);
       setWeeklyBlocks([]);
       setItems((legacy?.data ?? []).map(recurringDisplayItem));
     }
@@ -259,7 +262,7 @@ export default function Schedule({
           </h2>
           {acceptedRecommendation && (
             <p className="text-[9px] text-[#71907A]">
-              กำลังใช้แผนวันที่ {formatDisplayDate(acceptedRecommendation.week_start)} – {formatDisplayDate(acceptedRecommendation.week_end)}
+              {isCarriedForward ? "กำลังใช้แผนเดิมจากวันที่" : "กำลังใช้แผนวันที่"} {formatDisplayDate(acceptedRecommendation.week_start)} – {formatDisplayDate(acceptedRecommendation.week_end)}
             </p>
           )}
         </div>

@@ -117,6 +117,7 @@ export interface StudyDashboard {
     total_term_minutes: number;
     average_weekly_minutes: number;
     average_monthly_minutes: number;
+    term_recommendation_adherence_rate: number | null;
   };
   weeks: StudyWeek[];
   weekly_subjects: WeeklySubjectStudy[];

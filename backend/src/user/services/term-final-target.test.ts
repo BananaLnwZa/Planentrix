@@ -4,12 +4,9 @@ import type { Request, Response } from "express";
 import db from "../../config/db";
 import type {} from "../../middlewares/verifyToken";
 import { getTermWorkflow } from "../controllers/terms.controller";
+import { addDays, bangkokDateTimeParts, mondayOfWeek } from "./recommendation.rules";
 
-const dateOffset = (days: number) => {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-};
+const currentMonday = mondayOfWeek(bangkokDateTimeParts(new Date()).date);
 
 for (const [available, completed, recommended, expected] of [
   [2, 2, 1, true],
@@ -36,10 +33,10 @@ for (const [available, completed, recommended, expected] of [
       }
       return [[{
         term_id: 7,
-        midterm_start_date: dateOffset(-42),
-        midterm_end_date: dateOffset(-35),
-        final_start_date: dateOffset(10),
-        final_end_date: dateOffset(16),
+        midterm_start_date: addDays(currentMonday, -42),
+        midterm_end_date: addDays(currentMonday, -38),
+        final_start_date: addDays(currentMonday, 14),
+        final_end_date: addDays(currentMonday, 18),
       }]];
     });
     let body: { data?: { final_target_ready: boolean; final_phase: string } } = {};

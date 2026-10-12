@@ -185,6 +185,7 @@ class ExamService {
       return {
         weakTopics: list(json.weak_topics).map(weakTopicFromJson),
         nextCheckpoints: list(json.next_checkpoints).map(checkpointFromJson),
+        completedCheckpointCount: number(json.completed_checkpoint_count),
       };
     } catch (error) {
       throw this.toError(error, "ไม่สามารถโหลดคำแนะนำการทบทวนได้");

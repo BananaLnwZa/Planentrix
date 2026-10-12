@@ -66,6 +66,7 @@ interface HeaderRow extends RowDataPacket {
   term_id: number;
   previous_recommendation_id: number | null;
   exam_attempt_id: number | null;
+  exam_workflow_phase: string | null;
   workload_id: number | null;
   week_start: string;
   week_end: string;
@@ -166,6 +167,7 @@ const ownedHeader = async (
   const [rows] = await connection.query<HeaderRow[]>(
     `SELECT wr.recommendation_id,st.user_id,wr.student_term_id AS term_id,
        wr.previous_recommendation_id,wr.source_exam_attempt_id AS exam_attempt_id,
+       source_attempt.workflow_phase AS exam_workflow_phase,
        wr.source_workload_id AS workload_id,
        DATE_FORMAT(wr.week_start_date,'%Y-%m-%d') AS week_start,
        DATE_FORMAT(wr.week_end_date,'%Y-%m-%d') AS week_end,
@@ -173,6 +175,7 @@ const ownedHeader = async (
        wr.accepted_at,wr.rejected_at,wr.superseded_at,wr.updated_at
      FROM weekly_recommendation wr
      INNER JOIN student_terms st ON st.student_term_id=wr.student_term_id
+     LEFT JOIN exam_attempts source_attempt ON source_attempt.exam_attempt_id=wr.source_exam_attempt_id
      WHERE wr.recommendation_id=? AND st.user_id=? LIMIT 1${lock ? " FOR UPDATE" : ""}`,
     [recommendationId, userId]
   );
@@ -1313,7 +1316,7 @@ export const getAcceptedWeeklySchedule = async (userId: number, weekStart?: stri
     if (!term) {
       throw new RecommendationServiceError(404, "NO_CURRENT_TERM", "No current term found");
     }
-    const accepted = await acceptedForWeek(connection, term.term_id, target);
+    const accepted = await acceptedBaseRecommendation(connection, term.term_id, target);
     const [classes] = await connection.query<RowDataPacket[]>(
       `SELECT cm.class_meeting_id AS schedule_time_id,0 AS schedule_type_id,
          'class' AS schedule_type_code,'Class' AS schedule_type_name,
@@ -1333,14 +1336,24 @@ export const getAcceptedWeeklySchedule = async (userId: number, weekStart?: stri
       [term.term_id]
     );
     const recommendation = accepted
-      ? await getRecommendationById(userId, accepted)
+      ? await getRecommendationById(userId, accepted.recommendationId)
       : null;
+    const shiftDays = accepted ? daysBetween(accepted.sourceWeekStart, target) : 0;
+    // The accepted plan stays active until a newer week has its own accepted plan.
+    // Project its dates for display; the original accepted blocks remain unchanged.
+    const weeklyBlocks = recommendation?.blocks.map((block) =>
+      shiftDays === 0 ? block : {
+        ...block,
+        scheduled_date: addDays(String(block.scheduled_date), shiftDays),
+        source: "copied_previous",
+      }
+    ) ?? [];
     return {
       week_start: target,
       week_end: addDays(target, 6),
       recurring_classes: classes,
       accepted_recommendation: recommendation,
-      weekly_blocks: recommendation?.blocks ?? [],
+      weekly_blocks: weeklyBlocks,
     };
   } finally {
     connection.release();

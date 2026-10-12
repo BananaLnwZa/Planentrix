@@ -424,6 +424,46 @@ void main() {
     expect(find.byType(SigninPage), findsOneWidget);
   });
 
+  for (final duplicate in [
+    (
+      backendMessage: 'First name already exists',
+      displayMessage: 'ชื่อนี้ถูกใช้งานแล้ว กรุณาใช้ชื่ออื่น',
+    ),
+    (
+      backendMessage: 'Last name already exists',
+      displayMessage: 'นามสกุลนี้ถูกใช้งานแล้ว กรุณาใช้นามสกุลอื่น',
+    ),
+  ]) {
+    testWidgets('${duplicate.backendMessage} is shown in Thai', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SigninPage(
+            registrationOptionsLoader: loadTestRegistrationOptions,
+            registerAction: (_) async {
+              throw AuthException(duplicate.backendMessage);
+            },
+          ),
+        ),
+      );
+
+      fillValidAccount(
+        tester.state<CreateAccountFormState>(find.byType(CreateAccountForm)),
+      );
+      fillValidConstraint(
+        tester.state<ConstraintState>(find.byType(Constraint)),
+      );
+
+      final submitButton = find.byKey(const Key('signup-submit-button'));
+      await tester.ensureVisible(submitButton);
+      await tester.tap(submitButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text(duplicate.displayMessage), findsAtLeastNWidgets(2));
+      expect(find.byKey(const Key('signup-error-dialog')), findsOneWidget);
+      expect(find.byKey(const Key('signup-success-dialog')), findsNothing);
+    });
+  }
+
   testWidgets('shows the same constraint time validation alerts as web', (
     tester,
   ) async {

@@ -139,7 +139,15 @@ class _RecommendationCardState extends State<RecommendationCard> {
               item.primaryAction != 'keep',
         ) ??
         false;
-    final canAct = recommendation?.status == 'pending' && hasChanges;
+    final isPreExamFinalRound =
+        recommendation?.examWorkflowPhase == 'midterm_2w' ||
+        recommendation?.examWorkflowPhase == 'final_2w';
+    final isCheckpointAssessment =
+        recommendation?.triggerType == 'exam_submitted' &&
+        recommendation?.examWorkflowPhase == 'checkpoint';
+    final canAct =
+        recommendation?.status == 'pending' &&
+        (hasChanges || isPreExamFinalRound || isCheckpointAssessment);
     final reviewItems = canAct
         ? recommendation!.items
               .where(
@@ -245,6 +253,26 @@ class _RecommendationCardState extends State<RecommendationCard> {
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (isPreExamFinalRound) ...[
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF8FC),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFCFE4ED)),
+                          ),
+                          child: Text(
+                            'คำแนะนำรอบสุดท้ายก่อนสอบ${recommendation?.examWorkflowPhase == 'midterm_2w' ? 'กลางภาค' : 'ปลายภาค'}'
+                            '${hasChanges ? '' : ' · ระบบแนะนำให้คงตารางเดิม คุณยังดูตัวอย่าง ปรับตาราง และยืนยันนำไปใช้ได้'}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              height: 1.5,
+                              color: Color(0xFF526F7D),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       _RecommendationGroup(
                         title: 'เวลาทบทวน',
                         items: reviewItems,

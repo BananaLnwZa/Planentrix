@@ -23,6 +23,18 @@ interface AdminIdRow extends RowDataPacket {
   admin_id: number;
 }
 
+interface UserRegistrationConflictRow extends RowDataPacket {
+  username_exists: number;
+  email_exists: number;
+  first_name_exists: number;
+  last_name_exists: number;
+}
+
+interface AdminRegistrationConflictRow extends RowDataPacket {
+  username_exists: number;
+  email_exists: number;
+}
+
 interface NamedLockRow extends RowDataPacket {
   lock_acquired: number | null;
 }
@@ -527,22 +539,31 @@ export const registerUser = async (input: unknown): Promise<void> => {
       throw new AuthServiceError("Department not found or inactive", 400);
     }
 
-    const [existingUsers] = await connection.query<UserIdRow[]>(
-      `SELECT user_id
-       FROM user
-       WHERE BINARY user_name = ? OR email = ?
-       LIMIT 1`,
+    const [userConflicts] = await connection.query<UserRegistrationConflictRow[]>(
+      `SELECT
+         EXISTS(SELECT 1 FROM user WHERE BINARY LOWER(TRIM(user_name)) = BINARY LOWER(?)) AS username_exists,
+         EXISTS(SELECT 1 FROM user WHERE email = ?) AS email_exists,
+         EXISTS(SELECT 1 FROM user WHERE BINARY LOWER(TRIM(first_name)) = BINARY LOWER(?)) AS first_name_exists,
+         EXISTS(SELECT 1 FROM user WHERE BINARY LOWER(TRIM(last_name)) = BINARY LOWER(?)) AS last_name_exists`,
+      [userName, email, firstName, lastName],
+    );
+    const [adminConflicts] = await connection.query<AdminRegistrationConflictRow[]>(
+      `SELECT
+         EXISTS(SELECT 1 FROM admin WHERE BINARY LOWER(TRIM(admin_name)) = BINARY LOWER(?)) AS username_exists,
+         EXISTS(SELECT 1 FROM admin WHERE admin_email = ?) AS email_exists`,
       [userName, email],
     );
-    const [existingAdmins] = await connection.query<AdminIdRow[]>(
-      `SELECT admin_id
-       FROM admin
-       WHERE BINARY admin_name = ? OR admin_email = ?
-       LIMIT 1`,
-      [userName, email],
-    );
-    if (existingUsers.length > 0 || existingAdmins.length > 0) {
+    if (userConflicts[0]?.username_exists || adminConflicts[0]?.username_exists) {
       throw new AuthServiceError("Username already exists", 400);
+    }
+    if (userConflicts[0]?.email_exists || adminConflicts[0]?.email_exists) {
+      throw new AuthServiceError("Email already exists", 400);
+    }
+    if (userConflicts[0]?.first_name_exists) {
+      throw new AuthServiceError("First name already exists", 400);
+    }
+    if (userConflicts[0]?.last_name_exists) {
+      throw new AuthServiceError("Last name already exists", 400);
     }
 
     const passwordHash = await bcrypt.hash(userPassword, 10);

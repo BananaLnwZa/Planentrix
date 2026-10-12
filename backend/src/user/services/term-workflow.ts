@@ -79,12 +79,15 @@ export const isWorkloadLockedForUser = async (userId: number) => {
 
 // The 3-week notice still permits ordinary checkpoints. Once the dedicated
 // 2-week assessment flow starts, an unfinished appointment must not resurface.
+// Also retire legacy follow-ups created by submissions inside the 3-week
+// window, without cancelling appointments scheduled before that window.
 export const voidPendingCheckpointsForExamFlow = async (userId: number) => {
   await db.query(
     `UPDATE exam_checkpoints checkpoint
      INNER JOIN enrollments enrollment ON enrollment.enrollment_id = checkpoint.enrollment_id
      INNER JOIN student_terms student_term ON student_term.student_term_id = enrollment.student_term_id
      INNER JOIN academic_terms academic_term ON academic_term.academic_term_id = student_term.academic_term_id
+     INNER JOIN exam_attempts source_attempt ON source_attempt.exam_attempt_id = checkpoint.source_exam_attempt_id
      SET checkpoint.status = 'cancelled', checkpoint.updated_at = NOW()
      WHERE student_term.user_id = ? AND student_term.status = 'active'
        AND checkpoint.status = 'pending'
@@ -99,6 +102,18 @@ export const voidPendingCheckpointsForExamFlow = async (userId: number) => {
            AND DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) >= DATE_SUB(
              DATE_SUB(academic_term.final_start_date,
                INTERVAL WEEKDAY(academic_term.final_start_date) DAY), INTERVAL 14 DAY))
+         OR (
+           source_attempt.status = 'submitted'
+           AND source_attempt.workflow_phase = 'checkpoint'
+           AND source_attempt.exam_period = checkpoint.exam_period
+           AND DATE(source_attempt.submitted_at) <= DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR)
+           AND DATE(source_attempt.submitted_at) >= DATE_SUB(
+             DATE_SUB(
+               CASE checkpoint.exam_period WHEN 'midterm' THEN academic_term.midterm_start_date
+                 ELSE academic_term.final_start_date END,
+               INTERVAL WEEKDAY(CASE checkpoint.exam_period WHEN 'midterm' THEN academic_term.midterm_start_date
+                 ELSE academic_term.final_start_date END) DAY), INTERVAL 21 DAY)
+         )
        )`,
     [userId],
   );

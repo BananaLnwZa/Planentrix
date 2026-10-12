@@ -29,7 +29,6 @@ import 'Component/EditProfilePopup.dart';
 import 'Component/StudentCard.dart';
 import 'Component/StudentCardPopup.dart';
 import 'Component/Term.dart';
-import 'Component/SystemEvaluationPopup.dart';
 import 'Component/MainNotificationCard.dart';
 import 'Component/MainNotificationPopup.dart';
 import 'Component/RecommendationCard.dart';
@@ -99,7 +98,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   DateTime _alertNow = DateTime.now();
   Timer? _alertClock;
   bool _hasSavedGradeGoals = false;
-  bool _isShowingEvaluation = false;
   bool _isShowingMidtermFollowup = false;
   int _workflowLoadVersion = 0;
   DateTime _workflowCheckedDate = DateTime.now();
@@ -173,7 +171,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     if (_shouldLoadGradeGoalStatus) {
       unawaited(_loadGradeGoalStatus());
     }
-    unawaited(_loadPendingEvaluation());
     unawaited(_loadWorkflow());
   }
 
@@ -242,26 +239,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) unawaited(_loadWorkflow());
-  }
-
-  Future<void> _loadPendingEvaluation() async {
-    if (_isShowingEvaluation) return;
-    try {
-      final evaluation = await _termRepository.getPendingSystemEvaluation();
-      if (!mounted || evaluation == null || _isShowingEvaluation) return;
-      _isShowingEvaluation = true;
-      await Future<void>.delayed(Duration.zero);
-      if (!mounted) return;
-      await showSystemEvaluationPopup(
-        context,
-        evaluation: evaluation,
-        repository: _termRepository,
-      );
-    } catch (_) {
-      // The optional evaluation must not block the student dashboard.
-    } finally {
-      _isShowingEvaluation = false;
-    }
   }
 
   bool get _usesLiveAlertSources =>
@@ -597,9 +574,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                     unawaited(_loadWorkflow());
                     if (_shouldLoadGradeGoalStatus) {
                       unawaited(_loadGradeGoalStatus());
-                    }
-                    if (term == null) {
-                      unawaited(_loadPendingEvaluation());
                     }
                   },
                 ),

@@ -126,6 +126,7 @@ const recommendationFromJson = (value: unknown): WeeklyRecommendation => {
     term_id: number(json.term_id),
     previous_recommendation_id: nullableNumber(json.previous_recommendation_id),
     exam_score_history_id: nullableNumber(json.exam_score_history_id),
+    exam_workflow_phase: nullableText(json.exam_workflow_phase),
     workload_id: nullableNumber(json.workload_id),
     week_start: text(json.week_start),
     week_end: text(json.week_end),

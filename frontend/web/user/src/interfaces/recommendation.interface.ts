@@ -91,6 +91,7 @@ export interface WeeklyRecommendation {
   term_id: number;
   previous_recommendation_id: number | null;
   exam_score_history_id: number | null;
+  exam_workflow_phase?: string | null;
   workload_id: number | null;
   week_start: string;
   week_end: string;

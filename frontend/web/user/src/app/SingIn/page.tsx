@@ -29,6 +29,25 @@ interface BusyDayData {
   end: string;
 }
 
+const duplicateRegistrationMessages = {
+  "username already exists": {
+    field: "username",
+    text: "ชื่อผู้ใช้นี้ถูกใช้งานแล้ว",
+  },
+  "first name already exists": {
+    field: "firstName",
+    text: "ชื่อนี้ถูกใช้งานแล้ว",
+  },
+  "last name already exists": {
+    field: "lastName",
+    text: "นามสกุลนี้ถูกใช้งานแล้ว",
+  },
+  "email already exists": {
+    field: "email",
+    text: "อีเมลนี้ถูกใช้งานแล้ว",
+  },
+} as const;
+
 export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -90,12 +109,19 @@ export default function LoginPage() {
 
       setShowSuccessPopup(true);
     } catch (err: unknown) {
+      const duplicate = err instanceof Error
+        ? duplicateRegistrationMessages[
+            err.message.trim().toLowerCase() as keyof typeof duplicateRegistrationMessages
+          ]
+        : undefined;
+      if (duplicate) {
+        createAccFormRef.current?.setServerError(duplicate.field, duplicate.text);
+      }
       setMessage({
         type: "error",
-        text:
-          err instanceof Error
-            ? err.message
-            : "เกิดข้อผิดพลาดในการสร้างบัญชี",
+        text: duplicate?.text ?? (
+          err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการสร้างบัญชี"
+        ),
       });
     } finally {
       setIsLoading(false);

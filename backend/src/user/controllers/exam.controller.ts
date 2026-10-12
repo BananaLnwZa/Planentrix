@@ -612,14 +612,16 @@ const finalizeAttempt = async (
 
   let nextCheckpointAt: Date | null = null;
   let checkpointIntervalWeeks = 0;
+  // Existing appointments remain available in the 3-week notice window,
+  // but submitting one must not schedule another checkpoint before exams.
   if (weakTopicCount > 0 && attempt.workflow_phase === "checkpoint") {
     const [windowRows] = await connection.query<RowDataPacket[]>(
       `SELECT CASE
          WHEN ? = 'midterm' THEN
            DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) < DATE_SUB(
-             ${examWeekStartSql("academic_term.midterm_start_date")}, INTERVAL 14 DAY)
+             ${examWeekStartSql("academic_term.midterm_start_date")}, INTERVAL 21 DAY)
          ELSE DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) < DATE_SUB(
-           ${examWeekStartSql("academic_term.final_start_date")}, INTERVAL 14 DAY)
+           ${examWeekStartSql("academic_term.final_start_date")}, INTERVAL 21 DAY)
        END AS allowed
        FROM enrollments enrollment
        INNER JOIN student_terms student_term ON student_term.student_term_id = enrollment.student_term_id
@@ -867,6 +869,15 @@ export const getExamInsights = async (req: Request, res: Response) => {
        ORDER BY checkpoint.next_checkpoint_at`,
       [userId],
     );
+    const [completedCheckpointRows] = await db.query<RowDataPacket[]>(
+      `SELECT COUNT(*) AS completed_checkpoint_count
+       FROM exam_checkpoints checkpoint
+       INNER JOIN enrollments enrollment ON enrollment.enrollment_id=checkpoint.enrollment_id
+       INNER JOIN student_terms student_term ON student_term.student_term_id=enrollment.student_term_id
+       WHERE student_term.user_id=? AND student_term.status='active'
+         AND checkpoint.status='completed'`,
+      [userId],
+    );
     return res.json({
       message: "Exam insights retrieved successfully",
       weak_topics: weakTopics.map((topic) => ({
@@ -877,6 +888,7 @@ export const getExamInsights = async (req: Request, res: Response) => {
         ...checkpoint,
         exam_name: examSetName(checkpoint.exam_period, checkpoint.subject_name),
       })),
+      completed_checkpoint_count: Number(completedCheckpointRows[0]?.completed_checkpoint_count ?? 0),
     });
   } catch (error) {
     console.error("getExamInsights error:", error);

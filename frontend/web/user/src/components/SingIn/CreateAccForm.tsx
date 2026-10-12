@@ -30,6 +30,7 @@ type AccountField =
 type AccountErrors = Partial<Record<AccountField, string>>;
 
 export interface CreateAccFormHandle {
+  setServerError: (field: AccountField, message: string) => void;
   getFormData: () => Promise<{
     user_name: string;
     first_name: string;
@@ -118,6 +119,9 @@ const CreateAccForm = forwardRef<CreateAccFormHandle>(function CreateAccForm(_, 
   };
 
   useImperativeHandle(ref, () => ({
+    setServerError: (field, message) => {
+      setErrors((current) => ({ ...current, [field]: message }));
+    },
     getFormData: async () => {
       const username = usernameRef.current?.value?.trim() ?? "";
       const firstName = firstNameRef.current?.value?.trim() ?? "";

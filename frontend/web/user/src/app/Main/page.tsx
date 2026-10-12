@@ -10,8 +10,6 @@ import MainNotificationCard from "@/components/Main/MainNotificationCard";
 import RecommendationCard from "@/components/Main/RecommendationCard";
 import gradeService from "@/services/grade.service";
 import termService from "@/services/term.service";
-import type { PendingSystemEvaluation } from "@/interfaces/term.interface";
-import SystemEvaluationModal from "@/components/Main/SystemEvaluationModal";
 import BehaviorSummary from "@/components/Main/BehaviorSummary";
 import type { TermWorkflow } from "@/interfaces/term.interface";
 import ExamFlowNotice from "@/components/Main/ExamFlowNotice";
@@ -23,7 +21,6 @@ export default function MainPage() {
   const [recommendationVersion, setRecommendationVersion] = useState(0);
   const [alertVersion, setAlertVersion] = useState(0);
   const [hasSavedGradeGoals, setHasSavedGradeGoals] = useState(false);
-  const [pendingEvaluation, setPendingEvaluation] = useState<PendingSystemEvaluation | null>(null);
   const [workflow, setWorkflow] = useState<TermWorkflow | null>(null);
   const [showMidtermFollowup, setShowMidtermFollowup] = useState(false);
 
@@ -49,21 +46,6 @@ export default function MainPage() {
         if (active) setHasSavedGradeGoals(false);
       });
 
-    return () => {
-      active = false;
-    };
-  }, [termVersion]);
-
-  useEffect(() => {
-    let active = true;
-    termService
-      .getPendingSystemEvaluation()
-      .then((evaluation) => {
-        if (active) setPendingEvaluation(evaluation);
-      })
-      .catch(() => {
-        if (active) setPendingEvaluation(null);
-      });
     return () => {
       active = false;
     };
@@ -132,13 +114,6 @@ export default function MainPage() {
         </div>
       </div>
     </MainNotebookScreen>
-      {pendingEvaluation && (
-        <SystemEvaluationModal
-          evaluation={pendingEvaluation}
-          onSubmitted={() => setPendingEvaluation(null)}
-          onLater={() => setPendingEvaluation(null)}
-        />
-      )}
       {showMidtermFollowup && workflow && (
         <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]">
           <section role="dialog" aria-modal="true" aria-labelledby="midterm-followup-title" className="w-full max-w-md rounded-2xl border border-[#CFE4ED] bg-[#FFFDFE] p-6 text-center shadow-2xl" style={{ fontFamily: "var(--font-sansation)" }}>

@@ -43,6 +43,7 @@ class _ScheduleState extends State<Schedule> {
   List<ScheduleItem> _items = const [];
   List<WeeklyScheduleBlock> _weeklyBlocks = const [];
   WeeklyRecommendation? _acceptedRecommendation;
+  bool _isCarriedForward = false;
   bool _loading = true;
   bool _loadingDetail = false;
   bool _hasCurrentTerm = false;
@@ -86,7 +87,8 @@ class _ScheduleState extends State<Schedule> {
                 .toList();
         setState(() {
           _acceptedRecommendation = accepted;
-          _weeklyBlocks = weeklySchedule!.weeklyBlocks;
+          _isCarriedForward = accepted.weekStart != weeklySchedule!.weekStart;
+          _weeklyBlocks = weeklySchedule.weeklyBlocks;
           _items = [
             ...recurringClasses,
             ...weeklySchedule.weeklyBlocks.map(_weeklyScheduleItem),
@@ -96,6 +98,7 @@ class _ScheduleState extends State<Schedule> {
       } else {
         setState(() {
           _acceptedRecommendation = null;
+          _isCarriedForward = false;
           _weeklyBlocks = const [];
           _items = response?.items ?? const [];
           _hasCurrentTerm = response != null;
@@ -181,8 +184,9 @@ class _ScheduleState extends State<Schedule> {
     if (widget.readOnly ||
         !_hasCurrentTerm ||
         _loading ||
-        _acceptedRecommendation != null)
+        _acceptedRecommendation != null) {
       return;
+    }
     setState(() {
       _loadingDetail = true;
       _error = null;
@@ -219,7 +223,10 @@ class _ScheduleState extends State<Schedule> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _ScheduleTitle(acceptedRecommendation: _acceptedRecommendation),
+          _ScheduleTitle(
+            acceptedRecommendation: _acceptedRecommendation,
+            isCarriedForward: _isCarriedForward,
+          ),
           const SizedBox(height: 7),
           Expanded(
             child: Stack(
@@ -321,8 +328,9 @@ class _ScheduleState extends State<Schedule> {
 
 class _ScheduleTitle extends StatelessWidget {
   final WeeklyRecommendation? acceptedRecommendation;
+  final bool isCarriedForward;
 
-  const _ScheduleTitle({this.acceptedRecommendation});
+  const _ScheduleTitle({this.acceptedRecommendation, this.isCarriedForward = false});
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -343,7 +351,7 @@ class _ScheduleTitle extends StatelessWidget {
               ),
               if (acceptedRecommendation != null)
                 Text(
-                  'กำลังใช้แผน ${_displayScheduleDate(acceptedRecommendation!.weekStart)} – ${_displayScheduleDate(acceptedRecommendation!.weekEnd)}',
+                  '${isCarriedForward ? 'กำลังใช้แผนเดิมจากวันที่' : 'กำลังใช้แผน'} ${_displayScheduleDate(acceptedRecommendation!.weekStart)} – ${_displayScheduleDate(acceptedRecommendation!.weekEnd)}',
                   style: const TextStyle(
                     fontSize: 8.5,
                     color: Color(0xFF71907A),

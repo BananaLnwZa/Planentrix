@@ -53,6 +53,12 @@ test("pending checkpoints are cancelled when the dedicated exam flow starts", as
   assert.match(query, /SET checkpoint\.status = 'cancelled'/);
   assert.match(query, /INTERVAL 14 DAY/);
   assert.match(query, /checkpoint\.status = 'pending'/);
+  assert.match(query, /source_attempt\.exam_attempt_id = checkpoint\.source_exam_attempt_id/);
+  assert.match(query, /source_attempt\.status = 'submitted'/);
+  assert.match(query, /source_attempt\.workflow_phase = 'checkpoint'/);
+  assert.match(query, /DATE\(source_attempt\.submitted_at\) >= DATE_SUB/);
+  assert.match(query, /DATE\(source_attempt\.submitted_at\) <= DATE\(UTC_TIMESTAMP\(\) \+ INTERVAL 7 HOUR\)/);
+  assert.match(query, /INTERVAL 21 DAY/);
   assert.deepEqual(parameters, [42]);
 });
 

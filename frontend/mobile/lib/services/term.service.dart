@@ -23,11 +23,6 @@ abstract class TermRepository {
     required int semesterNo,
   }) => Future.error(UnimplementedError());
   Future<List<TermHistoryItem>> getTermHistory() async => const [];
-  Future<PendingSystemEvaluation?> getPendingSystemEvaluation() async => null;
-  Future<void> submitSystemEvaluation(
-    int studentTermId,
-    SystemEvaluationAnswers answers,
-  ) async {}
 }
 
 class TermService implements TermRepository {
@@ -141,36 +136,6 @@ class TermService implements TermRepository {
           .toList();
     } on DioException catch (error) {
       throw _toTermException(error, 'ไม่สามารถโหลดประวัติเทอมได้');
-    }
-  }
-
-  @override
-  Future<PendingSystemEvaluation?> getPendingSystemEvaluation() async {
-    try {
-      final response = await _apiService.get('/user/terms/evaluation/pending');
-      final body = Map<String, dynamic>.from(response.data as Map);
-      final data = body['data'];
-      if (data == null) return null;
-      return PendingSystemEvaluation.fromJson(
-        Map<String, dynamic>.from(data as Map),
-      );
-    } on DioException catch (error) {
-      throw _toTermException(error, 'ไม่สามารถโหลดแบบประเมินระบบได้');
-    }
-  }
-
-  @override
-  Future<void> submitSystemEvaluation(
-    int studentTermId,
-    SystemEvaluationAnswers answers,
-  ) async {
-    try {
-      await _apiService.post(
-        '/user/terms/evaluation',
-        data: {'student_term_id': studentTermId, 'responses': answers.toJson()},
-      );
-    } on DioException catch (error) {
-      throw _toTermException(error, 'ส่งแบบประเมินไม่สำเร็จ');
     }
   }
 

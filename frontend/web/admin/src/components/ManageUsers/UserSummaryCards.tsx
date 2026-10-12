@@ -7,7 +7,7 @@ interface UserSummaryCardsProps {
 }
 
 export default function UserSummaryCards({ accounts, accountLabel }: UserSummaryCardsProps) {
-  const inactive = accounts.filter((user) => user.is_inactive).length;
+  const inactive = accounts.filter((user) => user.last_login && user.is_inactive).length;
   const recentlyActive = accounts.filter((user) => {
     return user.inactive_days !== null && user.inactive_days >= 0 && user.inactive_days <= 30;
   }).length;
