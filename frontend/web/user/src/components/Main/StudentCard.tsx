@@ -461,6 +461,7 @@ export default function StudentCard({
           onClick={openProfile}
           aria-haspopup="dialog"
           className="w-full overflow-hidden rounded-[24px] border border-[#93A3AA] bg-white text-left shadow-[0_7px_9px_rgba(53,64,69,0.25)] transition-transform duration-200 hover:-translate-y-1 hover:shadow-[0_10px_16px_rgba(53,64,69,0.28)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#9CC5F9]"
+          style={{ fontFamily: "var(--font-sansation)" }}
         >
           <div className="flex items-center justify-between bg-[#C7E8F8] px-4 py-2.5">
             <span
@@ -474,8 +475,8 @@ export default function StudentCard({
               Planentrix
             </span>
             <div className="text-right text-white">
-              <p className="text-base leading-none">{displayStudentNumber}</p>
-              <p className="mt-0.5 text-[9px] tracking-wide">STUDENT IDENTITY CARD</p>
+              <p className="text-sm leading-none">{displayStudentNumber}</p>
+              <p className="mt-0.5 text-[8px] tracking-[0.5px]">STUDENT IDENTITY CARD</p>
             </div>
           </div>
 
@@ -486,29 +487,29 @@ export default function StudentCard({
 
             <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
               <div>
-                <dt className="text-[10px] leading-tight uppercase text-gray-400">First name</dt>
-                <dd className="truncate text-base leading-tight text-gray-900">{displayFirstName}</dd>
+                <dt className="text-[9px] leading-tight uppercase tracking-[0.4px] text-gray-400">First name</dt>
+                <dd className="truncate text-xs leading-[1.1] text-gray-900">{displayFirstName}</dd>
               </div>
               <div>
-                <dt className="text-[10px] leading-tight uppercase text-gray-400">Last name</dt>
-                <dd className="truncate text-base leading-tight text-gray-900">{displayLastName}</dd>
+                <dt className="text-[9px] leading-tight uppercase tracking-[0.4px] text-gray-400">Last name</dt>
+                <dd className="truncate text-xs leading-[1.1] text-gray-900">{displayLastName}</dd>
               </div>
               <div className="col-span-2 min-w-0">
-                <dt className="text-[10px] leading-tight uppercase text-gray-400">Faculty</dt>
-                <dd className="break-words text-sm leading-tight text-gray-900">
+                <dt className="text-[9px] leading-tight uppercase tracking-[0.4px] text-gray-400">Faculty</dt>
+                <dd className="break-words text-xs leading-[1.1] text-gray-900">
                   {displayFaculty}
                 </dd>
               </div>
-              <div className="col-span-2 flex items-start justify-between gap-3 min-w-0">
-                <div className="min-w-0 flex-1">
-                  <dt className="text-[10px] leading-tight uppercase text-gray-400">Department</dt>
-                  <dd className="truncate text-sm leading-tight text-gray-900" title={displayDepartment}>
+              <div className="col-span-2 grid min-w-0 grid-cols-2 gap-x-3">
+                <div className="min-w-0">
+                  <dt className="text-[9px] leading-tight uppercase tracking-[0.4px] text-gray-400">Department</dt>
+                  <dd className="truncate text-xs leading-[1.1] text-gray-900" title={displayDepartment}>
                     {displayDepartment}
                   </dd>
                 </div>
-                <div className="shrink-0 pl-2">
-                  <dt className="text-[10px] leading-tight uppercase text-gray-400">Year</dt>
-                  <dd className="text-sm leading-tight text-gray-900">{displayYear}</dd>
+                <div className="min-w-0">
+                  <dt className="text-[9px] leading-tight uppercase tracking-[0.4px] text-gray-400">Year</dt>
+                  <dd className="text-xs leading-[1.1] text-gray-900">{displayYear}</dd>
                 </div>
               </div>
             </dl>
@@ -516,7 +517,7 @@ export default function StudentCard({
 
           <div
             aria-hidden="true"
-            className="flex w-full items-center justify-between px-4 pb-1.5 text-[10px] text-gray-700"
+            className="flex w-full items-center justify-between px-4 pb-1.5 text-[9px] text-gray-700"
           >
             {Array.from({ length: 38 }, (_, index) => (
               <span key={index}>&gt;</span>

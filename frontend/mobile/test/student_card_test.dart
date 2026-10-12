@@ -79,11 +79,7 @@ class FakeProfileRepository implements ProfileRepository {
 
   @override
   Future<UserProfile> updateProfile(UpdateProfileInput input) async =>
-      UserProfile(
-        userId: 42,
-        userName: input.userName,
-        gender: input.gender,
-      );
+      UserProfile(userId: 42, userName: input.userName, gender: input.gender);
 
   @override
   Future<UserConstraint> updateConstraints(UpdateConstraintInput input) async =>
@@ -162,11 +158,19 @@ void main() {
     final cardShape = surface.shape! as RoundedRectangleBorder;
     expect(cardShape.borderRadius, BorderRadius.circular(18));
     expect(find.text('Nicha'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('Planentrix')).style?.fontFamily,
+      'Pacifico',
+    );
     expect(find.text('42'), findsOneWidget);
     expect(find.text('Suwat'), findsOneWidget);
     expect(find.text('Faculty of Science'), findsOneWidget);
     expect(find.text('COMSCI'), findsOneWidget);
     expect(find.text('ปี 3'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('YEAR')).dx,
+      closeTo(tester.getTopLeft(find.text('LAST NAME')).dx, 0.01),
+    );
     expect(tester.getSize(find.byKey(const Key('student-card'))).width, 320);
     expect(
       tester.getSize(find.byKey(const Key('student-card'))).height,

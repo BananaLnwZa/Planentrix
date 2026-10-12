@@ -117,17 +117,19 @@ class StudentCard extends StatelessWidget {
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Flexible(
+                                  Expanded(
                                     child: _CardDetail(
                                       label: 'DEPARTMENT',
                                       value: major,
                                       maxLines: 1,
                                     ),
                                   ),
-                                  const SizedBox(width: 14),
-                                  _CardDetail(
-                                    label: 'YEAR',
-                                    value: year == '—' ? year : 'ปี $year',
+                                  const SizedBox(width: 7),
+                                  Expanded(
+                                    child: _CardDetail(
+                                      label: 'YEAR',
+                                      value: year == '—' ? year : 'ปี $year',
+                                    ),
                                   ),
                                 ],
                               ),
@@ -170,12 +172,12 @@ class _StudentCardHeader extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: Colors.white,
-                fontFamily: 'Sansation',
-                fontSize: 25,
+                fontFamily: 'Pacifico',
+                fontSize: 29,
                 fontWeight: FontWeight.w400,
                 height: 1,
                 shadows: [
-                  Shadow(color: Color(0xFF9CC5F9), offset: Offset(2, 2)),
+                  Shadow(color: Color(0xFF9CC5F9), offset: Offset(3, 3)),
                 ],
               ),
             ),
