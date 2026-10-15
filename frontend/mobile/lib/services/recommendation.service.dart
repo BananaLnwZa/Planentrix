@@ -16,7 +16,6 @@ abstract class RecommendationRepository {
   Future<WeeklyRecommendation?> getLatest({String? weekStart});
   Future<AcceptedWeeklySchedule> getWeeklySchedule({String? weekStart});
   Future<WeeklyRecommendation> accept(int recommendationId);
-  Future<WeeklyRecommendation> reject(int recommendationId);
   Future<WeeklyRecommendation> addBlock(
     int recommendationId,
     WeeklyBlockInput input,
@@ -78,10 +77,6 @@ class RecommendationService implements RecommendationRepository {
   @override
   Future<WeeklyRecommendation> accept(int recommendationId) =>
       _postAction(recommendationId, 'accept', 'ไม่สามารถยอมรับคำแนะนำได้');
-
-  @override
-  Future<WeeklyRecommendation> reject(int recommendationId) =>
-      _postAction(recommendationId, 'reject', 'ไม่สามารถปฏิเสธคำแนะนำได้');
 
   @override
   Future<WeeklyRecommendation> addBlock(

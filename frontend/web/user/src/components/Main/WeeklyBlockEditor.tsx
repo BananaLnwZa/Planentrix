@@ -6,6 +6,7 @@ import { Trash2, X } from "lucide-react";
 import LocalizedDateTimeInput from "@/components/common/LocalizedDateTimeInput";
 import TimePicker24Hour from "@/components/common/TimePicker24Hour";
 import type {
+  RecurringClassBlock,
   WeeklyBlockInput,
   WeeklyScheduleBlock,
 } from "@/interfaces/recommendation.interface";
@@ -30,6 +31,11 @@ type WeeklyBlockEditorProps = {
   isSaving: boolean;
   isDeleting: boolean;
   constraint?: UserConstraint | null;
+  recurringClasses: Pick<
+    RecurringClassBlock,
+    "schedule_day" | "start_time" | "end_time" | "subject_name"
+  >[];
+  existingBlocks: WeeklyScheduleBlock[];
   onClose: () => void;
   onSave: (input: WeeklyBlockInput) => Promise<void>;
   onDelete?: () => Promise<void>;
@@ -45,6 +51,8 @@ export default function WeeklyBlockEditor({
   isSaving,
   isDeleting,
   constraint,
+  recurringClasses,
+  existingBlocks,
   onClose,
   onSave,
   onDelete,
@@ -96,6 +104,27 @@ export default function WeeklyBlockEditor({
       setError("เวลาเริ่มต้องอยู่ก่อนเวลาสิ้นสุด");
       return;
     }
+    const scheduleDay = scheduleDayFromDate(scheduledDate);
+    const overlappingClass = recurringClasses.find(
+      (item) =>
+        item.schedule_day === scheduleDay &&
+        startTime < trimTime(item.end_time) &&
+        endTime > trimTime(item.start_time)
+    );
+    const overlappingBlock = existingBlocks.find(
+      (item) =>
+        item.weekly_block_id !== block?.weekly_block_id &&
+        item.scheduled_date === scheduledDate &&
+        startTime < trimTime(item.end_time) &&
+        endTime > trimTime(item.start_time)
+    );
+    if (overlappingClass || overlappingBlock) {
+      const item = overlappingClass ?? overlappingBlock!;
+      setError(
+        `เวลานี้ทับกับ ${item.subject_name} (${trimTime(item.start_time)}–${trimTime(item.end_time)})`
+      );
+      return;
+    }
     const input: WeeklyBlockInput = {
       subject_id: subjectId,
       schedule_type_code: scheduleTypeCode,
@@ -104,7 +133,7 @@ export default function WeeklyBlockEditor({
       end_time: endTime,
     };
     const conflict = findConstraintOverlap(constraint, {
-      scheduleDay: scheduleDayFromDate(scheduledDate),
+      scheduleDay,
       startTime,
       endTime,
     });

@@ -1089,33 +1089,6 @@ export const acceptRecommendation = async (userId: number, recommendationId: num
   }
 };
 
-export const rejectRecommendation = async (userId: number, recommendationId: number) => {
-  const connection = await db.getConnection();
-  try {
-    await connection.beginTransaction();
-    const header = await ownedHeader(connection, userId, recommendationId, true);
-    if (header.status !== "pending") {
-      throw new RecommendationServiceError(
-        409,
-        "RECOMMENDATION_NOT_PENDING",
-        "Only a pending recommendation can be rejected"
-      );
-    }
-    await connection.query(
-      `UPDATE weekly_recommendation SET status='rejected',rejected_at=NOW()
-       WHERE recommendation_id=?`,
-      [recommendationId]
-    );
-    await connection.commit();
-    return getRecommendationById(userId, recommendationId);
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
-};
-
 const validateBlock = (input: Record<string, unknown>, header: HeaderRow) => {
   const date = String(input.scheduled_date ?? "");
   const start = String(input.start_time ?? "");
@@ -1140,6 +1113,52 @@ const validateBlock = (input: Record<string, unknown>, header: HeaderRow) => {
     );
   }
   return { date, start, end };
+};
+
+const assertNoBlockOverlap = async (
+  connection: PoolConnection,
+  header: HeaderRow,
+  recommendationId: number,
+  block: { date: string; start: string; end: string },
+  excludeBlockId = 0
+) => {
+  const [blocks] = await connection.query<RowDataPacket[]>(
+    `SELECT weekly_block_id FROM weekly_schedule_block
+     WHERE recommendation_id=? AND scheduled_date=?
+       AND weekly_block_id<>? AND start_time<? AND end_time>?
+     LIMIT 1`,
+    [recommendationId, block.date, excludeBlockId, block.end, block.start]
+  );
+  if (blocks.length) {
+    throw new RecommendationServiceError(
+      409,
+      "BLOCK_TIME_OVERLAP",
+      "เวลาที่เลือกทับกับบล็อกอื่นในตาราง"
+    );
+  }
+
+  const weekday = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][
+    new Date(`${block.date}T00:00:00Z`).getUTCDay()
+  ];
+  const [classes] = await connection.query<RowDataPacket[]>(
+    `SELECT cm.class_meeting_id FROM class_meetings cm
+     INNER JOIN enrollments e ON e.section_id=cm.section_id
+     LEFT JOIN student_class_meeting_overrides o
+       ON o.enrollment_id=e.enrollment_id AND o.class_meeting_id=cm.class_meeting_id
+     WHERE e.student_term_id=? AND e.status='enrolled'
+       AND COALESCE(o.override_day_of_week,cm.day_of_week)=?
+       AND COALESCE(o.override_start_time,cm.start_time)<?
+       AND COALESCE(o.override_end_time,cm.end_time)>?
+     LIMIT 1`,
+    [header.term_id, weekday, block.end, block.start]
+  );
+  if (classes.length) {
+    throw new RecommendationServiceError(
+      409,
+      "BLOCK_TIME_OVERLAP",
+      "เวลาที่เลือกทับกับคาบเรียนในตาราง"
+    );
+  }
 };
 
 const editableHeader = async (
@@ -1195,6 +1214,7 @@ export const addPreviewBlock = async (
         "Subject is not enrolled in the current term"
       );
     }
+    await assertNoBlockOverlap(connection, header, recommendationId, block);
     await connection.query(
       `INSERT INTO weekly_schedule_block(
          recommendation_id,enrollment_id,schedule_type_id,scheduled_date,
@@ -1231,6 +1251,7 @@ export const updatePreviewBlock = async (
     if (!owned[0]) {
       throw new RecommendationServiceError(404, "BLOCK_NOT_FOUND", "Schedule block was not found");
     }
+    await assertNoBlockOverlap(connection, header, recommendationId, block, weeklyBlockId);
     await connection.query(
       `UPDATE weekly_schedule_block SET scheduled_date=?,start_time=?,end_time=?,
          source='user_adjusted',is_user_modified=1 WHERE weekly_block_id=?`,

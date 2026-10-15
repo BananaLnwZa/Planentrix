@@ -345,6 +345,8 @@ export default function Schedule({
           isSaving={isSaving}
           isDeleting={isDeleting}
           constraint={constraint}
+          recurringClasses={items.filter((item) => item.source === "recurring")}
+          existingBlocks={weeklyBlocks}
           onClose={() => setSelectedWeeklyBlock(null)}
           onSave={handleWeeklySave}
         />

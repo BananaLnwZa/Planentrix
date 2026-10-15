@@ -133,6 +133,7 @@ class _RecommendationPreviewSheetState
         weekStart: _recommendation.weekStart,
         weekEnd: _recommendation.weekEnd,
         constraint: widget.constraint,
+        existingEntries: _entries,
       ),
     );
     if (result == null || !mounted) return;
@@ -266,7 +267,10 @@ class _RecommendationPreviewSheetState
                     key: const Key('recommendation-preview-list'),
                     padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
                     children: [
-                      if (const bool.fromEnvironment('ENABLE_MANUAL_SCHEDULE_ADD') && _adjusting)
+                      if (const bool.fromEnvironment(
+                            'ENABLE_MANUAL_SCHEDULE_ADD',
+                          ) &&
+                          _adjusting)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: OutlinedButton.icon(
@@ -464,6 +468,7 @@ class _WeeklyBlockEditorDialog extends StatefulWidget {
   final String weekStart;
   final String weekEnd;
   final UserConstraint? constraint;
+  final List<_PreviewEntry> existingEntries;
 
   const _WeeklyBlockEditorDialog({
     this.block,
@@ -472,6 +477,7 @@ class _WeeklyBlockEditorDialog extends StatefulWidget {
     required this.weekStart,
     required this.weekEnd,
     this.constraint,
+    required this.existingEntries,
   });
 
   @override
@@ -536,6 +542,25 @@ class _WeeklyBlockEditorDialogState extends State<_WeeklyBlockEditorDialog> {
       setState(() => _error = 'เวลาเริ่มต้องอยู่ก่อนเวลาสิ้นสุด');
       return;
     }
+    final date = _dateKey(_date);
+    for (final entry in widget.existingEntries) {
+      if ((widget.block != null &&
+              entry.weeklyBlock?.weeklyBlockId ==
+                  widget.block!.weeklyBlockId) ||
+          entry.date != date) {
+        continue;
+      }
+      final entryStart = _parseTime(entry.startTime);
+      final entryEnd = _parseTime(entry.endTime);
+      if (startMinutes < entryEnd.hour * 60 + entryEnd.minute &&
+          endMinutes > entryStart.hour * 60 + entryStart.minute) {
+        setState(
+          () => _error =
+              'เวลานี้ทับกับ ${entry.subjectName} (${_shortTime(entry.startTime)}–${_shortTime(entry.endTime)})',
+        );
+        return;
+      }
+    }
     final conflict = findConstraintOverlap(
       widget.constraint,
       scheduleDay: _date.weekday,
@@ -554,7 +579,7 @@ class _WeeklyBlockEditorDialogState extends State<_WeeklyBlockEditorDialog> {
         input: WeeklyBlockInput(
           subjectId: _subjectId,
           scheduleTypeId: _scheduleTypeId,
-          scheduledDate: _dateKey(_date),
+          scheduledDate: date,
           startTime: _timeKey(_start),
           endTime: _timeKey(_end),
           allowConstraintOverlap: allowConstraintOverlap,
@@ -724,6 +749,8 @@ String _dateKey(DateTime value) =>
 
 String _timeKey(TimeOfDay value) =>
     '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+
+String _shortTime(String value) => value.split(':').take(2).join(':');
 
 TimeOfDay _parseTime(String value) {
   final parts = value.split(':').map((part) => int.tryParse(part)).toList();

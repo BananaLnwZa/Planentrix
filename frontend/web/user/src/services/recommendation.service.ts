@@ -238,10 +238,6 @@ class RecommendationService {
     return this.postAction(recommendationId, "accept", "ไม่สามารถยอมรับคำแนะนำได้");
   }
 
-  async reject(recommendationId: number): Promise<WeeklyRecommendation> {
-    return this.postAction(recommendationId, "reject", "ไม่สามารถปฏิเสธคำแนะนำได้");
-  }
-
   async addBlock(
     recommendationId: number,
     input: WeeklyBlockInput
@@ -289,7 +285,7 @@ class RecommendationService {
 
   private async postAction(
     recommendationId: number,
-    action: "accept" | "reject",
+    action: "accept",
     fallback: string
   ): Promise<WeeklyRecommendation> {
     try {

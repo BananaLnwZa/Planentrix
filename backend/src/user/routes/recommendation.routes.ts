@@ -8,7 +8,6 @@ import {
   getLatestWeeklyRecommendation,
   getWeeklyRecommendationDetail,
   getWeeklySchedule,
-  rejectWeeklyRecommendation,
   updateWeeklyPreviewBlock,
 } from "../controllers/recommendation.controller";
 
@@ -19,7 +18,6 @@ router.get("/latest", verifyToken, getLatestWeeklyRecommendation);
 router.get("/schedule", verifyToken, getWeeklySchedule);
 router.get("/:recommendation_id", verifyToken, getWeeklyRecommendationDetail);
 router.post("/:recommendation_id/accept", verifyToken, acceptWeeklyRecommendation);
-router.post("/:recommendation_id/reject", verifyToken, rejectWeeklyRecommendation);
 router.post("/:recommendation_id/blocks", verifyToken, addWeeklyPreviewBlock);
 router.put(
   "/:recommendation_id/blocks/:weekly_block_id",

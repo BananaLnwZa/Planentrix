@@ -357,6 +357,8 @@ export default function RecommendationPreviewModal({
           isSaving={isSaving}
           isDeleting={isDeleting}
           constraint={constraint}
+          recurringClasses={recurringClasses}
+          existingBlocks={recommendation.blocks}
           onClose={() => {
             if (!isSaving && !isDeleting) {
               setSelectedBlock(null);

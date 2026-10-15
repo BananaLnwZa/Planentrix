@@ -69,7 +69,7 @@ class _RecommendationCardState extends State<RecommendationCard> {
     if (updated.status == 'accepted') widget.onAccepted?.call();
   }
 
-  Future<void> _act(bool accept) async {
+  Future<void> _accept() async {
     final recommendation = _recommendation;
     if (recommendation == null || _busy) return;
     setState(() {
@@ -77,12 +77,10 @@ class _RecommendationCardState extends State<RecommendationCard> {
       _error = null;
     });
     try {
-      final updated = accept
-          ? await _repository.accept(recommendation.recommendationId)
-          : await _repository.reject(recommendation.recommendationId);
+      final updated = await _repository.accept(recommendation.recommendationId);
       if (!mounted) return;
       setState(() => _recommendation = updated);
-      if (accept) widget.onAccepted?.call();
+      widget.onAccepted?.call();
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
     } finally {
@@ -229,31 +227,14 @@ class _RecommendationCardState extends State<RecommendationCard> {
                       ),
                       if (recommendation!.status == 'pending') ...[
                         const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                key: const Key('recommendation-reject-button'),
-                                onPressed: _busy ? null : () => _act(false),
-                                icon: const Icon(Icons.close_rounded, size: 17),
-                                label: const Text('ไม่ใช้คำแนะนำ'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: FilledButton.icon(
-                                key: const Key('recommendation-accept-button'),
-                                onPressed: _busy ? null : () => _act(true),
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFF71A982),
-                                ),
-                                icon: const Icon(Icons.check_rounded, size: 17),
-                                label: Text(
-                                  _busy ? 'กำลังบันทึก...' : 'ยอมรับ',
-                                ),
-                              ),
-                            ),
-                          ],
+                        FilledButton.icon(
+                          key: const Key('recommendation-accept-button'),
+                          onPressed: _busy ? null : _accept,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF71A982),
+                          ),
+                          icon: const Icon(Icons.check_rounded, size: 17),
+                          label: Text(_busy ? 'กำลังบันทึก...' : 'ยอมรับ'),
                         ),
                       ],
                     ],

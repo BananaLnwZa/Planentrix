@@ -8,7 +8,6 @@ import {
   Clock3,
   Eye,
   RefreshCw,
-  XCircle,
 } from "lucide-react";
 import type {
   WeeklyRecommendation,
@@ -202,7 +201,6 @@ export default function RecommendationCard({
   const [recommendation, setRecommendation] =
     useState<WeeklyRecommendation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRejecting, setIsRejecting] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [error, setError] = useState("");
@@ -247,25 +245,6 @@ export default function RecommendationCard({
     (item) => item.difference_minutes !== 0 || item.changes_json.length > 0 || item.primary_action !== "keep"
   ) ?? false;
   const canAct = recommendation?.status === "pending" && hasChanges;
-
-  const handleReject = async () => {
-    if (!recommendation) return;
-    setIsRejecting(true);
-    setError("");
-    try {
-      setRecommendation(
-        await recommendationService.reject(recommendation.recommendation_id)
-      );
-    } catch (rejectError) {
-      setError(
-        rejectError instanceof Error
-          ? rejectError.message
-          : "ไม่สามารถปฏิเสธคำแนะนำได้"
-      );
-    } finally {
-      setIsRejecting(false);
-    }
-  };
 
   const handleAccept = async () => {
     if (!recommendation) return;
@@ -352,15 +331,6 @@ export default function RecommendationCard({
 
       {canAct && (
         <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-[#EADDE1] bg-white/80 px-3 py-3">
-            <button
-              type="button"
-              onClick={() => void handleReject()}
-              disabled={isRejecting || isAccepting}
-              className="inline-flex items-center gap-1 rounded-xl border border-[#E8C6CE] px-3 py-2 text-xs text-[#B05D70] hover:bg-[#FFF2F5] disabled:opacity-50"
-            >
-              <XCircle size={14} />
-              {isRejecting ? "กำลังบันทึก..." : "ยังไม่ใช้ตอนนี้"}
-            </button>
           <button
             type="button"
             onClick={() => setIsPreviewOpen(true)}
@@ -371,7 +341,7 @@ export default function RecommendationCard({
             <button
               type="button"
               onClick={() => void handleAccept()}
-              disabled={isAccepting || isRejecting}
+              disabled={isAccepting}
               className="rounded-xl bg-[#71A982] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#609A72] disabled:opacity-50"
             >
               {isAccepting ? "กำลังยอมรับ..." : "ยอมรับคำแนะนำ"}

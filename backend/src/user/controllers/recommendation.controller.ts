@@ -8,7 +8,6 @@ import {
   getLatestRecommendation,
   getRecommendationById,
   RecommendationServiceError,
-  rejectRecommendation,
   updatePreviewBlock,
 } from "../services/recommendation.engine";
 import type { RecommendationTrigger } from "../services/recommendation.types";
@@ -149,23 +148,6 @@ export const acceptWeeklyRecommendation = async (req: Request, res: Response) =>
     });
   } catch (error) {
     return sendError(res, error, "acceptWeeklyRecommendation");
-  }
-};
-
-export const rejectWeeklyRecommendation = async (req: Request, res: Response) => {
-  try {
-    const userId = getUserId(req, res);
-    if (!userId) return;
-    const recommendationId = positiveInteger(req.params.recommendation_id);
-    if (!recommendationId) {
-      return res.status(400).json({ code: "INVALID_RECOMMENDATION_ID", message: "A valid recommendation_id is required" });
-    }
-    return res.json({
-      message: "Weekly recommendation rejected successfully",
-      data: await rejectRecommendation(userId, recommendationId),
-    });
-  } catch (error) {
-    return sendError(res, error, "rejectWeeklyRecommendation");
   }
 };
 

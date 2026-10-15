@@ -17,10 +17,6 @@ class _RecommendationRepository implements RecommendationRepository {
   Future<WeeklyRecommendation> accept(int recommendationId) async =>
       _withStatus('accepted');
 
-  @override
-  Future<WeeklyRecommendation> reject(int recommendationId) async =>
-      _withStatus('rejected');
-
   WeeklyRecommendation _withStatus(String status) {
     final current = latest!;
     final updated = WeeklyRecommendation(
@@ -119,7 +115,7 @@ void main() {
     }
   });
 
-  testWidgets('accepted and rejected recommendations show their final status', (
+  testWidgets('pending recommendations can be accepted but not rejected', (
     tester,
   ) async {
     final repository = _RecommendationRepository(_pending());
@@ -133,29 +129,11 @@ void main() {
       find.byKey(const Key('recommendation-accept-button')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('recommendation-reject-button')), findsNothing);
 
     await tester.tap(find.byKey(const Key('recommendation-accept-button')));
     await tester.pumpAndSettle();
     expect(find.textContaining('คุณยอมรับคำแนะนำล่าสุดแล้ว'), findsOneWidget);
-    expect(
-      find.byKey(const Key('recommendation-preview-button')),
-      findsNothing,
-    );
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: RecommendationCard(
-            key: const ValueKey('reject'),
-            repository: _RecommendationRepository(_pending()),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('recommendation-reject-button')));
-    await tester.pumpAndSettle();
-    expect(find.text('คุณปฏิเสธคำแนะนำล่าสุดแล้ว'), findsOneWidget);
     expect(
       find.byKey(const Key('recommendation-preview-button')),
       findsNothing,
