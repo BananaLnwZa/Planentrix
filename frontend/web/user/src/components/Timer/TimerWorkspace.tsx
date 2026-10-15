@@ -19,6 +19,7 @@ import type {
 import timeService, { TimeApiError } from "@/services/time.service";
 import examService from "@/services/exam.service";
 import recommendationService from "@/services/recommendation.service";
+import type { WeeklyScheduleBlock } from "@/interfaces/recommendation.interface";
 import FinishSessionModal from "./FinishSessionModal";
 import SessionRecoveryModal from "./SessionRecoveryModal";
 import StudyHistory from "./StudyHistory";
@@ -50,6 +51,24 @@ const isOpenSession = (session: StudySession) =>
   session.session_status === "paused" ||
   session.session_status === "interrupted";
 
+const bangkokDateKey = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+};
+
+const blockMinutes = (block: WeeklyScheduleBlock) => {
+  const [startHour, startMinute] = block.start_time.split(":").map(Number);
+  const [endHour, endMinute] = block.end_time.split(":").map(Number);
+  const minutes = endHour * 60 + endMinute - startHour * 60 - startMinute;
+  return Number.isFinite(minutes) ? Math.max(0, minutes) : 0;
+};
+
 export default function TimerWorkspace() {
   const online = useSyncExternalStore(
     subscribeToOnlineStatus,
@@ -60,6 +79,9 @@ export default function TimerWorkspace() {
   const [subjects, setSubjects] = useState<TimerSubject[]>([]);
   const [dashboard, setDashboard] = useState<StudyDashboard | null>(null);
   const [reviewRecommendations, setReviewRecommendations] = useState<ReviewRecommendationItem[]>([]);
+  const [reviewBlocks, setReviewBlocks] = useState<WeeklyScheduleBlock[]>([]);
+  const [todayBangkok, setTodayBangkok] = useState(bangkokDateKey);
+  const loadedReviewDay = useRef(todayBangkok);
   const [activeSession, setActiveSession] = useState<StudySession | null>(null);
   const [requiresRecovery, setRequiresRecovery] = useState(false);
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(
@@ -169,6 +191,7 @@ export default function TimerWorkspace() {
         ? plannedReviewItems
         : Array.from(weakSubjects.values()).sort((left, right) => (left.percentage ?? 100) - (right.percentage ?? 100));
       setReviewRecommendations(recommendationItems);
+      setReviewBlocks(weeklySchedule?.weekly_blocks ?? []);
       applySession(active.data, active.requires_recovery);
     } catch (error) {
       setPageError(
@@ -184,6 +207,40 @@ export default function TimerWorkspace() {
     const timeoutId = window.setTimeout(() => void loadTimerPage(), 0);
     return () => window.clearTimeout(timeoutId);
   }, [loadTimerPage]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setTodayBangkok(bangkokDateKey()), 60_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    if (loadedReviewDay.current === todayBangkok) return;
+    loadedReviewDay.current = todayBangkok;
+    let cancelled = false;
+    void recommendationService.getWeeklySchedule()
+      .then((schedule) => {
+        if (!cancelled) setReviewBlocks(schedule?.weekly_blocks ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setReviewBlocks([]);
+      });
+    return () => { cancelled = true; };
+  }, [todayBangkok]);
+
+  const todayReviewRecommendations = useMemo(() => {
+    const subjects = new Map<string, ReviewRecommendationItem>();
+    for (const block of reviewBlocks) {
+      if (block.schedule_type_code.toLowerCase() !== "review" || block.scheduled_date !== todayBangkok) continue;
+      const previous = subjects.get(block.subject_id);
+      subjects.set(block.subject_id, {
+        subjectId: block.subject_id,
+        subjectName: block.subject_name,
+        detail: "บล็อกทบทวนวันนี้",
+        minutes: (previous?.minutes ?? 0) + blockMinutes(block),
+      });
+    }
+    return Array.from(subjects.values());
+  }, [reviewBlocks, todayBangkok]);
 
   useEffect(() => {
     if (
@@ -511,7 +568,7 @@ export default function TimerWorkspace() {
           />
 
           <ReviewRecommendationCard
-            items={reviewRecommendations}
+            items={todayReviewRecommendations}
             onSelectSubject={(subjectId) => {
               const subject = subjects.find((item) => item.subject_id === subjectId);
               if (subject) setSelectedScheduleId(subject.schedule_time_id);

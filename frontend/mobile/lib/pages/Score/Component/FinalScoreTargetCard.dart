@@ -34,14 +34,6 @@ class FinalScoreTargetCard extends StatelessWidget {
             _SubjectTargetRow(subject: subject),
             const SizedBox(height: 6),
           ],
-          const Text(
-            'คำนวณจากคะแนนขั้นต่ำของเกรดเป้าหมาย หักคะแนนที่บันทึกแล้ว หากยังมีงานที่ไม่ได้กรอกคะแนน จำนวนที่ต้องได้จะรวมงานนั้นด้วย',
-            style: TextStyle(
-              color: Color(0xFF8299A4),
-              fontSize: 10,
-              height: 1.4,
-            ),
-          ),
         ],
       ),
     );
@@ -121,4 +113,7 @@ class _SubjectTargetRow extends StatelessWidget {
 
 String _scoreText(double value) => value == value.roundToDouble()
     ? value.toInt().toString()
-    : value.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+    : value
+          .toStringAsFixed(2)
+          .replaceFirst(RegExp(r'0+$'), '')
+          .replaceFirst(RegExp(r'\.$'), '');

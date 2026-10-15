@@ -320,7 +320,7 @@ class _MilestoneProgress extends StatelessWidget {
                 child: Container(
                   height: 6,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8E9E9),
+                    color: const Color(0xFFE9EFF2),
                     borderRadius: BorderRadius.circular(6),
                   ),
                 ),
@@ -332,7 +332,7 @@ class _MilestoneProgress extends StatelessWidget {
                 child: Container(
                   height: 6,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE4869F),
+                    color: const Color(0xFFA9D1E8),
                     borderRadius: BorderRadius.circular(6),
                   ),
                 ),
@@ -347,13 +347,13 @@ class _MilestoneProgress extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: progress >= milestone
-                          ? const Color(0xFF315F9B)
+                          ? const Color(0xFF89B9D8)
                           : Colors.white,
                       border: Border.all(
                         width: 2,
                         color: progress >= milestone
-                            ? const Color(0xFF315F9B)
-                            : const Color(0xFFB8C5CB),
+                            ? const Color(0xFF89B9D8)
+                            : const Color(0xFFC6D6DF),
                       ),
                       boxShadow: const [
                         BoxShadow(color: Color(0x1F000000), blurRadius: 2),
@@ -367,7 +367,7 @@ class _MilestoneProgress extends StatelessWidget {
                   top: 0,
                   child: Icon(
                     Icons.flag_rounded,
-                    color: Color(0xFFA34D68),
+                    color: Color(0xFFD7A2B8),
                     size: 13,
                   ),
                 ),

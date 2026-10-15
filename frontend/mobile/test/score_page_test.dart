@@ -287,6 +287,10 @@ void main() {
     expect(find.text('จากเป้าหมาย 3.75'), findsOneWidget);
     expect(find.byKey(const Key('gpa-gauge')), findsOneWidget);
     expect(find.byKey(const Key('final-score-target-card')), findsOneWidget);
+    expect(
+      find.textContaining('คำนวณจากคะแนนขั้นต่ำของเกรดเป้าหมาย'),
+      findsNothing,
+    );
     expect(find.text('ต้องได้เพิ่มอย่างน้อย 80 คะแนน'), findsOneWidget);
     expect(find.byType(CustomPaint), findsWidgets);
     final surface = tester.widget<Container>(find.byKey(const Key('gpa-card')));

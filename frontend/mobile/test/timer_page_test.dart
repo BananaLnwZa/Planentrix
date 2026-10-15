@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/interfaces/exam.interface.dart'
     show ExamInsights, WeakTopicInsight;
 import 'package:mobile/interfaces/time.interface.dart';
+import 'package:mobile/interfaces/recommendation.interface.dart';
 import 'package:mobile/pages/Timer/Timer.dart';
 import 'package:mobile/services/time.service.dart';
 
@@ -159,6 +160,59 @@ void setPhoneSize(WidgetTester tester, [Size size = const Size(360, 640)]) {
 }
 
 void main() {
+  testWidgets('recommended review shows only subjects with review blocks today', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+    final bangkokNow = DateTime.now().toUtc().add(const Duration(hours: 7));
+    String dateKey(DateTime date) =>
+        '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final today = dateKey(bangkokNow);
+    final tomorrow = dateKey(bangkokNow.add(const Duration(days: 1)));
+    WeeklyScheduleBlock block(int id, String subjectId, String date) =>
+        WeeklyScheduleBlock(
+          weeklyBlockId: id,
+          recommendationId: 1,
+          subjectId: subjectId,
+          subjectName: subjectId == 'BI101'
+              ? 'Business Intelligence'
+              : 'Tomorrow Subject',
+          scheduleTypeId: 2,
+          scheduleTypeName: 'Review',
+          scheduleTypeCode: 'review',
+          scheduledDate: date,
+          startTime: '09:00:00',
+          endTime: '10:30:00',
+          source: 'recommendation',
+          isUserModified: false,
+        );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimerPage(
+          repository: FakeTimeRepository(),
+          weeklyScheduleLoader: () async => AcceptedWeeklySchedule(
+            weekStart: today,
+            weekEnd: tomorrow,
+            weeklyBlocks: [
+              block(1, 'BI101', today),
+              block(2, 'OTHER', tomorrow),
+            ],
+          ),
+          examInsightsLoader: () async => null,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('review-recommendation-BI101')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('review-recommendation-OTHER')), findsNothing);
+    expect(find.text('เป้าหมาย 90 นาที'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('timer uses the shared no-term state', (tester) async {
     setPhoneSize(tester);
     await tester.pumpWidget(

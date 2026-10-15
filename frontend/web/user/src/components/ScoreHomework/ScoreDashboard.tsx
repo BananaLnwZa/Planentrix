@@ -185,8 +185,8 @@ export default function ScoreDashboard({
           targetGpa={overall?.overall_target_gpa ?? targetGpa}
         />
 
-        {showFinalScoreTarget && <section className="rounded-xl border border-[#CFE4ED] bg-[#F3FAFD] px-3 py-2.5">
-          <h2 className="text-xs font-semibold text-[#456A7C]">คะแนนปลายภาคที่ต้องได้ตามเป้าหมาย</h2>
+        {showFinalScoreTarget && <section className="rounded-xl border border-[#CFE4ED] bg-[#F3FAFD] px-3 py-3">
+          <h2 className="text-sm font-semibold text-[#456A7C]">คะแนนปลายภาคที่ต้องได้ตามเป้าหมาย</h2>
           <div className="mt-2 space-y-1.5">
             {subjects.map((subject) => {
               const scored = getScoreSummary(subject.workloads.filter((item) => isCompleted(item.workload_status)));
@@ -195,10 +195,10 @@ export default function ScoreDashboard({
               const needed = target === null ? null : Math.max(0, target - scored.actual);
               const reached = needed !== null && needed <= 0;
               const estimate = needed === null ? "รอเกณฑ์ตัดเกรด" : reached ? "ถึงเป้าหมายแล้ว" : `ต้องเพิ่ม ${formatScore(needed)} คะแนน`;
-              return <div key={subject.schedule_time_id} className="rounded-lg bg-white px-2.5 py-2 text-[10px]">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="min-w-0 text-xs[12px] font-medium text-[#607B89]">{subject.subject_name}</span>
-                  <span className={`shrink-0 text-right font-semibold ${needed !== null && needed > remaining ? "text-[#C87878]" : reached ? "text-[#62A47E]" : "text-[#528EB0]"}`}>{estimate}</span>
+              return <div key={subject.schedule_time_id} className="rounded-lg bg-white px-3 py-2.5 text-xs">
+                <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+                  <span className="min-w-[10rem] flex-1 text-sm font-semibold leading-5 text-[#456A7C]">{subject.subject_name}</span>
+                  <span className={`text-right text-xs font-semibold leading-5 ${needed !== null && needed > remaining ? "text-[#C87878]" : reached ? "text-[#62A47E]" : "text-[#528EB0]"}`}>{estimate}</span>
                 </div>
                 <p className="mt-0.5 text-[#8299A4]">
                   เป้า {subject.target_grade ?? "—"}{target === null ? " · ยังไม่มีคะแนนเกณฑ์" : ` ขั้นต่ำ ${formatScore(target)} คะแนน`}
@@ -208,7 +208,6 @@ export default function ScoreDashboard({
               </div>;
             })}
           </div>
-          <p className="mt-1.5 text-[9px] leading-4 text-[#8299A4]">คำนวณจากคะแนนขั้นต่ำของเกรดเป้าหมายตามเกณฑ์ที่เผยแพร่ หักคะแนนที่บันทึกแล้ว หากยังมีงานที่ไม่ได้กรอกคะแนน จำนวนที่ต้องได้จะรวมงานนั้นด้วย</p>
         </section>}
 
         {overall && overall.pending_grading_scheme_count > 0 && (

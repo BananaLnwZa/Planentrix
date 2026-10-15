@@ -10,7 +10,7 @@ import '../../common/NotebookTabs.dart';
 import '../../interfaces/time.interface.dart';
 import '../../interfaces/exam.interface.dart' show ExamInsights;
 import '../../interfaces/recommendation.interface.dart'
-    show AcceptedWeeklySchedule;
+    show AcceptedWeeklySchedule, WeeklyScheduleBlock;
 import '../../services/exam.service.dart';
 import '../../services/recommendation.service.dart';
 import '../../services/time.service.dart';
@@ -21,6 +21,31 @@ import 'Component/SessionRecoveryPopup.dart';
 import 'Component/StudyHistory.dart';
 import 'Component/StudyStatistics.dart';
 import 'Component/TimerPanel.dart';
+
+String _bangkokDateKey() {
+  final now = DateTime.now().toUtc().add(const Duration(hours: 7));
+  return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+}
+
+int _blockMinutes(WeeklyScheduleBlock block) {
+  final start = block.startTime.split(':');
+  final end = block.endTime.split(':');
+  if (start.length < 2 || end.length < 2) return 0;
+  final startHour = int.tryParse(start[0]);
+  final startMinute = int.tryParse(start[1]);
+  final endHour = int.tryParse(end[0]);
+  final endMinute = int.tryParse(end[1]);
+  if (startHour == null ||
+      startMinute == null ||
+      endHour == null ||
+      endMinute == null) {
+    return 0;
+  }
+  return ((endHour * 60 + endMinute) - (startHour * 60 + startMinute)).clamp(
+    0,
+    1440,
+  );
+}
 
 class TimerPage extends StatefulWidget {
   final TimeRepository? repository;
@@ -43,6 +68,8 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
   TimerSetup? _setup;
   StudyDashboard? _dashboard;
   List<WeeklyReviewTarget> _reviewTargets = const [];
+  List<WeeklyReviewTarget> _todayReviewTargets = const [];
+  String _todayBangkok = _bangkokDateKey();
   StudySession? _activeSession;
   int? _selectedScheduleId;
   int _elapsedSeconds = 0;
@@ -50,6 +77,7 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
   DateTime _syncedAt = DateTime.now();
   Timer? _clockTimer;
   Timer? _heartbeatTimer;
+  Timer? _dayRefreshTimer;
   bool _isLoading = true;
   bool _busy = false;
   bool _requiresRecovery = false;
@@ -64,6 +92,12 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _repository = widget.repository ?? TimeService();
+    _dayRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      final today = _bangkokDateKey();
+      if (today == _todayBangkok) return;
+      _todayBangkok = today;
+      unawaited(_loadReviewTargets());
+    });
     _loadTimerPage();
   }
 
@@ -72,6 +106,7 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _clockTimer?.cancel();
     _heartbeatTimer?.cancel();
+    _dayRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -79,6 +114,7 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _syncActiveSession();
+      unawaited(_loadReviewTargets());
     }
   }
 
@@ -103,6 +139,7 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
         _setup = setup;
         _dashboard = results[2] as StudyDashboard;
         _reviewTargets = const [];
+        _todayReviewTargets = const [];
         _isLoading = false;
       });
       _applySession(active.session, recoveryRequired: active.requiresRecovery);
@@ -125,11 +162,36 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
     ]);
     if (!mounted) return;
     setState(() {
+      final schedule = results[0] as AcceptedWeeklySchedule?;
       _reviewTargets = _buildReviewTargets(
-        results[0] as AcceptedWeeklySchedule?,
+        schedule,
         results[1] as ExamInsights?,
       );
+      _todayBangkok = _bangkokDateKey();
+      _todayReviewTargets = _buildTodayReviewTargets(schedule, _todayBangkok);
     });
+  }
+
+  List<WeeklyReviewTarget> _buildTodayReviewTargets(
+    AcceptedWeeklySchedule? schedule,
+    String today,
+  ) {
+    final targets = <String, WeeklyReviewTarget>{};
+    for (final block
+        in schedule?.weeklyBlocks ?? const <WeeklyScheduleBlock>[]) {
+      if (block.scheduleTypeCode.toLowerCase() != 'review' ||
+          block.scheduledDate != today) {
+        continue;
+      }
+      final previous = targets[block.subjectId];
+      targets[block.subjectId] = WeeklyReviewTarget(
+        subjectId: block.subjectId,
+        subjectName: block.subjectName,
+        detail: 'บล็อกทบทวนวันนี้',
+        targetMinutes: (previous?.targetMinutes ?? 0) + _blockMinutes(block),
+      );
+    }
+    return targets.values.toList();
   }
 
   Future<AcceptedWeeklySchedule?> _loadWeeklySchedule() async {
@@ -611,7 +673,7 @@ class _TimerPageState extends State<TimerPage> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 14),
         ReviewRecommendationCard(
-          items: _reviewTargets,
+          items: _todayReviewTargets,
           onSelectSubject: (subjectId) {
             final subject = _setup!.subjects
                 .where((item) => item.subjectId == subjectId)

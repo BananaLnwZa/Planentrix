@@ -51,7 +51,7 @@ export default function ReviewRecommendationCard({
         </ul>
       ) : (
         <p className="rounded-xl bg-[#F7FBFD] px-3 py-2.5 text-center text-[11px] leading-5 text-[#8C9BA1]">
-          ยังไม่มีวิชาที่ถูกแนะนำเป็นพิเศษ ลองทำข้อสอบหรือยอมรับแผนทบทวนรายสัปดาห์ก่อนนะ
+          วันนี้ยังไม่มีบล็อกทบทวนในตาราง
         </p>
       )}
     </section>

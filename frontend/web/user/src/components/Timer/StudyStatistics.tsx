@@ -1,4 +1,4 @@
-import { Gauge } from "lucide-react";
+import { Flag, Gauge } from "lucide-react";
 import type { StudyDashboard, StudySession } from "@/interfaces/time.interface";
 import type { ReviewRecommendationItem } from "./ReviewRecommendationCard";
 import { formatDuration } from "./timer.utils";
@@ -127,11 +127,18 @@ export default function StudyStatistics({
                       : formatDuration(actualMinutes, true)}
                   </span>
                 </div>
-                <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-[#E8E9E9]">
-                  <div
-                    className="h-full rounded-full bg-[#E4869F] transition-[width] duration-700"
-                    style={{ width: `${progress}%` }}
-                  />
+                <div className="relative mt-2.5 h-5 w-full" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label={`ความคืบหน้าทบทวน ${item.subjectName}`}>
+                  <div className="absolute left-[6px] right-[6px] top-2 h-1.5 rounded-full bg-[#E9EFF2]">
+                    <div className="h-full rounded-full bg-[#A9D1E8] transition-[width] duration-700" style={{ width: `${progress}%` }} />
+                  </div>
+                  {[0, 0.25, 0.5, 0.75, 1].map((milestone) => (
+                    <span
+                      key={milestone}
+                      className={`absolute top-[5px] h-3 w-3 rounded-full border-2 shadow-[0_0_2px_rgba(0,0,0,0.12)] ${progress / 100 >= milestone ? "border-[#89B9D8] bg-[#89B9D8]" : "border-[#C6D6DF] bg-white"}`}
+                      style={{ left: `calc(${milestone * 100}% - ${milestone * 12}px)` }}
+                    />
+                  ))}
+                  {progress >= 100 && <Flag className="absolute right-0 top-0 h-[13px] w-[13px] text-[#D7A2B8]" aria-hidden="true" />}
                 </div>
                 <p className="mt-1 text-right text-[9px] text-[#A2AEB2]">
                   {targetMinutes > 0

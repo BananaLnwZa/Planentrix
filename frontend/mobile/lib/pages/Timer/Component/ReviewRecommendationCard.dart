@@ -44,7 +44,7 @@ class ReviewRecommendationCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(
-                'ยังไม่มีวิชาที่ถูกแนะนำเป็นพิเศษ ลองทำข้อสอบหรือยอมรับแผนทบทวนรายสัปดาห์ก่อนนะ',
+                'วันนี้ยังไม่มีบล็อกทบทวนในตาราง',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Color(0xFF8C9BA1),
