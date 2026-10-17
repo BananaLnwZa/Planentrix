@@ -184,9 +184,10 @@ export const updateScheduleTime = async (req: Request,res: Response) => {
     if(!Number.isInteger(id) || id<=0)return res.status(400).json({message:"Invalid schedule_time_id"});
     if(id<WEEKLY_ID_OFFSET)return updateClassScheduleTime(req,res,userId,id);
     const term=await getCurrentTerm(userId);if(!term)return res.status(404).json({message:"No current term found"});
-    const [rows]=await db.query<RowDataPacket[]>(`SELECT wb.*,DAYOFWEEK(wb.scheduled_date + INTERVAL 1 DAY) AS schedule_day FROM weekly_schedule_block wb
+    const [rows]=await db.query<RowDataPacket[]>(`SELECT wb.*,wr.status AS recommendation_status,DAYOFWEEK(wb.scheduled_date + INTERVAL 1 DAY) AS schedule_day FROM weekly_schedule_block wb
       INNER JOIN weekly_recommendation wr ON wr.recommendation_id=wb.recommendation_id WHERE wb.weekly_block_id=? AND wr.student_term_id=? LIMIT 1`,[id-WEEKLY_ID_OFFSET,term.term_id]);
     if(!rows[0])return res.status(404).json({message:"Schedule time not found"});
+    if(rows[0].recommendation_status!=='pending')return res.status(409).json({message:"Only pending recommendation blocks can be edited"});
     const valid=validate(req.body.schedule_day??rows[0].schedule_day,req.body.start_time??rows[0].start_time,req.body.end_time??rows[0].end_time);if(valid.error)return res.status(400).json({message:valid.error});
     await db.query(`UPDATE weekly_schedule_block SET scheduled_date=?,start_time=?,end_time=?,source='user_adjusted',is_user_modified=1 WHERE weekly_block_id=?`,[dateForDay(valid.scheduleDay!),normalizeTime(valid.startTime!),normalizeTime(valid.endTime!),id-WEEKLY_ID_OFFSET]);
     return res.json({message:"Schedule time updated successfully",schedule_time_id:id,user_id:userId,updated_data:{schedule_day:valid.scheduleDay,start_time:valid.startTime,end_time:valid.endTime,classroom:null,note:null}});

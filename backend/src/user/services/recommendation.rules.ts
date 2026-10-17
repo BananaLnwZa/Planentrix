@@ -84,23 +84,20 @@ export const minutesToTime = (minutes: number) =>
 export const durationMinutes = (start: string, end: string) =>
   Math.max(0, timeToMinutes(end) - timeToMinutes(start));
 
-export const targetScoreFromGpa = (gpa: number | null) => {
-  if (gpa === null || !Number.isFinite(gpa)) return null;
-  if (gpa >= 4) return 80;
-  if (gpa >= 3.5) return 75;
-  if (gpa >= 3) return 70;
-  if (gpa >= 2.5) return 65;
-  if (gpa >= 2) return 60;
-  if (gpa >= 1.5) return 55;
-  if (gpa >= 1) return 50;
-  return 0;
-};
-
 export const scoreGapMinutes = (gap: number) => {
   if (gap >= 20) return 90;
   if (gap >= 10) return 60;
   if (gap >= 5) return 30;
   return 0;
+};
+
+export const earnedScoreReviewMinutes = (
+  earnedCourseScore: number,
+  targetMinimumScore: number | null,
+) => {
+  if (targetMinimumScore === null || !Number.isFinite(targetMinimumScore) ||
+      !Number.isFinite(earnedCourseScore)) return 0;
+  return scoreGapMinutes(Math.max(0, targetMinimumScore - earnedCourseScore));
 };
 
 export const weakTopicMinutes = (count: number) =>

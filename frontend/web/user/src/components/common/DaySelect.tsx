@@ -7,8 +7,8 @@ const dayColors = [
   ["!bg-[#FFF5F8] !text-[#D86F95]", "!bg-[#FFF5F8] !text-[#D86F95]"],
   ["!bg-[#F7FDED] !text-[#6FA844]", "!bg-[#F7FDED] !text-[#6FA844]"],
   ["!bg-[#FFF7F1] !text-[#D97D3E]", "!bg-[#FFF7F1] !text-[#D97D3E]"],
-  ["!bg-[#FBF6FE] !text-[#AE79C8]", "!bg-[#FBF6FE] !text-[#AE79C8]"],
   ["!bg-[#F2FAFE] !text-[#4A9BCD]", "!bg-[#F2FAFE] !text-[#4A9BCD]"],
+  ["!bg-[#FBF6FE] !text-[#AE79C8]", "!bg-[#FBF6FE] !text-[#AE79C8]"],
   ["!bg-[#FFF5F4] !text-[#DF6259]", "!bg-[#FFF5F4] !text-[#DF6259]"],
 ] as const;
 

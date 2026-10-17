@@ -12,11 +12,8 @@ class ExamFlowNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final notice =
-        workflow.initialFinalTestPending &&
-            (workflow.phase == 'midterm_post' || workflow.phase == 'final_3w')
-        ? (workflow.phase == 'final_3w'
-              ? _firstFinalThreeWeekNotice
-              : _firstFinalTestNotice)
+        workflow.initialFinalTestPending && workflow.phase == 'final_3w'
+        ? _firstFinalThreeWeekNotice
         : _notices[workflow.phase];
     if (notice == null) return const SizedBox.shrink();
     return Container(
@@ -130,14 +127,6 @@ const Map<String, _Notice> _notices = {
     route: '/test',
   ),
 };
-
-const _Notice _firstFinalTestNotice = (
-  title: 'เริ่มเตรียมสอบปลายภาค',
-  detail:
-      'มีแบบทดสอบปลายภาคครั้งแรกที่ยังทำไม่ครบทุกวิชา ทำให้ครบเพื่อเริ่มคำแนะนำจัดตารางช่วงปลายภาค',
-  action: 'ไปทำแบบทดสอบ',
-  route: '/test',
-);
 
 const _Notice _firstFinalThreeWeekNotice = (
   title: 'เริ่มเตรียมสอบปลายภาค',

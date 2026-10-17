@@ -5,6 +5,47 @@ import 'package:mobile/interfaces/term.interface.dart';
 import 'package:mobile/pages/Main/Component/ExamFlowNotice.dart';
 
 void main() {
+  for (final phase in ['normal', 'midterm_post']) {
+    testWidgets('$phase has no persistent exam preparation notice', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ExamFlowNotice(
+              workflow: TermWorkflow(
+                phase: phase,
+                initialFinalTestPending: true,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('exam-flow-notice')), findsNothing);
+    });
+  }
+
+  testWidgets('first final test notice starts in the three-week window', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ExamFlowNotice(
+            workflow: TermWorkflow(
+              phase: 'final_3w',
+              initialFinalTestPending: true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('เริ่มเตรียมสอบปลายภาค'), findsOneWidget);
+    expect(find.text('ไปทำแบบทดสอบ'), findsOneWidget);
+  });
+
   testWidgets('final three-week notice reminds users without offering a test', (
     tester,
   ) async {

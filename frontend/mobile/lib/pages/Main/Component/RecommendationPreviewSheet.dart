@@ -9,6 +9,7 @@ import '../../../common/DateTimeFormat.dart';
 import '../../../interfaces/profile.interface.dart';
 import '../../../interfaces/recommendation.interface.dart';
 import '../../../services/recommendation.service.dart';
+import 'WeeklyBlockDetailsPopup.dart';
 
 Future<WeeklyRecommendation?> showRecommendationPreviewSheet(
   BuildContext context, {
@@ -53,7 +54,6 @@ class _RecommendationPreviewSheetState
   bool _loading = true;
   bool _adjusting = false;
   bool _busy = false;
-  bool _hasChangesToApply = false;
   String? _error;
 
   @override
@@ -124,6 +124,7 @@ class _RecommendationPreviewSheetState
   }
 
   Future<void> _editBlock([WeeklyScheduleBlock? block]) async {
+    if (_recommendation.status != 'pending') return;
     final result = await showDialog<_EditorResult>(
       context: context,
       builder: (_) => _WeeklyBlockEditorDialog(
@@ -160,7 +161,6 @@ class _RecommendationPreviewSheetState
       if (mounted) {
         setState(() {
           _recommendation = updated;
-          _hasChangesToApply = true;
         });
       }
     } catch (error) {
@@ -187,10 +187,6 @@ class _RecommendationPreviewSheetState
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-  }
-
-  void _applyChanges() {
-    Navigator.of(context).pop(_recommendation);
   }
 
   @override
@@ -307,8 +303,25 @@ class _RecommendationPreviewSheetState
                         for (final entry in group.value)
                           _PreviewBlockTile(
                             entry: entry,
-                            canEdit: _adjusting && entry.weeklyBlock != null,
-                            onTap: () => _editBlock(entry.weeklyBlock),
+                            canOpen:
+                                entry.weeklyBlock != null &&
+                                (_recommendation.status == 'accepted' ||
+                                    _adjusting),
+                            showEditIcon:
+                                _recommendation.status == 'pending' &&
+                                _adjusting,
+                            onTap: () {
+                              final block = entry.weeklyBlock;
+                              if (block == null) return;
+                              if (_recommendation.status == 'accepted') {
+                                showWeeklyBlockDetailsPopup(
+                                  context,
+                                  block: block,
+                                );
+                              } else {
+                                _editBlock(block);
+                              }
+                            },
                           ),
                         const SizedBox(height: 12),
                       ],
@@ -318,9 +331,7 @@ class _RecommendationPreviewSheetState
                           _adjusting
                               ? 'กดบล็อกเวลาเพื่อย้าย เปลี่ยนเวลา หรือลบ'
                               : _recommendation.status == 'accepted'
-                              ? _hasChangesToApply
-                                    ? 'บันทึกการแก้ไขแล้ว กดนำการแก้ไขไปใช้เพื่ออัปเดตตารางหลัก'
-                                    : 'ตารางนี้กำลังใช้งานอยู่ คุณสามารถปรับเวลาได้'
+                              ? 'ตารางนี้กำลังใช้งานอยู่ กดบล็อกเพื่อดูรายละเอียด'
                               : 'ตารางนี้ยังเป็นตัวอย่าง จนกว่าจะกดยอมรับคำแนะนำ',
                           style: const TextStyle(
                             fontSize: 10.5,
@@ -333,7 +344,7 @@ class _RecommendationPreviewSheetState
                       ))
                         _Notice(
                           text: _recommendation.status == 'accepted'
-                              ? 'เวลาว่างไม่พอจัดครบทุกเป้าหมาย คุณยังสามารถปรับตารางได้'
+                              ? 'เวลาว่างไม่พอจัดครบทุกเป้าหมาย'
                               : 'เวลาว่างไม่พอจัดครบทุกเป้าหมาย คุณสามารถปรับตารางก่อนยอมรับได้',
                           color: const Color(0xFFFFF4D8),
                         ),
@@ -342,61 +353,44 @@ class _RecommendationPreviewSheetState
                     ],
                   ),
           ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Color(0xFFE9DDE1))),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    key: const Key('recommendation-adjust-button'),
-                    onPressed: _busy
-                        ? null
-                        : () => setState(() => _adjusting = !_adjusting),
-                    icon: const Icon(Icons.edit_calendar_rounded, size: 17),
-                    label: Text(
-                      _adjusting
-                          ? 'เสร็จสิ้นการปรับ'
-                          : _recommendation.status == 'accepted'
-                          ? 'ปรับตาราง'
-                          : 'ปรับตารางก่อนใช้',
-                    ),
-                  ),
-                ),
-                if (_recommendation.status == 'pending') ...[
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: FilledButton(
-                      key: const Key('recommendation-preview-accept'),
-                      onPressed: _busy ? null : _accept,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF71A982),
-                      ),
-                      child: Text(_busy ? 'กำลังบันทึก...' : 'ยอมรับคำแนะนำ'),
-                    ),
-                  ),
-                ] else if (_hasChangesToApply) ...[
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: FilledButton(
-                      key: const Key('recommendation-preview-apply'),
-                      onPressed: _busy ? null : _applyChanges,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF71A982),
-                      ),
-                      child: const FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text('นำการแก้ไขไปใช้'),
+          if (_recommendation.status == 'pending')
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Color(0xFFE9DDE1))),
+              ),
+              child: Row(
+                children: [
+                  if (_recommendation.status == 'pending')
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const Key('recommendation-adjust-button'),
+                        onPressed: _busy
+                            ? null
+                            : () => setState(() => _adjusting = !_adjusting),
+                        icon: const Icon(Icons.edit_calendar_rounded, size: 17),
+                        label: Text(
+                          _adjusting ? 'เสร็จสิ้นการปรับ' : 'ปรับตารางก่อนใช้',
+                        ),
                       ),
                     ),
-                  ),
+                  if (_recommendation.status == 'pending') ...[
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: FilledButton(
+                        key: const Key('recommendation-preview-accept'),
+                        onPressed: _busy ? null : _accept,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF71A982),
+                        ),
+                        child: Text(_busy ? 'กำลังบันทึก...' : 'ยอมรับคำแนะนำ'),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -405,12 +399,14 @@ class _RecommendationPreviewSheetState
 
 class _PreviewBlockTile extends StatelessWidget {
   final _PreviewEntry entry;
-  final bool canEdit;
+  final bool canOpen;
+  final bool showEditIcon;
   final VoidCallback onTap;
 
   const _PreviewBlockTile({
     required this.entry,
-    required this.canEdit,
+    required this.canOpen,
+    required this.showEditIcon,
     required this.onTap,
   });
 
@@ -427,7 +423,7 @@ class _PreviewBlockTile extends StatelessWidget {
         color: colors.$1,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          onTap: canEdit ? onTap : null,
+          onTap: canOpen ? onTap : null,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
@@ -450,7 +446,7 @@ class _PreviewBlockTile extends StatelessWidget {
                     style: TextStyle(fontSize: 12, color: colors.$2),
                   ),
                 ),
-                if (canEdit)
+                if (showEditIcon)
                   Icon(Icons.edit_rounded, size: 16, color: colors.$2),
               ],
             ),

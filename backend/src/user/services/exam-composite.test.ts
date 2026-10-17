@@ -144,11 +144,12 @@ test("starting one subject exam snapshots questions from every published part", 
 
   assert.equal(status, 201);
   assert.deepEqual([...new Set(insertedParts)].sort(), [3, 8]);
-  const exam = (body.data as { exam: { exam_name: string; parts: Array<{ exam_part_name: string; questions: unknown[] }> } }).exam;
+  const exam = (body.data as { exam: { exam_name: string; parts: Array<{ exam_part_name: string; questions: Array<{ choices: Array<{ is_correct?: boolean }> }> }> } }).exam;
   assert.equal(exam.exam_name, "ชุดทดสอบกลางภาควิชา English");
   assert.deepEqual(exam.parts.map((part) => part.exam_part_name), ["Greetings", "Presentation"]);
   assert.ok(exam.parts.every((part) => part.questions.length > 0));
   assert.equal(exam.parts.reduce((total, part) => total + part.questions.length, 0), 10);
+  assert.deepEqual(exam.parts[0].questions[0].choices.map((choice) => choice.is_correct), [undefined, undefined]);
 
   const otherPartQuestion = snapshots.find((question) => Number(question.source_bank_id) === 8)!;
   status = 200;

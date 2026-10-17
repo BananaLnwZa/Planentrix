@@ -16,6 +16,7 @@ import profileService from "@/services/profile.service";
 import { formatDisplayDate } from "@/utils/dateTime";
 import ScheduleGrid from "./ScheduleGrid";
 import WeeklyBlockEditor from "./WeeklyBlockEditor";
+import WeeklyBlockDetailsPopup from "./WeeklyBlockDetailsPopup";
 
 type RecommendationPreviewModalProps = {
   recommendation: WeeklyRecommendation;
@@ -92,7 +93,6 @@ export default function RecommendationPreviewModal({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
-  const [hasChangesToApply, setHasChangesToApply] = useState(false);
   const [error, setError] = useState("");
   const [constraint, setConstraint] = useState<UserConstraint | null>(null);
 
@@ -161,7 +161,6 @@ export default function RecommendationPreviewModal({
             input
           );
       onRecommendationChange(updated);
-      setHasChangesToApply(true);
       setSelectedBlock(null);
       setIsAdding(false);
     } finally {
@@ -178,7 +177,6 @@ export default function RecommendationPreviewModal({
         selectedBlock.weekly_block_id
       );
       onRecommendationChange(updated);
-      setHasChangesToApply(true);
       setSelectedBlock(null);
     } finally {
       setIsDeleting(false);
@@ -202,11 +200,6 @@ export default function RecommendationPreviewModal({
     } finally {
       setIsAccepting(false);
     }
-  };
-
-  const handleApplyChanges = () => {
-    setHasChangesToApply(false);
-    onAccepted(recommendation);
   };
 
   return createPortal(
@@ -255,7 +248,8 @@ export default function RecommendationPreviewModal({
               <ScheduleGrid
                 items={displayItems}
                 onSelect={(item) => {
-                  if (!isAdjusting || item.source !== "weekly") return;
+                  if (item.source !== "weekly") return;
+                  if (recommendation.status === "pending" && !isAdjusting) return;
                   setSelectedBlock(
                     recommendation.blocks.find(
                       (block) => block.weekly_block_id === item.weekly_block_id
@@ -271,23 +265,17 @@ export default function RecommendationPreviewModal({
               {isAdjusting
                 ? "กดบล็อกสีเหลืองหรือชมพูเพื่อย้าย เปลี่ยนเวลา หรือลบ"
                 : recommendation.status === "accepted"
-                  ? hasChangesToApply
-                    ? "บันทึกการแก้ไขแล้ว กดนำการแก้ไขไปใช้เพื่ออัปเดตตารางหลัก"
-                    : "ตารางนี้กำลังใช้งานอยู่ คุณสามารถปรับเวลาได้"
+                  ? "ตารางนี้กำลังใช้งานอยู่ กดบล็อกเพื่อดูรายละเอียด"
                   : "ตารางนี้ยังเป็นตัวอย่าง จนกว่าจะกดยอมรับคำแนะนำ"}
             </div>
-            <div className="flex flex-wrap gap-2">
+            {recommendation.status === "pending" && <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => setIsAdjusting((value) => !value)}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-[#BFD5DE] bg-white px-3.5 py-2 text-sm text-[#567E8E] hover:bg-[#F1F8FA]"
               >
                 <Pencil size={15} />
-                {isAdjusting
-                  ? "เสร็จสิ้นการปรับ"
-                  : recommendation.status === "accepted"
-                    ? "ปรับตาราง"
-                    : "ปรับตารางก่อนใช้"}
+                {isAdjusting ? "เสร็จสิ้นการปรับ" : "ปรับตารางก่อนใช้"}
               </button>
               {manualBlockAddVisible && isAdjusting && (
                 <button
@@ -299,13 +287,13 @@ export default function RecommendationPreviewModal({
                   <Plus size={16} /> เพิ่มบล็อก
                 </button>
               )}
-            </div>
+            </div>}
           </div>
 
           {recommendation.items.some((item) => item.capacity_limited) && (
             <p className="mt-3 rounded-xl border border-[#F0D49B] bg-[#FFF7DF] px-3 py-2 text-xs text-[#8A6B2B]">
               {recommendation.status === "accepted"
-                ? "เวลาว่างไม่พอจัดครบทุกเป้าหมาย คุณยังสามารถปรับตารางได้"
+                ? "เวลาว่างไม่พอจัดครบทุกเป้าหมาย"
                 : "เวลาว่างไม่พอจัดครบทุกเป้าหมาย คุณยังสามารถปรับตารางก่อนยอมรับได้"}
             </p>
           )}
@@ -335,20 +323,16 @@ export default function RecommendationPreviewModal({
               {isAccepting ? "กำลังยอมรับ..." : "ยอมรับคำแนะนำ"}
             </button>
           )}
-          {recommendation.status === "accepted" && hasChangesToApply && (
-            <button
-              type="button"
-              onClick={handleApplyChanges}
-              disabled={isSaving || isDeleting}
-              className="rounded-xl bg-[#71A982] px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#609A72] disabled:opacity-50"
-            >
-              นำการแก้ไขไปใช้
-            </button>
-          )}
         </footer>
       </section>
 
-      {(selectedBlock || isAdding) && (
+      {selectedBlock && recommendation.status === "accepted" && (
+        <WeeklyBlockDetailsPopup
+          block={selectedBlock}
+          onClose={() => setSelectedBlock(null)}
+        />
+      )}
+      {recommendation.status === "pending" && (selectedBlock || isAdding) && (
         <WeeklyBlockEditor
           block={selectedBlock}
           subjects={subjects}

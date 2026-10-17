@@ -392,35 +392,45 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
                       child: const Text('ยกเลิก'),
                     ),
                   ],
-                  FilledButton.icon(
-                    key: Key(
-                      _editing
-                          ? 'save-schedule-button'
-                          : 'edit-schedule-button',
+                  if (_isClass)
+                    FilledButton.icon(
+                      key: Key(
+                        _editing
+                            ? 'save-schedule-button'
+                            : 'edit-schedule-button',
+                      ),
+                      onPressed: _busy
+                          ? null
+                          : _editing
+                          ? _save
+                          : () => setState(() => _editing = true),
+                      icon: _busy
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              _editing
+                                  ? Icons.save_outlined
+                                  : Icons.edit_outlined,
+                              size: 16,
+                            ),
+                      label: Text(_editing ? 'บันทึก' : 'แก้ไข'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF8FC5DF),
+                        shape: const StadiumBorder(),
+                      ),
+                    )
+                  else
+                    FilledButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF8FC5DF),
+                        shape: const StadiumBorder(),
+                      ),
+                      child: const Text('ปิด'),
                     ),
-                    onPressed: _busy
-                        ? null
-                        : _editing
-                        ? _save
-                        : () => setState(() => _editing = true),
-                    icon: _busy
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(
-                            _editing
-                                ? Icons.save_outlined
-                                : Icons.edit_outlined,
-                            size: 16,
-                          ),
-                    label: Text(_editing ? 'บันทึก' : 'แก้ไข'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF8FC5DF),
-                      shape: const StadiumBorder(),
-                    ),
-                  ),
                 ],
               ),
             ],

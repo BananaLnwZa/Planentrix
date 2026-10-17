@@ -49,6 +49,9 @@ interface AssignedSlot extends CandidateSlot {
 
 type Interval = { start: number; end: number };
 
+// Normal scheduling excludes elapsed slots; turn off only for isolated demos.
+const REQUIRE_FUTURE_CANDIDATE_SLOTS = true;
+
 const overlaps = (left: Interval, right: Interval) =>
   left.start < right.end && left.end > right.start;
 
@@ -181,8 +184,9 @@ const buildCandidateSlots = (
             key: `${date}:${start}`,
           };
           if (
+            !REQUIRE_FUTURE_CANDIDATE_SLOTS ||
             dateTimeKey(date, minutesToTime(slot.endMinute)) >
-            currentBangkokDateTimeKey(input.now)
+              currentBangkokDateTimeKey(input.now)
           ) {
             slots.push(slot);
           }

@@ -6,10 +6,10 @@ import {
   completionRate,
   daysBetween,
   durationMinutes,
+  earnedScoreReviewMinutes,
   examReviewFloorMinutes,
   isoDay,
   resolveTargetWeek,
-  scoreGapMinutes,
   weakTopicMinutes,
   workloadUrgency,
 } from "./recommendation.rules";
@@ -47,7 +47,7 @@ interface EnrollmentRow extends RowDataPacket {
   subject_id: string;
   subject_name: string;
   target_percentage: number | string | null;
-  latest_score_percentage: number | string | null;
+  earned_course_score: number | string;
   weak_topic_count: number | string;
 }
 interface WorkloadRow extends RowDataPacket {
@@ -198,11 +198,11 @@ const loadEnrollments = async (connection: PoolConnection, termId: number) => {
             )))
         ORDER BY (gs.scheme_type='instructor_subject') DESC,gs.version DESC LIMIT 1
        ) AS target_percentage,
-       (SELECT (ea.actual_score/NULLIF(ea.max_score,0))*100
-        FROM exam_attempts ea
-        WHERE ea.enrollment_id=e.enrollment_id AND ea.status='submitted'
-        ORDER BY ea.submitted_at DESC,ea.exam_attempt_id DESC LIMIT 1
-       ) AS latest_score_percentage,
+       (SELECT COALESCE(SUM(sc.actual_score),0)
+        FROM workloads w
+        INNER JOIN score sc ON sc.workload_id=w.workload_id
+        WHERE w.enrollment_id=e.enrollment_id AND w.status='completed'
+       ) AS earned_course_score,
        COALESCE((SELECT ea.weak_topic_count FROM exam_attempts ea
         WHERE ea.enrollment_id=e.enrollment_id AND ea.status='submitted'
         ORDER BY ea.submitted_at DESC,ea.exam_attempt_id DESC LIMIT 1),0
@@ -514,9 +514,8 @@ const makeItems = (
 
     const currentReview = currentMinutes(types.review);
     const target = row.target_percentage === null ? null : Number(row.target_percentage);
-    const actual = row.latest_score_percentage === null ? null : Number(row.latest_score_percentage);
-    const gap = target === null || actual === null ? 0 : Math.max(0, target - actual);
-    const scoreMinutes = scoreGapMinutes(gap);
+    const earned = Number(row.earned_course_score);
+    const scoreMinutes = earnedScoreReviewMinutes(earned, target);
     const weakMinutes = weakTopicMinutes(Number(row.weak_topic_count));
     const behavior = behaviorByEnrollment.get(enrollmentId) ?? emptyBehavior();
     const calculatedReview = scoreMinutes + weakMinutes;
@@ -527,8 +526,8 @@ const makeItems = (
       reviewReasons.push({
         code: "score_gap",
         minutes: scoreMinutes,
-        message: "Extra review time from the latest score gap",
-        metadata: { target_percentage: target, latest_percentage: actual },
+        message: "Extra review time from the gap between earned course points and the target grade",
+        metadata: { target_percentage: target, earned_course_score: earned },
       });
     }
     if (weakMinutes) {
@@ -853,7 +852,11 @@ export const generateRecommendation = async (input: GenerateRecommendationInput)
     }
     await validateSourceReferences(connection, term.term_id, input);
     const types = await loadScheduleTypes(connection);
-    if (input.triggerType === "exam_submitted" && input.examAttemptId) {
+    if (
+      input.triggerType === "exam_submitted" &&
+      input.examAttemptId &&
+      !input.regenerateExistingExamRecommendation
+    ) {
       const [existingAssessmentRecommendations] = await connection.query<RowDataPacket[]>(
         `SELECT recommendation.recommendation_id
          FROM weekly_recommendation recommendation
@@ -1167,11 +1170,11 @@ const editableHeader = async (
   recommendationId: number
 ) => {
   const header = await ownedHeader(connection, userId, recommendationId, true);
-  if (!["pending", "accepted"].includes(header.status)) {
+  if (header.status !== "pending") {
     throw new RecommendationServiceError(
       409,
       "RECOMMENDATION_NOT_EDITABLE",
-      "Only pending or accepted plans can be edited"
+      "Only a pending recommendation can be edited"
     );
   }
   return header;

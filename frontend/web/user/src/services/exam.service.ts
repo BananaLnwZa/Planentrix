@@ -64,6 +64,7 @@ const choiceFromJson = (value: unknown): ExamChoice => {
     order: number(json.choice_order),
     text: text(json.choice_text),
     imageUrl: json.choice_image_url ? text(json.choice_image_url) : null,
+    isCorrect: json.is_correct === true,
   };
 };
 

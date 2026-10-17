@@ -616,8 +616,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           ),
         ),
         if (_workflow != null &&
-            (ExamFlowNotice.supportsPhase(_workflow!.phase) ||
-                _workflow!.initialFinalTestPending) &&
+            ExamFlowNotice.supportsPhase(_workflow!.phase) &&
             !_workflow!.postFinal) ...[
           const SizedBox(height: 12),
           ExamFlowNotice(workflow: _workflow!),

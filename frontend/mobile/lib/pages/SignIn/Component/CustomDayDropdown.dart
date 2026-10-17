@@ -50,15 +50,15 @@ class CustomDayDropdown extends StatelessWidget {
       AppDropdownItem(
         value: 'Friday',
         label: 'Friday',
-        accentColor: Color(0xFFAE79C8),
-        borderColor: Color(0xFFD8B8E8),
+        accentColor: Color(0xFF4A9BCD),
+        borderColor: Color(0xFF71B7E4),
         optionKey: Key('day-dropdown-option-Friday'),
       ),
       AppDropdownItem(
         value: 'Saturday',
         label: 'Saturday',
-        accentColor: Color(0xFF4A9BCD),
-        borderColor: Color(0xFF71B7E4),
+        accentColor: Color(0xFFAE79C8),
+        borderColor: Color(0xFFD8B8E8),
         optionKey: Key('day-dropdown-option-Saturday'),
       ),
       AppDropdownItem(

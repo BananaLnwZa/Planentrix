@@ -3,8 +3,73 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mobile/interfaces/profile.interface.dart';
 import 'package:mobile/interfaces/table.interface.dart';
+import 'package:mobile/interfaces/recommendation.interface.dart';
 import 'package:mobile/pages/Main/Component/Schedule.dart';
+import 'package:mobile/services/recommendation.service.dart';
 import 'package:mobile/services/table.service.dart';
+
+class FakeAcceptedRecommendationRepository implements RecommendationRepository {
+  int updateCount = 0;
+
+  final block = const WeeklyScheduleBlock(
+    weeklyBlockId: 7,
+    recommendationId: 3,
+    subjectId: 'BI101',
+    subjectName: 'Business Intelligence',
+    scheduleTypeId: 2,
+    scheduleTypeName: 'Review',
+    scheduleTypeCode: 'review',
+    scheduledDate: '2026-10-12',
+    startTime: '13:00',
+    endTime: '14:00',
+    source: 'rule_based',
+    isUserModified: false,
+  );
+
+  @override
+  Future<AcceptedWeeklySchedule> getWeeklySchedule({String? weekStart}) async =>
+      AcceptedWeeklySchedule(
+        weekStart: '2026-10-12',
+        weekEnd: '2026-10-18',
+        acceptedRecommendation: const WeeklyRecommendation(
+          recommendationId: 3,
+          userId: 1,
+          termId: 1,
+          version: 1,
+          weekStart: '2026-10-12',
+          weekEnd: '2026-10-18',
+          triggerType: 'weekend',
+          status: 'accepted',
+        ),
+        weeklyBlocks: [block],
+      );
+
+  @override
+  Future<WeeklyRecommendation?> getLatest({String? weekStart}) async => null;
+  @override
+  Future<WeeklyRecommendation> accept(int recommendationId) =>
+      throw UnimplementedError();
+  @override
+  Future<WeeklyRecommendation> addBlock(
+    int recommendationId,
+    WeeklyBlockInput input,
+  ) => throw UnimplementedError();
+  @override
+  Future<WeeklyRecommendation> updateBlock(
+    int recommendationId,
+    int weeklyBlockId,
+    WeeklyBlockInput input,
+  ) {
+    updateCount += 1;
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<WeeklyRecommendation> deleteBlock(
+    int recommendationId,
+    int weeklyBlockId,
+  ) => throw UnimplementedError();
+}
 
 class FakeTableRepository implements TableRepository {
   int updateCount = 0;
@@ -96,6 +161,37 @@ void setPhoneSize(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets('accepted weekly block opens read-only details', (tester) async {
+    setPhoneSize(tester);
+    final recommendations = FakeAcceptedRecommendationRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Schedule(
+            repository: FakeTableRepository(),
+            recommendationRepository: recommendations,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('schedule-block--7')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('weekly-block-details-popup')), findsOneWidget);
+    expect(find.text('ทบทวน'), findsOneWidget);
+    expect(find.text('Business Intelligence'), findsWidgets);
+    expect(find.text('13:00 – 14:00 น.'), findsOneWidget);
+    expect(find.text('รายละเอียดบล็อกเวลา'), findsNothing);
+    expect(
+      find.text('ตารางนี้ยืนยันใช้งานแล้ว สามารถดูรายละเอียดได้อย่างเดียว'),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('recommendation-adjust-button')), findsNothing);
+    expect(find.byKey(const Key('edit-schedule-button')), findsNothing);
+    expect(recommendations.updateCount, 0);
+  });
+
   testWidgets('schedule loads web data blocks and opens detail popup', (
     tester,
   ) async {
@@ -256,6 +352,10 @@ void main() {
     expect(find.text('05:00'), findsOneWidget);
     expect(find.text('24:00'), findsOneWidget);
     expect(find.byKey(const Key('schedule-block-3')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('schedule-block-3')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('edit-schedule-button')), findsNothing);
+    expect(find.text('ปิด'), findsOneWidget);
   });
 
   testWidgets(

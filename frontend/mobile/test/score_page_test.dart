@@ -222,7 +222,7 @@ void main() {
 
     expect(subject.workloads, hasLength(1));
     expect(subject.progressPercent, closeTo(8 / 85 * 100, 0.01));
-    expect(subject.actualGrade, 'B+');
+    expect(subject.actualGrade, 'F');
     expect(subject.targetGrade, 'A');
     expect(subject.pointsNeeded, 77);
   });
@@ -263,6 +263,38 @@ void main() {
       expect(subject.actualGrade, 'B+');
     },
   );
+
+  test('28 earned points out of 40 entered points use the course grade boundary', () {
+    const subject = SubjectScore(
+      scheduleTimeId: 1,
+      subjectId: 'CS101',
+      subjectName: 'Programming',
+      credits: 3,
+      teacherName: 'Teacher',
+      targetScore: 4,
+      targetGradeCode: 'A',
+      targetMinimumPercentage: 80,
+      gradeBoundaries: [
+        GradeBoundary(gradeCode: 'A', minimumPercentage: 80),
+        GradeBoundary(gradeCode: 'B', minimumPercentage: 70),
+        GradeBoundary(gradeCode: 'F', minimumPercentage: 0),
+      ],
+      workloads: [
+        WorkloadScore(
+          workloadId: 1,
+          workloadName: 'Midterm',
+          workloadTypeId: 3,
+          workloadTypeName: 'Midterm',
+          workloadStatus: 'completed',
+          actualScore: 28,
+          maxScore: 40,
+        ),
+      ],
+    );
+
+    expect(subject.actualGrade, 'F');
+    expect(subject.progressPercent, 35);
+  });
 
   testWidgets('GPA card matches the Figma size and position', (tester) async {
     setPhoneSize(tester, const Size(360, 640));

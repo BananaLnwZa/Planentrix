@@ -15,6 +15,7 @@ export interface ExamChoice {
   order: number;
   text: string;
   imageUrl: string | null;
+  isCorrect: boolean;
 }
 
 export interface ExamQuestion {

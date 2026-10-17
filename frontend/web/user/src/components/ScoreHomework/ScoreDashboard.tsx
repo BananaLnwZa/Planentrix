@@ -27,7 +27,9 @@ const getScoreSummary = (workloads: GradeWorkload[]) => {
     0,
     scored.reduce((sum, workload) => sum + Number(workload.max_score), 0)
   );
-  const percent = maximum > 0 ? Math.min(100, (actual / maximum) * 100) : 0;
+  // Course grading uses earned points out of 100, not the average over
+  // only the workloads whose scores have been entered so far.
+  const percent = maximum > 0 ? Math.min(100, actual) : 0;
   return { actual, maximum, percent };
 };
 

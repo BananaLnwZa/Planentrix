@@ -1,6 +1,6 @@
 import type { RowDataPacket } from "mysql2/promise";
 
-export const RULE_VERSION = "2.1.0-behavior-placement";
+export const RULE_VERSION = "2.2.0-earned-score-gap";
 
 export type RecommendationScheduleType = "review" | "homework";
 
@@ -40,6 +40,8 @@ export interface GenerateRecommendationInput {
   targetWeekStart?: string;
   examAttemptId?: number | null;
   examWorkflowPhase?: "checkpoint" | "midterm_2w" | "final_2w";
+  /** Internal one-off regeneration; not exposed by the user API. */
+  regenerateExistingExamRecommendation?: boolean;
   workloadId?: number | null;
 }
 

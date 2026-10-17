@@ -123,7 +123,7 @@ class SubjectScore {
 
   double get actualPercent => totalMaximumScore <= 0
       ? 0
-      : ((totalActualScore / totalMaximumScore) * 100).clamp(0, 100).toDouble();
+      : totalActualScore.clamp(0, 100).toDouble();
 
   double? minimumForGrade(String grade) {
     for (final boundary in gradeBoundaries) {

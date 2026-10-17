@@ -62,12 +62,14 @@ class ExamChoice {
   final int order;
   final String text;
   final String? imageUrl;
+  final bool isCorrect;
 
   const ExamChoice({
     required this.choiceId,
     required this.order,
     required this.text,
     this.imageUrl,
+    this.isCorrect = false,
   });
 
   factory ExamChoice.fromJson(Map<String, dynamic> json) {
@@ -76,6 +78,7 @@ class ExamChoice {
       order: _asInt(json['choice_order']),
       text: '${json['choice_text'] ?? ''}',
       imageUrl: _asNullableText(json['choice_image_url']),
+      isCorrect: json['is_correct'] == true,
     );
   }
 }

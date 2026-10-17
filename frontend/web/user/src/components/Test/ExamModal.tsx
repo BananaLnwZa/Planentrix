@@ -11,6 +11,8 @@ import type {
 } from "@/interfaces/exam.interface";
 import AuthenticatedExamImage from "@/components/Test/AuthenticatedExamImage";
 
+const SHOW_CORRECT_ANSWERS_DURING_EXAM = false;
+
 const timeText = (seconds: number) =>
   `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 const scoreText = (value: number) =>
@@ -268,6 +270,11 @@ export default function ExamModal({
                           className="mt-2 max-h-40 w-full rounded-lg bg-white object-contain"
                         />
                       </span>
+                      {SHOW_CORRECT_ANSWERS_DURING_EXAM && choice.isCorrect && (
+                        <span className="shrink-0 rounded-full bg-[#E6F5FC] px-2.5 py-1 text-[11px] font-semibold text-[#3E8DB5]">
+                          เฉลย
+                        </span>
+                      )}
                     </button>
                   );
                 })}

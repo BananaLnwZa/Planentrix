@@ -4,11 +4,11 @@ import {
   adherenceRate,
   completionRate,
   durationMinutes,
+  earnedScoreReviewMinutes,
   examReviewFloorMinutes,
   examProximityMinutes,
   resolveTargetWeek,
   scoreGapMinutes,
-  targetScoreFromGpa,
   weakTopicMinutes,
   workloadUrgency,
 } from "./recommendation.rules";
@@ -20,20 +20,23 @@ import type {
   RecommendationItemDraft,
 } from "./recommendation.types";
 
-test("maps GPA goals to minimum scores", () => {
-  assert.equal(targetScoreFromGpa(4), 80);
-  assert.equal(targetScoreFromGpa(3.5), 75);
-  assert.equal(targetScoreFromGpa(2), 60);
-  assert.equal(targetScoreFromGpa(1), 50);
-  assert.equal(targetScoreFromGpa(null), null);
-});
-
 test("calculates score-gap and weak-topic rule minutes", () => {
   assert.equal(scoreGapMinutes(4), 0);
   assert.equal(scoreGapMinutes(5), 30);
   assert.equal(scoreGapMinutes(10), 60);
   assert.equal(scoreGapMinutes(20), 90);
   assert.equal(weakTopicMinutes(7), 180);
+});
+
+test("review score gap uses earned course points, not the knowledge-check score", () => {
+  assert.equal(earnedScoreReviewMinutes(32, 80), 90);
+  assert.equal(earnedScoreReviewMinutes(73.5, 80), 30);
+  assert.equal(earnedScoreReviewMinutes(75, 80), 30);
+  assert.equal(earnedScoreReviewMinutes(80, 80), 0);
+  assert.equal(earnedScoreReviewMinutes(90, 80), 0);
+  assert.equal(earnedScoreReviewMinutes(32, null), 0);
+  assert.equal(earnedScoreReviewMinutes(32, 80) + weakTopicMinutes(0), 90);
+  assert.equal(earnedScoreReviewMinutes(80, 80) + weakTopicMinutes(2), 60);
 });
 
 test("uses exams as a 60-minute floor instead of adding another hour", () => {
@@ -365,6 +368,40 @@ test("scheduler reports unallocated time when capacity is insufficient", () => {
   assert.equal(result.items[0].allocatedMinutes, 360);
   assert.equal(result.items[0].unallocatedMinutes, 240);
   assert.equal(result.items[0].capacityLimited, true);
+});
+
+test("scheduler excludes elapsed slots when generated late in the week", () => {
+  const result = buildSchedulePlan({
+    items: [makeReviewItem(150)],
+    baseBlocks: [],
+    classBlocks: [],
+    busyBlocks: [],
+    constraint: {
+      constraint_id: 1,
+      day_off: 7,
+      continuous_working_duration: 180,
+      break_minutes: 60,
+      start_time: "05:00:00",
+      end_time: "23:00:00",
+    } as unknown as ConstraintRow,
+    weekStart: "2026-10-12",
+    weekEnd: "2026-10-18",
+    userId: 1,
+    termId: 1,
+    now: new Date("2026-10-17T15:00:00.000Z"),
+    previousAcceptedRecommendationId: null,
+  });
+
+  assert.equal(result.items[0].allocatedMinutes, 60);
+  assert.equal(result.items[0].unallocatedMinutes, 90);
+  assert.deepEqual(
+    result.blocks.map((block) => ({
+      date: block.scheduledDate,
+      start: block.startTime,
+      end: block.endTime,
+    })),
+    [{ date: "2026-10-17", start: "22:00:00", end: "23:00:00" }],
+  );
 });
 
 test("weekend behavior preferences guide review placement", () => {

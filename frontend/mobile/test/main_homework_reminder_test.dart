@@ -174,24 +174,25 @@ void main() {
     expect(find.byKey(const Key('midterm-followup-popup')), findsNothing);
   });
 
-  testWidgets('unfinished first final test stays visible after midterm', (
-    tester,
-  ) async {
-    _setPhoneSize(tester);
-    await tester.pumpWidget(
-      _mainPage(
-        const [],
-        workflowLoader: () async => const TermWorkflow(
-          phase: 'midterm_post',
-          initialFinalTestPending: true,
+  testWidgets(
+    'unfinished first final test does not show an early preparation banner',
+    (tester) async {
+      _setPhoneSize(tester);
+      await tester.pumpWidget(
+        _mainPage(
+          const [],
+          workflowLoader: () async => const TermWorkflow(
+            phase: 'midterm_post',
+            initialFinalTestPending: true,
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('เริ่มเตรียมสอบปลายภาค'), findsOneWidget);
-    expect(find.text('ไปทำแบบทดสอบ'), findsOneWidget);
-  });
+      expect(find.byKey(const Key('exam-flow-notice')), findsNothing);
+      expect(find.text('เริ่มเตรียมสอบปลายภาค'), findsNothing);
+    },
+  );
 
   testWidgets('final exam week remains a viewable term', (tester) async {
     _setPhoneSize(tester);

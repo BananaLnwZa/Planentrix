@@ -87,11 +87,13 @@ export const calculateWeightedGradeSummary = (
       pendingGradingSchemeCount += 1;
       continue;
     }
-    const percentage = percentageFromScore(actualScore, maximumScore);
-    if (percentage === null) {
+    if (maximumScore <= 0) {
       unscoredSubjectCount += 1;
       continue;
     }
+    // Workloads may account for only part of the course's 100 points so far.
+    // A 28/40 record is 28 earned course points, not a 70-point course grade.
+    const percentage = Math.min(100, actualScore);
     const boundary = gradeFromPublishedBoundaries(
       percentage,
       subject.boundaries,

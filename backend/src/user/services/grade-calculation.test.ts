@@ -55,3 +55,14 @@ test("excludes subjects without a published scheme from actual GPA", () => {
   assert.equal(result.gradedSubjectCount, 1);
   assert.equal(result.pendingGradingSchemeCount, 1);
 });
+
+test("grades accumulated course points rather than scaling scored work to 100", () => {
+  const result = calculateWeightedGradeSummary([
+    { credits: 3, actualScore: 28, maximumScore: 40, boundaries: customBoundaries },
+    { credits: 1, actualScore: 80, maximumScore: 100, boundaries: customBoundaries },
+  ]);
+
+  assert.equal(result.gpa, 0.875); // F at 28 points; B+ at 80 points.
+  assert.equal(result.percent, 41); // (28 * 3 + 80 * 1) / 4 credits.
+  assert.equal(result.gradedSubjectCount, 2);
+});

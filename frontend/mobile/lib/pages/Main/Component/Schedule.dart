@@ -11,8 +11,8 @@ import '../../../interfaces/profile.interface.dart';
 import '../../../services/table.service.dart';
 import '../../../services/recommendation.service.dart';
 import 'AddSchedulePopup.dart';
-import 'RecommendationPreviewSheet.dart';
 import 'ScheduleDetailsPopup.dart';
+import 'WeeklyBlockDetailsPopup.dart';
 
 class Schedule extends StatefulWidget {
   final TableRepository? repository;
@@ -75,10 +75,13 @@ class _ScheduleState extends State<Schedule> {
       if (!mounted) return;
       final accepted = weeklySchedule?.acceptedRecommendation;
       if (accepted != null && weeklySchedule != null) {
-        final recurringClasses = response?.items
-            .where((item) => item.scheduleTypeCode == 'class')
-            .toList() ??
-            weeklySchedule.recurringClasses.map(_recurringScheduleItem).toList();
+        final recurringClasses =
+            response?.items
+                .where((item) => item.scheduleTypeCode == 'class')
+                .toList() ??
+            weeklySchedule.recurringClasses
+                .map(_recurringScheduleItem)
+                .toList();
         setState(() {
           _acceptedRecommendation = accepted;
           _weeklyBlocks = weeklySchedule!.weeklyBlocks;
@@ -105,20 +108,13 @@ class _ScheduleState extends State<Schedule> {
 
   Future<void> _selectItem(ScheduleItem item) async {
     if (_loadingDetail) return;
-    if (item.scheduleTimeId < 0 &&
-        _acceptedRecommendation != null &&
-        _recommendationRepository != null) {
+    if (item.scheduleTimeId < 0 && _acceptedRecommendation != null) {
       final blockId = -item.scheduleTimeId;
-      if (!_weeklyBlocks.any((block) => block.weeklyBlockId == blockId)) return;
-      final updated = await showRecommendationPreviewSheet(
-        context,
-        recommendation: _acceptedRecommendation!,
-        repository: _recommendationRepository,
-        constraint: widget.constraint,
-      );
-      if (updated != null && mounted) {
-        await _loadSchedule();
-        widget.onChanged?.call();
+      for (final block in _weeklyBlocks) {
+        if (block.weeklyBlockId == blockId) {
+          await showWeeklyBlockDetailsPopup(context, block: block);
+          break;
+        }
       }
       return;
     }
@@ -257,7 +253,9 @@ class _ScheduleState extends State<Schedule> {
                     top: 8,
                     child: _EmptySchedule(),
                   ),
-                if (_manualBlockAddVisible && hasScheduleItems && _acceptedRecommendation == null)
+                if (_manualBlockAddVisible &&
+                    hasScheduleItems &&
+                    _acceptedRecommendation == null)
                   Positioned(
                     right: 12,
                     bottom: 12,

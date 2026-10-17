@@ -22,7 +22,11 @@ test("pauses test flow during exam week and marks post-exam", () => {
 });
 
 test("returns normal checkpoint outside the three-week preparation window", () => {
+  assert.equal(getExamWorkflowPhase(dates, "midterm", new Date("2026-09-23T12:00:00")), "checkpoint");
+  assert.equal(getExamWorkflowPhase(dates, "midterm", new Date("2026-10-06T12:00:00")), "checkpoint");
   assert.equal(getExamWorkflowPhase(dates, "final", new Date("2026-11-24T12:00:00")), "checkpoint");
+  assert.equal(getExamWorkflowPhase(dates, "final", new Date("2026-11-11T12:00:00")), "checkpoint");
+  assert.equal(getExamWorkflowPhase(dates, "final", new Date("2026-11-25T12:00:00")), "final_3w");
 });
 
 test("final exam week is separate from the post-final summary", () => {

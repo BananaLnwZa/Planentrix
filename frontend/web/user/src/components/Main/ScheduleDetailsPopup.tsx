@@ -335,17 +335,25 @@ export default function ScheduleDetailsPopup({
                 ยกเลิก
               </button>
             )}
-            <button
-              type="button"
-              onClick={isEditing ? handleSave : () => setIsEditing(true)}
-              disabled={
-                isSaving || isDeleting || (isEditing && hasInvalidTimeRange)
-              }
-              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#8FC5DF] px-4 text-sm text-white transition hover:bg-[#72B3D2] disabled:cursor-wait disabled:opacity-50"
-            >
-              {isEditing ? <Save size={15} /> : <Pencil size={15} />}
-              {isSaving ? "กำลังบันทึก..." : isEditing ? "บันทึก" : "แก้ไข"}
-            </button>
+            {isClass ? (
+              <button
+                type="button"
+                onClick={isEditing ? handleSave : () => setIsEditing(true)}
+                disabled={isSaving || isDeleting || (isEditing && hasInvalidTimeRange)}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#8FC5DF] px-4 text-sm text-white transition hover:bg-[#72B3D2] disabled:cursor-wait disabled:opacity-50"
+              >
+                {isEditing ? <Save size={15} /> : <Pencil size={15} />}
+                {isSaving ? "กำลังบันทึก..." : isEditing ? "บันทึก" : "แก้ไข"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-9 rounded-full bg-[#8FC5DF] px-4 text-sm text-white hover:bg-[#72B3D2]"
+              >
+                ปิด
+              </button>
+            )}
           </div>
         </div>
       </section>

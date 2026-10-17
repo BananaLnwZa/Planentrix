@@ -2,11 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
-import type {
-  WeeklyBlockInput,
-  WeeklyRecommendation,
-  WeeklyScheduleBlock,
-} from "@/interfaces/recommendation.interface";
+import type { WeeklyRecommendation, WeeklyScheduleBlock } from "@/interfaces/recommendation.interface";
 import type {
   AddScheduleRequest,
   DisplayScheduleItem,
@@ -22,7 +18,7 @@ import { formatDisplayDate } from "@/utils/dateTime";
 import AddSchedulePopup from "./AddSchedulePopup";
 import ScheduleDetailsPopup from "./ScheduleDetailsPopup";
 import ScheduleGrid from "./ScheduleGrid";
-import WeeklyBlockEditor from "./WeeklyBlockEditor";
+import WeeklyBlockDetailsPopup from "./WeeklyBlockDetailsPopup";
 
 type ScheduleProps = {
   refreshKey?: number;
@@ -211,28 +207,6 @@ export default function Schedule({
     }
   };
 
-  const handleWeeklySave = async (input: WeeklyBlockInput) => {
-    if (!selectedWeeklyBlock || !acceptedRecommendation) return;
-    setIsSaving(true);
-    try {
-      await recommendationService.updateBlock(
-        acceptedRecommendation.recommendation_id,
-        selectedWeeklyBlock.weekly_block_id,
-        {
-          scheduled_date: input.scheduled_date,
-          start_time: input.start_time,
-          end_time: input.end_time,
-          allow_constraint_overlap: input.allow_constraint_overlap,
-        }
-      );
-      setSelectedWeeklyBlock(null);
-      await loadSchedule();
-      onChanged?.();
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleOpenAdd = async () => {
     if (!hasCurrentTerm || acceptedRecommendation) return;
     setIsAddOpen(true);
@@ -337,18 +311,9 @@ export default function Schedule({
         />
       )}
       {selectedWeeklyBlock && acceptedRecommendation && (
-        <WeeklyBlockEditor
+        <WeeklyBlockDetailsPopup
           block={selectedWeeklyBlock}
-          subjects={[]}
-          weekStart={acceptedRecommendation.week_start}
-          weekEnd={acceptedRecommendation.week_end}
-          isSaving={isSaving}
-          isDeleting={isDeleting}
-          constraint={constraint}
-          recurringClasses={items.filter((item) => item.source === "recurring")}
-          existingBlocks={weeklyBlocks}
           onClose={() => setSelectedWeeklyBlock(null)}
-          onSave={handleWeeklySave}
         />
       )}
       {isAddOpen && (

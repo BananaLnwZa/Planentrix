@@ -23,6 +23,8 @@ import { safelyGenerateRecommendation } from "../services/recommendation.engine"
 import { voidPendingCheckpointsForExamFlow } from "../services/term-workflow";
 import type { ExamAttemptWorkflowPhase, ExamWorkflowPhase } from "../services/term-workflow";
 
+const SHOW_CORRECT_ANSWERS_DURING_EXAM = false;
+
 type UserRequest = Request & {
   user?: { id?: number | string; role?: string };
 };
@@ -398,6 +400,9 @@ const serializeAttemptExam = (
               choice_id: choice.choice_id,
               choice_order: choice.choice_order,
               choice_text: choice.choice_text,
+              ...(SHOW_CORRECT_ANSWERS_DURING_EXAM
+                ? { is_correct: Boolean(choice.is_correct) }
+                : {}),
               choice_image_url: protectedImageUrl(
                 req,
                 Number(exam.exam_repository_id),

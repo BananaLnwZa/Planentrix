@@ -4,6 +4,8 @@ import '../../../interfaces/exam.interface.dart';
 import 'AuthenticatedExamImage.dart';
 
 class ExamChoiceButton extends StatelessWidget {
+  static const bool showCorrectAnswersDuringExam = false;
+
   final ExamChoice choice;
   final bool selected;
   final VoidCallback onPressed;
@@ -88,6 +90,28 @@ class ExamChoiceButton extends StatelessWidget {
                             imageUrl: choice.imageUrl!,
                             height: 120,
                             errorText: 'ไม่สามารถแสดงรูปได้',
+                          ),
+                        ),
+                      ],
+                      if (showCorrectAnswersDuringExam && choice.isCorrect) ...[
+                        const SizedBox(height: 7),
+                        Container(
+                          key: const Key('correct-answer-badge'),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE6F5FC),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: const Text(
+                            'เฉลย',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF3E8DB5),
+                            ),
                           ),
                         ),
                       ],

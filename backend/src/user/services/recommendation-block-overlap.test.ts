@@ -98,3 +98,28 @@ test("updating a block excludes itself from overlap checks", async (t) => {
   );
   assert.equal(checkedExclusion, 5);
 });
+
+test("accepted recommendation blocks cannot be edited", async (t) => {
+  const queries: string[] = [];
+  const connection = {
+    beginTransaction: async () => {},
+    commit: async () => { throw new Error("Accepted block edit must not commit"); },
+    rollback: async () => {},
+    release: () => {},
+    query: async (sql: string) => {
+      queries.push(sql);
+      if (sql.includes("FROM weekly_recommendation wr")) {
+        return [[{ term_id: 3, week_start: "2026-10-12", week_end: "2026-10-18", status: "accepted" }]];
+      }
+      return [[]];
+    },
+  };
+  t.mock.method(db, "getConnection", async () => connection);
+
+  await assert.rejects(
+    updatePreviewBlock(4, 7, 5, input),
+    (error: unknown) => error instanceof RecommendationServiceError &&
+      error.code === "RECOMMENDATION_NOT_EDITABLE"
+  );
+  assert.equal(queries.some((sql) => sql.includes("UPDATE weekly_schedule_block")), false);
+});
