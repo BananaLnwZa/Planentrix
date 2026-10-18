@@ -158,20 +158,26 @@ const examIdFrom = (req: Request, res: Response) => {
   return examId;
 };
 
-const workflowPhaseSql = (dateExpression = "CURDATE()", periodExpression = "qb.exam_period") => `CASE ${periodExpression}
+const bangkokTodaySql = "DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR)";
+const examWeekStartSql = (column: string) =>
+  `DATE_SUB(${column}, INTERVAL WEEKDAY(${column}) DAY)`;
+const examWeekEndSql = (column: string) =>
+  `DATE_ADD(${column}, INTERVAL (6 - WEEKDAY(${column})) DAY)`;
+
+const workflowPhaseSql = (dateExpression = bangkokTodaySql, periodExpression = "qb.exam_period") => `CASE ${periodExpression}
   WHEN 'midterm' THEN CASE
     WHEN academic_term.midterm_start_date IS NULL OR academic_term.midterm_end_date IS NULL THEN 'checkpoint'
-    WHEN ${dateExpression} > academic_term.midterm_end_date THEN 'midterm_post'
-    WHEN ${dateExpression} >= academic_term.midterm_start_date THEN 'midterm_exam'
-    WHEN DATEDIFF(academic_term.midterm_start_date, ${dateExpression}) BETWEEN 1 AND 7 THEN 'midterm_1w'
-    WHEN DATEDIFF(academic_term.midterm_start_date, ${dateExpression}) BETWEEN 8 AND 14 THEN 'midterm_2w'
+    WHEN ${dateExpression} > ${examWeekEndSql("academic_term.midterm_end_date")} THEN 'midterm_post'
+    WHEN ${dateExpression} >= ${examWeekStartSql("academic_term.midterm_start_date")} THEN 'midterm_exam'
+    WHEN DATEDIFF(${examWeekStartSql("academic_term.midterm_start_date")}, ${dateExpression}) BETWEEN 1 AND 7 THEN 'midterm_1w'
+    WHEN DATEDIFF(${examWeekStartSql("academic_term.midterm_start_date")}, ${dateExpression}) BETWEEN 8 AND 14 THEN 'midterm_2w'
     ELSE 'checkpoint' END
   WHEN 'final' THEN CASE
     WHEN academic_term.final_start_date IS NULL OR academic_term.final_end_date IS NULL THEN 'checkpoint'
-    WHEN ${dateExpression} > academic_term.final_end_date THEN 'final_post'
-    WHEN ${dateExpression} >= academic_term.final_start_date THEN 'final_exam'
-    WHEN DATEDIFF(academic_term.final_start_date, ${dateExpression}) BETWEEN 1 AND 7 THEN 'final_1w'
-    WHEN DATEDIFF(academic_term.final_start_date, ${dateExpression}) BETWEEN 8 AND 14 THEN 'final_2w'
+    WHEN ${dateExpression} > ${examWeekEndSql("academic_term.final_end_date")} THEN 'final_post'
+    WHEN ${dateExpression} >= ${examWeekStartSql("academic_term.final_start_date")} THEN 'final_exam'
+    WHEN DATEDIFF(${examWeekStartSql("academic_term.final_start_date")}, ${dateExpression}) BETWEEN 1 AND 7 THEN 'final_1w'
+    WHEN DATEDIFF(${examWeekStartSql("academic_term.final_start_date")}, ${dateExpression}) BETWEEN 8 AND 14 THEN 'final_2w'
     ELSE 'checkpoint' END
   ELSE 'checkpoint' END`;
 
@@ -183,10 +189,10 @@ const activeExamPeriodSql = (periodExpression = "qb.exam_period") => `(
   AND academic_term.final_start_date IS NOT NULL
   AND academic_term.final_end_date IS NOT NULL
   AND (
-    (${periodExpression} = 'midterm' AND CURDATE() < academic_term.midterm_start_date)
+    (${periodExpression} = 'midterm' AND ${bangkokTodaySql} < ${examWeekStartSql("academic_term.midterm_start_date")})
     OR (${periodExpression} = 'final'
-      AND CURDATE() > academic_term.midterm_end_date
-      AND CURDATE() < academic_term.final_start_date)
+      AND ${bangkokTodaySql} > ${examWeekEndSql("academic_term.midterm_end_date")}
+      AND ${bangkokTodaySql} < ${examWeekStartSql("academic_term.final_start_date")})
   )
 )`;
 
@@ -610,8 +616,10 @@ const finalizeAttempt = async (
     const [windowRows] = await connection.query<RowDataPacket[]>(
       `SELECT CASE
          WHEN ? = 'midterm' THEN
-           DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) < DATE_SUB(academic_term.midterm_start_date, INTERVAL 14 DAY)
-         ELSE DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) < DATE_SUB(academic_term.final_start_date, INTERVAL 14 DAY)
+           DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) < DATE_SUB(
+             ${examWeekStartSql("academic_term.midterm_start_date")}, INTERVAL 14 DAY)
+         ELSE DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) < DATE_SUB(
+           ${examWeekStartSql("academic_term.final_start_date")}, INTERVAL 14 DAY)
        END AS allowed
        FROM enrollments enrollment
        INNER JOIN student_terms student_term ON student_term.student_term_id = enrollment.student_term_id
@@ -846,12 +854,14 @@ export const getExamInsights = async (req: Request, res: Response) => {
          AND ${activeExamPeriodSql("checkpoint.exam_period")}
          AND NOT (
            (checkpoint.exam_period = 'midterm' AND (
-             DATEDIFF(academic_term.midterm_start_date, CURDATE()) BETWEEN 1 AND 14
-             OR CURDATE() BETWEEN academic_term.midterm_start_date AND academic_term.midterm_end_date
+             DATEDIFF(${examWeekStartSql("academic_term.midterm_start_date")}, ${bangkokTodaySql}) BETWEEN 1 AND 14
+             OR ${bangkokTodaySql} BETWEEN ${examWeekStartSql("academic_term.midterm_start_date")}
+               AND ${examWeekEndSql("academic_term.midterm_end_date")}
            ))
            OR (checkpoint.exam_period = 'final' AND (
-             DATEDIFF(academic_term.final_start_date, CURDATE()) BETWEEN 1 AND 14
-             OR CURDATE() BETWEEN academic_term.final_start_date AND academic_term.final_end_date
+             DATEDIFF(${examWeekStartSql("academic_term.final_start_date")}, ${bangkokTodaySql}) BETWEEN 1 AND 14
+             OR ${bangkokTodaySql} BETWEEN ${examWeekStartSql("academic_term.final_start_date")}
+               AND ${examWeekEndSql("academic_term.final_end_date")}
            ))
          )
        ORDER BY checkpoint.next_checkpoint_at`,

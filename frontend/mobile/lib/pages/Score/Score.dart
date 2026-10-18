@@ -26,7 +26,7 @@ class _ScorePageState extends State<ScorePage> with WidgetsBindingObserver {
   OverallGradeSummary? _overall;
   bool _goalsReady = false;
   bool _workloadLocked = false;
-  bool _finalTargetReady = false;
+  bool _showFinalScoreTarget = false;
 
   @override
   void initState() {
@@ -45,7 +45,10 @@ class _ScorePageState extends State<ScorePage> with WidgetsBindingObserver {
       if (!mounted) return;
       setState(() {
         _workloadLocked = workflow?.workloadLocked ?? false;
-        _finalTargetReady = workflow?.finalTargetReady ?? false;
+        _showFinalScoreTarget =
+            workflow?.finalTargetReady == true ||
+            workflow?.phase == 'final_1w' ||
+            workflow?.phase == 'final_exam';
       });
     } catch (_) {
       // The server remains the authority for workload writes when offline.
@@ -71,6 +74,7 @@ class _ScorePageState extends State<ScorePage> with WidgetsBindingObserver {
     final overall = _overall;
     return NotebookSectionPage(
       activeTab: NotebookTabId.score,
+      workflowLoader: widget.workflowLoader,
       contentKey: const Key('score-page'),
       contentPadding: const EdgeInsets.fromLTRB(12, 24, 12, 24),
       centerContent: false,
@@ -86,7 +90,7 @@ class _ScorePageState extends State<ScorePage> with WidgetsBindingObserver {
           SubjectScoreSection(
             repository: _repository,
             canEditScores: !_workloadLocked,
-            showFinalScoreTarget: _finalTargetReady,
+            showFinalScoreTarget: _showFinalScoreTarget,
             onOverallChanged: (value) {
               if (!mounted || identical(_overall, value)) return;
               setState(() => _overall = value);

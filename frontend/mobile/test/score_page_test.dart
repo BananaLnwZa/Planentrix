@@ -155,6 +155,32 @@ void setPhoneSize(WidgetTester tester, Size size) {
 }
 
 void main() {
+  test('standard fallback grades an unscored enrolled subject as F', () {
+    final subject = SubjectScore.fromJson(const {
+      'schedule_time_id': 17,
+      'subject_id': 'CS117',
+      'subject_name': 'Database',
+      'credits': 3,
+      'target_grade': 'A',
+      'target_minimum_percentage': 80,
+      'grading_scheme': {
+        'grading_scheme_id': null,
+        'scheme_type': 'standard_fallback',
+        'status': 'fallback',
+        'boundaries': [
+          {'grade_code': 'A', 'minimum_percentage': 80},
+          {'grade_code': 'F', 'minimum_percentage': 0},
+        ],
+      },
+      'completed_workloads': [],
+    });
+
+    expect(subject.gradingSchemeType, 'standard_fallback');
+    expect(subject.minimumForGrade('A'), 80);
+    expect(subject.actualGrade, 'F');
+    expect(subject.pointsNeeded, 80);
+  });
+
   test('grade boundaries follow the published instructor thresholds', () {
     const published = <GradeBoundary>[
       GradeBoundary(gradeCode: 'A', minimumPercentage: 85),
@@ -264,37 +290,40 @@ void main() {
     },
   );
 
-  test('28 earned points out of 40 entered points use the course grade boundary', () {
-    const subject = SubjectScore(
-      scheduleTimeId: 1,
-      subjectId: 'CS101',
-      subjectName: 'Programming',
-      credits: 3,
-      teacherName: 'Teacher',
-      targetScore: 4,
-      targetGradeCode: 'A',
-      targetMinimumPercentage: 80,
-      gradeBoundaries: [
-        GradeBoundary(gradeCode: 'A', minimumPercentage: 80),
-        GradeBoundary(gradeCode: 'B', minimumPercentage: 70),
-        GradeBoundary(gradeCode: 'F', minimumPercentage: 0),
-      ],
-      workloads: [
-        WorkloadScore(
-          workloadId: 1,
-          workloadName: 'Midterm',
-          workloadTypeId: 3,
-          workloadTypeName: 'Midterm',
-          workloadStatus: 'completed',
-          actualScore: 28,
-          maxScore: 40,
-        ),
-      ],
-    );
+  test(
+    '28 earned points out of 40 entered points use the course grade boundary',
+    () {
+      const subject = SubjectScore(
+        scheduleTimeId: 1,
+        subjectId: 'CS101',
+        subjectName: 'Programming',
+        credits: 3,
+        teacherName: 'Teacher',
+        targetScore: 4,
+        targetGradeCode: 'A',
+        targetMinimumPercentage: 80,
+        gradeBoundaries: [
+          GradeBoundary(gradeCode: 'A', minimumPercentage: 80),
+          GradeBoundary(gradeCode: 'B', minimumPercentage: 70),
+          GradeBoundary(gradeCode: 'F', minimumPercentage: 0),
+        ],
+        workloads: [
+          WorkloadScore(
+            workloadId: 1,
+            workloadName: 'Midterm',
+            workloadTypeId: 3,
+            workloadTypeName: 'Midterm',
+            workloadStatus: 'completed',
+            actualScore: 28,
+            maxScore: 40,
+          ),
+        ],
+      );
 
-    expect(subject.actualGrade, 'F');
-    expect(subject.progressPercent, 35);
-  });
+      expect(subject.actualGrade, 'F');
+      expect(subject.progressPercent, 35);
+    },
+  );
 
   testWidgets('GPA card matches the Figma size and position', (tester) async {
     setPhoneSize(tester, const Size(360, 640));
@@ -374,6 +403,45 @@ void main() {
     expect(find.byKey(const Key('subject-score-section')), findsOneWidget);
   });
 
+  testWidgets('final exam week shows the target but keeps scores read-only', (
+    tester,
+  ) async {
+    setPhoneSize(tester, const Size(360, 640));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ScorePage(
+          repository: FakeScoreRepository(),
+          workflowLoader: () async =>
+              const TermWorkflow(phase: 'final_exam', workloadLocked: true),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('final-score-target-card')), findsOneWidget);
+    expect(find.byKey(const Key('score-entry-3')), findsNothing);
+  });
+
+  testWidgets(
+    'final one-week period shows the target without a recommendation',
+    (tester) async {
+      setPhoneSize(tester, const Size(360, 640));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ScorePage(
+            repository: FakeScoreRepository(),
+            workflowLoader: () async =>
+                const TermWorkflow(phase: 'final_1w', workloadLocked: true),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('final-score-target-card')), findsOneWidget);
+      expect(find.byKey(const Key('score-entry-3')), findsNothing);
+    },
+  );
+
   testWidgets('locked workflow hides mobile score entry', (tester) async {
     setPhoneSize(tester, const Size(360, 640));
     await tester.pumpWidget(
@@ -444,7 +512,7 @@ void main() {
         );
       }
       expect(find.text('6%'), findsOneWidget);
-      expect(find.text('5/100'), findsOneWidget);
+      expect(find.text('5/20'), findsOneWidget);
       expect(
         tester.getTopLeft(find.byKey(const Key('subject-tab-0'))).dx,
         closeTo(
@@ -458,6 +526,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Programming'), findsWidgets);
       expect(find.text('ยังไม่มีงานในวิชานี้'), findsOneWidget);
+      expect(find.text('0/0'), findsOneWidget);
 
       await tester.ensureVisible(find.byKey(const Key('subject-tab-0')));
       await tester.tap(find.byKey(const Key('subject-tab-0')));
@@ -491,7 +560,7 @@ void main() {
       expect(repository.savedScore?.actualScore, 8);
       expect(repository.savedScore?.maximumScore, 10);
       expect(find.text('8/10'), findsOneWidget);
-      expect(find.text('13/100'), findsOneWidget);
+      expect(find.text('13/30'), findsOneWidget);
       expect(find.text('15%'), findsOneWidget);
       expect(find.text('ต้องได้เพิ่มอย่างน้อย 72 คะแนน'), findsOneWidget);
       expect(find.text('3.00'), findsOneWidget);

@@ -87,12 +87,15 @@ class _TermState extends State<Term> {
     final term = _currentTerm;
     if (term == null) return;
     final finalEnd = term.endFinal;
+    final finalWeekEnd = finalEnd == null
+        ? null
+        : DateUtils.dateOnly(
+            finalEnd,
+          ).add(Duration(days: 7 - finalEnd.weekday));
     final canEndTerm =
         widget.endTermMode ||
-        (finalEnd != null &&
-            DateUtils.dateOnly(
-              finalEnd,
-            ).isBefore(DateUtils.dateOnly(DateTime.now())));
+        (finalWeekEnd != null &&
+            finalWeekEnd.isBefore(DateUtils.dateOnly(DateTime.now())));
     final ended = await showTermDetailsPopup(
       context,
       term: term,
@@ -391,57 +394,106 @@ class _CompactTermContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              'เทอม ${term.term}',
-              style: const TextStyle(
-                fontSize: 19,
-                color: Color(0xFF4F6B78),
-                fontWeight: FontWeight.w600,
-              ),
+      child: endTermMode
+          ? Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'เทอม ${term.term}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF4F6B78),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'สอบปลายภาคเสร็จแล้ว',
+                  style: TextStyle(fontSize: 9, color: Color(0xFF688492)),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8BC9E5),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x268BC9E5),
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    'กดเพื่อจบเทอม',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'เทอม ${term.term}',
+                    style: const TextStyle(
+                      fontSize: 19,
+                      color: Color(0xFF4F6B78),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFC8C8C8)),
+                  ),
+                  child: Text(
+                    'ชั้นปี ${term.yearLevel}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 8.5,
+                      color: Color(0xFF526B77),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'ปี ${term.academicYear}',
+                    style: const TextStyle(
+                      fontSize: 8.5,
+                      color: Color(0xFF688492),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'กดเพื่อดูรายละเอียด',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 7, color: Color(0xFF93A4AB)),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 6),
-          if (!endTermMode)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFC8C8C8)),
-              ),
-              child: Text(
-                'ชั้นปี ${term.yearLevel}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 8.5, color: Color(0xFF526B77)),
-              ),
-            ),
-          if (!endTermMode) const SizedBox(height: 4),
-          if (!endTermMode)
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                'ปี ${term.academicYear}',
-                style: const TextStyle(fontSize: 8.5, color: Color(0xFF688492)),
-              ),
-            ),
-          const SizedBox(height: 5),
-          Text(
-            endTermMode ? 'กดเพื่อจบเทอม' : 'กดเพื่อดูรายละเอียด',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: endTermMode ? 10 : 7,
-              color: endTermMode ? Color(0xFF6CAFD0) : Color(0xFF93A4AB),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

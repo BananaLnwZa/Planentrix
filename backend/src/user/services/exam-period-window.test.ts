@@ -25,10 +25,10 @@ test("available exams switch from midterm to final only after midterm week", asy
   );
 
   assert.equal(status, 200);
-  assert.match(sql, /qb\.exam_period = 'midterm' AND CURDATE\(\) < academic_term\.midterm_start_date/);
+  assert.match(sql, /qb\.exam_period = 'midterm' AND DATE\(UTC_TIMESTAMP\(\) \+ INTERVAL 7 HOUR\) < DATE_SUB\(academic_term\.midterm_start_date/);
   assert.match(sql, /qb\.exam_period = 'final'/);
-  assert.match(sql, /CURDATE\(\) > academic_term\.midterm_end_date/);
-  assert.match(sql, /CURDATE\(\) < academic_term\.final_start_date/);
+  assert.match(sql, /DATE\(UTC_TIMESTAMP\(\) \+ INTERVAL 7 HOUR\) > DATE_ADD\(academic_term\.midterm_end_date/);
+  assert.match(sql, /DATE\(UTC_TIMESTAMP\(\) \+ INTERVAL 7 HOUR\) < DATE_SUB\(academic_term\.final_start_date/);
 });
 
 test("published parts for one subject and period appear as one exam set", async (t) => {
@@ -87,4 +87,21 @@ test("one assessment recommendation follows the last exam, not the first", async
 
   await recommendationAfterAssessmentBatch(1, "final_1w", 12, generate);
   assert.equal(generated, 1);
+});
+
+test("first final checkpoint batch recommends only after every subject is done", async (t) => {
+  let remaining = [{ workflow_phase: "checkpoint" }];
+  t.mock.method(db, "query", async () => [remaining]);
+  const generated: number[] = [];
+  const generate = async (input: { examAttemptId?: number | null }) => {
+    generated.push(input.examAttemptId ?? 0);
+    return { recommendation: null, warning: null };
+  };
+
+  await recommendationAfterAssessmentBatch(1, "checkpoint", 20, generate);
+  assert.deepEqual(generated, []);
+
+  remaining = [];
+  await recommendationAfterAssessmentBatch(1, "checkpoint", 21, generate);
+  assert.deepEqual(generated, [21]);
 });

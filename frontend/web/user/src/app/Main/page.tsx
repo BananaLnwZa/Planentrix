@@ -109,6 +109,7 @@ export default function MainPage() {
             <Schedule
               key={termVersion}
               refreshKey={scheduleVersion}
+              readOnly={workflow?.phase === "final_exam"}
               onChanged={() => setAlertVersion((version) => version + 1)}
             />
           )}
@@ -122,7 +123,7 @@ export default function MainPage() {
               }
             />
           </div>
-          {hasSavedGradeGoals && (
+          {hasSavedGradeGoals && !workflow?.post_final && workflow?.phase !== "midterm_exam" && workflow?.phase !== "final_exam" && (
             <RecommendationCard
               refreshKey={recommendationVersion + termVersion}
               onAccepted={() => setScheduleVersion((version) => version + 1)}
@@ -142,7 +143,7 @@ export default function MainPage() {
         <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]">
           <section role="dialog" aria-modal="true" aria-labelledby="midterm-followup-title" className="w-full max-w-md rounded-2xl border border-[#CFE4ED] bg-[#FFFDFE] p-6 text-center shadow-2xl" style={{ fontFamily: "var(--font-sansation)" }}>
             <h2 id="midterm-followup-title" className="text-base font-semibold text-[#405B69]">หลังสอบกลางภาค</h2>
-            <p className="mt-2 text-sm leading-6 text-[#71858E]">เพิ่มรายการสอบกลางภาคและกรอกคะแนนในหน้าการบ้าน{workflow.initial_final_test_pending ? " พร้อมทำแบบทดสอบปลายภาคครั้งแรกของทุกวิชาที่มีข้อสอบ เพื่อเริ่มแผนทบทวนช่วงปลายภาค" : ""}</p>
+            <p className="mt-2 text-sm leading-6 text-[#71858E]">เพิ่มรายการสอบกลางภาคและกรอกคะแนนในหน้าการบ้าน{workflow.initial_final_test_pending ? " พร้อมทำแบบทดสอบปลายภาคครั้งแรกให้ครบทุกวิชาที่มีข้อสอบ เพื่อเริ่มนัด checkpoint รอบใหม่" : ""}</p>
             <div className="mt-5 flex flex-wrap justify-center gap-2">
               <button type="button" onClick={async () => {
                 await termService.acknowledgeMidtermFollowup();

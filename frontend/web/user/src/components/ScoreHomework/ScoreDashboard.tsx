@@ -13,7 +13,7 @@ import gradeService from "@/services/grade.service";
 import GpaGauge from "./GpaGauge";
 import ScoreEntryModal from "./ScoreEntryModal";
 import { getWorkloadPalette, getWorkloadTypeLabel } from "./homeworkUtils";
-import { GPA_BY_GRADE } from "./gradeOptions";
+import { GPA_BY_GRADE, STANDARD_GRADE_BOUNDARIES } from "./gradeOptions";
 
 const getScoreSummary = (workloads: GradeWorkload[]) => {
   const scored = workloads.filter(
@@ -106,13 +106,10 @@ export default function ScoreDashboard({
       const subjectScore = getScoreSummary(
         subject.workloads.filter((workload) => isCompleted(workload.workload_status))
       );
-      const boundary =
-        subjectScore.maximum > 0 && subject.grading_scheme
-          ? boundaryForPercent(
-            subjectScore.percent,
-            subject.grading_scheme.boundaries
-          )
-          : null;
+      const boundary = boundaryForPercent(
+        subjectScore.percent,
+        subject.grading_scheme?.boundaries ?? STANDARD_GRADE_BOUNDARIES
+      );
       if (!boundary) return sum;
       evaluatedCredits += subject.credits;
       return sum + GPA_BY_GRADE[boundary.grade_code] * subject.credits;
@@ -131,19 +128,15 @@ export default function ScoreDashboard({
     isCompleted(workload.workload_status)
   );
   const summary = getScoreSummary(completedWorkloads);
-  const currentBoundary = selected.grading_scheme
-    ? boundaryForPercent(summary.percent, selected.grading_scheme.boundaries)
-    : null;
+  const currentBoundary = boundaryForPercent(
+    summary.percent,
+    selected.grading_scheme?.boundaries ?? STANDARD_GRADE_BOUNDARIES
+  );
   const progressPercent = getGoalProgressPercent(
     summary.actual,
     selected.target_minimum_percentage
   );
-  const currentGrade =
-    summary.maximum <= 0
-      ? "—"
-      : !selected.grading_scheme
-        ? "รอเกณฑ์"
-        : currentBoundary?.grade_code ?? "—";
+  const currentGrade = currentBoundary?.grade_code ?? "F";
 
   const openScoreEntry = (workload: GradeWorkload) => {
     setScoreError(null);
@@ -212,10 +205,9 @@ export default function ScoreDashboard({
           </div>
         </section>}
 
-        {overall && overall.pending_grading_scheme_count > 0 && (
+        {overall && (overall.standard_fallback_count ?? 0) > 0 && (
           <p className="rounded-xl border border-[#F3D9A8] bg-[#FFF8E8] px-3 py-2 text-xs text-[#8A6A2C]">
-            มี {overall.pending_grading_scheme_count} วิชาที่ยังรออาจารย์เผยแพร่เกณฑ์ตัดเกรด
-            จึงยังไม่นำมาคำนวณ GPA ปัจจุบัน
+            มี {overall.standard_fallback_count} วิชาที่ใช้เกณฑ์มาตรฐานระหว่างรอเกณฑ์ของอาจารย์
           </p>
         )}
 
@@ -290,7 +282,7 @@ export default function ScoreDashboard({
               </div>
               {!selected.grading_scheme && (
                 <p className="mt-2 rounded-lg bg-[#FFF8E8] px-2.5 py-2 text-[11px] text-[#8A6A2C]">
-                  ยังไม่มีเกณฑ์ตัดเกรดที่อาจารย์เผยแพร่ ระบบจึงยังไม่คำนวณเกรดวิชานี้
+                  ยังไม่มีเกณฑ์ตัดเกรดที่อาจารย์เผยแพร่ จึงใช้เกณฑ์มาตรฐานชั่วคราว
                 </p>
               )}
             </div>

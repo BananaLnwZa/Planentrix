@@ -228,10 +228,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                 ),
         );
         if (destination == MidtermFollowupDestination.homework) {
-          Navigator.of(context).pushNamed('/homework');
+          await Navigator.of(context).pushNamed('/homework');
         } else if (destination == MidtermFollowupDestination.test) {
-          Navigator.of(context).pushNamed('/test');
+          await Navigator.of(context).pushNamed('/test');
         }
+        if (mounted) await _loadWorkflow();
       }
     } finally {
       _isShowingMidtermFollowup = false;
@@ -616,10 +617,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           ),
         ),
         if (_workflow != null &&
-            ExamFlowNotice.supportsPhase(_workflow!.phase) &&
+            ExamFlowNotice.shouldShow(_workflow!) &&
             !_workflow!.postFinal) ...[
           const SizedBox(height: 12),
-          ExamFlowNotice(workflow: _workflow!),
+          ExamFlowNotice(workflow: _workflow!, onReturn: _loadWorkflow),
         ],
         const SizedBox(height: 24),
         if (_workflow?.postFinal == true)
@@ -627,6 +628,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         else
           Schedule(
             key: ValueKey('schedule-$_scheduleVersion'),
+            readOnly: _workflow?.phase == 'final_exam',
             repository: widget.tableRepository,
             constraint: _constraint,
             recommendationRepository: _shouldLoadRecommendations
@@ -637,6 +639,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                 : null,
           ),
         if (_workflow?.postFinal != true &&
+            _workflow?.phase != 'midterm_exam' &&
+            _workflow?.phase != 'final_exam' &&
             _shouldLoadRecommendations &&
             _hasSavedGradeGoals) ...[
           const SizedBox(height: 24),
@@ -682,6 +686,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     return NotebookSectionPage(
       activeTab: NotebookTabId.main,
       postFinal: _workflow?.postFinal ?? false,
+      hideHomeworkTab:
+          _workflow?.phase == 'final_1w' || _workflow?.phase == 'final_exam',
       backgroundKey: const Key('main-background'),
       coverKey: const Key('main-notebook-cover'),
       paperKey: const Key('main-notebook-paper'),

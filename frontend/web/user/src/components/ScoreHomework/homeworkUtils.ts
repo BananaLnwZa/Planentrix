@@ -9,6 +9,7 @@ export { formatDisplayDate, formatDisplayTime } from "@/utils/dateTime";
 
 export const getWorkloadTypeLabel = (typeCode: string = "") => {
   const code = typeCode.trim().toLowerCase();
+  if (code === "quiz") return "Quiz";
   return code ? code.charAt(0).toUpperCase() + code.slice(1) : "Workload";
 };
 

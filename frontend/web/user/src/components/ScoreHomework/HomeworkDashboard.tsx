@@ -30,10 +30,12 @@ export default function HomeworkDashboard({
   onHomeworkFinished,
   canAddHomework,
   canEditHomework = true,
+  finalExamWindow = false,
 }: {
   onHomeworkFinished: () => void;
   canAddHomework: boolean;
   canEditHomework?: boolean;
+  finalExamWindow?: boolean;
 }) {
   const [tasks, setTasks] = useState<HomeworkTask[]>([]);
   const [hasCurrentTerm, setHasCurrentTerm] = useState<boolean | null>(null);
@@ -179,7 +181,11 @@ export default function HomeworkDashboard({
           </button>
         )}
         {!canEditHomework && hasCurrentTerm && (
-          <p className="mb-3 rounded-xl border border-[#D5E7EE] bg-[#F3FAFD] px-3 py-2 text-[11px] text-[#698796]">เข้าสู่ช่วงทบทวนก่อนสอบปลายภาครอบสุดท้ายแล้ว ขณะนี้ดูข้อมูลได้ แต่เพิ่ม/แก้ไขภาระงานและคะแนนไม่ได้</p>
+          <p className="mb-3 rounded-xl border border-[#D5E7EE] bg-[#F3FAFD] px-3 py-2 text-xs leading-5 text-[#698796]">
+            {finalExamWindow
+              ? "ช่วง 1 สัปดาห์ก่อนสอบและสัปดาห์สอบปลายภาค ไม่อนุญาตให้เพิ่มหรือแก้ไขภาระงาน และไม่สามารถกรอกคะแนนภาระงานได้"
+              : "เข้าสู่ช่วงทบทวนก่อนสอบปลายภาครอบสุดท้ายแล้ว ขณะนี้ดูข้อมูลได้ แต่เพิ่ม/แก้ไขภาระงานและคะแนนไม่ได้"}
+          </p>
         )}
 
         {isLoading ? (

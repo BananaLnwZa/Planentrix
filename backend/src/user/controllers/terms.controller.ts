@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
+import { hasOutstandingAssessments } from "./exam.controller";
 import { getExamWorkflowPhase, voidPendingCheckpointsForExamFlow } from "../services/term-workflow";
 
 interface CurrentTermRow extends RowDataPacket {
@@ -577,9 +578,14 @@ export const getTermWorkflow = async (req: Request, res: Response) => {
       : midtermPhase !== "checkpoint"
         ? midtermPhase
         : "normal";
+    const assessmentPending = ["midterm_2w", "midterm_1w", "final_2w", "final_1w"].includes(phase)
+      ? await hasOutstandingAssessments(userId, phase as "midterm_2w" | "midterm_1w" | "final_2w" | "final_1w")
+      : false;
     const [reminderRows] = await db.query<RowDataPacket[]>(
       `SELECT (student_term.midterm_followup_notified_at IS NULL
-          AND academic_term.midterm_end_date < DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR)
+          AND DATE_ADD(academic_term.midterm_end_date,
+            INTERVAL (6 - WEEKDAY(academic_term.midterm_end_date)) DAY)
+              < DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR)
           AND (academic_term.final_start_date IS NULL OR
             DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) <
               DATE_SUB(academic_term.final_start_date, INTERVAL 7 DAY))) AS pending
@@ -689,6 +695,7 @@ export const getTermWorkflow = async (req: Request, res: Response) => {
         midterm_phase: midtermPhase,
         final_phase: finalPhase,
         workload_locked: finalPhase === "final_1w" || finalPhase === "final_exam" || finalPhase === "final_post",
+        assessment_pending: assessmentPending,
         final_target_ready: finalTargetReady,
         post_final: finalPhase === "final_post",
         midterm_followup_pending: Number(reminderRows[0]?.pending ?? 0) === 1,
@@ -712,7 +719,9 @@ export const acknowledgeMidtermFollowup = async (req: Request, res: Response) =>
        SET student_term.midterm_followup_notified_at = NOW()
        WHERE student_term.user_id = ? AND student_term.status = 'active'
          AND student_term.midterm_followup_notified_at IS NULL
-         AND academic_term.midterm_end_date < CURDATE()`,
+         AND DATE_ADD(academic_term.midterm_end_date,
+           INTERVAL (6 - WEEKDAY(academic_term.midterm_end_date)) DAY)
+             < DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR)`,
       [userId],
     );
     return res.json({ acknowledged: result.affectedRows > 0 });
@@ -761,7 +770,9 @@ export const endCurrentTerm = async (req: Request, res: Response) => {
 
     const [termDates] = await connection.query<RowDataPacket[]>(
       `SELECT DATE_FORMAT(academic_term.final_end_date, '%Y-%m-%d') AS final_end_date,
-              academic_term.final_end_date < CURDATE() AS final_period_ended
+              DATE_ADD(academic_term.final_end_date,
+                INTERVAL (6 - WEEKDAY(academic_term.final_end_date)) DAY)
+                  < DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) AS final_period_ended
        FROM student_terms student_term
        INNER JOIN academic_terms academic_term
          ON academic_term.academic_term_id = student_term.academic_term_id
@@ -771,7 +782,7 @@ export const endCurrentTerm = async (req: Request, res: Response) => {
     if (!termDates[0]?.final_end_date || !Number(termDates[0].final_period_ended)) {
       await connection.rollback();
       return res.status(409).json({
-        message: "สามารถจบเทอมได้หลังสิ้นสุดช่วงสอบปลายภาค",
+        message: "สามารถจบเทอมได้หลังสิ้นสุดสัปดาห์สอบปลายภาค",
         final_end_date: termDates[0]?.final_end_date ?? null,
       });
     }

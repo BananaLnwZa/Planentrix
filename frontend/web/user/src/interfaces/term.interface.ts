@@ -24,6 +24,7 @@ export interface TermWorkflow {
   midterm_phase: string;
   final_phase: string;
   workload_locked: boolean;
+  assessment_pending: boolean;
   final_target_ready: boolean;
   post_final: boolean;
   midterm_followup_pending: boolean;

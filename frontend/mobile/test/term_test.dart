@@ -61,14 +61,22 @@ void setPhoneSize(WidgetTester tester) {
   });
 }
 
-Widget buildTerm(TermRepository repository, {bool endTermMode = false}) {
+Widget buildTerm(
+  TermRepository repository, {
+  bool compact = false,
+  bool endTermMode = false,
+}) {
   return MaterialApp(
     theme: ThemeData(fontFamily: 'Sansation'),
     home: Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
-          child: Term(repository: repository, endTermMode: endTermMode),
+          child: Term(
+            repository: repository,
+            compact: compact,
+            endTermMode: endTermMode,
+          ),
         ),
       ),
     ),
@@ -160,6 +168,34 @@ void main() {
     expect(find.byKey(const Key('term-empty')), findsOneWidget);
   });
 
+  testWidgets('compact post-final card matches web and still opens details', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+    final repository = FakeTermRepository(
+      CurrentTerm(
+        termId: 3,
+        yearLevel: '3',
+        term: '1',
+        academicYear: '2569',
+        endFinal: DateTime(2026, 7, 22),
+      ),
+    );
+    await tester.pumpWidget(
+      buildTerm(repository, compact: true, endTermMode: true),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('เทอม 1'), findsOneWidget);
+    expect(find.text('สอบปลายภาคเสร็จแล้ว'), findsOneWidget);
+    expect(find.text('กดเพื่อจบเทอม'), findsOneWidget);
+    expect(find.text('ชั้นปี 3'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('current-term-card')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('end-term-button')), findsOneWidget);
+  });
+
   testWidgets('term cannot be ended before the final exam period has passed', (
     tester,
   ) async {
@@ -180,5 +216,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('end-term-button')), findsNothing);
     expect(repository.ended, isFalse);
+  });
+
+  testWidgets('term remains open through Sunday of the final exam week', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+    final today = DateUtils.dateOnly(DateTime.now());
+    final monday = today.subtract(Duration(days: today.weekday - 1));
+    final repository = FakeTermRepository(
+      CurrentTerm(
+        termId: 4,
+        yearLevel: '2',
+        term: '1',
+        academicYear: '2569',
+        endFinal: monday,
+      ),
+    );
+    await tester.pumpWidget(buildTerm(repository));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('current-term-card')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('end-term-button')), findsNothing);
   });
 }

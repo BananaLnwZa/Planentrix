@@ -23,6 +23,7 @@ import WeeklyBlockDetailsPopup from "./WeeklyBlockDetailsPopup";
 type ScheduleProps = {
   refreshKey?: number;
   onChanged?: () => void;
+  readOnly?: boolean;
 };
 
 const manualBlockAddVisible = process.env.NEXT_PUBLIC_ENABLE_MANUAL_SCHEDULE_ADD === "true";
@@ -76,6 +77,7 @@ const weeklyDisplayItem = (block: WeeklyScheduleBlock): DisplayScheduleItem => (
 export default function Schedule({
   refreshKey = 0,
   onChanged,
+  readOnly = false,
 }: ScheduleProps) {
   const [items, setItems] = useState<DisplayScheduleItem[]>([]);
   const [legacyItems, setLegacyItems] = useState<ScheduleItem[]>([]);
@@ -180,7 +182,7 @@ export default function Schedule({
   };
 
   const handleSave = async (data: UpdateScheduleRequest) => {
-    if (!selectedItem) return;
+    if (!selectedItem || readOnly) return;
     setIsSaving(true);
     try {
       await tableService.updateSchedule(selectedItem.schedule_time_id, data);
@@ -195,7 +197,7 @@ export default function Schedule({
   };
 
   const handleDelete = async () => {
-    if (!selectedItem) return;
+    if (!selectedItem || readOnly) return;
     setIsDeleting(true);
     try {
       await tableService.deleteSchedule(selectedItem.schedule_time_id);
@@ -208,7 +210,7 @@ export default function Schedule({
   };
 
   const handleOpenAdd = async () => {
-    if (!hasCurrentTerm || acceptedRecommendation) return;
+    if (readOnly || !hasCurrentTerm || acceptedRecommendation) return;
     setIsAddOpen(true);
     setIsLoadingSubjects(true);
     setSubjectsError("");
@@ -228,6 +230,7 @@ export default function Schedule({
   };
 
   const handleAdd = async (data: AddScheduleRequest) => {
+    if (readOnly) return;
     setIsAdding(true);
     try {
       await tableService.addSchedule(data);
@@ -245,7 +248,7 @@ export default function Schedule({
     <section
       className={`flex min-h-0 w-full max-w-[440px] flex-col ${
         hasScheduleItems || isLoading
-          ? "h-[440px] md:h-auto md:flex-1"
+          ? "h-[480px] md:h-auto md:min-h-[450px] md:flex-1"
           : "h-[150px]"
       }`}
     >
@@ -279,7 +282,7 @@ export default function Schedule({
             ยังไม่มีข้อมูลตารางเวลาสำหรับเทอมปัจจุบัน
           </div>
         )}
-        {manualBlockAddVisible && hasScheduleItems && !acceptedRecommendation && (
+        {manualBlockAddVisible && !readOnly && hasScheduleItems && !acceptedRecommendation && (
           <button
             type="button"
             onClick={() => void handleOpenAdd()}
@@ -305,6 +308,7 @@ export default function Schedule({
           isSaving={isSaving}
           isDeleting={isDeleting}
           constraint={constraint}
+          readOnly={readOnly}
           onClose={() => setSelectedItem(null)}
           onSave={handleSave}
           onDelete={handleDelete}

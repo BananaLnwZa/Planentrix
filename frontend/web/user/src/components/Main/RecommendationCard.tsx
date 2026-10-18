@@ -55,6 +55,22 @@ const currentBangkokWeekStart = () => {
   return date.toISOString().slice(0, 10);
 };
 
+const sundayEveningTargetWeekStart = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const sunday = new Date(`${values.year}-${values.month}-${values.day}T00:00:00Z`);
+  if (sunday.getUTCDay() !== 0 || Number(values.hour) < 18) return null;
+  sunday.setUTCDate(sunday.getUTCDate() + 1);
+  return sunday.toISOString().slice(0, 10);
+};
+
 const formatMinutes = (minutes: number) => {
   const absolute = Math.abs(minutes);
   const hours = Math.floor(absolute / 60);
@@ -228,6 +244,22 @@ export default function RecommendationCard({
       active = false;
     };
   }, [refreshKey]);
+
+  useEffect(() => {
+    let refreshing = false;
+    const timer = window.setInterval(() => {
+      const targetWeek = sundayEveningTargetWeekStart();
+      if (!targetWeek || recommendation?.week_start === targetWeek || refreshing) return;
+      refreshing = true;
+      void recommendationService.getLatest()
+        .then((latest) => {
+          if (latest?.week_start === targetWeek) setRecommendation(latest);
+        })
+        .catch(() => undefined)
+        .finally(() => { refreshing = false; });
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [recommendation?.week_start]);
 
   const reviewItems = useMemo(
     () => recommendation?.items.filter((item) => item.schedule_type_code === "review") ?? [],

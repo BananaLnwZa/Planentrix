@@ -19,6 +19,7 @@ class Schedule extends StatefulWidget {
   final RecommendationRepository? recommendationRepository;
   final UserConstraint? constraint;
   final VoidCallback? onChanged;
+  final bool readOnly;
 
   const Schedule({
     super.key,
@@ -26,6 +27,7 @@ class Schedule extends StatefulWidget {
     this.recommendationRepository,
     this.constraint,
     this.onChanged,
+    this.readOnly = false,
   });
 
   @override
@@ -130,7 +132,9 @@ class _ScheduleState extends State<Schedule> {
         context,
         item: detail,
         constraint: widget.constraint,
+        readOnly: widget.readOnly,
         onSave: (input) async {
+          if (widget.readOnly) return detail;
           await _repository.updateSchedule(detail.scheduleTimeId, input);
           final updated = await _repository.getScheduleDetail(
             detail.scheduleTimeId,
@@ -151,6 +155,7 @@ class _ScheduleState extends State<Schedule> {
           return updated;
         },
         onDelete: () async {
+          if (widget.readOnly) return;
           await _repository.deleteSchedule(detail.scheduleTimeId);
           if (mounted) {
             setState(() {
@@ -173,7 +178,11 @@ class _ScheduleState extends State<Schedule> {
   }
 
   Future<void> _openAdd() async {
-    if (!_hasCurrentTerm || _loading || _acceptedRecommendation != null) return;
+    if (widget.readOnly ||
+        !_hasCurrentTerm ||
+        _loading ||
+        _acceptedRecommendation != null)
+      return;
     setState(() {
       _loadingDetail = true;
       _error = null;
@@ -206,7 +215,7 @@ class _ScheduleState extends State<Schedule> {
     return SizedBox(
       key: const Key('schedule'),
       width: double.infinity,
-      height: hasScheduleItems || _loading ? 470 : 150,
+      height: hasScheduleItems || _loading ? 490 : 150,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -217,7 +226,10 @@ class _ScheduleState extends State<Schedule> {
               children: [
                 if (hasScheduleItems)
                   Positioned.fill(
-                    child: _ScheduleGrid(items: _items, onSelect: _selectItem),
+                    child: WeeklyScheduleGrid(
+                      items: _items,
+                      onSelect: _selectItem,
+                    ),
                   ),
                 if (_loading || _loadingDetail)
                   Positioned.fill(
@@ -254,6 +266,7 @@ class _ScheduleState extends State<Schedule> {
                     child: _EmptySchedule(),
                   ),
                 if (_manualBlockAddVisible &&
+                    !widget.readOnly &&
                     hasScheduleItems &&
                     _acceptedRecommendation == null)
                   Positioned(
@@ -427,17 +440,16 @@ class _EmptySchedule extends StatelessWidget {
   );
 }
 
-class _ScheduleGrid extends StatefulWidget {
+class WeeklyScheduleGrid extends StatelessWidget {
   final List<ScheduleItem> items;
   final ValueChanged<ScheduleItem> onSelect;
 
-  const _ScheduleGrid({required this.items, required this.onSelect});
+  const WeeklyScheduleGrid({
+    super.key,
+    required this.items,
+    required this.onSelect,
+  });
 
-  @override
-  State<_ScheduleGrid> createState() => _ScheduleGridState();
-}
-
-class _ScheduleGridState extends State<_ScheduleGrid> {
   static const _days = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.'];
   static const _dayColors = [
     Color(0xFFFFF0B8),
@@ -448,58 +460,93 @@ class _ScheduleGridState extends State<_ScheduleGrid> {
     Color(0xFFDDDDF8),
     Color(0xFFF8D1CD),
   ];
-  static const _rowHeight = 38.0;
-  static const _timeWidth = 54.0;
-  final ScrollController _verticalController = ScrollController();
-
-  @override
-  void dispose() {
-    _verticalController.dispose();
-    super.dispose();
-  }
+  static const _dayHeight = 52.0;
+  static const _dayWidth = 54.0;
+  static const _hourWidth = 80.0;
 
   @override
   Widget build(BuildContext context) {
-    final range = _scheduleHourRange(widget.items);
+    final range = _scheduleHourRange(items);
     if (range == null) return const SizedBox.shrink();
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final contentWidth = math.max(620.0, constraints.maxWidth);
-        final dayWidth = (contentWidth - _timeWidth) / 7;
+        final hourCount = range.endHour - range.startHour;
+        final contentWidth = math.max(
+          constraints.maxWidth,
+          _dayWidth + hourCount * _hourWidth,
+        );
+        final hourWidth = (contentWidth - _dayWidth) / hourCount;
         return ClipRRect(
           borderRadius: BorderRadius.circular(14),
-          child: SingleChildScrollView(
-            key: const Key('schedule-horizontal-scroll'),
-            scrollDirection: Axis.horizontal,
-            physics: const ClampingScrollPhysics(),
-            child: SizedBox(
-              width: contentWidth,
-              height: constraints.maxHeight,
-              child: Column(
-                children: [
-                  _GridHeader(dayWidth: dayWidth),
-                  Expanded(
-                    child: Scrollbar(
-                      controller: _verticalController,
-                      thumbVisibility: true,
-                      thickness: 3,
-                      child: SingleChildScrollView(
-                        key: const Key('schedule-time-list'),
-                        controller: _verticalController,
-                        child: _GridBody(
-                          items: widget.items,
-                          dayWidth: dayWidth,
-                          startHour: range.startHour,
-                          endHour: range.endHour,
-                          onSelect: widget.onSelect,
+          child: Stack(
+            children: [
+              SingleChildScrollView(
+                key: const Key('schedule-horizontal-scroll'),
+                scrollDirection: Axis.horizontal,
+                physics: const ClampingScrollPhysics(),
+                child: SizedBox(
+                  width: contentWidth,
+                  height: constraints.maxHeight,
+                  child: Column(
+                    children: [
+                      _GridHeader(
+                        hourWidth: hourWidth,
+                        startHour: range.startHour,
+                        endHour: range.endHour,
+                      ),
+                      _GridBody(
+                        items: items,
+                        hourWidth: hourWidth,
+                        startHour: range.startHour,
+                        endHour: range.endHour,
+                        onSelect: onSelect,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                top: 0,
+                child: Column(
+                  children: [
+                    Container(
+                      width: _dayWidth,
+                      height: 40,
+                      alignment: Alignment.center,
+                      color: Colors.white,
+                      child: const Text(
+                        'วัน',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF426477),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    for (var day = 0; day < 7; day++)
+                      Container(
+                        width: _dayWidth,
+                        height: _dayHeight,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: _dayColors[day],
+                          border: const Border(
+                            bottom: BorderSide(color: Color(0xFFEEE1E6)),
+                          ),
+                        ),
+                        child: Text(
+                          _days[day],
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF596D78),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ),
         );
       },
@@ -508,38 +555,60 @@ class _ScheduleGridState extends State<_ScheduleGrid> {
 }
 
 class _GridHeader extends StatelessWidget {
-  final double dayWidth;
+  final double hourWidth;
+  final int startHour;
+  final int endHour;
 
-  const _GridHeader({required this.dayWidth});
+  const _GridHeader({
+    required this.hourWidth,
+    required this.startHour,
+    required this.endHour,
+  });
 
   @override
   Widget build(BuildContext context) => Container(
     key: const Key('schedule-header'),
     height: 40,
     color: Colors.white,
-    child: Row(
+    child: Stack(
       children: [
-        Container(
-          width: _ScheduleGridState._timeWidth,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            border: Border(right: BorderSide(color: Color(0xFFE2C7D1))),
-          ),
-          child: const Text(
-            'เวลา',
-            style: TextStyle(fontSize: 11, color: Color(0xFF426477)),
+        Row(
+          children: [
+            Container(
+              width: WeeklyScheduleGrid._dayWidth,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                border: Border(right: BorderSide(color: Color(0xFFE2C7D1))),
+              ),
+              child: const SizedBox.shrink(),
+            ),
+            for (var hour = startHour; hour < endHour; hour++)
+              Container(
+                width: hourWidth,
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.only(left: 8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF4FAFD),
+                  border: Border(right: BorderSide(color: Color(0xFFE7DDE2))),
+                ),
+                child: Text(
+                  _formatHour(hour),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF58798A),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        Positioned(
+          right: 3,
+          top: 12,
+          child: Text(
+            _formatHour(endHour),
+            style: const TextStyle(fontSize: 10, color: Color(0xFF58798A)),
           ),
         ),
-        for (var index = 0; index < 7; index++)
-          Container(
-            width: dayWidth,
-            alignment: Alignment.center,
-            color: _ScheduleGridState._dayColors[index],
-            child: Text(
-              _ScheduleGridState._days[index],
-              style: const TextStyle(fontSize: 11, color: Color(0xFF596D78)),
-            ),
-          ),
       ],
     ),
   );
@@ -547,14 +616,14 @@ class _GridHeader extends StatelessWidget {
 
 class _GridBody extends StatelessWidget {
   final List<ScheduleItem> items;
-  final double dayWidth;
+  final double hourWidth;
   final int startHour;
   final int endHour;
   final ValueChanged<ScheduleItem> onSelect;
 
   const _GridBody({
     required this.items,
-    required this.dayWidth,
+    required this.hourWidth,
     required this.startHour,
     required this.endHour,
     required this.onSelect,
@@ -562,77 +631,38 @@ class _GridBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rowCount = endHour - startHour;
-    final gridHeight = rowCount * _ScheduleGridState._rowHeight;
+    final hourCount = endHour - startHour;
+    final gridHeight = 7 * WeeklyScheduleGrid._dayHeight;
     return SizedBox(
-      width: _ScheduleGridState._timeWidth + dayWidth * 7,
+      width: WeeklyScheduleGrid._dayWidth + hourWidth * hourCount,
       height: gridHeight,
       child: Stack(
         children: [
-          Row(
+          Column(
             children: [
-              SizedBox(
-                width: _ScheduleGridState._timeWidth,
-                height: gridHeight,
-                child: Stack(
-                  children: [
-                    Column(
-                      children: [
-                        for (var index = 0; index < rowCount; index++)
-                          Container(
-                            key: Key(
-                              'schedule-time-${_formatHour(index + startHour).replaceAll(' ', '-').toLowerCase()}',
-                            ),
-                            height: _ScheduleGridState._rowHeight,
-                            alignment: Alignment.topCenter,
-                            padding: const EdgeInsets.only(top: 4),
-                            decoration: BoxDecoration(
-                              color: index.isEven
-                                  ? const Color(0xFFFFF1D5)
-                                  : const Color(0xFFFFF7E8),
-                              border: const Border(
-                                right: BorderSide(color: Color(0xFFE5D4DA)),
-                                bottom: BorderSide(color: Color(0xFFEEE1E6)),
-                              ),
-                            ),
-                            child: Text(
-                              _formatHour(index + startHour),
-                              style: const TextStyle(
-                                fontSize: 9,
-                                color: Color(0xFF687983),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 1,
-                      child: IgnorePointer(
-                        child: Text(
-                          _formatHour(endHour),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 9,
-                            color: Color(0xFF687983),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               for (var day = 0; day < 7; day++)
                 SizedBox(
-                  width: dayWidth,
-                  child: Column(
+                  height: WeeklyScheduleGrid._dayHeight,
+                  child: Row(
                     children: [
-                      for (var row = 0; row < rowCount; row++)
+                      Container(
+                        width: WeeklyScheduleGrid._dayWidth,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: WeeklyScheduleGrid._dayColors[day],
+                          border: const Border(
+                            right: BorderSide(color: Color(0xFFE5D4DA)),
+                            bottom: BorderSide(color: Color(0xFFEEE1E6)),
+                          ),
+                        ),
+                        child: const SizedBox.shrink(),
+                      ),
+                      for (var hour = 0; hour < hourCount; hour++)
                         Container(
-                          height: _ScheduleGridState._rowHeight,
+                          width: hourWidth,
+                          height: WeeklyScheduleGrid._dayHeight,
                           decoration: BoxDecoration(
-                            color: row.isEven
+                            color: hour.isEven
                                 ? const Color(0xFFFFFEFC)
                                 : Colors.white,
                             border: const Border(
@@ -647,7 +677,7 @@ class _GridBody extends StatelessWidget {
             ],
           ),
           for (final item in items)
-            if (_blockGeometry(item, dayWidth, startHour, endHour)
+            if (_blockGeometry(item, hourWidth, startHour, endHour)
                 case final geometry?)
               Positioned(
                 key: Key('schedule-block-${item.scheduleTimeId}'),
@@ -710,8 +740,8 @@ class _ScheduleBlock extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(5, 4, 5, 3),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final showTime = constraints.maxHeight >= 34;
-              final showClassroom = constraints.maxHeight >= 48;
+              final showTime = constraints.maxWidth >= 70;
+              final showClassroom = constraints.maxWidth >= 160;
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -756,7 +786,7 @@ class _ScheduleBlock extends StatelessWidget {
 
 ({double left, double top, double width, double height})? _blockGeometry(
   ScheduleItem item,
-  double dayWidth,
+  double hourWidth,
   int startHour,
   int endHour,
 ) {
@@ -767,13 +797,13 @@ class _ScheduleBlock extends StatelessWidget {
   final end = math.min(gridEnd, _minutes(item.endTime));
   if (end <= start) return null;
   return (
-    left: _ScheduleGridState._timeWidth + (item.scheduleDay - 1) * dayWidth + 3,
-    top: ((start - gridStart) / 60) * _ScheduleGridState._rowHeight + 2,
-    width: dayWidth - 6,
-    height: math.max(
-      ((end - start) / 60) * _ScheduleGridState._rowHeight - 4,
-      32,
-    ),
+    left:
+        WeeklyScheduleGrid._dayWidth +
+        ((start - gridStart) / 60) * hourWidth +
+        3,
+    top: (item.scheduleDay - 1) * WeeklyScheduleGrid._dayHeight + 3,
+    width: math.max(1, ((end - start) / 60) * hourWidth - 6),
+    height: WeeklyScheduleGrid._dayHeight - 6,
   );
 }
 

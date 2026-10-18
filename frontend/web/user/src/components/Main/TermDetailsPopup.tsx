@@ -119,8 +119,8 @@ export default function TermDetailsPopup({
 
         <p className="mt-5 text-center text-[12px] text-[#71858E]" style={{ fontFamily: "var(--font-sansation)" }}>
           {canEndTerm
-            ? "สิ้นสุดช่วงสอบปลายภาคแล้ว สามารถจบเทอมเพื่อเริ่มเทอมใหม่ได้"
-            : `ปุ่มจบเทอมจะแสดงหลังสิ้นสุดช่วงสอบปลายภาค (${finalEndLabel})`}
+            ? "สิ้นสุดสัปดาห์สอบปลายภาคแล้ว สามารถจบเทอมเพื่อเริ่มเทอมใหม่ได้"
+            : "ปุ่มจบเทอมจะแสดงหลังสิ้นสุดสัปดาห์สอบปลายภาค"}
         </p>
 
         {error && (

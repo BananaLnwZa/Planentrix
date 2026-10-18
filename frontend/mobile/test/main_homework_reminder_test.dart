@@ -105,9 +105,9 @@ HomeworkTaskData _task(DateTime deadline) => HomeworkTaskData(
   dueTime: '19:00',
 );
 
-void _setPhoneSize(WidgetTester tester) {
+void _setPhoneSize(WidgetTester tester, {double width = 360}) {
   tester.view.devicePixelRatio = 1;
-  tester.view.physicalSize = const Size(360, 800);
+  tester.view.physicalSize = Size(width, 800);
   addTearDown(() {
     tester.view.resetDevicePixelRatio();
     tester.view.resetPhysicalSize();
@@ -150,6 +150,38 @@ void main() {
     expect(find.text('เตรียมสอบปลายภาค · 3 สัปดาห์'), findsOneWidget);
   });
 
+  for (final phase in ['final_1w', 'final_exam']) {
+    testWidgets('main hides homework tab during $phase', (tester) async {
+      _setPhoneSize(tester);
+      await tester.pumpWidget(
+        _mainPage(
+          const [],
+          workflowLoader: () async => TermWorkflow(phase: phase),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('notebook-tab-homework')), findsNothing);
+      expect(find.byKey(const Key('notebook-tab-score')), findsOneWidget);
+    });
+  }
+
+  for (final phase in ['midterm_1w', 'final_1w']) {
+    testWidgets('main hides completed $phase notice', (tester) async {
+      _setPhoneSize(tester);
+      await tester.pumpWidget(
+        _mainPage(
+          const [],
+          workflowLoader: () async =>
+              TermWorkflow(phase: phase, assessmentPending: false),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('exam-flow-notice')), findsNothing);
+    });
+  }
+
   testWidgets('post-midterm reminder is acknowledged once on mobile', (
     tester,
   ) async {
@@ -168,14 +200,67 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('midterm-followup-popup')), findsOneWidget);
+    final popupWidth = tester
+        .getSize(find.byKey(const Key('midterm-followup-popup')))
+        .width;
+    final paperWidth = tester
+        .getSize(find.byKey(const Key('main-notebook-paper')))
+        .width;
+    expect(popupWidth, lessThan(paperWidth));
+    expect(find.text('ไปหน้าการบ้าน'), findsOneWidget);
+    expect(find.text('ทำแบบทดสอบปลายภาค'), findsNothing);
     await tester.tap(find.text('ไว้ก่อน'));
     await tester.pumpAndSettle();
     expect(terms.acknowledgements, 1);
     expect(find.byKey(const Key('midterm-followup-popup')), findsNothing);
   });
 
+  testWidgets('post-midterm reminder stays within notebook on wide viewport', (
+    tester,
+  ) async {
+    _setPhoneSize(tester, width: 800);
+    await tester.pumpWidget(
+      _mainPage(
+        const [],
+        workflowLoader: () async => const TermWorkflow(
+          phase: 'midterm_post',
+          midtermFollowupPending: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final popupWidth = tester
+        .getSize(find.byKey(const Key('midterm-followup-popup')))
+        .width;
+    final paperWidth = tester
+        .getSize(find.byKey(const Key('main-notebook-paper')))
+        .width;
+    expect(popupWidth, lessThan(paperWidth));
+  });
+
+  testWidgets('post-midterm reminder shows final test action when pending', (
+    tester,
+  ) async {
+    _setPhoneSize(tester);
+    await tester.pumpWidget(
+      _mainPage(
+        const [],
+        workflowLoader: () async => const TermWorkflow(
+          phase: 'midterm_post',
+          midtermFollowupPending: true,
+          initialFinalTestPending: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ไปหน้าการบ้าน'), findsOneWidget);
+    expect(find.text('ทำแบบทดสอบปลายภาค'), findsOneWidget);
+  });
+
   testWidgets(
-    'unfinished first final test does not show an early preparation banner',
+    'unfinished first final test keeps a post-midterm reminder on Main',
     (tester) async {
       _setPhoneSize(tester);
       await tester.pumpWidget(
@@ -189,8 +274,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('exam-flow-notice')), findsNothing);
-      expect(find.text('เริ่มเตรียมสอบปลายภาค'), findsNothing);
+      expect(find.byKey(const Key('exam-flow-notice')), findsOneWidget);
+      expect(find.text('เริ่มแบบทดสอบปลายภาค'), findsOneWidget);
+      expect(find.text('ไปทำแบบทดสอบ'), findsOneWidget);
     },
   );
 

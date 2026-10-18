@@ -20,6 +20,9 @@ for (const [available, completed, recommended, expected] of [
   test(`final target ready: ${available} banks, ${completed} completed, recommendation ${recommended}`, async (t) => {
     let targetQuery = "";
     t.mock.method(db, "query", async (sql: string) => {
+      if (sql.includes("qb.question_bank_id AS exam_repository_id")) {
+        return [[]];
+      }
       if (sql.includes("AS available_banks")) {
         targetQuery = sql;
         return [[{

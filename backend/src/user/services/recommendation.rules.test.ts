@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   adherenceRate,
   completionRate,
+  currentDisplayWeek,
   durationMinutes,
   earnedScoreReviewMinutes,
   examReviewFloorMinutes,
@@ -83,6 +84,18 @@ test("Sunday 18:00 Bangkok generates the following week", () => {
   assert.deepEqual(result, {
     weekStart: "2026-08-24",
     weekEnd: "2026-08-30",
+  });
+});
+
+test("current schedule stays in this week after Sunday 18:00 Bangkok", () => {
+  const now = new Date("2026-10-18T15:00:00.000Z");
+  assert.deepEqual(currentDisplayWeek(now), {
+    weekStart: "2026-10-12",
+    weekEnd: "2026-10-18",
+  });
+  assert.deepEqual(resolveTargetWeek("manual", now), {
+    weekStart: "2026-10-19",
+    weekEnd: "2026-10-25",
   });
 });
 

@@ -79,7 +79,10 @@ class SubjectScore {
     final boundaries = rawBoundaries is List
         ? rawBoundaries
               .whereType<Map>()
-              .map((item) => GradeBoundary.fromJson(Map<String, dynamic>.from(item)))
+              .map(
+                (item) =>
+                    GradeBoundary.fromJson(Map<String, dynamic>.from(item)),
+              )
               .toList()
         : const <GradeBoundary>[];
     final workloads = rawWorkloads is List
@@ -121,9 +124,8 @@ class SubjectScore {
   double get totalMaximumScore =>
       workloads.fold(0, (sum, workload) => sum + (workload.maxScore ?? 0));
 
-  double get actualPercent => totalMaximumScore <= 0
-      ? 0
-      : totalActualScore.clamp(0, 100).toDouble();
+  double get actualPercent =>
+      totalMaximumScore <= 0 ? 0 : totalActualScore.clamp(0, 100).toDouble();
 
   double? minimumForGrade(String grade) {
     for (final boundary in gradeBoundaries) {
@@ -147,12 +149,12 @@ class SubjectScore {
         .toDouble();
   }
 
-  String get actualGrade => totalMaximumScore <= 0
-      ? '—'
-      : gradeFromPercent(actualPercent, gradeBoundaries) ?? 'รอเกณฑ์';
+  String get actualGrade =>
+      gradeFromPercent(actualPercent, gradeBoundaries) ?? 'รอเกณฑ์';
 
   String get targetGrade =>
-      targetGradeCode ?? (targetScore == null ? '—' : gradeFromGpa(targetScore!));
+      targetGradeCode ??
+      (targetScore == null ? '—' : gradeFromGpa(targetScore!));
 
   SubjectScore copyWith({
     double? targetScore,
@@ -279,7 +281,10 @@ String gradeFromGpa(double gpa) {
 
 String? gradeFromPercent(double percent, List<GradeBoundary> boundaries) {
   final ordered = [...boundaries]
-    ..sort((left, right) => right.minimumPercentage.compareTo(left.minimumPercentage));
+    ..sort(
+      (left, right) =>
+          right.minimumPercentage.compareTo(left.minimumPercentage),
+    );
   for (final boundary in ordered) {
     if (percent >= boundary.minimumPercentage) return boundary.gradeCode;
   }

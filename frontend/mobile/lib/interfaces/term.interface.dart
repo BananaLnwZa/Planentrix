@@ -50,6 +50,7 @@ class TermWorkflow {
   final String phase;
   final bool postFinal;
   final bool workloadLocked;
+  final bool assessmentPending;
   final bool finalTargetReady;
   final bool midtermFollowupPending;
   final bool initialFinalTestPending;
@@ -58,6 +59,7 @@ class TermWorkflow {
     required this.phase,
     this.postFinal = false,
     this.workloadLocked = false,
+    this.assessmentPending = true,
     this.finalTargetReady = false,
     this.midtermFollowupPending = false,
     this.initialFinalTestPending = false,
@@ -68,6 +70,10 @@ class TermWorkflow {
     postFinal: json['post_final'] == true || json['post_final'] == 1,
     workloadLocked:
         json['workload_locked'] == true || json['workload_locked'] == 1,
+    assessmentPending:
+        json['assessment_pending'] == null ||
+        json['assessment_pending'] == true ||
+        json['assessment_pending'] == 1,
     finalTargetReady:
         json['final_target_ready'] == true || json['final_target_ready'] == 1,
     midtermFollowupPending:

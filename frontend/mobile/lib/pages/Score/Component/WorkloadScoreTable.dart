@@ -19,10 +19,15 @@ class WorkloadScoreTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final actual = workloads
-        .fold<double>(0, (sum, workload) => sum + (workload.actualScore ?? 0))
-        .clamp(0, 100)
-        .toDouble();
+    final scoredWorkloads = workloads.where((workload) => workload.hasScore);
+    final actual = scoredWorkloads.fold<double>(
+      0,
+      (sum, workload) => sum + workload.actualScore!,
+    );
+    final maximum = scoredWorkloads.fold<double>(
+      0,
+      (sum, workload) => sum + workload.maxScore!,
+    );
 
     return Container(
       key: const Key('workload-score-table'),
@@ -102,7 +107,7 @@ class WorkloadScoreTable extends StatelessWidget {
                     ],
                   ),
                   child: Text(
-                    '${_scoreText(actual)}/100',
+                    '${_scoreText(actual)}/${_scoreText(maximum)}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Color(0xFFB05D79),

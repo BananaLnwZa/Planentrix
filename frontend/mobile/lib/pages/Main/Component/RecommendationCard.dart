@@ -1,5 +1,7 @@
 // ignore_for_file: file_names
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../common/DateTimeFormat.dart';
@@ -29,6 +31,8 @@ class _RecommendationCardState extends State<RecommendationCard> {
   WeeklyRecommendation? _recommendation;
   bool _loading = true;
   bool _busy = false;
+  bool _refreshingWeekend = false;
+  Timer? _weekendRefreshTimer;
   String? _error;
 
   @override
@@ -36,6 +40,42 @@ class _RecommendationCardState extends State<RecommendationCard> {
     super.initState();
     _repository = widget.repository ?? RecommendationService();
     _load();
+    _weekendRefreshTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => unawaited(_refreshSundayRecommendation()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _weekendRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshSundayRecommendation() async {
+    final bangkokNow = DateTime.now().toUtc().add(const Duration(hours: 7));
+    if (bangkokNow.weekday != DateTime.sunday ||
+        bangkokNow.hour < 18 ||
+        _loading ||
+        _refreshingWeekend) {
+      return;
+    }
+    final targetWeek = bangkokNow
+        .add(const Duration(days: 1))
+        .toIso8601String()
+        .substring(0, 10);
+    if (_recommendation?.weekStart == targetWeek) return;
+    _refreshingWeekend = true;
+    try {
+      final latest = await _repository.getLatest();
+      if (mounted && latest?.weekStart == targetWeek) {
+        setState(() => _recommendation = latest);
+      }
+    } catch (_) {
+      // The next minute can retry while the weekly job is still running.
+    } finally {
+      _refreshingWeekend = false;
+    }
   }
 
   Future<void> _load() async {

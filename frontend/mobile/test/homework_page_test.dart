@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mobile/common/CurrentTermRequiredState.dart';
 import 'package:mobile/common/HomeworkTimeFormat.dart';
+import 'package:mobile/common/WorkloadTypePalette.dart';
 import 'package:mobile/interfaces/homework.interface.dart';
 import 'package:mobile/interfaces/score.interface.dart';
 import 'package:mobile/interfaces/term.interface.dart';
@@ -19,6 +20,7 @@ const sampleHomeworkTypes = [
   HomeworkTypeOption(1, 'งานที่ได้รับมอบหมาย', code: 'assignment'),
   HomeworkTypeOption(2, 'โครงงาน', code: 'project'),
   HomeworkTypeOption(3, 'สอบกลางภาค', code: 'midterm'),
+  HomeworkTypeOption(4, 'ทดสอบเก็บคะแนน', code: 'quiz'),
 ];
 
 List<HomeworkTaskData> sampleTasks() => [
@@ -299,14 +301,16 @@ void main() {
 
   test('homework type keeps the ID and code returned by the backend', () {
     final type = HomeworkTypeOption.fromJson(const {
-      'workload_type_id': 712,
+      'workload_type_id': 4,
       'workload_type_code': 'QUIZ',
-      'workload_type_name': 'แบบทดสอบ',
+      'workload_type_name': 'ทดสอบเก็บคะแนน',
     });
 
-    expect(type.id, 712);
+    expect(type.id, 4);
     expect(type.code, 'quiz');
-    expect(type.name, 'แบบทดสอบ');
+    expect(type.name, 'ทดสอบเก็บคะแนน');
+    expect(workloadTypeCodeLabel(type.code), 'Quiz');
+    expect(workloadTypeCode(type.id, type.name), 'quiz');
   });
 
   testWidgets('homework hides add action when there is no current term', (
@@ -644,6 +648,53 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('quiz homework displays its type tag in details', (tester) async {
+    setPhoneSize(tester);
+    final quizTask = HomeworkTaskData(
+      workloadId: 4,
+      scheduleTimeId: 11,
+      workloadTypeId: 4,
+      workloadTypeCode: 'quiz',
+      workloadTypeName: 'ทดสอบเก็บคะแนน',
+      subjectId: 'CS101',
+      subject: 'Numerical Method',
+      assignment: 'Quiz 1',
+      deadline: DateTime(2026, 5, 4, 17),
+      dueDate: '04/05/26',
+      dueTime: '17:00',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeworkPage(
+          repository: FakeHomeworkRepository([quizTask]),
+          now: () => DateTime(2026, 5, 3, 12),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final taskRect = tester.getRect(find.byKey(const Key('homework-task-0-0')));
+    await tester.tapAt(Offset(taskRect.left + 8, taskRect.center.dy));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('homework-details-type')),
+        matching: find.text('Quiz'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Container>(find.byKey(const Key('homework-details-type')))
+          .decoration,
+      isA<BoxDecoration>().having(
+        (decoration) => decoration.color,
+        'color',
+        const Color(0xFFC5DBAA),
+      ),
+    );
+  });
+
   testWidgets('delete button removes the homework from the page', (
     tester,
   ) async {
@@ -698,26 +749,26 @@ void main() {
     for (final type in sampleHomeworkTypes) {
       expect(find.byKey(Key('homework-type-${type.id}')), findsOneWidget);
     }
+    expect(find.text('Quiz'), findsOneWidget);
 
     const normalColors = {
       1: Color(0xFFEECDF9),
       2: Color(0xFFFA86A3),
       3: Color(0xFFB3F7EF),
+      4: Color(0xFFC5DBAA),
     };
     const hoverColors = {
       1: Color(0xFFD19EE2),
       2: Color(0xFFD45A78),
       3: Color(0xFF74DBD0),
+      4: Color(0xFFA5BE85),
     };
     for (final entry in normalColors.entries) {
       final surface = tester.widget<AnimatedContainer>(
         find.byKey(Key('homework-type-surface-${entry.key}')),
       );
       expect((surface.decoration! as BoxDecoration).color, entry.value);
-      expect(
-        surface.constraints,
-        const BoxConstraints(minWidth: 70),
-      );
+      expect(surface.constraints, const BoxConstraints(minWidth: 70));
       expect(
         surface.padding,
         const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -748,10 +799,7 @@ void main() {
       final selectedSurface = tester.widget<AnimatedContainer>(
         find.byKey(Key('homework-type-surface-${entry.key}')),
       );
-      expect(
-        (selectedSurface.decoration! as BoxDecoration).color,
-        entry.value,
-      );
+      expect((selectedSurface.decoration! as BoxDecoration).color, entry.value);
     }
     await mouse.removePointer();
 

@@ -9,7 +9,7 @@ import type {
   SubjectGradeGoal,
 } from "@/interfaces/grade.interface";
 import ConfirmGradeGoalsModal from "./ConfirmGradeGoalsModal";
-import { GPA_BY_GRADE, GRADE_OPTIONS } from "./gradeOptions";
+import { GPA_BY_GRADE, GRADE_OPTIONS, STANDARD_GRADE_BOUNDARIES } from "./gradeOptions";
 
 type GradeSelection = Record<number, GradeLetter | "">;
 
@@ -84,7 +84,7 @@ export default function GradeGoalModal({
                 เลือกเกรดที่ต้องการ
               </h2>
               <p className="mt-0.5 text-[11px] font-medium text-[#567486]">
-                คะแนนขั้นต่ำอ้างอิงเกณฑ์ที่เผยแพร่ของแต่ละวิชา
+                คะแนนขั้นต่ำอ้างอิงเกณฑ์ของวิชา หรือเกณฑ์มาตรฐานเมื่อยังไม่มีเกณฑ์เผยแพร่
               </p>
             </div>
           </div>
@@ -104,10 +104,10 @@ export default function GradeGoalModal({
             {subjects.map((subject, index) => {
               const isPreviouslySaved = subject.target_score !== null;
               const boundaryByGrade = new Map(
-                subject.grading_scheme?.boundaries.map((boundary) => [
+                (subject.grading_scheme?.boundaries ?? STANDARD_GRADE_BOUNDARIES).map((boundary) => [
                   boundary.grade_code,
                   boundary.minimum_percentage,
-                ]) ?? []
+                ])
               );
               return (
                 <div
@@ -124,9 +124,9 @@ export default function GradeGoalModal({
                         <LockKeyhole className="h-3.5 w-3.5 text-[#6CB6DF]" aria-label="บันทึกแล้ว" />
                       )}
                     </span>
-                    {!subject.grading_scheme && (
+                    {(!subject.grading_scheme || subject.grading_scheme.scheme_type === "standard_fallback") && (
                       <span className="mt-1 block text-[10px] text-[#A47A35]">
-                        รออาจารย์เผยแพร่เกณฑ์ตัดเกรด
+                        ใช้เกณฑ์มาตรฐานระหว่างรอเกณฑ์ของอาจารย์
                       </span>
                     )}
                     {subject.grading_scheme?.scheme_type === "subject_default" && (

@@ -160,6 +160,18 @@ void setPhoneSize(WidgetTester tester) {
   });
 }
 
+Future<void> tapVisibleScheduleBlock(WidgetTester tester, String key) async {
+  final block = find.byKey(Key(key));
+  final scroll = find.byKey(const Key('schedule-horizontal-scroll'));
+  final left = tester.getTopLeft(block).dx;
+  if (left > 220) {
+    await tester.drag(scroll, Offset(120 - left, 0));
+    await tester.pumpAndSettle();
+  }
+  final rect = tester.getRect(block);
+  await tester.tapAt(Offset(rect.left + 18, rect.center.dy));
+}
+
 void main() {
   testWidgets('accepted weekly block opens read-only details', (tester) async {
     setPhoneSize(tester);
@@ -176,7 +188,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('schedule-block--7')));
+    await tapVisibleScheduleBlock(tester, 'schedule-block--7');
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('weekly-block-details-popup')), findsOneWidget);
     expect(find.text('ทบทวน'), findsOneWidget);
@@ -213,12 +225,20 @@ void main() {
 
     expect(find.byKey(const Key('schedule')), findsOneWidget);
     expect(tester.getSize(find.byKey(const Key('schedule'))).width, 320);
-    expect(find.text('เวลา'), findsOneWidget);
+    expect(find.text('วัน'), findsOneWidget);
     for (final day in ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.']) {
       expect(find.text(day), findsOneWidget);
     }
+    expect(
+      tester.getTopLeft(find.text('อ.')).dy,
+      greaterThan(tester.getTopLeft(find.text('จ.')).dy),
+    );
     expect(find.text('06:00'), findsNothing);
     expect(find.text('09:00'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('10:00')).dx,
+      greaterThan(tester.getTopLeft(find.text('09:00')).dx),
+    );
     expect(find.text('17:00'), findsOneWidget);
     expect(find.byKey(const Key('schedule-block-1')), findsOneWidget);
     final classBlock = find.descendant(
@@ -233,20 +253,22 @@ void main() {
       find.byKey(const Key('schedule-horizontal-scroll')),
     );
     expect(horizontalScroll.scrollDirection, Axis.horizontal);
-    final fridayBefore = tester.getTopLeft(find.text('ศ.')).dx;
+    final timeBefore = tester.getTopLeft(find.text('09:00')).dx;
+    final dayBefore = tester.getTopLeft(find.text('ศ.')).dx;
     await tester.drag(
       find.byKey(const Key('schedule-horizontal-scroll')),
       const Offset(-180, 0),
     );
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(find.text('ศ.')).dx, lessThan(fridayBefore));
+    expect(tester.getTopLeft(find.text('09:00')).dx, lessThan(timeBefore));
+    expect(tester.getTopLeft(find.text('ศ.')).dx, dayBefore);
     await tester.drag(
       find.byKey(const Key('schedule-horizontal-scroll')),
       const Offset(180, 0),
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('schedule-block-1')));
+    await tapVisibleScheduleBlock(tester, 'schedule-block-1');
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('schedule-details-popup')), findsOneWidget);
     expect(find.text('Business Intelligence'), findsWidgets);
@@ -275,7 +297,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('schedule-block-1')));
+    await tapVisibleScheduleBlock(tester, 'schedule-block-1');
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('edit-schedule-button')));
     await tester.pump();
@@ -288,6 +310,26 @@ void main() {
     await tester.tap(find.byKey(const Key('confirm-constraint-overlap')));
     await tester.pumpAndSettle();
     expect(repository.updateCount, 1);
+  });
+
+  testWidgets('read-only exam schedule shows details without edit action', (
+    tester,
+  ) async {
+    setPhoneSize(tester);
+    final repository = FakeTableRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: Schedule(repository: repository, readOnly: true)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tapVisibleScheduleBlock(tester, 'schedule-block-1');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('schedule-details-popup')), findsOneWidget);
+    expect(find.byKey(const Key('edit-schedule-button')), findsNothing);
+    expect(find.text('ปิด'), findsOneWidget);
+    expect(repository.updateCount, 0);
   });
 
   testWidgets('schedule hides its grid and add button when it has no items', (
@@ -352,7 +394,7 @@ void main() {
     expect(find.text('05:00'), findsOneWidget);
     expect(find.text('24:00'), findsOneWidget);
     expect(find.byKey(const Key('schedule-block-3')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('schedule-block-3')));
+    await tapVisibleScheduleBlock(tester, 'schedule-block-3');
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('edit-schedule-button')), findsNothing);
     expect(find.text('ปิด'), findsOneWidget);

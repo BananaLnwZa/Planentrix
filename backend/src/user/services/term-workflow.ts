@@ -1,5 +1,6 @@
 import type { RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
+import { addDays, bangkokDateTimeParts, daysBetween, mondayOfWeek } from "./recommendation.rules";
 
 export type ExamWorkflowPhase =
   | "checkpoint"
@@ -28,13 +29,12 @@ export interface ExamTermDates {
 
 const asDate = (value: string | Date | null | undefined) => {
   if (!value) return null;
-  const date = value instanceof Date ? new Date(value) : new Date(`${value}T00:00:00`);
-  return Number.isNaN(date.getTime()) ? null : date;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : bangkokDateTimeParts(value).date;
+  const date = value.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(`${date}T00:00:00Z`))
+    ? date
+    : null;
 };
-
-const dayDistance = (from: Date, to: Date) =>
-  Math.floor((Date.UTC(to.getFullYear(), to.getMonth(), to.getDate()) -
-    Date.UTC(from.getFullYear(), from.getMonth(), from.getDate())) / 86_400_000);
 
 export const getExamWorkflowPhase = (
   dates: ExamTermDates,
@@ -44,13 +44,14 @@ export const getExamWorkflowPhase = (
   const start = asDate(examPeriod === "midterm" ? dates.midterm_start_date : dates.final_start_date);
   const end = asDate(examPeriod === "midterm" ? dates.midterm_end_date : dates.final_end_date);
   if (!start || !end) return "checkpoint";
-  const current = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
-  const first = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()));
-  const last = new Date(Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()));
-  const days = dayDistance(current, first);
+  const current = bangkokDateTimeParts(today).date;
+  // The exam stage covers its whole calendar week, even when exams end Friday.
+  const examWeekStart = mondayOfWeek(start);
+  const examWeekEnd = addDays(mondayOfWeek(end), 6);
+  const days = daysBetween(current, examWeekStart);
   const key = examPeriod === "midterm" ? "midterm" : "final";
-  if (current > last) return `${key}_post` as ExamWorkflowPhase;
-  if (current >= first) return `${key}_exam` as ExamWorkflowPhase;
+  if (current > examWeekEnd) return `${key}_post` as ExamWorkflowPhase;
+  if (current >= examWeekStart) return `${key}_exam` as ExamWorkflowPhase;
   if (days >= 1 && days <= 7) return `${key}_1w` as ExamWorkflowPhase;
   if (days <= 14) return `${key}_2w` as ExamWorkflowPhase;
   if (days <= 21) return `${key}_3w` as ExamWorkflowPhase;
@@ -62,7 +63,8 @@ export const isWorkloadLockedForUser = async (userId: number) => {
     `SELECT CASE
        WHEN academic_term.final_start_date IS NULL THEN 0
        WHEN DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) >=
-         DATE_SUB(academic_term.final_start_date, INTERVAL 7 DAY) THEN 1
+         DATE_SUB(DATE_SUB(academic_term.final_start_date,
+           INTERVAL WEEKDAY(academic_term.final_start_date) DAY), INTERVAL 7 DAY) THEN 1
        ELSE 0
      END AS locked
      FROM student_terms student_term
@@ -89,10 +91,14 @@ export const voidPendingCheckpointsForExamFlow = async (userId: number) => {
        AND (
          (checkpoint.exam_period = 'midterm'
            AND academic_term.midterm_start_date IS NOT NULL
-           AND DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) >= DATE_SUB(academic_term.midterm_start_date, INTERVAL 14 DAY))
+           AND DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) >= DATE_SUB(
+             DATE_SUB(academic_term.midterm_start_date,
+               INTERVAL WEEKDAY(academic_term.midterm_start_date) DAY), INTERVAL 14 DAY))
          OR (checkpoint.exam_period = 'final'
            AND academic_term.final_start_date IS NOT NULL
-           AND DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) >= DATE_SUB(academic_term.final_start_date, INTERVAL 14 DAY))
+           AND DATE(UTC_TIMESTAMP() + INTERVAL 7 HOUR) >= DATE_SUB(
+             DATE_SUB(academic_term.final_start_date,
+               INTERVAL WEEKDAY(academic_term.final_start_date) DAY), INTERVAL 14 DAY))
        )`,
     [userId],
   );

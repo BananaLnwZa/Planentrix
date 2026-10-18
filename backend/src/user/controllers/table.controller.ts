@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
+import { currentDisplayWeek } from "../services/recommendation.rules";
 
 const WEEKLY_ID_OFFSET = 1_000_000_000;
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
@@ -76,7 +77,7 @@ const CLASS_SQL = `SELECT cm.class_meeting_id AS schedule_time_id, 0 AS schedule
 const WEEKLY_SQL = `SELECT (? + wb.weekly_block_id) AS schedule_time_id, wb.schedule_type_id,
   LOWER(t.type_code) AS schedule_type_code,t.type_name AS schedule_type_name,
   s.subject_id,s.subject_name,'' AS teacher_name,CAST(s.credits AS DOUBLE) AS credits,
-  DAYOFWEEK(wb.scheduled_date + INTERVAL 1 DAY) AS schedule_day,
+  WEEKDAY(wb.scheduled_date) + 1 AS schedule_day,
   TIME_FORMAT(wb.start_time,'%H:%i') AS start_time,TIME_FORMAT(wb.end_time,'%H:%i') AS end_time,
   NULL AS classroom,NULL AS note
  FROM weekly_schedule_block wb
@@ -85,14 +86,16 @@ const WEEKLY_SQL = `SELECT (? + wb.weekly_block_id) AS schedule_time_id, wb.sche
  INNER JOIN course_sections cs ON cs.section_id=e.section_id
  INNER JOIN subjects s ON s.subject_id=cs.subject_id
  INNER JOIN schedule_types t ON t.schedule_type_id=wb.schedule_type_id
- WHERE wr.student_term_id=? AND wr.status='accepted'`;
+ WHERE wr.student_term_id=? AND wr.status='accepted'
+   AND wb.scheduled_date BETWEEN ? AND ?`;
 
 export const getScheduleForCurrentTerm = async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req, res); if (!userId) return;
     const term = await getCurrentTerm(userId); if (!term) return res.status(404).json({ message: "No current term found" });
     const [classes] = await db.query<ScheduleRow[]>(CLASS_SQL, [userId, term.term_id]);
-    const [weekly] = await db.query<ScheduleRow[]>(WEEKLY_SQL, [WEEKLY_ID_OFFSET, term.term_id]);
+    const week = currentDisplayWeek();
+    const [weekly] = await db.query<ScheduleRow[]>(WEEKLY_SQL, [WEEKLY_ID_OFFSET, term.term_id, week.weekStart, week.weekEnd]);
     const data = [...classes, ...weekly].sort((a,b) => Number(a.schedule_day)-Number(b.schedule_day) || String(a.start_time).localeCompare(String(b.start_time)));
     return res.json({ message: "Schedule retrieved successfully", user_id: userId, current_term: termJson(term), total: data.length, data });
   } catch (error) { console.error("getScheduleForCurrentTerm error:", error); return res.status(500).json({ message: "Internal server error" }); }
@@ -116,7 +119,8 @@ export const getScheduleTimeById = async (req: Request, res: Response) => {
     const id = Number(req.params.schedule_time_id); if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: "Invalid schedule_time_id" });
     let data: ScheduleRow | undefined;
     if (id >= WEEKLY_ID_OFFSET) {
-      const [rows] = await db.query<ScheduleRow[]>(`${WEEKLY_SQL} AND wb.weekly_block_id=? LIMIT 1`, [WEEKLY_ID_OFFSET, term.term_id, id-WEEKLY_ID_OFFSET]); data=rows[0];
+      const week = currentDisplayWeek();
+      const [rows] = await db.query<ScheduleRow[]>(`${WEEKLY_SQL} AND wb.weekly_block_id=? LIMIT 1`, [WEEKLY_ID_OFFSET, term.term_id, week.weekStart, week.weekEnd, id-WEEKLY_ID_OFFSET]); data=rows[0];
     } else {
       const [rows] = await db.query<ScheduleRow[]>(`${CLASS_SQL} HAVING cm.class_meeting_id=? LIMIT 1`, [userId, term.term_id, id]); data=rows[0];
     }
@@ -184,7 +188,7 @@ export const updateScheduleTime = async (req: Request,res: Response) => {
     if(!Number.isInteger(id) || id<=0)return res.status(400).json({message:"Invalid schedule_time_id"});
     if(id<WEEKLY_ID_OFFSET)return updateClassScheduleTime(req,res,userId,id);
     const term=await getCurrentTerm(userId);if(!term)return res.status(404).json({message:"No current term found"});
-    const [rows]=await db.query<RowDataPacket[]>(`SELECT wb.*,wr.status AS recommendation_status,DAYOFWEEK(wb.scheduled_date + INTERVAL 1 DAY) AS schedule_day FROM weekly_schedule_block wb
+    const [rows]=await db.query<RowDataPacket[]>(`SELECT wb.*,wr.status AS recommendation_status,WEEKDAY(wb.scheduled_date) + 1 AS schedule_day FROM weekly_schedule_block wb
       INNER JOIN weekly_recommendation wr ON wr.recommendation_id=wb.recommendation_id WHERE wb.weekly_block_id=? AND wr.student_term_id=? LIMIT 1`,[id-WEEKLY_ID_OFFSET,term.term_id]);
     if(!rows[0])return res.status(404).json({message:"Schedule time not found"});
     if(rows[0].recommendation_status!=='pending')return res.status(409).json({message:"Only pending recommendation blocks can be edited"});
@@ -291,7 +295,7 @@ export const deleteScheduleTime = async (req: Request,res: Response) => {
     const userId=getUserId(req,res);if(!userId)return;const id=Number(req.params.schedule_time_id);
     if(id<WEEKLY_ID_OFFSET)return res.status(409).json({message:"Class times are managed by staff"});
     const term=await getCurrentTerm(userId);if(!term)return res.status(404).json({message:"No current term found"});
-    const [rows]=await db.query<RowDataPacket[]>(`SELECT wb.*,cs.subject_id,wr.status AS recommendation_status,DAYOFWEEK(wb.scheduled_date + INTERVAL 1 DAY) AS schedule_day FROM weekly_schedule_block wb
+    const [rows]=await db.query<RowDataPacket[]>(`SELECT wb.*,cs.subject_id,wr.status AS recommendation_status,WEEKDAY(wb.scheduled_date) + 1 AS schedule_day FROM weekly_schedule_block wb
       INNER JOIN weekly_recommendation wr ON wr.recommendation_id=wb.recommendation_id INNER JOIN enrollments e ON e.enrollment_id=wb.enrollment_id INNER JOIN course_sections cs ON cs.section_id=e.section_id
       WHERE wb.weekly_block_id=? AND wr.student_term_id=? LIMIT 1`,[id-WEEKLY_ID_OFFSET,term.term_id]);
     if(!rows[0])return res.status(404).json({message:"Schedule time not found"});

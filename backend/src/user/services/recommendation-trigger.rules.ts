@@ -25,14 +25,10 @@ export const shouldRecommendForWorkload = (
 export const regularRecommendationPaused = (
   term: ExamTermDates,
   now: Date,
-  targetWeekStart: string,
 ) => {
-  const targetDate = new Date(`${targetWeekStart}T12:00:00`);
   return [
     getExamWorkflowPhase(term, "midterm", now),
     getExamWorkflowPhase(term, "final", now),
-    getExamWorkflowPhase(term, "midterm", targetDate),
-    getExamWorkflowPhase(term, "final", targetDate),
   ].some((phase) => [
     "midterm_2w", "midterm_1w", "midterm_exam",
     "final_2w", "final_1w", "final_exam", "final_post",

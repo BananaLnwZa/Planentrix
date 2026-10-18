@@ -15,6 +15,7 @@ Future<void> showScheduleDetailsPopup(
   required Future<ScheduleItem> Function(UpdateScheduleInput input) onSave,
   required Future<void> Function() onDelete,
   bool allowDelete = false,
+  bool readOnly = false,
 }) => showDialog<void>(
   context: context,
   barrierColor: Colors.black38,
@@ -24,6 +25,7 @@ Future<void> showScheduleDetailsPopup(
     onSave: onSave,
     onDelete: onDelete,
     allowDelete: allowDelete,
+    readOnly: readOnly,
   ),
 );
 
@@ -33,6 +35,7 @@ class _ScheduleDetailsPopup extends StatefulWidget {
   final Future<ScheduleItem> Function(UpdateScheduleInput input) onSave;
   final Future<void> Function() onDelete;
   final bool allowDelete;
+  final bool readOnly;
 
   const _ScheduleDetailsPopup({
     required this.item,
@@ -40,6 +43,7 @@ class _ScheduleDetailsPopup extends StatefulWidget {
     required this.onSave,
     required this.onDelete,
     required this.allowDelete,
+    required this.readOnly,
   });
 
   @override
@@ -364,7 +368,7 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
                 spacing: 7,
                 runSpacing: 8,
                 children: [
-                  if (widget.allowDelete && !_isClass)
+                  if (widget.allowDelete && !widget.readOnly && !_isClass)
                     OutlinedButton.icon(
                       key: const Key('delete-schedule-button'),
                       onPressed: _busy ? null : _delete,
@@ -392,7 +396,7 @@ class _ScheduleDetailsPopupState extends State<_ScheduleDetailsPopup> {
                       child: const Text('ยกเลิก'),
                     ),
                   ],
-                  if (_isClass)
+                  if (_isClass && !widget.readOnly)
                     FilledButton.icon(
                       key: Key(
                         _editing

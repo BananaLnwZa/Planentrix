@@ -21,16 +21,16 @@ WorkloadTypePalette workloadTypePalette(String typeName) =>
 
 String workloadTypeCodeLabel(String typeCode) {
   final code = typeCode.trim().toLowerCase();
+  if (code == 'quiz') return 'Quiz';
   if (code.isEmpty) return 'Workload';
   return '${code[0].toUpperCase()}${code.substring(1)}';
 }
 
 String workloadTypeCode(int typeId, String typeName) => switch (typeId) {
-  1 => 'midterm',
-  2 => 'final',
-  3 => 'assignment',
+  1 => 'assignment',
+  2 => 'project',
+  3 => 'midterm',
   4 => 'quiz',
-  5 => 'project',
   _ => typeName.trim().toLowerCase(),
 };
 

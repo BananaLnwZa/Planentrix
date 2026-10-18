@@ -1,4 +1,15 @@
-import type { GradeLetter } from "@/interfaces/grade.interface";
+import type { GradeBoundary, GradeLetter } from "@/interfaces/grade.interface";
+
+export const STANDARD_GRADE_BOUNDARIES: GradeBoundary[] = [
+  { grade_code: "A", minimum_percentage: 80, display_order: 1 },
+  { grade_code: "B+", minimum_percentage: 75, display_order: 2 },
+  { grade_code: "B", minimum_percentage: 70, display_order: 3 },
+  { grade_code: "C+", minimum_percentage: 65, display_order: 4 },
+  { grade_code: "C", minimum_percentage: 60, display_order: 5 },
+  { grade_code: "D+", minimum_percentage: 55, display_order: 6 },
+  { grade_code: "D", minimum_percentage: 50, display_order: 7 },
+  { grade_code: "F", minimum_percentage: 0, display_order: 8 },
+];
 
 export const GRADE_OPTIONS: Array<{
   grade: GradeLetter;

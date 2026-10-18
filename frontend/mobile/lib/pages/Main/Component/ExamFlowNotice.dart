@@ -4,16 +4,27 @@ import '../../../interfaces/term.interface.dart';
 
 class ExamFlowNotice extends StatelessWidget {
   final TermWorkflow workflow;
+  final Future<void> Function()? onReturn;
 
-  const ExamFlowNotice({super.key, required this.workflow});
+  const ExamFlowNotice({super.key, required this.workflow, this.onReturn});
 
   static bool supportsPhase(String phase) => _notices.containsKey(phase);
 
+  static bool shouldShow(TermWorkflow workflow) =>
+      supportsPhase(workflow.phase) &&
+      (workflow.phase != 'midterm_post' || workflow.initialFinalTestPending) &&
+      !((workflow.phase == 'midterm_2w' ||
+              workflow.phase == 'midterm_1w' ||
+              workflow.phase == 'final_1w') &&
+          !workflow.assessmentPending);
+
   @override
   Widget build(BuildContext context) {
-    final notice =
-        workflow.initialFinalTestPending && workflow.phase == 'final_3w'
-        ? _firstFinalThreeWeekNotice
+    if (!shouldShow(workflow)) {
+      return const SizedBox.shrink();
+    }
+    final notice = workflow.phase == 'final_2w' && !workflow.assessmentPending
+        ? _completedFinalTwoWeekNotice
         : _notices[workflow.phase];
     if (notice == null) return const SizedBox.shrink();
     return Container(
@@ -64,7 +75,10 @@ class ExamFlowNotice extends StatelessWidget {
           if (notice.action != null) ...[
             const SizedBox(width: 7),
             TextButton(
-              onPressed: () => Navigator.of(context).pushNamed(notice.route!),
+              onPressed: () async {
+                await Navigator.of(context).pushNamed(notice.route!);
+                await onReturn?.call();
+              },
               style: TextButton.styleFrom(
                 backgroundColor: const Color(0xFF8BC9E5),
                 foregroundColor: Colors.white,
@@ -89,6 +103,13 @@ typedef _Notice = ({
 });
 
 const Map<String, _Notice> _notices = {
+  'midterm_post': (
+    title: 'เริ่มแบบทดสอบปลายภาค',
+    detail:
+        'ทำแบบทดสอบปลายภาคครั้งแรกให้ครบทุกวิชาที่มีข้อสอบ เพื่อเริ่มนัด checkpoint รอบใหม่',
+    action: 'ไปทำแบบทดสอบ',
+    route: '/test',
+  ),
   'midterm_3w': (
     title: 'เตรียมสอบกลางภาค · 3 สัปดาห์',
     detail: 'สัปดาห์หน้าจะมีแบบทดสอบและคำแนะนำจัดตารางรอบสุดท้ายก่อนสอบกลางภาค',
@@ -116,7 +137,8 @@ const Map<String, _Notice> _notices = {
   ),
   'final_2w': (
     title: 'เตรียมสอบปลายภาค · 2 สัปดาห์',
-    detail: 'ทำแบบทดสอบและตรวจคำแนะนำจัดตารางรอบสุดท้ายก่อนสอบ',
+    detail:
+        'ทำแบบทดสอบและตรวจคำแนะนำจัดตารางรอบสุดท้ายก่อนสอบ กรุณากรอกภาระงานและคะแนนเก็บของทุกรายวิชาให้ครบ',
     action: 'ไปทำแบบทดสอบ',
     route: '/test',
   ),
@@ -128,10 +150,10 @@ const Map<String, _Notice> _notices = {
   ),
 };
 
-const _Notice _firstFinalThreeWeekNotice = (
-  title: 'เริ่มเตรียมสอบปลายภาค',
+const _Notice _completedFinalTwoWeekNotice = (
+  title: 'เตรียมสอบปลายภาค · 2 สัปดาห์',
   detail:
-      'ทำแบบทดสอบปลายภาคครั้งแรกให้ครบทุกวิชา และกรอกภาระงาน/คะแนนเก็บให้ครบ; สัปดาห์หน้าจะมีรอบสุดท้ายก่อนสอบ',
-  action: 'ไปทำแบบทดสอบ',
-  route: '/test',
+      'ทำแบบทดสอบครบทุกวิชาแล้ว กรุณากรอกภาระงานและคะแนนเก็บของทุกรายวิชาให้ครบ',
+  action: 'ไปหน้าภาระงาน',
+  route: '/homework',
 );

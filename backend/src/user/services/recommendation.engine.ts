@@ -3,7 +3,9 @@ import db from "../../config/db";
 import {
   addDays,
   adherenceRate,
+  bangkokDateTimeParts,
   completionRate,
+  currentDisplayWeek,
   daysBetween,
   durationMinutes,
   earnedScoreReviewMinutes,
@@ -832,7 +834,7 @@ export const generateRecommendation = async (input: GenerateRecommendationInput)
       input.targetWeekStart
     );
     const inExamPreparation = regularRecommendationPaused(
-      term, input.now ?? new Date(), target.weekStart,
+      term, input.now ?? new Date(),
     );
     if (input.triggerType !== "exam_submitted" && inExamPreparation) {
       throw new RecommendationServiceError(
@@ -1304,7 +1306,7 @@ export const deletePreviewBlock = async (
 };
 
 export const getAcceptedWeeklySchedule = async (userId: number, weekStart?: string) => {
-  const target = weekStart ?? resolveTargetWeek("manual", new Date()).weekStart;
+  const target = weekStart ?? currentDisplayWeek().weekStart;
   const connection = await db.getConnection();
   try {
     const term = await currentTerm(connection, userId);
@@ -1357,7 +1359,10 @@ export const safelyGenerateRecommendation = async (input: GenerateRecommendation
   }
 };
 
-export const generateWeekendRecommendations = async (now = new Date()) => {
+export const generateWeekendRecommendations = async (
+  now = new Date(),
+  generate: typeof safelyGenerateRecommendation = safelyGenerateRecommendation,
+) => {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Bangkok",
     year: "numeric",
@@ -1389,11 +1394,11 @@ export const generateWeekendRecommendations = async (now = new Date()) => {
   );
   const results = [];
   for (const row of users) {
-    if (regularRecommendationPaused(row, now, weekStart)) continue;
+    if (regularRecommendationPaused(row, now)) continue;
     const existing = await getLatestRecommendation(Number(row.user_id), weekStart);
     if (existing?.trigger_type === "weekend" || existing?.trigger_type === "exam_submitted") continue;
     results.push(
-      await safelyGenerateRecommendation({
+      await generate({
         userId: Number(row.user_id),
         triggerType: "weekend",
         now,

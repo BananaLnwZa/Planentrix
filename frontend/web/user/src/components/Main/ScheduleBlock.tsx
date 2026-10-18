@@ -41,25 +41,26 @@ export default function ScheduleBlock({
       style={style}
       onClick={onClick}
       aria-label={`${item.subject_name} เวลา ${item.start_time} ถึง ${item.end_time}`}
-      className={`absolute left-1 right-1 z-[2] overflow-hidden rounded-[10px] border px-1.5 py-1 text-left shadow-[0_2px_5px_rgba(91,107,113,0.15),inset_0_1px_0_rgba(255,255,255,0.7)] transition-all hover:z-[3] hover:-translate-y-0.5 hover:shadow-[0_4px_9px_rgba(91,107,113,0.2)] focus-visible:z-[4] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5B8CA5] ${typeStyle.block}`}
+      title={`${item.subject_name} ${item.start_time}–${item.end_time}`}
+      className={`absolute z-[2] flex flex-col items-center justify-center overflow-hidden rounded-[10px] border px-1.5 py-1 text-center shadow-[0_2px_5px_rgba(91,107,113,0.15),inset_0_1px_0_rgba(255,255,255,0.7)] transition-all hover:z-[3] hover:shadow-[0_4px_9px_rgba(91,107,113,0.2)] focus-visible:z-[4] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5B8CA5] ${typeStyle.block}`}
     >
       <span
         aria-hidden="true"
         className={`absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full ring-2 ring-white/55 ${typeStyle.dot}`}
       />
-      <span className="line-clamp-2 break-words pr-2 text-[11px] font-semibold leading-tight">
+      <span className="w-full truncate px-1 text-[11px] font-semibold leading-tight">
         {item.subject_name}
       </span>
       {item.classroom && (
-        <span className="mt-0.5 block truncate text-[9px] leading-tight opacity-80">
+        <span className="mt-0.5 block w-full truncate text-[9px] leading-tight opacity-80">
           ห้อง {item.classroom}
         </span>
       )}
-      <span className="mt-1 block whitespace-nowrap text-[9px] leading-none opacity-90">
+      <span className="mt-0.5 block w-full truncate whitespace-nowrap text-[9px] leading-none opacity-90">
         {item.start_time}–{item.end_time}
       </span>
       {item.source === "weekly" && item.is_user_modified && (
-        <span className="mt-1 block text-[8px] font-medium opacity-75">
+        <span className="mt-0.5 block w-full truncate text-[8px] font-medium opacity-75">
           ปรับโดยผู้ใช้
         </span>
       )}

@@ -27,7 +27,8 @@ export default function ScoreHomeworkContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [workloadLocked, setWorkloadLocked] = useState(false);
-  const [finalTargetReady, setFinalTargetReady] = useState(false);
+  const [finalExamWindow, setFinalExamWindow] = useState(false);
+  const [showFinalScoreTarget, setShowFinalScoreTarget] = useState(false);
 
   const loadGoals = useCallback(async () => {
     setIsLoading(true);
@@ -56,8 +57,14 @@ export default function ScoreHomeworkContent() {
           else setLoadError(goalsResult.reason instanceof Error ? goalsResult.reason.message : "โหลดข้อมูลคะแนนไม่สำเร็จ");
           if (overallResult.status === "fulfilled") setOverall(overallResult.value);
           if (workflowResult.status === "fulfilled") {
-            setWorkloadLocked(Boolean(workflowResult.value?.workload_locked));
-            setFinalTargetReady(Boolean(workflowResult.value?.final_target_ready));
+            const isFinalExamWindow = workflowResult.value?.phase === "final_1w" || workflowResult.value?.phase === "final_exam";
+            setFinalExamWindow(isFinalExamWindow);
+            setWorkloadLocked(Boolean(workflowResult.value?.workload_locked) || isFinalExamWindow);
+            setShowFinalScoreTarget(Boolean(
+              workflowResult.value?.final_target_ready ||
+              workflowResult.value?.phase === "final_1w" ||
+              workflowResult.value?.phase === "final_exam"
+            ));
           }
         }
       })
@@ -139,7 +146,7 @@ export default function ScoreHomeworkContent() {
             void gradeService.getOverallGrade().then(setOverall).catch(() => undefined);
           }}
           canEditScores={!workloadLocked}
-          showFinalScoreTarget={finalTargetReady}
+          showFinalScoreTarget={showFinalScoreTarget}
         />
       ) : (
         <GradeGoalPrompt
@@ -164,6 +171,7 @@ export default function ScoreHomeworkContent() {
       <HomeworkDashboard
         canAddHomework={Boolean(data?.goals_locked) && !workloadLocked}
         canEditHomework={!workloadLocked}
+        finalExamWindow={finalExamWindow}
         onHomeworkFinished={() => void loadGoals()}
       />
     </div>

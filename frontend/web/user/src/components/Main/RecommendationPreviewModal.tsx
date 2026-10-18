@@ -239,7 +239,7 @@ export default function RecommendationPreviewModal({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">
-          <div className="flex h-[clamp(260px,52vh,390px)] min-h-0 overflow-hidden rounded-2xl border border-[#E4D8DC] bg-white p-3">
+          <div className="flex h-[438px] shrink-0 overflow-hidden rounded-2xl border border-[#E4D8DC] bg-white p-3">
             {isLoading ? (
               <div className="flex h-full items-center justify-center text-sm text-[#78909C]">
                 กำลังโหลดตัวอย่างตาราง...

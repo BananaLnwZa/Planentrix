@@ -32,6 +32,7 @@ type ScheduleDetailsPopupProps = {
   onSave: (data: UpdateScheduleRequest) => Promise<void>;
   onDelete: () => Promise<void>;
   allowDelete?: boolean;
+  readOnly?: boolean;
 };
 
 export default function ScheduleDetailsPopup({
@@ -43,6 +44,7 @@ export default function ScheduleDetailsPopup({
   onSave,
   onDelete,
   allowDelete = false,
+  readOnly = false,
 }: ScheduleDetailsPopupProps) {
   const isClass = item.schedule_type_code === "class";
   const [isEditing, setIsEditing] = useState(false);
@@ -299,7 +301,7 @@ export default function ScheduleDetailsPopup({
         )}
 
         <div className="mt-5 flex items-center justify-between gap-3">
-          {allowDelete && !isClass ? (
+          {allowDelete && !readOnly && !isClass ? (
             <button
               type="button"
               onClick={() => {
@@ -335,7 +337,7 @@ export default function ScheduleDetailsPopup({
                 ยกเลิก
               </button>
             )}
-            {isClass ? (
+            {isClass && !readOnly ? (
               <button
                 type="button"
                 onClick={isEditing ? handleSave : () => setIsEditing(true)}
@@ -358,7 +360,7 @@ export default function ScheduleDetailsPopup({
         </div>
       </section>
 
-      {isDeleteConfirmOpen && allowDelete && !isClass && (
+      {isDeleteConfirmOpen && allowDelete && !readOnly && !isClass && (
         <div
           className="fixed inset-0 z-[10001] flex items-center justify-center bg-[#38596A]/25 p-4 backdrop-blur-[3px]"
           onMouseDown={(event) => {

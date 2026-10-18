@@ -254,6 +254,7 @@ class _HomeworkPageState extends State<HomeworkPage>
     final now = widget.now?.call() ?? DateTime.now();
     return NotebookSectionPage(
       activeTab: NotebookTabId.homework,
+      workflowLoader: widget.workflowLoader,
       hideScrollbar: true,
       contentKey: const Key('homework-page'),
       centerContent: false,

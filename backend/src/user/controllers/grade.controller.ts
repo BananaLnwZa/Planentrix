@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import db from "../../config/db";
 import {
+  DEFAULT_GRADE_BOUNDARIES,
   GRADE_CODES,
   type GradeCode,
 } from "../../services/gradingScheme.service";
@@ -39,13 +40,21 @@ interface PublishedGradeBoundaryRow extends RowDataPacket {
   display_order: number;
 }
 
-interface PublishedGradingScheme {
-  grading_scheme_id: number;
-  scheme_type: "subject_default" | "instructor_subject";
+interface EffectiveGradingScheme {
+  grading_scheme_id: number | null;
+  scheme_type: "subject_default" | "instructor_subject" | "standard_fallback";
   version: number;
-  status: "published";
+  status: "published" | "fallback";
   boundaries: PublishedGradeBoundary[];
 }
+
+const standardFallbackScheme = (): EffectiveGradingScheme => ({
+  grading_scheme_id: null,
+  scheme_type: "standard_fallback",
+  version: 0,
+  status: "fallback",
+  boundaries: DEFAULT_GRADE_BOUNDARIES.map((boundary) => ({ ...boundary })),
+});
 
 interface WorkloadRow extends RowDataPacket {
   schedule_time_id: number;
@@ -183,7 +192,7 @@ const loadPublishedGradingSchemes = async (
     [termId],
   );
 
-  const schemes = new Map<number, PublishedGradingScheme>();
+  const schemes = new Map<number, EffectiveGradingScheme>();
   for (const row of rows) {
     const enrollmentId = Number(row.schedule_time_id);
     const scheme = schemes.get(enrollmentId) ?? {
@@ -241,10 +250,10 @@ const isGradeCode = (grade: string): grade is GradeCode =>
 const subjectResponse = (
   subjects: SubjectGoalRow[],
   workloads: WorkloadRow[],
-  schemes: Map<number, PublishedGradingScheme>,
+  schemes: Map<number, EffectiveGradingScheme>,
 ) =>
   subjects.map((subject) => {
-    const scheme = schemes.get(Number(subject.schedule_time_id)) ?? null;
+    const scheme = schemes.get(Number(subject.schedule_time_id)) ?? standardFallbackScheme();
     const targetBoundary = scheme?.boundaries.find(
       (boundary) => boundary.grade_code === subject.target_grade_code,
     );
@@ -472,7 +481,9 @@ export const getOverallGradeGoal = async (req: Request, res: Response) => {
        FROM enrollments enrollment
        INNER JOIN course_sections section ON section.section_id = enrollment.section_id
        INNER JOIN subjects subject ON subject.subject_id = section.subject_id
-       LEFT JOIN workloads workload ON workload.enrollment_id = enrollment.enrollment_id
+       LEFT JOIN workloads workload
+         ON workload.enrollment_id = enrollment.enrollment_id
+        AND workload.status = 'completed'
        LEFT JOIN score ON score.workload_id = workload.workload_id
        WHERE enrollment.student_term_id = ?
          AND enrollment.status IN ('enrolled', 'completed')
@@ -508,6 +519,7 @@ export const getOverallGradeGoal = async (req: Request, res: Response) => {
       graded_subject_count: actual.gradedSubjectCount,
       pending_grading_scheme_count: actual.pendingGradingSchemeCount,
       unscored_subject_count: actual.unscoredSubjectCount,
+      standard_fallback_count: actual.standardFallbackCount,
       raw: {
         total_actual_score: actual.totalActualScore,
         total_max_score: actual.totalMaximumScore,

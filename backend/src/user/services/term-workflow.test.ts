@@ -18,20 +18,27 @@ test("splits midterm preparation into 3, 2, and 1 week phases", () => {
 
 test("pauses test flow during exam week and marks post-exam", () => {
   assert.equal(getExamWorkflowPhase(dates, "midterm", new Date("2026-10-28T12:00:00")), "midterm_exam");
-  assert.equal(getExamWorkflowPhase(dates, "midterm", new Date("2026-10-31T12:00:00")), "midterm_post");
+  assert.equal(getExamWorkflowPhase(dates, "midterm", new Date("2026-11-01T12:00:00")), "midterm_exam");
+  assert.equal(getExamWorkflowPhase(dates, "midterm", new Date("2026-11-02T12:00:00")), "midterm_post");
 });
 
 test("returns normal checkpoint outside the three-week preparation window", () => {
   assert.equal(getExamWorkflowPhase(dates, "midterm", new Date("2026-09-23T12:00:00")), "checkpoint");
-  assert.equal(getExamWorkflowPhase(dates, "midterm", new Date("2026-10-06T12:00:00")), "checkpoint");
-  assert.equal(getExamWorkflowPhase(dates, "final", new Date("2026-11-24T12:00:00")), "checkpoint");
+  assert.equal(getExamWorkflowPhase(dates, "midterm", new Date("2026-10-04T12:00:00")), "checkpoint");
+  assert.equal(getExamWorkflowPhase(dates, "final", new Date("2026-11-22T12:00:00")), "checkpoint");
   assert.equal(getExamWorkflowPhase(dates, "final", new Date("2026-11-11T12:00:00")), "checkpoint");
   assert.equal(getExamWorkflowPhase(dates, "final", new Date("2026-11-25T12:00:00")), "final_3w");
 });
 
 test("final exam week is separate from the post-final summary", () => {
   assert.equal(getExamWorkflowPhase(dates, "final", new Date("2026-12-17T12:00:00")), "final_exam");
-  assert.equal(getExamWorkflowPhase(dates, "final", new Date("2026-12-19T12:00:00")), "final_post");
+  assert.equal(getExamWorkflowPhase(dates, "final", new Date("2026-12-20T12:00:00")), "final_exam");
+  assert.equal(getExamWorkflowPhase(dates, "final", new Date("2026-12-21T12:00:00")), "final_post");
+  assert.equal(getExamWorkflowPhase({
+    ...dates,
+    final_start_date: "2026-10-12",
+    final_end_date: "2026-10-16",
+  }, "final", new Date("2026-10-18T12:00:00")), "final_exam");
 });
 
 test("pending checkpoints are cancelled when the dedicated exam flow starts", async (t) => {
@@ -57,6 +64,7 @@ test("workload writes remain locked throughout the final exam week", async (t) =
   });
   assert.equal(await isWorkloadLockedForUser(42), true);
   assert.match(query, /DATE\(UTC_TIMESTAMP\(\) \+ INTERVAL 7 HOUR\) >=/);
-  assert.match(query, /DATE_SUB\(academic_term\.final_start_date, INTERVAL 7 DAY\)/);
+  assert.match(query, /WEEKDAY\(academic_term\.final_start_date\)/);
+  assert.match(query, /INTERVAL 7 DAY/);
   assert.doesNotMatch(query, /DATEDIFF\(academic_term\.final_start_date, CURDATE\(\)\) BETWEEN 0 AND 7/);
 });

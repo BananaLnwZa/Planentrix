@@ -1,4 +1,7 @@
-import type { GradeCode } from "../../services/gradingScheme.service";
+import {
+  DEFAULT_GRADE_BOUNDARIES,
+  type GradeCode,
+} from "../../services/gradingScheme.service";
 
 export const GRADE_TO_GPA: Record<GradeCode, number> = {
   A: 4,
@@ -69,6 +72,7 @@ export const calculateWeightedGradeSummary = (
   let gradedSubjectCount = 0;
   let pendingGradingSchemeCount = 0;
   let unscoredSubjectCount = 0;
+  let standardFallbackCount = 0;
 
   for (const subject of subjects) {
     const credits = Number.isFinite(subject.credits)
@@ -83,20 +87,19 @@ export const calculateWeightedGradeSummary = (
     totalActualScore += actualScore;
     totalMaximumScore += maximumScore;
 
-    if (subject.boundaries.length === 0) {
-      pendingGradingSchemeCount += 1;
-      continue;
-    }
+    const boundaries = subject.boundaries.length > 0
+      ? subject.boundaries
+      : DEFAULT_GRADE_BOUNDARIES;
+    if (subject.boundaries.length === 0) standardFallbackCount += 1;
     if (maximumScore <= 0) {
       unscoredSubjectCount += 1;
-      continue;
     }
     // Workloads may account for only part of the course's 100 points so far.
     // A 28/40 record is 28 earned course points, not a 70-point course grade.
     const percentage = Math.min(100, actualScore);
     const boundary = gradeFromPublishedBoundaries(
       percentage,
-      subject.boundaries,
+      boundaries,
     );
     if (!boundary) {
       pendingGradingSchemeCount += 1;
@@ -121,5 +124,6 @@ export const calculateWeightedGradeSummary = (
     gradedSubjectCount,
     pendingGradingSchemeCount,
     unscoredSubjectCount,
+    standardFallbackCount,
   };
 };

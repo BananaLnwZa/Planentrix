@@ -34,7 +34,7 @@ test("uses the instructor-published boundary instead of A equals 80", () => {
   );
 });
 
-test("excludes subjects without a published scheme from actual GPA", () => {
+test("uses standard boundaries for subjects without a published scheme", () => {
   const result = calculateWeightedGradeSummary([
     {
       credits: 3,
@@ -44,16 +44,31 @@ test("excludes subjects without a published scheme from actual GPA", () => {
     },
     {
       credits: 3,
-      actualScore: 100,
+      actualScore: 80,
       maximumScore: 100,
       boundaries: [],
     },
   ]);
 
-  assert.equal(result.gpa, 3.5);
+  assert.equal(result.gpa, 3.75);
   assert.equal(result.grade, "B+");
-  assert.equal(result.gradedSubjectCount, 1);
-  assert.equal(result.pendingGradingSchemeCount, 1);
+  assert.equal(result.gradedSubjectCount, 2);
+  assert.equal(result.pendingGradingSchemeCount, 0);
+  assert.equal(result.standardFallbackCount, 1);
+});
+
+test("weights every enrolled subject including those without recorded scores", () => {
+  const result = calculateWeightedGradeSummary([
+    { credits: 3, actualScore: 80, maximumScore: 100, boundaries: [] },
+    { credits: 1, actualScore: 0, maximumScore: 0, boundaries: [] },
+  ]);
+
+  assert.equal(result.gpa, 3);
+  assert.equal(result.grade, "B");
+  assert.equal(result.totalCredits, 4);
+  assert.equal(result.gradedSubjectCount, 2);
+  assert.equal(result.unscoredSubjectCount, 1);
+  assert.equal(result.standardFallbackCount, 2);
 });
 
 test("grades accumulated course points rather than scaling scored work to 100", () => {

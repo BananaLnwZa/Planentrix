@@ -15,11 +15,13 @@ String notebookTabRoute(NotebookTabId tab) {
 class NotebookTabs extends StatelessWidget {
   final NotebookTabId activeTab;
   final ValueChanged<NotebookTabId> onTabChange;
+  final bool hideHomework;
 
   const NotebookTabs({
     super.key,
     required this.activeTab,
     required this.onTabChange,
+    this.hideHomework = false,
   });
 
   static const _tabs = [
@@ -62,13 +64,14 @@ class NotebookTabs extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             for (final tab in _tabs)
-              Expanded(
-                child: _NotebookTab(
-                  data: tab,
-                  isActive: tab.id == activeTab,
-                  onTap: () => onTabChange(tab.id),
+              if (!hideHomework || tab.id != NotebookTabId.homework)
+                Expanded(
+                  child: _NotebookTab(
+                    data: tab,
+                    isActive: tab.id == activeTab,
+                    onTap: () => onTabChange(tab.id),
+                  ),
                 ),
-              ),
           ],
         ),
       ),

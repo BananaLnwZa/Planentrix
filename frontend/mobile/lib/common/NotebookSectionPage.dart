@@ -18,6 +18,7 @@ class NotebookSectionPage extends StatefulWidget {
   final bool centerContent;
   final bool hideScrollbar;
   final bool postFinal;
+  final bool hideHomeworkTab;
   final Future<TermWorkflow?> Function()? workflowLoader;
 
   const NotebookSectionPage({
@@ -33,6 +34,7 @@ class NotebookSectionPage extends StatefulWidget {
     this.centerContent = true,
     this.hideScrollbar = false,
     this.postFinal = false,
+    this.hideHomeworkTab = false,
     this.workflowLoader,
   }) : assert(title != null || child != null);
 
@@ -43,6 +45,8 @@ class NotebookSectionPage extends StatefulWidget {
 class _NotebookSectionPageState extends State<NotebookSectionPage>
     with WidgetsBindingObserver {
   bool _redirectingPostFinal = false;
+  bool _redirectingLockedHomework = false;
+  bool _hideHomeworkTab = false;
   bool _checkingPostFinal = false;
   bool _navigationPending = false;
 
@@ -61,9 +65,22 @@ class _NotebookSectionPageState extends State<NotebookSectionPage>
     try {
       final workflow =
           await (widget.workflowLoader?.call() ?? TermService().getWorkflow());
-      if (!mounted || workflow?.postFinal != true) return;
-      setState(() => _redirectingPostFinal = true);
-      _navigateAfterFrame('/main');
+      if (!mounted) return;
+      if (workflow?.postFinal == true) {
+        setState(() => _redirectingPostFinal = true);
+        _navigateAfterFrame('/main');
+        return;
+      }
+      final hideHomework =
+          workflow?.phase == 'final_1w' || workflow?.phase == 'final_exam';
+      setState(() {
+        _hideHomeworkTab = hideHomework;
+        _redirectingLockedHomework =
+            hideHomework && widget.activeTab == NotebookTabId.homework;
+      });
+      if (_redirectingLockedHomework) {
+        _navigateAfterFrame('/main');
+      }
     } catch (_) {
       // Keep the existing page usable if the workflow service is unavailable.
     } finally {
@@ -95,7 +112,11 @@ class _NotebookSectionPageState extends State<NotebookSectionPage>
   }
 
   void _changeTab(BuildContext context, NotebookTabId tab) {
-    if (tab == widget.activeTab) return;
+    if (tab == widget.activeTab ||
+        (tab == NotebookTabId.homework &&
+            (widget.hideHomeworkTab || _hideHomeworkTab))) {
+      return;
+    }
     _navigateAfterFrame(notebookTabRoute(tab));
   }
 
@@ -108,6 +129,8 @@ class _NotebookSectionPageState extends State<NotebookSectionPage>
               'สิ้นสุดเทอมแล้ว กำลังเปิดหน้าสรุปพฤติกรรมการเรียน...',
               textAlign: TextAlign.center,
             )
+          : _redirectingLockedHomework
+          ? const Text('กำลังกลับไปหน้าหลัก...', textAlign: TextAlign.center)
           : widget.child ??
                 Text(
                   widget.title!,
@@ -240,13 +263,17 @@ class _NotebookSectionPageState extends State<NotebookSectionPage>
                             ),
                           ),
                         ),
-                        if (!widget.postFinal && !_redirectingPostFinal)
+                        if (!widget.postFinal &&
+                            !_redirectingPostFinal &&
+                            !_redirectingLockedHomework)
                           Positioned(
                             left: 28,
                             right: 28,
                             bottom: 10,
                             child: NotebookTabs(
                               activeTab: widget.activeTab,
+                              hideHomework:
+                                  widget.hideHomeworkTab || _hideHomeworkTab,
                               onTabChange: (tab) => _changeTab(context, tab),
                             ),
                           ),

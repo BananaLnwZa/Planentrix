@@ -379,15 +379,31 @@ class _GradeGoalSetupPopupState extends State<_GradeGoalSetupPopup> {
                                     color: Color(0xFF85939A),
                                   ),
                                 ),
-                                if (subject.gradingSchemeType == 'subject_default')
+                                if (subject.gradingSchemeType ==
+                                    'standard_fallback')
+                                  const Text(
+                                    'ใช้เกณฑ์มาตรฐานระหว่างรอเกณฑ์ของอาจารย์',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFF7A95A3),
+                                    ),
+                                  )
+                                else if (subject.gradingSchemeType ==
+                                    'subject_default')
                                   const Text(
                                     'เกณฑ์พื้นฐาน',
-                                    style: TextStyle(fontSize: 10, color: Color(0xFF7A95A3)),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFF7A95A3),
+                                    ),
                                   )
                                 else if (subject.gradeBoundaries.isEmpty)
                                   const Text(
                                     'ยังไม่มีเกณฑ์ที่เผยแพร่',
-                                    style: TextStyle(fontSize: 10, color: Color(0xFFA47A35)),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFFA47A35),
+                                    ),
                                   ),
                               ],
                             ),
@@ -404,7 +420,8 @@ class _GradeGoalSetupPopupState extends State<_GradeGoalSetupPopup> {
                                 .map(
                                   (grade) => AppDropdownItem(
                                     value: grade,
-                                    label: subject.minimumForGrade(grade) == null
+                                    label:
+                                        subject.minimumForGrade(grade) == null
                                         ? grade
                                         : '$grade ${_scoreText(subject.minimumForGrade(grade)!)}+',
                                   ),
@@ -512,4 +529,7 @@ String _creditText(double value) =>
 
 String _scoreText(double value) => value == value.roundToDouble()
     ? value.toInt().toString()
-    : value.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+    : value
+          .toStringAsFixed(2)
+          .replaceFirst(RegExp(r'0+$'), '')
+          .replaceFirst(RegExp(r'\.$'), '');

@@ -8,7 +8,9 @@ import '../../../common/ConstraintOverlapWarning.dart';
 import '../../../common/DateTimeFormat.dart';
 import '../../../interfaces/profile.interface.dart';
 import '../../../interfaces/recommendation.interface.dart';
+import '../../../interfaces/table.interface.dart';
 import '../../../services/recommendation.service.dart';
+import 'Schedule.dart';
 import 'WeeklyBlockDetailsPopup.dart';
 
 Future<WeeklyRecommendation?> showRecommendationPreviewSheet(
@@ -191,9 +193,27 @@ class _RecommendationPreviewSheetState
 
   @override
   Widget build(BuildContext context) {
-    final grouped = <String, List<_PreviewEntry>>{};
-    for (final entry in _entries) {
-      grouped.putIfAbsent(entry.date, () => []).add(entry);
+    final entries = _entries;
+    final previewItems = <ScheduleItem>[];
+    for (var index = 0; index < entries.length; index++) {
+      final entry = entries[index];
+      previewItems.add(
+        ScheduleItem(
+          scheduleTimeId: index + 1,
+          scheduleTypeId: entry.scheduleTypeId,
+          scheduleTypeName: entry.scheduleTypeId == 1
+              ? 'เรียน'
+              : entry.scheduleTypeId == 2
+              ? 'ทบทวน'
+              : 'การบ้าน',
+          subjectId: entry.weeklyBlock?.subjectId ?? '',
+          subjectName: entry.subjectName,
+          scheduleDay: DateTime.parse(entry.date).weekday,
+          startTime: entry.startTime,
+          endTime: entry.endTime,
+          classroom: entry.classroom,
+        ),
+      );
     }
     return Material(
       color: const Color(0xFFFFFDF5),
@@ -278,7 +298,7 @@ class _RecommendationPreviewSheetState
                             label: const Text('เพิ่มบล็อกเวลา'),
                           ),
                         ),
-                      if (grouped.isEmpty)
+                      if (entries.isEmpty)
                         const Padding(
                           padding: EdgeInsets.all(24),
                           child: Text(
@@ -290,41 +310,27 @@ class _RecommendationPreviewSheetState
                             ),
                           ),
                         ),
-                      for (final group in grouped.entries) ...[
-                        Text(
-                          '${_weekday(group.key)} · ${_displayDate(group.key)}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF526A75),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 7),
-                        for (final entry in group.value)
-                          _PreviewBlockTile(
-                            entry: entry,
-                            canOpen:
-                                entry.weeklyBlock != null &&
-                                (_recommendation.status == 'accepted' ||
-                                    _adjusting),
-                            showEditIcon:
-                                _recommendation.status == 'pending' &&
-                                _adjusting,
-                            onTap: () {
-                              final block = entry.weeklyBlock;
+                      if (entries.isNotEmpty)
+                        SizedBox(
+                          height: 408,
+                          child: WeeklyScheduleGrid(
+                            items: previewItems,
+                            onSelect: (item) {
+                              final block =
+                                  entries[item.scheduleTimeId - 1].weeklyBlock;
                               if (block == null) return;
                               if (_recommendation.status == 'accepted') {
                                 showWeeklyBlockDetailsPopup(
                                   context,
                                   block: block,
                                 );
-                              } else {
+                              } else if (_adjusting) {
                                 _editBlock(block);
                               }
                             },
                           ),
-                        const SizedBox(height: 12),
-                      ],
+                        ),
+                      const SizedBox(height: 12),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Text(
@@ -392,66 +398,6 @@ class _RecommendationPreviewSheetState
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _PreviewBlockTile extends StatelessWidget {
-  final _PreviewEntry entry;
-  final bool canOpen;
-  final bool showEditIcon;
-  final VoidCallback onTap;
-
-  const _PreviewBlockTile({
-    required this.entry,
-    required this.canOpen,
-    required this.showEditIcon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = switch (entry.scheduleTypeId) {
-      1 => (const Color(0xFFE4F3D4), const Color(0xFF5D7A4C)),
-      2 => (const Color(0xFFFFF1BC), const Color(0xFF806720)),
-      _ => (const Color(0xFFF9D7D3), const Color(0xFF8A4B46)),
-    };
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: Material(
-        color: colors.$1,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: canOpen ? onTap : null,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 82,
-                  child: Text(
-                    '${entry.startTime}–${entry.endTime}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: colors.$2,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    entry.subjectName,
-                    style: TextStyle(fontSize: 12, color: colors.$2),
-                  ),
-                ),
-                if (showEditIcon)
-                  Icon(Icons.edit_rounded, size: 16, color: colors.$2),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

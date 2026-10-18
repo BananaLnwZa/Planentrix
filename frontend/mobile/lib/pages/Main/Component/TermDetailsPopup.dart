@@ -140,8 +140,8 @@ class _TermDetailsPopupState extends State<_TermDetailsPopup> {
               const SizedBox(height: 19),
               Text(
                 widget.canEndTerm
-                    ? 'สิ้นสุดช่วงสอบปลายภาคแล้ว สามารถกดจบเทอมเพื่อเริ่มเทอมใหม่ได้'
-                    : 'ปุ่มจบเทอมจะแสดงหลังสิ้นสุดช่วงสอบปลายภาค',
+                    ? 'สิ้นสุดสัปดาห์สอบปลายภาคแล้ว สามารถกดจบเทอมเพื่อเริ่มเทอมใหม่ได้'
+                    : 'ปุ่มจบเทอมจะแสดงหลังสิ้นสุดสัปดาห์สอบปลายภาค',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: Color(0xFF555555)),
               ),

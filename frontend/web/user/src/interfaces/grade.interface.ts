@@ -32,11 +32,11 @@ export interface GradeBoundary {
   display_order: number;
 }
 
-export interface PublishedGradingScheme {
-  grading_scheme_id: number;
-  scheme_type: "subject_default" | "instructor_subject";
+export interface EffectiveGradingScheme {
+  grading_scheme_id: number | null;
+  scheme_type: "subject_default" | "instructor_subject" | "standard_fallback";
   version: number;
-  status: "published";
+  status: "published" | "fallback";
   boundaries: GradeBoundary[];
 }
 
@@ -49,7 +49,7 @@ export interface SubjectGradeGoal {
   target_score: number | null;
   target_grade: GradeLetter | null;
   target_minimum_percentage: number | null;
-  grading_scheme: PublishedGradingScheme | null;
+  grading_scheme: EffectiveGradingScheme | null;
   workloads: GradeWorkload[];
 }
 
@@ -88,4 +88,5 @@ export interface OverallGradeSummary {
   graded_subject_count: number;
   pending_grading_scheme_count: number;
   unscored_subject_count: number;
+  standard_fallback_count?: number;
 }

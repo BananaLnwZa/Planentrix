@@ -39,13 +39,16 @@ function formatThaiExamDate(date?: string | null) {
 
 function isAfterFinalPeriod(finalEndDate: string | null | undefined) {
   if (!finalEndDate) return false;
+  const weekEnd = new Date(`${finalEndDate}T00:00:00Z`);
+  if (Number.isNaN(weekEnd.getTime())) return false;
+  weekEnd.setUTCDate(weekEnd.getUTCDate() + ((7 - weekEnd.getUTCDay()) % 7));
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Bangkok",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
-  return today > finalEndDate;
+  return today > weekEnd.toISOString().slice(0, 10);
 }
 
 function getScheduleConflict(

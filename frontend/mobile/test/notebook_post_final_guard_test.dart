@@ -42,4 +42,44 @@ void main() {
     expect(find.text('Score'), findsNWidgets(2));
     expect(find.byKey(const Key('notebook-tabs')), findsOneWidget);
   });
+
+  for (final phase in ['final_1w', 'final_exam']) {
+    testWidgets('$phase hides homework from other notebook pages', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotebookSectionPage(
+            activeTab: NotebookTabId.score,
+            title: 'Score',
+            workflowLoader: () async => TermWorkflow(phase: phase),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('notebook-tab-homework')), findsNothing);
+      expect(find.byKey(const Key('notebook-tab-score')), findsOneWidget);
+      expect(find.byKey(const Key('notebook-tab-timer')), findsOneWidget);
+    });
+
+    testWidgets('$phase redirects a direct homework visit to main', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotebookSectionPage(
+            activeTab: NotebookTabId.homework,
+            title: 'Homework',
+            workflowLoader: () async => TermWorkflow(phase: phase),
+          ),
+          routes: {'/main': (_) => const Scaffold(body: Text('Main'))},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Main'), findsOneWidget);
+      expect(find.text('Homework'), findsNothing);
+    });
+  }
 }

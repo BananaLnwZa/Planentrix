@@ -53,6 +53,11 @@ export const bangkokDateTimeParts = (date = new Date()) => {
   };
 };
 
+export const currentDisplayWeek = (now = new Date()) => {
+  const weekStart = mondayOfWeek(bangkokDateTimeParts(now).date);
+  return { weekStart, weekEnd: addDays(weekStart, 6) };
+};
+
 export const resolveTargetWeek = (
   triggerType: string,
   now = new Date(),
