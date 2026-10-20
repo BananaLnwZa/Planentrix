@@ -163,6 +163,11 @@ void main() {
     await tester.tap(find.byKey(const Key('end-term-button')));
     await tester.pumpAndSettle();
 
+    expect(repository.ended, isFalse);
+    expect(find.byKey(const Key('confirm-end-term-dialog')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('confirm-end-term-button')));
+    await tester.pumpAndSettle();
+
     expect(repository.ended, isTrue);
     expect(find.byKey(const Key('term-details-popup')), findsNothing);
     expect(find.byKey(const Key('term-empty')), findsOneWidget);

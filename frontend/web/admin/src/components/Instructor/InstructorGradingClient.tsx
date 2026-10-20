@@ -116,6 +116,12 @@ export default function InstructorGradingClient() {
   const subjectSchemes = selectedSubjectId ? schemesForSubject(selectedSubjectId) : [];
   const selectedScheme = subjectSchemes.find((scheme) => scheme.grading_scheme_id === selectedSchemeId);
   const draftScheme = subjectSchemes.find((scheme) => scheme.status === "draft");
+  const isDraftDirty = Boolean(
+    selectedScheme?.status === "draft" &&
+    GRADE_CODES.some((gradeCode) =>
+      minimums[gradeCode] !== String(minimumsFromScheme(selectedScheme)[gradeCode]),
+    ),
+  );
   const filteredSubjects = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("th");
     if (!query) return subjects;
@@ -124,7 +130,22 @@ export default function InstructorGradingClient() {
     );
   }, [search, subjects]);
 
+  useEffect(() => {
+    if (!isDraftDirty) return;
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
+  }, [isDraftDirty]);
+
+  const confirmDiscardDraft = () => !isDraftDirty || window.confirm(
+    `เกณฑ์ฉบับร่าง Version ${selectedScheme?.version ?? ""} ของ ${selectedSubject?.subject_name ?? "วิชานี้"} มีการแก้ไขที่ยังไม่บันทึก ต้องการทิ้งการเปลี่ยนแปลงหรือไม่?`,
+  );
+
   const selectSubject = (subject: InstructorGradingSubject) => {
+    if (subject.subject_id === selectedSubjectId || !confirmDiscardDraft()) return;
     setSelectedSubjectId(subject.subject_id);
     const nextSchemes = schemesForSubject(subject.subject_id);
     const nextScheme = preferredScheme(nextSchemes);
@@ -269,7 +290,7 @@ export default function InstructorGradingClient() {
 
               {subjectSchemes.length > 0 && <div className="mt-6">
                 <div className="flex items-center gap-2 text-xs font-medium text-[#70858e]"><History size={16} />ประวัติ Version ของวิชานี้</div>
-                <div className="mt-3 flex flex-wrap gap-2">{subjectSchemes.map((scheme) => <button key={scheme.grading_scheme_id} type="button" onClick={() => { setSelectedSchemeId(scheme.grading_scheme_id); setMinimums(minimumsFromScheme(scheme)); }} className={`rounded-2xl border px-3.5 py-2 text-xs font-medium transition ${scheme.grading_scheme_id === selectedSchemeId ? "border-[#91bdcc] bg-[#eaf7fa] text-[#477d90] shadow-sm" : "border-[#dce7ea] bg-white text-[#72838a] hover:border-[#bfd6de]"}`}>V{scheme.version}<span className={`ml-2 rounded-full px-2 py-0.5 ${statusStyle[scheme.status]}`}>{statusLabel[scheme.status]}</span></button>)}</div>
+                <div className="mt-3 flex flex-wrap gap-2">{subjectSchemes.map((scheme) => <button key={scheme.grading_scheme_id} type="button" onClick={() => { if (scheme.grading_scheme_id === selectedSchemeId || !confirmDiscardDraft()) return; setSelectedSchemeId(scheme.grading_scheme_id); setMinimums(minimumsFromScheme(scheme)); }} className={`rounded-2xl border px-3.5 py-2 text-xs font-medium transition ${scheme.grading_scheme_id === selectedSchemeId ? "border-[#91bdcc] bg-[#eaf7fa] text-[#477d90] shadow-sm" : "border-[#dce7ea] bg-white text-[#72838a] hover:border-[#bfd6de]"}`}>V{scheme.version}<span className={`ml-2 rounded-full px-2 py-0.5 ${statusStyle[scheme.status]}`}>{statusLabel[scheme.status]}</span></button>)}</div>
               </div>}
 
               {!selectedScheme ? <div className="mt-6 flex min-h-72 flex-col items-center justify-center rounded-[24px] border border-dashed border-[#cddfe5] bg-[#f8fbfc] px-6 text-center">

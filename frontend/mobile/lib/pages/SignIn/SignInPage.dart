@@ -277,6 +277,32 @@ class _SigninPageState extends State<SigninPage> {
                     ),
                     child: Column(
                       children: [
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: IconButton(
+                                key: const Key('signup-back-to-login'),
+                                tooltip: 'กลับไปหน้า Log in',
+                                onPressed: () {
+                                  Navigator.of(context)
+                                      .pushNamedAndRemoveUntil(
+                                        '/login',
+                                        (route) => false,
+                                      );
+                                },
+                                icon: const Icon(Icons.arrow_back),
+                                style: IconButton.styleFrom(
+                                  foregroundColor: const Color(0xFF52758A),
+                                  backgroundColor: const Color(0xFFE8F5FB),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 40),
                         const LogoSection(),
                         const SizedBox(height: 24),

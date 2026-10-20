@@ -94,6 +94,47 @@ export default function InstructorQuestionEditModal({
   );
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const initialSnapshot = useRef(
+    JSON.stringify({
+      questionText: question?.question_text ?? "",
+      questionScore: String(question?.question_score ?? 1),
+      questionImagePath: question?.question_image_path ?? null,
+      hasNewQuestionImage: false,
+      choices: question
+        ? question.choices.map((choice) => ({
+            choice_id: choice.choice_id,
+            choice_text: choice.choice_text,
+            choice_image_path: choice.choice_image_path,
+            hasNewImage: false,
+            is_correct: choice.is_correct,
+          }))
+        : [
+            { choice_text: "", choice_image_path: null, hasNewImage: false, is_correct: true },
+            { choice_text: "", choice_image_path: null, hasNewImage: false, is_correct: false },
+          ],
+    }),
+  );
+  const currentSnapshot = JSON.stringify({
+    questionText,
+    questionScore,
+    questionImagePath,
+    hasNewQuestionImage: Boolean(questionImageFile),
+    choices: choices.map((choice) => ({
+      choice_id: choice.choice_id,
+      choice_text: choice.choice_text,
+      choice_image_path: choice.choice_image_path,
+      hasNewImage: Boolean(choice.image_file),
+      is_correct: choice.is_correct,
+    })),
+  });
+  const requestClose = () => {
+    if (isSaving) return;
+    if (
+      currentSnapshot !== initialSnapshot.current &&
+      !window.confirm("มีการแก้ไขคำถามที่ยังไม่ได้บันทึก ต้องการทิ้งการเปลี่ยนแปลงหรือไม่?")
+    ) return;
+    onClose();
+  };
 
   useEffect(() => {
     const objectUrls = objectUrlsRef.current;
@@ -285,7 +326,7 @@ export default function InstructorQuestionEditModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             disabled={isSaving}
             aria-label="ปิดหน้าต่างแก้ไข"
             className="rounded-full p-2 text-[#7d9098] transition hover:bg-[#edf4f6] disabled:opacity-50"
@@ -536,7 +577,7 @@ export default function InstructorQuestionEditModal({
           <div className="sticky -bottom-5 flex justify-end gap-2 border-t border-[#edf1f3] bg-white py-5">
             <button
               type="button"
-              onClick={onClose}
+              onClick={requestClose}
               disabled={isSaving}
               className="rounded-xl px-4 py-2.5 text-sm text-[#687b84] transition hover:bg-[#eef4f6] disabled:opacity-50"
             >

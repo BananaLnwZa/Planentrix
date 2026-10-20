@@ -46,6 +46,29 @@ class _TermDetailsPopupState extends State<_TermDetailsPopup> {
 
   Future<void> _endTerm() async {
     if (_isEnding) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const Key('confirm-end-term-dialog'),
+        title: const Text('ยืนยันจบเทอม?'),
+        content: const Text(
+          'เมื่อจบเทอม ระบบจะปิดการใช้งานเทอมนี้และบันทึกวิชาที่ลงทะเบียนเป็นสถานะเสร็จสิ้น ต้องการดำเนินการต่อหรือไม่?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            key: const Key('confirm-end-term-button'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('ยืนยันจบเทอม'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
     setState(() {
       _isEnding = true;
       _error = null;

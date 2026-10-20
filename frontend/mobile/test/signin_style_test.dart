@@ -56,6 +56,26 @@ void fillValidConstraint(ConstraintState state) {
 }
 
 void main() {
+  testWidgets('back button on sign in returns to login', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SigninPage(
+          registrationOptionsLoader: loadTestRegistrationOptions,
+        ),
+        routes: {
+          '/login': (_) =>
+              const Scaffold(body: Center(child: Text('Login destination'))),
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('signup-back-to-login')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Login destination'), findsOneWidget);
+  });
+
   test('busy day times use the 24-hour HH:mm format', () {
     expect(formatBusyDayTime(const TimeOfDay(hour: 0, minute: 5)), '00:05');
     expect(formatBusyDayTime(const TimeOfDay(hour: 9, minute: 30)), '09:30');
