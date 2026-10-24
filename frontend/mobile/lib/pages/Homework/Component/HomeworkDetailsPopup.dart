@@ -146,7 +146,7 @@ class _HomeworkDetailsPopupState extends State<_HomeworkDetailsPopup> {
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 300),
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -266,8 +266,10 @@ class _HomeworkDetailsPopupState extends State<_HomeworkDetailsPopup> {
               else if (_isEditing)
                 _SaveHomeworkButton(isSaving: _isSaving, onPressed: _save)
               else
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 12,
+                  runSpacing: 8,
                   children: [
                     _PopupActionButton(
                       key: const Key('delete-homework-button'),
@@ -281,7 +283,6 @@ class _HomeworkDetailsPopupState extends State<_HomeworkDetailsPopup> {
                       isLoading: _isDeleting,
                       onPressed: _delete,
                     ),
-                    const SizedBox(width: 12),
                     _PopupActionButton(
                       key: const Key('edit-homework-button'),
                       label: 'แก้ไข',

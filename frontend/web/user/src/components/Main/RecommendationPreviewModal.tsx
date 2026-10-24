@@ -203,12 +203,12 @@ export default function RecommendationPreviewModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]">
+    <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/40 p-2 backdrop-blur-[2px] sm:p-4">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="recommendation-preview-title"
-        className="relative flex max-h-[calc(100vh-32px)] w-full max-w-[1050px] flex-col overflow-hidden rounded-[24px] border border-[#D3C1C8] bg-[#FFFDF5] shadow-2xl"
+        className="relative flex max-h-[calc(100dvh-16px)] w-full max-w-[1050px] flex-col overflow-hidden rounded-[18px] border border-[#D3C1C8] bg-[#FFFDF5] shadow-2xl sm:max-h-[calc(100dvh-32px)] sm:rounded-[24px]"
         style={{ fontFamily: "var(--font-sansation)" }}
       >
         <header className="shrink-0 flex items-start justify-between gap-4 border-b border-[#E9DDE1] bg-white px-5 py-4 pr-14">
@@ -238,8 +238,8 @@ export default function RecommendationPreviewModal({
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">
-          <div className="flex h-[438px] shrink-0 overflow-hidden rounded-2xl border border-[#E4D8DC] bg-white p-3">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5">
+          <div className="flex h-[min(438px,52dvh)] shrink-0 overflow-hidden rounded-2xl border border-[#E4D8DC] bg-white p-2 sm:h-[min(438px,58dvh)] sm:p-3 md:h-[438px]">
             {isLoading ? (
               <div className="flex h-full items-center justify-center text-sm text-[#78909C]">
                 กำลังโหลดตัวอย่างตาราง...

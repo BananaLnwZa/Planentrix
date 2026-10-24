@@ -21,8 +21,8 @@ export default function AuthNotebook({
         border
         border-[#e8c7d1]
         bg-[#F8DCE4]
-        px-6
-        py-10
+        px-4
+        py-8
         shadow-xl
         sm:px-8
         md:min-h-[700px]
@@ -58,7 +58,7 @@ export default function AuthNotebook({
           flex-col
           items-center
           gap-6
-          pl-[40px]
+          pl-[38px]
           md:gap-10
           md:pl-[60px]
         "

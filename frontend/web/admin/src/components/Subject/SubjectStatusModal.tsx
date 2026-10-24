@@ -48,7 +48,7 @@ export default function SubjectStatusModal({ subject, onClose, onConfirm }: Subj
         if (event.target === event.currentTarget && !updating) onClose();
       }}
     >
-      <div className="w-full max-w-md rounded-[26px] border border-white/70 bg-white p-6 text-center shadow-[0_28px_80px_rgba(28,54,65,0.25)] sm:p-7">
+      <div className="max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto rounded-[26px] border border-white/70 bg-white p-5 text-center shadow-[0_28px_80px_rgba(28,54,65,0.25)] sm:p-7">
         <button type="button" onClick={onClose} disabled={updating} aria-label="ปิด" className="ml-auto block rounded-full p-2 text-[#7d9098] transition hover:bg-[#edf4f6] disabled:opacity-50">
           <X size={19} />
         </button>

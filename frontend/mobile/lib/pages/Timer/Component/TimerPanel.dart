@@ -82,37 +82,62 @@ class TimerPanel extends StatelessWidget {
             },
           ),
           const SizedBox(height: 15),
-          Text(
-            formatClock(elapsedSeconds),
-            key: const Key('timer-clock'),
-            style: const TextStyle(
-              color: Color(0xFF514A4D),
-              fontSize: 36,
-              fontWeight: FontWeight.w300,
-              letterSpacing: 3.2,
-              fontFeatures: [FontFeature.tabularFigures()],
-            ),
-          ),
-          const SizedBox(height: 1),
-          const SizedBox(
-            width: 230,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Text(
-                  'ชั่วโมง',
-                  style: TextStyle(fontSize: 9, color: Color(0xFFAFA5A7)),
-                ),
-                Text(
-                  'นาที',
-                  style: TextStyle(fontSize: 9, color: Color(0xFFAFA5A7)),
-                ),
-                Text(
-                  'วินาที',
-                  style: TextStyle(fontSize: 9, color: Color(0xFFAFA5A7)),
-                ),
-              ],
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return Column(
+                children: [
+                  SizedBox(
+                    width: constraints.maxWidth,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        formatClock(elapsedSeconds),
+                        key: const Key('timer-clock'),
+                        style: const TextStyle(
+                          color: Color(0xFF514A4D),
+                          fontSize: 36,
+                          fontWeight: FontWeight.w300,
+                          letterSpacing: 3.2,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  SizedBox(
+                    width: constraints.maxWidth < 230
+                        ? constraints.maxWidth
+                        : 230,
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Text(
+                          'ชั่วโมง',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Color(0xFFAFA5A7),
+                          ),
+                        ),
+                        Text(
+                          'นาที',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Color(0xFFAFA5A7),
+                          ),
+                        ),
+                        Text(
+                          'วินาที',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Color(0xFFAFA5A7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 11),
           _TimerControls(

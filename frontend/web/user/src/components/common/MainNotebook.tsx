@@ -13,7 +13,7 @@ export default function MainNotebook({
     <div
       className={`
         relative
-        min-h-[620px]
+        min-h-[calc(100dvh-16px)]
         w-full
         max-w-[1100px]
         overflow-visible
@@ -21,9 +21,9 @@ export default function MainNotebook({
         border
         border-[#E1B6C5]
         bg-[#F3CCD8]
-        p-4
+        p-2
         shadow-2xl
-        sm:p-5
+        sm:p-3
         md:aspect-[1.35/1]
         md:min-h-0
         md:w-[calc(100%-112px)]
@@ -143,7 +143,7 @@ export default function MainNotebook({
       {tabs}
 
       {children && (
-        <div className={`relative z-20 h-full min-h-0 w-full p-8 md:p-12 ${boundedContent ? "overflow-hidden" : ""}`}>
+        <div className={`relative z-20 min-h-[calc(100dvh-4rem)] w-full p-3 sm:p-5 md:h-full md:min-h-0 md:p-12 ${boundedContent ? "overflow-hidden" : ""}`}>
           {children}
         </div>
       )}

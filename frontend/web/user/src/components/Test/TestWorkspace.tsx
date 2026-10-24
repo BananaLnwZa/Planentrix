@@ -264,7 +264,7 @@ export default function TestWorkspace() {
           />
         </section>
 
-        <section className="flex min-h-[620px] flex-col md:min-h-0">
+        <section className="flex min-h-[420px] flex-col md:min-h-0">
           <SectionHeading
             title="Feedback"
             detail="คำแนะนำและแผนทบทวนหลังทำแบบทดสอบ"

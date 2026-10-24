@@ -73,7 +73,7 @@ export default function EditUserModal({
         if (event.target === event.currentTarget && !saving) onClose();
       }}
     >
-      <div className="w-full max-w-lg rounded-[26px] border border-white/70 bg-white p-6 shadow-[0_28px_80px_rgba(28,54,65,0.25)] sm:p-7">
+      <div className="max-h-[calc(100svh-2rem)] w-full max-w-lg overflow-y-auto rounded-[26px] border border-white/70 bg-white p-5 shadow-[0_28px_80px_rgba(28,54,65,0.25)] sm:p-7">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#64a0b5]">Student</p>

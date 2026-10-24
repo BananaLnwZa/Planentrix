@@ -114,7 +114,7 @@ class _ScoreEntryPopupState extends State<_ScoreEntryPopup> {
       backgroundColor: Colors.white,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 360),
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 22),
           child: Form(
             key: _formKey,

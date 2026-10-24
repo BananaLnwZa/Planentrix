@@ -552,43 +552,56 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           ),
         ],
         const SizedBox(height: 16),
-        SizedBox(
-          height: 150,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                flex: 42,
-                child: Term(
-                  compact: true,
-                  endTermMode: _workflow?.postFinal ?? false,
-                  repository: _termRepository,
-                  onTermChanged: (term) {
-                    if (!mounted) return;
-                    setState(() {
-                      _currentTerm = term;
-                      _scheduleVersion += 1;
-                      _hasSavedGradeGoals = false;
-                    });
-                    if (_shouldLoadAlerts) unawaited(_loadAppAlerts());
-                    unawaited(_loadWorkflow());
-                    if (_shouldLoadGradeGoalStatus) {
-                      unawaited(_loadGradeGoalStatus());
-                    }
-                  },
-                ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final termCard = Term(
+              compact: true,
+              endTermMode: _workflow?.postFinal ?? false,
+              repository: _termRepository,
+              onTermChanged: (term) {
+                if (!mounted) return;
+                setState(() {
+                  _currentTerm = term;
+                  _scheduleVersion += 1;
+                  _hasSavedGradeGoals = false;
+                });
+                if (_shouldLoadAlerts) unawaited(_loadAppAlerts());
+                unawaited(_loadWorkflow());
+                if (_shouldLoadGradeGoalStatus) {
+                  unawaited(_loadGradeGoalStatus());
+                }
+              },
+            );
+            final notificationCard = MainNotificationCard(
+              alerts: _activeAlerts,
+              now: _alertNow,
+              onTap: _openNotifications,
+            );
+
+            // Stack the two compact cards on narrow phones so labels and
+            // notification text remain legible instead of being squeezed.
+            if (constraints.maxWidth < 330) {
+              return Column(
+                children: [
+                  termCard,
+                  const SizedBox(height: 10),
+                  notificationCard,
+                ],
+              );
+            }
+
+            return SizedBox(
+              height: 150,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(flex: 42, child: termCard),
+                  const SizedBox(width: 10),
+                  Expanded(flex: 58, child: notificationCard),
+                ],
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 58,
-                child: MainNotificationCard(
-                  alerts: _activeAlerts,
-                  now: _alertNow,
-                  onTap: _openNotifications,
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
         if (_workflow != null &&
             ExamFlowNotice.shouldShow(_workflow!) &&

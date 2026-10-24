@@ -70,7 +70,7 @@ export default function AccountStatusModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#263e48]/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="account-status-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose(); }}>
-      <div className="w-full max-w-lg rounded-[28px] border border-white/80 bg-white p-6 shadow-[0_28px_80px_rgba(30,58,69,0.26)] sm:p-7">
+      <div className="max-h-[calc(100svh-2rem)] w-full max-w-lg overflow-y-auto rounded-[28px] border border-white/80 bg-white p-5 shadow-[0_28px_80px_rgba(30,58,69,0.26)] sm:p-7">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3"><span className="flex size-12 items-center justify-center rounded-2xl bg-[#e9f5f9] text-[#4c8397]"><ShieldCheck size={23} /></span><div><p className="text-xs font-medium text-[#74909b]">{kind === "student" ? "Student Account" : "Instructor Account"}</p><h2 id="account-status-title" className="mt-0.5 text-xl font-semibold text-[#334c56]">จัดการสถานะบัญชี</h2></div></div>
           <button type="button" onClick={onClose} disabled={saving} aria-label="ปิด" className="rounded-full p-2 text-[#82949b] transition hover:bg-[#edf4f6] disabled:opacity-50"><X size={19} /></button>

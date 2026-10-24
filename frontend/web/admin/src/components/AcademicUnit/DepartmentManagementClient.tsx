@@ -339,7 +339,7 @@ export default function DepartmentManagementClient() {
             <p className="mt-1 text-sm">เพิ่มคณะก่อน แล้วจึงเพิ่มสาขาได้จากแบบฟอร์ม</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
             <div className="flex flex-col gap-2 border-b border-[#e6eef1] px-5 py-4 sm:flex-row sm:items-center sm:px-6">
               <label className="shrink-0 text-sm text-[#526b75]" htmlFor="department-faculty-filter">
                 กรองตามคณะ
@@ -360,84 +360,86 @@ export default function DepartmentManagementClient() {
                 />
               </div>
             </div>
-            <table className="w-full min-w-[900px] text-left text-sm">
-              <thead className="bg-[#f7fafb] text-[#6f838b]">
-                <tr>
-                  <th className="px-6 py-3 font-medium">ตัวย่อสาขา</th>
-                  <th className="px-6 py-3 font-medium">ชื่อสาขา</th>
-                  <th className="px-6 py-3 font-medium">คณะ</th>
-                  <th className="px-6 py-3 text-center font-medium">สถานะ</th>
-                  <th className="px-6 py-3 text-center font-medium">จัดการ</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#edf2f4]">
-                {filteredDepartments.length === 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] text-left text-sm">
+                <thead className="bg-[#f7fafb] text-[#6f838b]">
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-sm text-[#81939a]">
-                      ไม่มีสาขาในคณะที่เลือก
-                    </td>
+                    <th className="px-6 py-3 font-medium">ตัวย่อสาขา</th>
+                    <th className="px-6 py-3 font-medium">ชื่อสาขา</th>
+                    <th className="px-6 py-3 font-medium">คณะ</th>
+                    <th className="px-6 py-3 text-center font-medium">สถานะ</th>
+                    <th className="px-6 py-3 text-center font-medium">จัดการ</th>
                   </tr>
-                ) : filteredDepartments.map((department) => (
-                  <tr key={department.department_id} className="text-[#405861]">
-                    <td className="px-6 py-4 font-medium text-[#377d97]">
-                      {department.department_code}
-                    </td>
-                    <td className="px-6 py-4 font-medium text-[#405861]">
-                      {department.department_name}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="block">{department.faculty_name}</span>
-                      <span className="text-xs text-[#8a9ba2]">
-                        {department.faculty_code}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs ${
-                          department.is_active
-                            ? "bg-[#eaf8f1] text-[#438064]"
-                            : "bg-[#f1f3f4] text-[#77878d]"
-                        }`}
-                      >
-                        {department.is_active ? "ใช้งาน" : "ปิดใช้งาน"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => beginEdit(department)}
-                          disabled={statusUpdatingId === department.department_id}
-                          className="inline-flex items-center gap-1 rounded-lg border border-[#cfe0e6] px-2.5 py-1.5 text-xs text-[#477b8e] hover:bg-[#f1f8fa] disabled:opacity-50"
-                        >
-                          <Pencil size={14} /> แก้ไข
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleStatusChange(department)}
-                          disabled={statusUpdatingId === department.department_id}
-                          className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs disabled:opacity-50 ${
+                </thead>
+                <tbody className="divide-y divide-[#edf2f4]">
+                  {filteredDepartments.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center text-sm text-[#81939a]">
+                        ไม่มีสาขาในคณะที่เลือก
+                      </td>
+                    </tr>
+                  ) : filteredDepartments.map((department) => (
+                    <tr key={department.department_id} className="text-[#405861]">
+                      <td className="px-6 py-4 font-medium text-[#377d97]">
+                        {department.department_code}
+                      </td>
+                      <td className="px-6 py-4 font-medium text-[#405861]">
+                        {department.department_name}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="block">{department.faculty_name}</span>
+                        <span className="text-xs text-[#8a9ba2]">
+                          {department.faculty_code}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs ${
                             department.is_active
-                              ? "border-[#efd4cd] text-[#a96050] hover:bg-[#fff4f1]"
-                              : "border-[#cce7d9] text-[#39785f] hover:bg-[#eefaf4]"
+                              ? "bg-[#eaf8f1] text-[#438064]"
+                              : "bg-[#f1f3f4] text-[#77878d]"
                           }`}
                         >
-                          {statusUpdatingId === department.department_id ? (
-                            <LoaderCircle className="animate-spin" size={14} />
-                          ) : department.is_active ? (
-                            <Power size={14} />
-                          ) : (
-                            <RotateCcw size={14} />
-                          )}
-                          {department.is_active ? "ปิดใช้" : "เปิดใช้"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                          {department.is_active ? "ใช้งาน" : "ปิดใช้งาน"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => beginEdit(department)}
+                            disabled={statusUpdatingId === department.department_id}
+                            className="inline-flex items-center gap-1 rounded-lg border border-[#cfe0e6] px-2.5 py-1.5 text-xs text-[#477b8e] hover:bg-[#f1f8fa] disabled:opacity-50"
+                          >
+                            <Pencil size={14} /> แก้ไข
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleStatusChange(department)}
+                            disabled={statusUpdatingId === department.department_id}
+                            className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs disabled:opacity-50 ${
+                              department.is_active
+                                ? "border-[#efd4cd] text-[#a96050] hover:bg-[#fff4f1]"
+                                : "border-[#cce7d9] text-[#39785f] hover:bg-[#eefaf4]"
+                            }`}
+                          >
+                            {statusUpdatingId === department.department_id ? (
+                              <LoaderCircle className="animate-spin" size={14} />
+                            ) : department.is_active ? (
+                              <Power size={14} />
+                            ) : (
+                              <RotateCcw size={14} />
+                            )}
+                            {department.is_active ? "ปิดใช้" : "เปิดใช้"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
     </div>

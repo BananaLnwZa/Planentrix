@@ -10,7 +10,7 @@ const AuthNotebook = dynamic(() => import("@/components/common/AuthNotebook"), {
 const LoginForm = dynamic(() => import("@/components/login/LoginForm"), {
   ssr: false,
   loading: () => (
-    <div className="w-full max-w-[450px] min-h-[420px] md:min-h-[450px] rounded-2xl bg-white/70 p-6 sm:p-8 md:p-10 shadow-md backdrop-blur-sm flex items-center justify-center">
+    <div className="flex min-h-[420px] w-full max-w-[450px] items-center justify-center rounded-2xl bg-white/70 p-4 shadow-md backdrop-blur-sm sm:p-6 md:min-h-[450px] md:p-10">
       <div className="text-gray-600">Loading...</div>
     </div>
   ),
@@ -18,7 +18,7 @@ const LoginForm = dynamic(() => import("@/components/login/LoginForm"), {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-[url('/images/bg.png')] bg-cover bg-center flex items-center justify-center p-8">
+    <div className="flex min-h-screen items-center justify-center bg-[url('/images/bg.png')] bg-cover bg-center p-2 sm:p-4 md:p-8">
       <AuthNotebook>
         <LogoSection />
         <LoginForm />

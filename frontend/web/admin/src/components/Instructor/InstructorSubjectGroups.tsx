@@ -181,7 +181,7 @@ export default function InstructorSubjectGroups({
           </label>
           <AdminSelect value={termFilter} onChange={setTermFilter} options={termOptions} ariaLabel="กรองภาคเรียน" appearance="cute" icon={CalendarDays} />
         </div>
-        <div className="mt-4 flex w-fit gap-1 rounded-2xl bg-[#f0f5f7] p-1">
+        <div className="mt-4 flex w-full flex-wrap gap-1 rounded-2xl bg-[#f0f5f7] p-1 sm:w-fit">
           {([
             ["current", "กำลังสอน / เตรียมการ"],
             ["history", "ประวัติภาคเรียน"],
@@ -193,7 +193,7 @@ export default function InstructorSubjectGroups({
                 setTermView(value);
                 setTermFilter("all");
               }}
-              className={`rounded-xl px-3 py-2 text-xs font-medium transition ${termView === value ? "bg-white text-[#477f93] shadow-sm" : "text-[#71838b] hover:text-[#405862]"}`}
+              className={`min-w-0 flex-1 rounded-xl px-2 py-2 text-center text-xs font-medium transition sm:flex-none sm:px-3 ${termView === value ? "bg-white text-[#477f93] shadow-sm" : "text-[#71838b] hover:text-[#405862]"}`}
             >
               {label}
             </button>

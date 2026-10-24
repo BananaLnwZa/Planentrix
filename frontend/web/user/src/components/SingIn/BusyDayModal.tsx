@@ -135,6 +135,7 @@ export default function BusyDayModal({
       className="
         fixed
         inset-0
+        p-3
         bg-transparent
         backdrop-blur-[3px]
         flex
@@ -146,10 +147,13 @@ export default function BusyDayModal({
       <div
         className="
           relative
-          w-[400px]
+          w-[min(400px,calc(100vw-24px))]
+          max-h-[calc(100dvh-24px)]
+          overflow-y-auto
           rounded-[20px]
           bg-white
-          p-6
+          p-4
+          sm:p-6
           shadow-xl
         "
       >

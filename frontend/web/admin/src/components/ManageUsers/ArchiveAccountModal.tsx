@@ -66,7 +66,7 @@ export default function ArchiveAccountModal({
         if (event.target === event.currentTarget && !archiving) onClose();
       }}
     >
-      <div className="w-full max-w-md rounded-[26px] border border-white/70 bg-white p-6 shadow-[0_28px_80px_rgba(28,54,65,0.25)] sm:p-7">
+      <div className="max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto rounded-[26px] border border-white/70 bg-white p-5 shadow-[0_28px_80px_rgba(28,54,65,0.25)] sm:p-7">
         <button
           type="button"
           onClick={onClose}

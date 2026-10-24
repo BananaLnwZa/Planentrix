@@ -62,10 +62,10 @@ export default function MainPage() {
   return (
     <>
     <MainNotebookScreen activeTab="main">
-      <div className="grid h-full min-h-0 w-full grid-cols-1 gap-8 md:grid-cols-2 md:gap-16">
-        <div className="relative flex h-full min-h-0 flex-col items-center gap-3 md:-translate-x-3">
-          <div className="flex w-full max-w-[440px] shrink-0 items-stretch gap-3">
-            <div className="w-[42%] min-w-0">
+      <div className="grid min-h-0 w-full grid-cols-1 gap-6 md:h-full md:grid-cols-2 md:gap-16">
+        <div className="relative flex min-h-0 w-full flex-col items-center gap-3 md:h-full md:-translate-x-3">
+          <div className="flex w-full max-w-[440px] shrink-0 flex-col items-stretch gap-3 sm:flex-row">
+            <div className="w-full min-w-0 sm:w-[42%] sm:flex-none">
               <Term
                 compact
                 endTermMode={Boolean(workflow?.post_final)}
@@ -96,7 +96,7 @@ export default function MainPage() {
             />
           )}
         </div>
-        <div className="flex h-full min-h-0 flex-col items-center gap-4 overflow-hidden md:translate-x-3">
+        <div className="flex min-h-0 w-full flex-col items-center gap-4 md:h-full md:translate-x-3 md:overflow-hidden">
           <div className="flex w-full shrink-0 justify-center">
             <StudentCard
               key={termVersion}

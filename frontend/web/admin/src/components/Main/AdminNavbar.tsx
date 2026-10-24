@@ -109,10 +109,10 @@ export default function AdminNavbar({
       aria-label="เมนูหลักผู้ดูแลระบบ"
       className="sticky top-3 z-40 mx-auto w-[calc(100%-24px)] max-w-[1440px] rounded-[22px] border border-white/80 bg-[#cfeefa]/95 px-3 py-2.5 shadow-[0_9px_24px_rgba(64,108,125,0.14)] backdrop-blur-xl sm:w-[calc(100%-40px)] sm:px-4"
     >
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <AdminProfileMenu adminName={adminName} adminId={adminId} />
 
-        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1">
+        <div className="flex min-w-0 flex-wrap items-center justify-start gap-1 sm:flex-1 sm:justify-end">
           {menuItem({ label: "การเปิดสอน", href: "/Teaching", icon: CalendarRange })}
           {dropdown("ข้อมูลการศึกษา", academicItems)}
           {dropdown("จัดการบัญชี", accountItems)}

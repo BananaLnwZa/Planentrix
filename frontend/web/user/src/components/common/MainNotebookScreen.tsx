@@ -108,7 +108,9 @@ export default function MainNotebookScreen({
         bg-[url('/images/bg.png')]
         bg-cover
         bg-center
-        p-8
+        p-2
+        sm:p-4
+        md:p-8
       "
     >
       <MainNotebook

@@ -88,7 +88,7 @@ export default function LoginForm() {
   const displayError = formError || authError;
 
   return (
-    <div className="w-full max-w-[450px] min-h-[420px] md:min-h-[450px] rounded-2xl bg-white/70 p-6 sm:p-8 md:p-10 shadow-md backdrop-blur-sm">
+    <div className="min-h-[420px] w-full max-w-[450px] rounded-2xl bg-white/70 p-4 shadow-md backdrop-blur-sm sm:p-6 md:min-h-[450px] md:p-10">
       <h2
         className="
           mb-6

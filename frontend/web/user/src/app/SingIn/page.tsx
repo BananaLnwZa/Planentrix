@@ -138,7 +138,9 @@ export default function LoginPage() {
         flex
         items-center
         justify-center
-        p-8
+        p-2
+        sm:p-4
+        md:p-8
       "
     >
       {showSuccessPopup && (
