@@ -119,6 +119,29 @@ class _HomeworkPageState extends State<HomeworkPage>
 
   Future<void> _submitHomework(HomeworkTaskData task) async {
     if (_workloadLocked || _submittingWorkloadId != null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const Key('confirm-submit-homework-dialog'),
+        title: const Text('ยืนยันส่งงาน?'),
+        content: Text(
+          'ส่ง “${task.assignment}” วิชา ${task.subject} ใช่ไหม? งานจะถูกนำออกจากรายการงานที่ยังไม่เสร็จ',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            key: const Key('confirm-submit-homework-button'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('ยืนยันส่ง'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
     setState(() => _submittingWorkloadId = task.workloadId);
     try {
       await _repository.finishHomework(task.workloadId);

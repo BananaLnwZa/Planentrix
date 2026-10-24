@@ -112,6 +112,32 @@ class _HomeworkDetailsPopupState extends State<_HomeworkDetailsPopup> {
 
   Future<void> _delete() async {
     if (_isDeleting) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const Key('confirm-delete-homework-dialog'),
+        title: const Text('ยืนยันลบงาน?'),
+        content: Text(
+          'ต้องการลบ “${task.assignment}” ของวิชา ${task.subject} หรือไม่? การลบนี้กู้คืนไม่ได้',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            key: const Key('confirm-delete-homework-button'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFC85E7A),
+            ),
+            child: const Text('ยืนยันลบ'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
     setState(() {
       _isDeleting = true;
       _error = null;

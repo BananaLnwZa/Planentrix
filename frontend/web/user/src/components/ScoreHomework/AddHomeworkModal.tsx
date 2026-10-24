@@ -32,6 +32,17 @@ export default function AddHomeworkModal({
   const [deadline, setDeadline] = useState("");
   const [note, setNote] = useState("");
   const [validation, setValidation] = useState<string | null>(null);
+  const hasUnsavedChanges = Boolean(
+    subjectId || typeId !== null || name.trim() || deadline || note.trim(),
+  );
+  const requestClose = () => {
+    if (isSaving) return;
+    if (
+      hasUnsavedChanges &&
+      !window.confirm("ข้อมูลที่กรอกจะไม่ถูกบันทึก ต้องการปิดหน้าต่างหรือไม่?")
+    ) return;
+    onClose();
+  };
 
   const submit = () => {
     const parsedDeadline = new Date(deadline);
@@ -69,7 +80,7 @@ export default function AddHomeworkModal({
           </h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             disabled={isSaving}
             aria-label="ปิด"
             className="rounded-full p-1.5 text-[#E06D91] hover:bg-[#FFF0F5]"

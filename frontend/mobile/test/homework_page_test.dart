@@ -469,6 +469,13 @@ void main() {
     );
     await tester.tap(firstSubmitButton);
     await tester.pumpAndSettle();
+    expect(repository.finishedIds, isEmpty);
+    expect(
+      find.byKey(const Key('confirm-submit-homework-dialog')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('confirm-submit-homework-button')));
+    await tester.pumpAndSettle();
     expect(repository.finishedIds, [1]);
     expect(submittedTask?.assignment, 'แบบฝึกหัด 2');
     expect(find.text('แบบฝึกหัด 2'), findsNothing);
@@ -718,6 +725,14 @@ void main() {
     await tester.tap(find.byKey(const Key('delete-homework-button')));
     await tester.pumpAndSettle();
 
+    expect(repository.deletedIds, isEmpty);
+    expect(
+      find.byKey(const Key('confirm-delete-homework-dialog')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('confirm-delete-homework-button')));
+    await tester.pumpAndSettle();
+
     expect(repository.deletedIds, [1]);
     expect(find.byKey(const Key('homework-details-popup')), findsNothing);
     expect(find.text('แบบฝึกหัด 2'), findsNothing);
@@ -865,6 +880,12 @@ void main() {
 
     expect(find.text('งานเชื่อมหน้า'), findsOneWidget);
     await tester.tap(find.byType(SubmitHomeworkButton));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('confirm-submit-homework-dialog')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('confirm-submit-homework-button')));
     await tester.pumpAndSettle();
     expect(find.text('งานเชื่อมหน้า'), findsNothing);
 

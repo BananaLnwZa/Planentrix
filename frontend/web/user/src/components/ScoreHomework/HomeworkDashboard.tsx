@@ -140,6 +140,11 @@ export default function HomeworkDashboard({
 
   const deleteTask = async () => {
     if (!selectedTask || !canEditHomework) return;
+    if (
+      !window.confirm(
+        `ยืนยันลบงาน “${selectedTask.workload_name}” ของวิชา ${selectedTask.subject_name} หรือไม่? การลบนี้กู้คืนไม่ได้`,
+      )
+    ) return;
     setIsDeleting(true);
     setModalError(null);
     try {
@@ -155,6 +160,11 @@ export default function HomeworkDashboard({
 
   const finishTask = async (task: HomeworkTask) => {
     if (submittingId !== null || !canEditHomework) return;
+    if (
+      !window.confirm(
+        `ยืนยันส่งงาน “${task.workload_name}” วิชา ${task.subject_name} หรือไม่? งานจะถูกนำออกจากรายการงานที่ยังไม่เสร็จ`,
+      )
+    ) return;
     setSubmittingId(task.workload_id);
     setLoadError(null);
     try {

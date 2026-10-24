@@ -308,6 +308,11 @@ export default function Term({
   };
 
   const handleEndTerm = async () => {
+    const confirmed = window.confirm(
+      "ยืนยันจบเทอมปัจจุบันหรือไม่? เมื่อจบแล้ว ระบบจะปิดการใช้งานเทอมนี้และบันทึกวิชาที่ลงทะเบียนเป็นสถานะเสร็จสิ้น",
+    );
+    if (!confirmed) return;
+
     setFormError("");
     setIsEndingTerm(true);
 

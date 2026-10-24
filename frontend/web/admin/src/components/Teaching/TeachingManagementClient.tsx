@@ -359,6 +359,33 @@ function SectionModal({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const initialSnapshot = JSON.stringify([
+      section?.academic_term_id ? String(section.academic_term_id) : defaultTermId ? String(defaultTermId) : "",
+      section?.section_number ?? "",
+      section?.capacity == null ? "" : String(section.capacity),
+      section?.status ?? (terms.find((term) => term.academic_term_id === (section?.academic_term_id ?? defaultTermId))?.status === "active" ? "open" : "draft"),
+      owner ? String(owner.instructor_id) : "",
+      initialCoInstructorIds,
+      section?.curriculum_subject_ids ?? [],
+    ]);
+  const hasUnsavedChanges =
+    JSON.stringify([
+      termId,
+      sectionNumber,
+      capacity,
+      status,
+      ownerId,
+      coInstructorIds,
+      curriculumSubjectIds,
+    ]) !== initialSnapshot;
+  const requestClose = () => {
+    if (saving) return;
+    if (
+      hasUnsavedChanges &&
+      !window.confirm("มีข้อมูลที่แก้ไขแต่ยังไม่ได้บันทึก ต้องการทิ้งการเปลี่ยนแปลงหรือไม่?")
+    ) return;
+    onClose();
+  };
 
   const selectedTerm = terms.find(
     (term) => term.academic_term_id === Number(termId),
@@ -434,6 +461,21 @@ function SectionModal({
       curriculum_subject_ids: curriculumSubjectIds,
     };
 
+    if (section) {
+      const selectedInstructorNames = [ownerId, ...coInstructorIds]
+        .map((id) => instructors.find((instructor) => String(instructor.admin_id) === id))
+        .filter((instructor): instructor is TeachingInstructor => Boolean(instructor))
+        .map((instructor) => instructorLabel(instructor));
+      const selectedDepartmentNames = curriculumSubjectIds
+        .map((id) => curriculumSubjects.find((item) => item.curriculum_subject_id === id)?.department_name)
+        .filter((name): name is string => Boolean(name));
+      if (
+        !window.confirm(
+          `ตรวจสอบการแก้ไข ${subjectId} กลุ่ม ${sectionNumber.trim()} ก่อนบันทึก\nภาคเรียน: ${selectedTerm ? `ปี ${selectedTerm.academic_year} ภาคเรียน ${selectedTerm.semester_no}` : "—"}\nผู้สอน: ${selectedInstructorNames.join(", ") || "ยังไม่กำหนด"}\nจำนวนรับ: ${capacity || "ไม่จำกัด"}\nสาขาที่ใช้ร่วม: ${selectedDepartmentNames.join(", ") || "—"}\nการเปลี่ยนแปลงนี้มีผลกับข้อมูลกลุ่มเรียนของนักศึกษาและอาจารย์`,
+        )
+      ) return;
+    }
+
     setSaving(true);
     setError("");
     try {
@@ -462,7 +504,7 @@ function SectionModal({
       aria-modal="true"
       aria-labelledby="section-modal-title"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !saving) onClose();
+        if (event.target === event.currentTarget) requestClose();
       }}
     >
       <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-white/70 bg-white p-6 shadow-[0_28px_80px_rgba(28,54,65,0.25)] sm:p-7">
@@ -480,7 +522,7 @@ function SectionModal({
                 : "เลือกวิชาในแผนการเรียน แล้วกำหนดกลุ่ม ผู้สอน และตารางเรียนในหน้าเดียว"}
             </p>
           </div>
-          <button type="button" onClick={onClose} disabled={saving} aria-label="ปิด" className="rounded-full p-2 text-[#7d9098] transition hover:bg-[#edf4f6] disabled:opacity-50"><X size={19} /></button>
+          <button type="button" onClick={requestClose} disabled={saving} aria-label="ปิด" className="rounded-full p-2 text-[#7d9098] transition hover:bg-[#edf4f6] disabled:opacity-50"><X size={19} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -703,7 +745,7 @@ function SectionModal({
 
           {error && <p role="alert" className="rounded-xl bg-[#fff0ec] px-3.5 py-3 text-sm text-[#a9503c] sm:col-span-2">{error}</p>}
           <div className="flex justify-end gap-2 pt-2 sm:col-span-2">
-            <button type="button" onClick={onClose} disabled={saving} className="rounded-xl px-4 py-2.5 text-sm text-[#687b84] transition hover:bg-[#eef4f6] disabled:opacity-50">ยกเลิก</button>
+            <button type="button" onClick={requestClose} disabled={saving} className="rounded-xl px-4 py-2.5 text-sm text-[#687b84] transition hover:bg-[#eef4f6] disabled:opacity-50">ยกเลิก</button>
             <button type="submit" disabled={saving} className="inline-flex min-w-36 items-center justify-center gap-2 rounded-xl bg-[#7468a8] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#655a98] disabled:opacity-60">
               {saving ? <LoaderCircle className="animate-spin" size={17} /> : <CheckCircle2 size={17} />}
               {saving ? "กำลังบันทึก" : section ? "บันทึกการแก้ไข" : "บันทึก Section ฉบับร่าง"}
@@ -925,6 +967,12 @@ export default function TeachingManagementClient() {
 
   const handleQuickStatus = async (section: TeachingCourseSection) => {
     const nextStatus: CourseSectionStatus = section.status === "open" ? "closed" : "open";
+    const action = nextStatus === "open" ? "เปิดสอน/รับลงทะเบียน" : "ปิดรับลงทะเบียน";
+    if (
+      !window.confirm(
+        `ยืนยัน${action} ${section.subject_id} กลุ่ม ${section.section_number} หรือไม่? การเปลี่ยนแปลงนี้มีผลต่อการแสดงกลุ่มเรียนและการลงทะเบียนของนักศึกษา`,
+      )
+    ) return;
     setStatusUpdatingId(section.section_id);
     setError("");
     try {

@@ -40,6 +40,19 @@ export default function HomeworkDetailsModal({
   const [note, setNote] = useState(task.note);
   const [validation, setValidation] = useState<string | null>(null);
   const palette = getWorkloadPalette(task.workload_type_code);
+  const hasUnsavedChanges =
+    isEditing &&
+    (name !== task.workload_name ||
+      deadline !== toDateTimeLocalValue(task.deadline) ||
+      note !== task.note);
+  const requestClose = () => {
+    if (busy) return;
+    if (
+      hasUnsavedChanges &&
+      !window.confirm("มีการแก้ไขงานที่ยังไม่ได้บันทึก ต้องการทิ้งการเปลี่ยนแปลงหรือไม่?")
+    ) return;
+    onClose();
+  };
 
   const submit = () => {
     const parsedDeadline = new Date(deadline);
@@ -69,7 +82,7 @@ export default function HomeworkDetailsModal({
           </h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             disabled={busy}
             aria-label="ปิด"
             className="rounded-full p-1.5 text-[#E06D91] hover:bg-[#FFF0F5]"

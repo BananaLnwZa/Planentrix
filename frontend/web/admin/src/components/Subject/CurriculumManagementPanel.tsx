@@ -88,12 +88,19 @@ export default function CurriculumManagementPanel({
   };
 
   const handleStatus = async (subject: CurriculumSubject) => {
+    const nextActive = !subject.curriculum_is_active;
+    const action = nextActive ? "เปิดใช้งาน" : "จัดเก็บ";
+    const confirmed = window.confirm(
+      `${action} ${subject.subject_id} · ${subject.subject_name} ในหลักสูตร ${subject.department_name} ชั้นปี ${subject.academic_year} ภาคเรียน ${subject.term} หรือไม่? ${nextActive ? "วิชานี้จะกลับมาเป็นตัวเลือกในหลักสูตร" : "วิชานี้จะไม่แสดงเป็นตัวเลือกในหลักสูตรนี้"}`,
+    );
+    if (!confirmed) return;
+
     setStatusUpdatingId(subject.curriculum_subject_id);
     setError("");
     try {
       const response = await subjectManagementService.setCurriculumSubjectStatus(
         subject.curriculum_subject_id,
-        !subject.curriculum_is_active,
+        nextActive,
       );
       await onChanged(
         response.subject.curriculum_is_active
